@@ -29,7 +29,12 @@ export default function RootLayout({
         <link rel="icon" href="/icon.png" />
         <link rel="apple-touch-icon" href="/icon.png" />
       </head>
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        {children}
+        <footer className="py-4 text-center text-xs text-gray-400">
+          v0.1.0
+        </footer>
+      </body>
     </html>
   );
 }

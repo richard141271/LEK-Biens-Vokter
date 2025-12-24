@@ -52,7 +52,10 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 py-4 flex justify-between items-center sticky top-0 z-10">
-        <h1 className="text-xl font-bold text-gray-900">Mine Lokasjoner</h1>
+        <div className="flex items-center gap-3">
+          <img src="/icon.png" alt="Logo" className="w-8 h-8 rounded-full" />
+          <h1 className="text-xl font-bold text-gray-900">Mine Lokasjoner</h1>
+        </div>
         <button onClick={handleSignOut} className="p-2 text-gray-500 hover:bg-gray-100 rounded-full">
           <LogOut className="w-5 h-5" />
         </button>

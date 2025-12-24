@@ -114,7 +114,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         newHives.push({
           user_id: user.id,
           apiary_id: params.id,
-          name: hiveNumber,
           hive_number: hiveNumber,
           status: 'aktiv'
         });

@@ -7,7 +7,7 @@ export default function Home() {
       {/* Navbar */}
       <nav className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center max-w-6xl mx-auto z-10">
         <div className="font-bold text-xl text-gray-900 flex items-center gap-2">
-          <span className="text-2xl">🐝</span> Biens Vokter
+          <img src="/icon.png" alt="Logo" className="w-8 h-8 rounded-full" /> Biens Vokter
         </div>
         <Link href="/login" className="text-gray-900 hover:text-honey-600 font-medium bg-white/50 backdrop-blur-sm px-4 py-2 rounded-full border border-gray-200 hover:border-honey-300 transition-all">
           Logg inn
