@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, User, MapPin, CreditCard, Building, ShieldCheck, Edit2 } from 'lucide-react';
+import { LogOut, User, ShieldCheck, AlertCircle } from 'lucide-react';
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -11,8 +11,26 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
-  // Form State
-  const [formData, setFormData] = useState<any>({});
+  // Form State - Matches RegisterPage structure
+  const [formData, setFormData] = useState<any>({
+    full_name: '',
+    address: '',
+    postal_code: '',
+    city: '',
+    phone_number: '',
+    email: '',
+    is_norges_birokterlag_member: false,
+    member_number: '',
+    local_association: '',
+    is_lek_honning_member: false,
+    interests: [] as string[],
+    beekeeping_type: 'hobby',
+    company_name: '',
+    org_number: '',
+    company_bank_account: '',
+    company_address: '',
+    private_bank_account: ''
+  });
   
   const supabase = createClient();
   const router = useRouter();
@@ -36,7 +54,10 @@ export default function SettingsPage() {
 
     if (data) {
       setProfile(data);
-      setFormData({ ...data, email: user.email });
+      setFormData({
+        ...data,
+        email: user.email // Add email from auth user
+      });
     } else {
       setFormData({ email: user.email });
     }
@@ -53,29 +74,25 @@ export default function SettingsPage() {
     setFormData((prev: any) => ({ ...prev, [name]: checked }));
   };
 
+  const handleInterestChange = (interest: string) => {
+    setFormData((prev: any) => {
+      const currentInterests = prev.interests || [];
+      const newInterests = currentInterests.includes(interest)
+        ? currentInterests.filter((i: string) => i !== interest)
+        : [...currentInterests, interest];
+      return { ...prev, interests: newInterests };
+    });
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Remove email from update payload as it's not in profiles table
+      const { email, ...updateData } = formData;
+      
       const { error } = await supabase
         .from('profiles')
-        .update({
-          full_name: formData.full_name,
-          address: formData.address,
-          postal_code: formData.postal_code,
-          city: formData.city,
-          phone_number: formData.phone_number,
-          beekeeping_type: formData.beekeeping_type,
-          company_name: formData.company_name,
-          org_number: formData.org_number,
-          company_bank_account: formData.company_bank_account,
-          company_address: formData.company_address,
-          private_bank_account: formData.private_bank_account,
-          member_number: formData.member_number,
-          local_association: formData.local_association,
-          is_norges_birokterlag_member: formData.is_norges_birokterlag_member,
-          is_lek_honning_member: formData.is_lek_honning_member,
-          interests: formData.interests
-        })
+        .update(updateData)
         .eq('id', profile.id);
 
       if (error) throw error;
@@ -112,7 +129,7 @@ export default function SettingsPage() {
         </div>
         
         <h1 className="text-2xl font-bold">Birøkter Registeret</h1>
-        <p className="opacity-90">{profile?.full_name}</p>
+        <p className="opacity-90">{profile?.full_name || formData.email}</p>
       </header>
 
       <main className="max-w-md mx-auto p-4 -mt-4 relative z-10 space-y-4">
@@ -162,10 +179,11 @@ export default function SettingsPage() {
           </>
         ) : (
           /* EDIT MODE */
-          <div className="bg-white rounded-xl shadow-sm p-6 space-y-4">
+          <div className="bg-white rounded-xl shadow-sm p-6 space-y-6">
             <h2 className="text-xl font-bold text-center mb-6">Rediger profil</h2>
 
             <div className="space-y-4">
+              {/* Personal Info */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fullt navn</label>
                 <input
@@ -217,6 +235,78 @@ export default function SettingsPage() {
                 />
               </div>
 
+              {/* Memberships */}
+              <div className="pt-4 border-t space-y-4">
+                 <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                        <input
+                        type="checkbox"
+                        name="is_norges_birokterlag_member"
+                        checked={formData.is_norges_birokterlag_member || false}
+                        onChange={handleCheckboxChange}
+                        className="w-5 h-5 text-honey-600 rounded"
+                        />
+                        <label className="font-medium text-gray-900">Medlem av Norges Birøkterlag</label>
+                    </div>
+                    
+                    {formData.is_norges_birokterlag_member && (
+                    <div className="pl-8 space-y-3 animate-in fade-in">
+                        <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Medlemsnummer NBL</label>
+                        <input
+                            name="member_number"
+                            value={formData.member_number || ''}
+                            onChange={handleChange}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none"
+                        />
+                        </div>
+                        <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Lokallag</label>
+                        <input
+                            name="local_association"
+                            value={formData.local_association || ''}
+                            onChange={handleChange}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none"
+                        />
+                        </div>
+                    </div>
+                    )}
+
+                    <div className="flex items-center gap-3">
+                        <input
+                        type="checkbox"
+                        name="is_lek_honning_member"
+                        checked={formData.is_lek_honning_member || false}
+                        onChange={handleCheckboxChange}
+                        className="w-5 h-5 text-honey-600 rounded"
+                        />
+                        <label className="font-medium text-gray-900">Medlem av LEK-Honning™</label>
+                    </div>
+                 </div>
+              </div>
+
+              {/* Interests */}
+              <div className="pt-4 border-t">
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Mine Interesser</label>
+                <div className="flex flex-wrap gap-2">
+                  {['Salg', 'Rekruttering', 'Kurs', 'Samarbeid'].map((interest) => (
+                    <button
+                      key={interest}
+                      type="button"
+                      onClick={() => handleInterestChange(interest)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                        (formData.interests || []).includes(interest)
+                          ? 'bg-honey-100 border-honey-500 text-honey-700'
+                          : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {interest} {(formData.interests || []).includes(interest) && '✓'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Economy Type */}
               <div className="pt-4 border-t">
                 <div className="flex gap-6 mb-4">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -244,7 +334,7 @@ export default function SettingsPage() {
                 </div>
 
                 {formData.beekeeping_type === 'business' && (
-                  <div className="bg-honey-50 p-4 rounded-xl space-y-3 mb-4">
+                  <div className="bg-honey-50 p-4 rounded-xl space-y-3 mb-4 animate-in fade-in">
                     <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Firmanavn</label>
                       <input
@@ -272,6 +362,15 @@ export default function SettingsPage() {
                         className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
                       />
                     </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Firmaadresse</label>
+                      <input
+                        name="company_address"
+                        value={formData.company_address || ''}
+                        onChange={handleChange}
+                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -286,56 +385,9 @@ export default function SettingsPage() {
                 />
               </div>
 
-              <div className="pt-4 border-t space-y-3">
-                 <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      name="is_norges_birokterlag_member"
-                      checked={formData.is_norges_birokterlag_member || false}
-                      onChange={handleCheckboxChange}
-                      className="w-5 h-5 text-honey-600 rounded"
-                    />
-                    <label className="font-medium text-gray-900">Medlem av Norges Birøkterlag</label>
-                 </div>
-                 
-                 {formData.is_norges_birokterlag_member && (
-                   <div className="pl-8 space-y-3">
-                     <div>
-                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Medlemsnummer NBL</label>
-                       <input
-                         name="member_number"
-                         value={formData.member_number || ''}
-                         onChange={handleChange}
-                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none"
-                       />
-                     </div>
-                     <div>
-                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Lokallag</label>
-                       <input
-                         name="local_association"
-                         value={formData.local_association || ''}
-                         onChange={handleChange}
-                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none"
-                       />
-                     </div>
-                   </div>
-                 )}
-
-                 <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      name="is_lek_honning_member"
-                      checked={formData.is_lek_honning_member || false}
-                      onChange={handleCheckboxChange}
-                      className="w-5 h-5 text-honey-600 rounded"
-                    />
-                    <label className="font-medium text-gray-900">Medlem av LEK-Honning™</label>
-                 </div>
-              </div>
-
             </div>
 
-            <div className="flex gap-3 pt-6">
+            <div className="flex gap-3 pt-6 pb-20">
               <button 
                 onClick={() => setIsEditing(false)}
                 className="flex-1 bg-white border border-gray-300 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-50"

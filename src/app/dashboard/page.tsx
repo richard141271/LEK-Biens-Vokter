@@ -2,103 +2,110 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
-import { Plus, MapPin, Warehouse, Store, Truck, LogOut } from 'lucide-react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Map, Box, Activity, Calendar } from 'lucide-react';
+import Link from 'next/link';
 
 export default function DashboardPage() {
-  const [apiaries, setApiaries] = useState<any[]>([]);
+  const [profile, setProfile] = useState<any>(null);
+  const [stats, setStats] = useState({ apiaries: 0, hives: 0, inspections: 0 });
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
   const router = useRouter();
 
   useEffect(() => {
-    fetchApiaries();
+    fetchData();
   }, []);
 
-  const fetchApiaries = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+  const fetchData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
       router.push('/login');
       return;
     }
 
-    const { data, error } = await supabase
-      .from('apiaries')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // Fetch Profile Name
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+    
+    setProfile(profileData);
 
-    if (data) setApiaries(data);
+    // Fetch Counts
+    const { count: apiaryCount } = await supabase.from('apiaries').select('*', { count: 'exact', head: true });
+    const { count: hiveCount } = await supabase.from('hives').select('*', { count: 'exact', head: true });
+    // const { count: inspectionCount } = await supabase.from('inspections').select('*', { count: 'exact', head: true });
+
+    setStats({
+      apiaries: apiaryCount || 0,
+      hives: hiveCount || 0,
+      inspections: 0 // Placeholder until we have inspections
+    });
+
     setLoading(false);
   };
 
-  const getIcon = (type: string) => {
-    switch (type) {
-      case 'lager': return Warehouse;
-      case 'butikk': return Store;
-      case 'bil': return Truck;
-      default: return MapPin;
-    }
-  };
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/');
-  };
-
-  if (loading) return <div className="p-8 text-center">Laster bigårder...</div>;
+  if (loading) return <div className="p-8 text-center">Laster oversikt...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-4 flex justify-between items-center sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <img src="/icon.png" alt="Logo" className="w-8 h-8 rounded-full" />
-          <h1 className="text-xl font-bold text-gray-900">Mine Lokasjoner</h1>
+      <header className="bg-honey-500 text-white px-6 py-8 rounded-b-3xl shadow-lg mb-6">
+        <div className="flex justify-between items-start">
+          <div>
+            <p className="text-honey-100 text-sm font-medium mb-1">Velkommen tilbake,</p>
+            <h1 className="text-2xl font-bold">{profile?.full_name || 'Birøkter'}</h1>
+          </div>
+          <img src="/icon.png" alt="Logo" className="w-12 h-12 rounded-full bg-white p-1 shadow-md" />
         </div>
-        <button onClick={handleSignOut} className="p-2 text-gray-500 hover:bg-gray-100 rounded-full">
-          <LogOut className="w-5 h-5" />
-        </button>
       </header>
 
-      <main className="p-4 space-y-4">
-        {apiaries.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <p className="mb-4">Du har ingen lokasjoner enda.</p>
-            <p>Trykk på + for å komme i gang!</p>
-          </div>
-        ) : (
-          apiaries.map((apiary) => {
-            const Icon = getIcon(apiary.type);
-            return (
-              <Link href={`/apiaries/${apiary.id}`} key={apiary.id}>
-                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:border-honey-500 transition-colors cursor-pointer">
-                  <div className="w-12 h-12 bg-honey-50 rounded-full flex items-center justify-center text-honey-600 shrink-0">
-                    <Icon className="w-6 h-6" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <h3 className="font-bold text-gray-900">{apiary.name}</h3>
-                      <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-600">
-                        {apiary.apiary_number}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-500 truncate">{apiary.location || 'Ingen adresse'}</p>
-                  </div>
-                </div>
-              </Link>
-            );
-          })
-        )}
-      </main>
+      <main className="px-4 space-y-6">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 gap-4">
+          <Link href="/apiaries" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:border-honey-200 transition-colors">
+            <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mb-3">
+              <Map className="w-5 h-5" />
+            </div>
+            <div className="text-2xl font-bold text-gray-900">{stats.apiaries}</div>
+            <div className="text-xs text-gray-500 font-medium">Bigårder/Lokasjoner</div>
+          </Link>
 
-      {/* Floating Action Button */}
-      <Link 
-        href="/apiaries/new"
-        className="fixed bottom-6 right-6 w-14 h-14 bg-honey-500 hover:bg-honey-600 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
-      >
-        <Plus className="w-8 h-8" />
-      </Link>
+          <Link href="/hives" className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:border-honey-200 transition-colors">
+            <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center mb-3">
+              <Box className="w-5 h-5" />
+            </div>
+            <div className="text-2xl font-bold text-gray-900">{stats.hives}</div>
+            <div className="text-xs text-gray-500 font-medium">Bikuber totalt</div>
+          </Link>
+        </div>
+
+        {/* Recent Activity / Actions */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <Activity className="w-5 h-5 text-honey-500" />
+            Hurtighandlinger
+          </h2>
+          
+          <div className="space-y-3">
+            <Link href="/apiaries/new" className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+              <span className="font-medium text-gray-700">Registrer ny lokasjon</span>
+              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm text-gray-400">
+                <Plus className="w-4 h-4" />
+              </div>
+            </Link>
+            
+            <Link href="/apiaries" className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+              <span className="font-medium text-gray-700">Inspiser en bigård</span>
+              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-sm text-gray-400">
+                <Calendar className="w-4 h-4" />
+              </div>
+            </Link>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
