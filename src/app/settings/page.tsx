@@ -56,7 +56,9 @@ export default function SettingsPage() {
       setProfile(data);
       setFormData({
         ...data,
-        email: user.email // Add email from auth user
+        email: user.email, // Add email from auth user
+        interests: data.interests || [], // Ensure array
+        beekeeping_type: data.beekeeping_type || 'hobby'
       });
     } else {
       setFormData({ email: user.email });
@@ -167,6 +169,16 @@ export default function SettingsPage() {
                   <User className="w-4 h-4 text-gray-400" />
                   <span className="capitalize">{profile?.beekeeping_type === 'business' ? 'Næringsbirøkter' : 'Hobbybirøkter'}</span>
                 </div>
+                {profile?.interests && profile.interests.length > 0 && (
+                   <div className="mt-2 pt-2 border-t border-gray-200">
+                     <p className="text-xs text-gray-500 font-bold uppercase mb-1">Interesser</p>
+                     <div className="flex flex-wrap gap-1">
+                       {profile.interests.map((i: string) => (
+                         <span key={i} className="bg-white border border-gray-200 px-2 py-0.5 rounded-full text-xs">{i}</span>
+                       ))}
+                     </div>
+                   </div>
+                )}
               </div>
 
               <button 
