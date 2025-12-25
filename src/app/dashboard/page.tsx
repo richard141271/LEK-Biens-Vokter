@@ -40,12 +40,6 @@ export default function DashboardPage() {
     router.push('/');
   };
 
-  const handleTestDB = async () => {
-    const { count, error } = await supabase.from('apiaries').select('*', { count: 'exact', head: true });
-    if (error) alert('DB Error: ' + error.message);
-    else alert('DB Connection OK! Apiaries found: ' + count);
-  };
-
   if (loading) return <div className="p-8 text-center">Laster oversikt...</div>;
 
   return (
@@ -125,12 +119,6 @@ export default function DashboardPage() {
                   >
                     Ikke klar
                   </button>
-                  <button 
-                    onClick={handleTestDB} 
-                    className="py-2 px-3 bg-blue-50 text-blue-700 font-medium text-sm rounded-lg hover:bg-blue-100 border border-blue-200 flex items-center justify-center gap-1"
-                  >
-                    <Database className="w-3 h-3" /> Test DB
-                  </button>
               </div>
           </div>
 
@@ -149,10 +137,10 @@ export default function DashboardPage() {
           {/* External Links */}
           <div className="space-y-3 pt-4">
               <h3 className="text-sm font-bold text-gray-500 uppercase px-1">Nyttige lenker</h3>
-              <ExternalLinkButton href="https://lek-honning.no" label="LEK-HONNING™" />
-              <ExternalLinkButton href="https://honningcentralen.no" label="HONNINGCENTRALEN" />
+              <ExternalLinkButton href="https://richard141271.github.io/" label="LEK-HONNING™" />
+              <ExternalLinkButton href="https://honning.no/" label="HONNINGCENTRALEN" />
               <ExternalLinkButton href="https://norges-birokterlag.no" label="NORGES BIRØKTERLAG" />
-              <ExternalLinkButton href="#" label="NM I HONNING" />
+              <ExternalLinkButton href="https://honninglandet.no/nyheter/nm-i-honning-2025/" label="NM I HONNING" />
               <ExternalLinkButton href="https://mattilsynet.no" label="MATTILSYNET" />
           </div>
 

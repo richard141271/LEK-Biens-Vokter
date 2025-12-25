@@ -102,17 +102,20 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           honey_stores: honeyStores,
           temperament: temperament,
           notes: notes,
-          // status: status, // Removed to fix schema error
+          status: status, 
           temperature: temperature ? parseFloat(temperature) : null,
           weather: weather
         });
 
       if (inspectionError) throw inspectionError;
 
-      // 2. Update Hive Status
+      // 2. Update Hive Status and Last Inspection Date
       await supabase
         .from('hives')
-        .update({ status: status === 'DØD' ? 'DØD' : 'AKTIV' }) // Simple logic for now
+        .update({ 
+          status: status === 'DØD' ? 'DØD' : 'AKTIV',
+          last_inspection_date: date 
+        }) 
         .eq('id', params.id);
 
       // 3. Log Activity
