@@ -64,7 +64,12 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
 
   const moveHive = async () => {
     // Fetch apiaries for the modal
-    const { data } = await supabase.from('apiaries').select('*').order('name');
+    const { data, error } = await supabase.from('apiaries').select('*').order('name');
+    if (error) {
+        console.error('Error fetching apiaries:', error);
+        alert('Kunne ikke hente bigårder.');
+        return;
+    }
     if (data) setApiaries(data);
     setIsMoveModalOpen(true);
   };
@@ -251,47 +256,45 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                     )}
                   </div>
 
-                  {/* Expanded Details */}
-                  {(expandedInspectionId === inspection.id || typeof window !== 'undefined' && window.matchMedia('print').matches) && (
-                    <div className="px-4 pb-4 pt-0 bg-gray-50 border-t border-gray-100 print:bg-white print:block">
-                      <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
-                        <div>
-                          <span className="block text-xs font-bold text-gray-500 uppercase">Dronning</span>
-                          <span className={inspection.queen_seen ? 'text-green-600 font-bold' : 'text-gray-400'}>
-                            {inspection.queen_seen ? 'Observert' : 'Ikke sett'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="block text-xs font-bold text-gray-500 uppercase">Egg</span>
-                          <span className={inspection.eggs_seen ? 'text-green-600 font-bold' : 'text-gray-400'}>
-                            {inspection.eggs_seen ? 'Observert' : 'Ikke sett'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="block text-xs font-bold text-gray-500 uppercase">Gemytt</span>
-                          <span className="capitalize">{inspection.temperament}</span>
-                        </div>
-                         <div>
-                          <span className="block text-xs font-bold text-gray-500 uppercase">Yngel</span>
-                          <span className="capitalize">{inspection.brood_condition}</span>
-                        </div>
-                         <div>
-                          <span className="block text-xs font-bold text-gray-500 uppercase">Fôr</span>
-                          <span className="capitalize">{inspection.honey_stores}</span>
-                        </div>
-                        <div>
-                          <span className="block text-xs font-bold text-gray-500 uppercase">Temperatur</span>
-                          <span>{inspection.temperature ? `${inspection.temperature}°C` : '-'}</span>
-                        </div>
+                  {/* Expanded Details - CSS based print visibility instead of JS */}
+                  <div className={`${expandedInspectionId === inspection.id ? 'block' : 'hidden'} print:block px-4 pb-4 pt-0 bg-gray-50 border-t border-gray-100 print:bg-white`}>
+                    <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
+                      <div>
+                        <span className="block text-xs font-bold text-gray-500 uppercase">Dronning</span>
+                        <span className={inspection.queen_seen ? 'text-green-600 font-bold' : 'text-gray-400'}>
+                          {inspection.queen_seen ? 'Observert' : 'Ikke sett'}
+                        </span>
                       </div>
-                      {inspection.notes && (
-                        <div className="mt-4 bg-white p-3 rounded border border-gray-200 print:border-none print:p-0">
-                          <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Notater</span>
-                          <p className="text-gray-800 whitespace-pre-wrap">{inspection.notes}</p>
-                        </div>
-                      )}
+                      <div>
+                        <span className="block text-xs font-bold text-gray-500 uppercase">Egg</span>
+                        <span className={inspection.eggs_seen ? 'text-green-600 font-bold' : 'text-gray-400'}>
+                          {inspection.eggs_seen ? 'Observert' : 'Ikke sett'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="block text-xs font-bold text-gray-500 uppercase">Gemytt</span>
+                        <span className="capitalize">{inspection.temperament}</span>
+                      </div>
+                       <div>
+                        <span className="block text-xs font-bold text-gray-500 uppercase">Yngel</span>
+                        <span className="capitalize">{inspection.brood_condition}</span>
+                      </div>
+                       <div>
+                        <span className="block text-xs font-bold text-gray-500 uppercase">Fôr</span>
+                        <span className="capitalize">{inspection.honey_stores}</span>
+                      </div>
+                      <div>
+                        <span className="block text-xs font-bold text-gray-500 uppercase">Temperatur</span>
+                        <span>{inspection.temperature ? `${inspection.temperature}°C` : '-'}</span>
+                      </div>
                     </div>
-                  )}
+                    {inspection.notes && (
+                      <div className="mt-4 bg-white p-3 rounded border border-gray-200 print:border-none print:p-0">
+                        <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Notater</span>
+                        <p className="text-gray-800 whitespace-pre-wrap">{inspection.notes}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))
             )}
@@ -331,41 +334,52 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
             <div className="p-4">
               <p className="text-sm text-gray-600 mb-4">Velg hvor du vil flytte kuben:</p>
               
-              <div className="space-y-2 max-h-[60vh] overflow-y-auto mb-4">
-                {apiaries.map((apiary) => {
-                  const Icon = getIcon(apiary.type);
-                  const isSelected = targetApiaryId === apiary.id;
-                  
-                  return (
-                    <button
-                      key={apiary.id}
-                      onClick={() => setTargetApiaryId(apiary.id)}
-                      className={`w-full p-3 rounded-lg border flex items-center gap-3 transition-all ${
-                        isSelected 
-                          ? 'border-honey-500 bg-honey-50 ring-1 ring-honey-500' 
-                          : 'border-gray-200 hover:border-honey-300'
-                      }`}
-                    >
-                      <div className={`p-2 rounded-full ${isSelected ? 'bg-honey-100 text-honey-600' : 'bg-gray-100 text-gray-500'}`}>
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <div className="text-left flex-1">
-                        <div className="font-medium text-gray-900">{apiary.name}</div>
-                        <div className="text-xs text-gray-500">{apiary.apiary_number}</div>
-                      </div>
-                      {isSelected && <Check className="w-5 h-5 text-honey-600" />}
-                    </button>
-                  );
-                })}
-              </div>
+              {apiaries.length === 0 ? (
+                <div className="text-center py-6">
+                    <p className="text-gray-500 mb-4">Du har ingen andre bigårder å flytte til.</p>
+                    <Link href="/apiaries" className="text-honey-600 font-bold hover:underline">
+                        Opprett en ny bigård
+                    </Link>
+                </div>
+              ) : (
+                <>
+                <div className="space-y-2 max-h-[60vh] overflow-y-auto mb-4">
+                    {apiaries.map((apiary) => {
+                    const Icon = getIcon(apiary.type);
+                    const isSelected = targetApiaryId === apiary.id;
+                    
+                    return (
+                        <button
+                        key={apiary.id}
+                        onClick={() => setTargetApiaryId(apiary.id)}
+                        className={`w-full p-3 rounded-lg border flex items-center gap-3 transition-all ${
+                            isSelected 
+                            ? 'border-honey-500 bg-honey-50 ring-1 ring-honey-500' 
+                            : 'border-gray-200 hover:border-honey-300'
+                        }`}
+                        >
+                        <div className={`p-2 rounded-full ${isSelected ? 'bg-honey-100 text-honey-600' : 'bg-gray-100 text-gray-500'}`}>
+                            <Icon className="w-5 h-5" />
+                        </div>
+                        <div className="text-left flex-1">
+                            <div className="font-medium text-gray-900">{apiary.name}</div>
+                            <div className="text-xs text-gray-500">{apiary.apiary_number}</div>
+                        </div>
+                        {isSelected && <Check className="w-5 h-5 text-honey-600" />}
+                        </button>
+                    );
+                    })}
+                </div>
 
-              <button
-                onClick={handleMoveSubmit}
-                disabled={!targetApiaryId || moving}
-                className="w-full bg-honey-500 hover:bg-honey-600 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {moving ? 'Flytter...' : 'Bekreft flytting'}
-              </button>
+                <button
+                    onClick={handleMoveSubmit}
+                    disabled={!targetApiaryId || moving}
+                    className="w-full bg-honey-500 hover:bg-honey-600 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                    {moving ? 'Flytter...' : 'Bekreft flytting'}
+                </button>
+                </>
+              )}
             </div>
           </div>
         </div>
