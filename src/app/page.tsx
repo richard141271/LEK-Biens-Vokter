@@ -1,7 +1,22 @@
+'use client';
+
 import Link from "next/link";
 import { ArrowRight, CheckCircle, ShieldCheck, Zap } from "lucide-react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/utils/supabase/client";
 
 export default function Home() {
+  const [user, setUser] = useState<any>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    checkUser();
+  }, []);
+
   return (
     <main className="min-h-screen flex flex-col relative">
       {/* Navbar */}
@@ -9,9 +24,15 @@ export default function Home() {
         <div className="font-bold text-xl text-gray-900 flex items-center gap-2">
           <img src="/icon.png" alt="Logo" className="w-8 h-8 rounded-full" /> Biens Vokter
         </div>
-        <Link href="/login" className="text-gray-900 hover:text-honey-600 font-medium bg-white/50 backdrop-blur-sm px-4 py-2 rounded-full border border-gray-200 hover:border-honey-300 transition-all">
-          Logg inn
-        </Link>
+        {user ? (
+          <Link href="/dashboard" className="text-gray-900 hover:text-honey-600 font-medium bg-white/50 backdrop-blur-sm px-4 py-2 rounded-full border border-gray-200 hover:border-honey-300 transition-all">
+            Gå til oversikt
+          </Link>
+        ) : (
+          <Link href="/login" className="text-gray-900 hover:text-honey-600 font-medium bg-white/50 backdrop-blur-sm px-4 py-2 rounded-full border border-gray-200 hover:border-honey-300 transition-all">
+            Logg inn
+          </Link>
+        )}
       </nav>
 
       {/* Hero Section */}
@@ -25,13 +46,23 @@ export default function Home() {
             AI-drevet innsikt og full kontroll over bigården.
           </p>
           <div className="flex justify-center gap-4">
-            <Link 
-              href="/register"
-              className="bg-honey-500 hover:bg-honey-600 text-white font-bold py-3 px-8 rounded-full transition-colors flex items-center gap-2"
-            >
-              Start gratis
-              <ArrowRight className="w-5 h-5" />
-            </Link>
+            {user ? (
+              <Link 
+                href="/dashboard"
+                className="bg-honey-500 hover:bg-honey-600 text-white font-bold py-3 px-8 rounded-full transition-colors flex items-center gap-2"
+              >
+                Gå til oversikt
+                <ArrowRight className="w-5 h-5" />
+              </Link>
+            ) : (
+              <Link 
+                href="/register"
+                className="bg-honey-500 hover:bg-honey-600 text-white font-bold py-3 px-8 rounded-full transition-colors flex items-center gap-2"
+              >
+                Start gratis
+                <ArrowRight className="w-5 h-5" />
+              </Link>
+            )}
             <button className="bg-white hover:bg-gray-50 text-gray-900 font-semibold py-3 px-8 rounded-full border border-gray-200 transition-colors">
               Lær mer
             </button>

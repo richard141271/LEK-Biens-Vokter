@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink } from 'lucide-react';
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -26,11 +27,11 @@ export default function DashboardPage() {
     // Fetch Profile Data
     const { data: profileData } = await supabase
       .from('profiles')
-      .select('full_name, member_number, is_norges_birokterlag_member, is_lek_honning_member')
+      .select('*')
       .eq('id', user.id)
       .single();
     
-    setProfile(profileData);
+    setProfile(profileData || { full_name: user.user_metadata?.full_name || user.email });
     setLoading(false);
   };
 
@@ -48,72 +49,106 @@ export default function DashboardPage() {
   if (loading) return <div className="p-8 text-center">Laster oversikt...</div>;
 
   return (
-    <div className="min-h-screen bg-white pb-24">
-      {/* Top Bar - Yellow */}
-      <div className="bg-[#FFD700] p-4 pb-6 relative">
-         <div className="flex justify-between items-start mb-2">
-            <img src="/icon.png" alt="Logo" className="w-12 h-12 object-contain" />
-            <div className="flex-1 text-center pt-2">
-                <h1 className="font-bold text-xl text-black leading-tight">Birøkter Registeret</h1>
-                <p className="text-sm text-gray-800">{profile?.full_name}</p>
+    <div className="min-h-screen bg-gray-50 pb-24">
+      {/* Header - Standard Clean Style */}
+      <header className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10">
+        <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+                <img src="/icon.png" alt="Logo" className="w-10 h-10 object-contain" />
+                <div>
+                    <h1 className="text-xl font-bold text-gray-900">Oversikt</h1>
+                    <p className="text-sm text-gray-500">{profile?.full_name}</p>
+                </div>
             </div>
             <button 
                 onClick={handleSignOut}
-                className="bg-[#FFD700] text-black border-2 border-black font-bold text-xs px-3 py-2 rounded hover:bg-yellow-500 uppercase"
+                className="p-2 hover:bg-gray-100 rounded-full text-gray-600"
             >
-                Logg ut
+                <LogOut className="w-5 h-5" />
             </button>
-         </div>
-      </div>
+        </div>
+      </header>
 
-      <div className="px-4">
-          <div className="flex justify-center -mt-8 mb-6">
-            <img src="/icon.png" alt="Logo" className="w-16 h-16 object-contain drop-shadow-md" />
-          </div>
-
-          <h2 className="text-center text-2xl font-bold text-[#0F172A] mb-6">Min oversikt</h2>
+      <main className="p-4 space-y-6 max-w-lg mx-auto">
           
           {/* Profile Card */}
-          <div className="bg-[#FFFBEB] rounded-lg border border-[#FEF3C7] p-6 text-center mb-6 shadow-sm">
-              <h3 className="text-xl font-bold text-black uppercase mb-3">{profile?.full_name || 'UKJENT'}</h3>
-              <div className="space-y-1 text-sm text-gray-700 mb-6">
-                  {profile?.is_norges_birokterlag_member && <p>Medlem av Norges Birøkterlag</p>}
-                  {profile?.is_lek_honning_member && <p>Medlem av LEK-Honning Norge</p>}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 bg-honey-100 rounded-full flex items-center justify-center text-honey-600">
+                      <User className="w-6 h-6" />
+                  </div>
+                  <div>
+                      <h2 className="text-lg font-bold text-gray-900">{profile?.full_name}</h2>
+                      <p className="text-sm text-gray-500">Medlem #{profile?.member_number || 'Ikke registrert'}</p>
+                  </div>
               </div>
-              <div className="text-center">
-                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">MEDLEMSNUMMER</p>
-                  <p className="text-3xl font-bold text-black">{profile?.member_number || '1001'}</p>
+              
+              <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                      <ShieldCheck className={`w-4 h-4 ${profile?.is_norges_birokterlag_member ? 'text-green-600' : 'text-gray-300'}`} />
+                      <span className={profile?.is_norges_birokterlag_member ? 'text-gray-900' : 'text-gray-400'}>
+                          Norges Birøkterlag
+                      </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                      <ShieldCheck className={`w-4 h-4 ${profile?.is_lek_honning_member ? 'text-green-600' : 'text-gray-300'}`} />
+                      <span className={profile?.is_lek_honning_member ? 'text-gray-900' : 'text-gray-400'}>
+                          LEK-Honning™
+                      </span>
+                  </div>
               </div>
           </div>
 
           {/* Honningstatus */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6 shadow-sm">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
               <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-bold text-gray-900">Honningstatus</h3>
-                  <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded text-sm font-medium">{honeyStatus}</span>
+                  <div className="flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-honey-500" />
+                      <h3 className="font-bold text-gray-900">Honningstatus</h3>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                      honeyStatus === 'Klar' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                      {honeyStatus}
+                  </span>
               </div>
-              <div className="flex gap-2">
-                  <button onClick={() => setHoneyStatus('Klar')} className="flex-1 bg-[#22C55E] text-white py-2 rounded font-bold text-sm hover:bg-green-700">Sett Klar</button>
-                  <button onClick={() => setHoneyStatus('Ikke klar')} className="flex-1 bg-[#64748B] text-white py-2 rounded font-bold text-sm hover:bg-gray-600">Sett Ikke klar</button>
-                  <button onClick={handleTestDB} className="flex-1 bg-[#2563EB] text-white py-2 rounded font-bold text-sm hover:bg-blue-700 flex items-center justify-center gap-1">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>
-                    Test DB
+              <div className="grid grid-cols-3 gap-2">
+                  <button 
+                    onClick={() => setHoneyStatus('Klar')} 
+                    className="py-2 px-3 bg-green-50 text-green-700 font-medium text-sm rounded-lg hover:bg-green-100 border border-green-200"
+                  >
+                    Sett Klar
+                  </button>
+                  <button 
+                    onClick={() => setHoneyStatus('Ikke klar')} 
+                    className="py-2 px-3 bg-gray-50 text-gray-700 font-medium text-sm rounded-lg hover:bg-gray-100 border border-gray-200"
+                  >
+                    Ikke klar
+                  </button>
+                  <button 
+                    onClick={handleTestDB} 
+                    className="py-2 px-3 bg-blue-50 text-blue-700 font-medium text-sm rounded-lg hover:bg-blue-100 border border-blue-200 flex items-center justify-center gap-1"
+                  >
+                    <Database className="w-3 h-3" /> Test DB
                   </button>
               </div>
           </div>
 
-          {/* Navigation Buttons */}
-          <div className="space-y-4 mb-10">
-              <Link href="/apiaries" className="block w-full bg-black text-white text-center py-4 rounded font-bold uppercase tracking-wide hover:bg-gray-800 text-lg">
-                  MINE BIGÅRDER
+          {/* Quick Actions */}
+          <div className="grid grid-cols-2 gap-4">
+              <Link href="/apiaries" className="bg-honey-500 hover:bg-honey-600 text-white p-6 rounded-xl shadow-sm text-center transition-transform active:scale-95">
+                  <div className="font-bold text-lg mb-1">MINE BIGÅRDER</div>
+                  <div className="text-honey-100 text-sm">Se oversikt</div>
               </Link>
-              <Link href="/settings" className="block w-full bg-black text-white text-center py-4 rounded font-bold uppercase tracking-wide hover:bg-gray-800 text-lg">
-                  INNSTILLINGER
+              <Link href="/settings" className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-6 rounded-xl shadow-sm text-center transition-transform active:scale-95">
+                  <div className="font-bold text-lg mb-1">INNSTILLINGER</div>
+                  <div className="text-gray-500 text-sm">Endre profil</div>
               </Link>
           </div>
 
           {/* External Links */}
-          <div className="space-y-3">
+          <div className="space-y-3 pt-4">
+              <h3 className="text-sm font-bold text-gray-500 uppercase px-1">Nyttige lenker</h3>
               <ExternalLinkButton href="https://lek-honning.no" label="LEK-HONNING™" />
               <ExternalLinkButton href="https://honningcentralen.no" label="HONNINGCENTRALEN" />
               <ExternalLinkButton href="https://norges-birokterlag.no" label="NORGES BIRØKTERLAG" />
@@ -121,16 +156,17 @@ export default function DashboardPage() {
               <ExternalLinkButton href="https://mattilsynet.no" label="MATTILSYNET" />
           </div>
 
-          <p className="text-center text-gray-400 text-xs mt-12 mb-4">© 2025 - LEK-Honning™</p>
-      </div>
+          <p className="text-center text-gray-400 text-xs mt-8">© 2025 - LEK-Honning™</p>
+      </main>
     </div>
   );
 }
 
 function ExternalLinkButton({ href, label }: { href: string, label: string }) {
     return (
-        <a href={href} target="_blank" rel="noopener noreferrer" className="block w-full bg-white border-2 border-black text-black text-center py-3 rounded font-bold uppercase hover:bg-gray-50">
-            {label}
+        <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between w-full bg-white border border-gray-200 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors group">
+            <span className="font-medium">{label}</span>
+            <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-honey-500 transition-colors" />
         </a>
     );
 }

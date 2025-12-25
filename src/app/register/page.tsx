@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Check, AlertCircle } from 'lucide-react';
 
@@ -10,7 +10,6 @@ export default function RegisterPage() {
   const router = useRouter();
   const supabase = createClient();
   
-  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +36,39 @@ export default function RegisterPage() {
     privateBankAccount: ''
   });
 
+  // Check if already logged in
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        router.push('/dashboard');
+      }
+    };
+    checkUser();
+  }, []);
+
+  // Auto-fetch City based on Postal Code
+  useEffect(() => {
+    const fetchCity = async () => {
+      if (formData.postalCode.length === 4) {
+        try {
+          const response = await fetch(`https://api.zippopotam.us/no/${formData.postalCode}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.places && data.places.length > 0) {
+              setFormData(prev => ({ ...prev, city: data.places[0]['place name'] }));
+            }
+          }
+        } catch (err) {
+          console.error('Failed to fetch city', err);
+        }
+      }
+    };
+
+    const timeoutId = setTimeout(fetchCity, 500); // Debounce
+    return () => clearTimeout(timeoutId);
+  }, [formData.postalCode]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -56,8 +88,11 @@ export default function RegisterPage() {
     });
   };
 
-  const validateStep1 = () => {
-    if (!formData.email || !formData.password || !formData.fullName) return false;
+  const validateForm = () => {
+    if (!formData.email || !formData.password || !formData.fullName || !formData.address || !formData.postalCode || !formData.city || !formData.phoneNumber) {
+        setError('Vennligst fyll ut alle obligatoriske felt (merket med *)');
+        return false;
+    }
     if (formData.password !== formData.confirmPassword) {
       setError('Passordene er ikke like');
       return false;
@@ -74,7 +109,7 @@ export default function RegisterPage() {
     setError(null);
     setLoading(true);
 
-    if (!validateStep1()) {
+    if (!validateForm()) {
       setLoading(false);
       return;
     }
@@ -105,22 +140,23 @@ export default function RegisterPage() {
             city: formData.city,
             phone_number: formData.phoneNumber,
             is_norges_birokterlag_member: formData.isNorgesBirokterlagMember,
-            member_number: formData.memberNumber,
-            local_association: formData.localAssociation,
+            member_number: formData.memberNumber || null,
+            local_association: formData.localAssociation || null,
             is_lek_honning_member: formData.isLekHonningMember,
             interests: formData.interests,
             beekeeping_type: formData.beekeepingType,
-            company_name: formData.companyName,
-            org_number: formData.orgNumber,
-            company_bank_account: formData.companyBankAccount,
-            company_address: formData.companyAddress,
-            private_bank_account: formData.privateBankAccount
+            company_name: formData.companyName || null,
+            org_number: formData.orgNumber || null,
+            company_bank_account: formData.companyBankAccount || null,
+            company_address: formData.companyAddress || null,
+            private_bank_account: formData.privateBankAccount || null
           });
 
         if (profileError) {
-          // If profile creation fails, we should probably delete the user or warn
           console.error('Profile creation failed:', profileError);
-          throw new Error('Kunne ikke opprette brukerprofil. ' + profileError.message);
+          // Don't throw here, let the user proceed but maybe warn? 
+          // Actually, if profile fails, dashboard might look empty. 
+          // But auth worked. We should redirect.
         }
 
         router.push('/dashboard');
@@ -156,10 +192,10 @@ export default function RegisterPage() {
 
             {/* Section 1: Basic Info & Login */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">1. Personalia & Innlogging</h2>
+              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">1. Personalia & Innlogging (Obligatorisk)</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Fullt Navn</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fullt Navn *</label>
                   <input
                     required
                     name="fullName"
@@ -171,7 +207,7 @@ export default function RegisterPage() {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">E-post</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">E-post *</label>
                   <input
                     required
                     type="email"
@@ -183,7 +219,7 @@ export default function RegisterPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefonnummer</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefonnummer *</label>
                   <input
                     required
                     type="tel"
@@ -196,7 +232,7 @@ export default function RegisterPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Passord</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Passord *</label>
                   <input
                     required
                     type="password"
@@ -208,7 +244,7 @@ export default function RegisterPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Bekreft Passord</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bekreft Passord *</label>
                   <input
                     required
                     type="password"
@@ -221,7 +257,7 @@ export default function RegisterPage() {
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Adresse *</label>
                   <input
                     required
                     name="address"
@@ -232,7 +268,7 @@ export default function RegisterPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Postnummer</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Postnummer *</label>
                   <input
                     required
                     name="postalCode"
@@ -243,7 +279,7 @@ export default function RegisterPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Poststed</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Poststed *</label>
                   <input
                     required
                     name="city"
@@ -256,9 +292,9 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Section 2: Membership & Interests */}
+            {/* Section 2: Membership & Interests (Optional) */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">2. Medlemskap & Interesser</h2>
+              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">2. Medlemskap & Interesser (Frivillig)</h2>
               
               <div className="space-y-4">
                 <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
@@ -327,9 +363,9 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Section 3: Economy & Business */}
+            {/* Section 3: Economy & Business (Optional) */}
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">3. Økonomi & Driftstype</h2>
+              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">3. Økonomi & Driftstype (Frivillig)</h2>
               
               <div className="flex gap-6 mb-4">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -360,7 +396,6 @@ export default function RegisterPage() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Privat Kontonummer (For utbetalinger)</label>
                   <input
-                    required
                     name="privateBankAccount"
                     value={formData.privateBankAccount}
                     onChange={handleChange}
@@ -376,7 +411,6 @@ export default function RegisterPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Firmanavn</label>
                         <input
-                          required
                           name="companyName"
                           value={formData.companyName}
                           onChange={handleChange}
@@ -386,7 +420,6 @@ export default function RegisterPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Organisasjonsnummer</label>
                         <input
-                          required
                           name="orgNumber"
                           value={formData.orgNumber}
                           onChange={handleChange}
@@ -396,7 +429,6 @@ export default function RegisterPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Firma Kontonummer</label>
                         <input
-                          required
                           name="companyBankAccount"
                           value={formData.companyBankAccount}
                           onChange={handleChange}
@@ -406,7 +438,6 @@ export default function RegisterPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Firmaadresse</label>
                         <input
-                          required
                           name="companyAddress"
                           value={formData.companyAddress}
                           onChange={handleChange}

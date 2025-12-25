@@ -311,20 +311,6 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
           </div>
         </div>
 
-        {/* Logs History (Optional, hidden on print usually but good to keep) */}
-        <div className="print:hidden">
-          <h3 className="text-lg font-bold text-gray-900 mb-3 mt-8">Logg</h3>
-          <div className="space-y-3">
-             {logs.map((log) => (
-                <div key={log.id} className="bg-white p-3 rounded-lg border border-gray-100 text-sm text-gray-500">
-                   <span className="font-bold text-gray-700">{log.action}: </span>
-                   {log.details}
-                   <div className="text-xs text-gray-400 mt-1">{new Date(log.created_at).toLocaleString()}</div>
-                </div>
-             ))}
-          </div>
-        </div>
-
       </main>
 
       {/* Move Hive Modal */}

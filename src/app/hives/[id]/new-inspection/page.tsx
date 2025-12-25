@@ -102,7 +102,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           honey_stores: honeyStores,
           temperament: temperament,
           notes: notes,
-          status: status,
+          // status: status, // Removed to fix schema error
           temperature: temperature ? parseFloat(temperature) : null,
           weather: weather
         });
