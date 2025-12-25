@@ -70,7 +70,16 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
         alert('Kunne ikke hente bigårder.');
         return;
     }
-    if (data) setApiaries(data);
+    
+    // Filter out the current apiary if known
+    const currentApiaryId = hive.apiaries?.id; // Assuming hive.apiaries contains the joined apiary data
+    // Note: in fetchHiveDetails we select '*, apiaries(name, location, type)'
+    // We might need to select apiaries(id, name...) or just use hive.apiary_id
+    
+    // Let's use hive.apiary_id which is on the hive object itself
+    const otherApiaries = data ? data.filter(a => a.id !== hive.apiary_id) : [];
+
+    setApiaries(otherApiaries);
     setIsMoveModalOpen(true);
   };
 
@@ -230,9 +239,10 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                     expandedInspectionId === inspection.id ? 'ring-2 ring-honey-500' : ''
                   }`}
                 >
-                  <div 
+                  <button 
+                    type="button"
                     onClick={() => toggleInspection(inspection.id)}
-                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 print:hover:bg-white"
+                    className="w-full text-left p-4 flex items-center justify-between hover:bg-gray-50 print:hover:bg-white focus:outline-none focus:bg-gray-50 transition-colors"
                   >
                     <div className="flex items-center gap-4">
                       <div className="bg-gray-100 p-2 rounded-lg text-center min-w-[3rem] print:bg-white print:border print:border-gray-300">
@@ -254,7 +264,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                     ) : (
                       <ChevronDown className="w-5 h-5 text-gray-400 print:hidden" />
                     )}
-                  </div>
+                  </button>
 
                   {/* Expanded Details - CSS based print visibility instead of JS */}
                   <div className={`${expandedInspectionId === inspection.id ? 'block' : 'hidden'} print:block px-4 pb-4 pt-0 bg-gray-50 border-t border-gray-100 print:bg-white`}>

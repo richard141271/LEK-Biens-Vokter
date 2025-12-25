@@ -61,7 +61,14 @@ export default function SettingsPage() {
         beekeeping_type: data.beekeeping_type || 'hobby'
       });
     } else {
-      setFormData({ email: user.email });
+      // Fallback to auth metadata if profile doesn't exist yet
+      setFormData({ 
+        email: user.email,
+        full_name: user.user_metadata?.full_name || '',
+        // Initialize other fields as empty/default
+        interests: [],
+        beekeeping_type: 'hobby'
+      });
     }
     setLoading(false);
   };
@@ -92,14 +99,19 @@ export default function SettingsPage() {
       // Remove email from update payload as it's not in profiles table
       const { email, ...updateData } = formData;
       
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Ingen bruker funnet');
+
       const { error } = await supabase
         .from('profiles')
-        .update(updateData)
-        .eq('id', profile.id);
+        .upsert({ 
+          id: user.id,
+          ...updateData 
+        });
 
       if (error) throw error;
       
-      setProfile(formData);
+      setProfile({ ...updateData, id: user.id });
       setIsEditing(false);
       alert('Profil oppdatert!');
     } catch (error: any) {

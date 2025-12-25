@@ -32,17 +32,18 @@ export default function NewApiaryPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Du må være logget inn');
 
-      // 2. Generer ID basert på type
+      // 2. Generer ID basert på type (Hver type har sin egen nummerserie)
       const { count } = await supabase
         .from('apiaries')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .eq('type', type); // Filter by type to get independent counts
       
       const nextNum = (count || 0) + 1;
       let prefix = 'BG'; // Default Bigård
       
       if (type === 'bil') prefix = 'BIL';
-      if (type === 'lager') prefix = 'LAGER';
-      if (type === 'butikk') prefix = 'BUTIKK';
+      if (type === 'lager') prefix = 'LG';
+      if (type === 'butikk') prefix = 'BUT';
       if (type === 'oppstart') prefix = 'START';
 
       const apiaryNumber = `${prefix}-${nextNum.toString().padStart(3, '0')}`;
