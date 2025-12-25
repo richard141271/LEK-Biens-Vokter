@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Truck, Calendar, Activity, X, Check, Printer, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, MapPin, Truck, Calendar, Activity, X, Check, Printer, ChevronDown, ChevronUp, History, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store } from 'lucide-react';
 
@@ -63,7 +63,6 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   };
 
   const moveHive = async () => {
-    // Fetch apiaries for the modal
     const { data, error } = await supabase.from('apiaries').select('*').order('name');
     if (error) {
         console.error('Error fetching apiaries:', error);
@@ -71,12 +70,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
         return;
     }
     
-    // Filter out the current apiary if known
-    const currentApiaryId = hive.apiaries?.id; // Assuming hive.apiaries contains the joined apiary data
-    // Note: in fetchHiveDetails we select '*, apiaries(name, location, type)'
-    // We might need to select apiaries(id, name...) or just use hive.apiary_id
-    
-    // Let's use hive.apiary_id which is on the hive object itself
+    // Use hive.apiary_id which is on the hive object itself
     const otherApiaries = data ? data.filter(a => a.id !== hive.apiary_id) : [];
 
     setApiaries(otherApiaries);
@@ -124,6 +118,51 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
     }
   };
 
+  const handleTypeChange = async (type: string) => {
+    // Optimistic update
+    setHive({ ...hive, type });
+
+    const { error } = await supabase
+      .from('hives')
+      .update({ type })
+      .eq('id', params.id);
+
+    if (error) {
+      console.error('Failed to update type', error);
+      alert('Kunne ikke oppdatere kubetype');
+      fetchHiveDetails(); // Revert on error
+    }
+  };
+
+  const handleActiveToggle = async () => {
+    const isCurrentlyActive = hive.active !== false; // Default true if undefined
+
+    if (!isCurrentlyActive) {
+      // Activating is usually safe
+      const confirm = window.confirm('Vil du aktivere denne kuben igjen?');
+      if (!confirm) return;
+    } else {
+      // Deactivating needs warning
+      const confirm = window.confirm('Er du sikker på at du vil sette kuben inaktiv? Den vil ikke lenger vises i oversikter som standard.');
+      if (!confirm) return;
+    }
+
+    const newActiveState = !isCurrentlyActive;
+    // Optimistic update
+    setHive({ ...hive, active: newActiveState });
+
+    const { error } = await supabase
+      .from('hives')
+      .update({ active: newActiveState })
+      .eq('id', params.id);
+
+    if (error) {
+      console.error('Failed to update active status', error);
+      alert('Kunne ikke endre status');
+      fetchHiveDetails(); // Revert
+    }
+  };
+
   const toggleInspection = (id: string) => {
     if (expandedInspectionId === id) {
       setExpandedInspectionId(null);
@@ -142,6 +181,26 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
       case 'butikk': return Store;
       case 'bil': return Truck;
       default: return MapPin;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'DØD':
+      case 'Sykdom':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'Svak':
+      case 'Bytt dronning':
+      case 'Sverming':
+      case 'Varroa mistanke':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'OK':
+      case 'Mottatt fôr':
+      case 'Skiftet rammer':
+      case 'Byttet voks':
+        return 'bg-green-100 text-green-800 border-green-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
@@ -178,23 +237,60 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
         
         {/* Status Card */}
         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm print:border-black">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-honey-100 rounded-full flex items-center justify-center text-honey-600 print:hidden">
-              <Activity className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Status</h2>
-              <p className={`font-medium px-2 py-0.5 rounded-full inline-block text-sm ${
-                hive.status === 'OK' ? 'bg-green-100 text-green-800' :
-                hive.status === 'DØD' ? 'bg-red-100 text-red-800' :
-                'bg-orange-100 text-orange-800'
-              }`}>
-                {hive.status || 'OK'}
-              </p>
+          <div className="flex justify-between items-start mb-4">
+             <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-honey-100 rounded-full flex items-center justify-center text-honey-600 print:hidden">
+                  <Activity className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Status</h2>
+                  <div className="flex gap-2 mt-1">
+                    <span className={`font-medium px-2 py-0.5 rounded-full text-sm border ${getStatusColor(hive.status || 'OK')}`}>
+                        {hive.status || 'OK'}
+                    </span>
+                    <button 
+                        onClick={handleActiveToggle}
+                        className={`font-medium px-2 py-0.5 rounded-full text-sm border transition-colors ${
+                            hive.active !== false // Default to true if undefined
+                                ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
+                                : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+                        }`}
+                    >
+                        {hive.active !== false ? 'Aktiv' : 'Inaktiv'}
+                    </button>
+                  </div>
+                </div>
+             </div>
+          </div>
+
+          {/* Hive Type Selection */}
+          <div className="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-100 print:hidden">
+            <span className="text-xs font-bold text-gray-500 uppercase block mb-2">Kubetype</span>
+            <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                        type="radio" 
+                        name="hiveType" 
+                        checked={hive.type === 'PRODUKSJON' || !hive.type} // Default
+                        onChange={() => handleTypeChange('PRODUKSJON')}
+                        className="text-honey-600 focus:ring-honey-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Produksjonskube</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                        type="radio" 
+                        name="hiveType" 
+                        checked={hive.type === 'AVLEGGER'}
+                        onChange={() => handleTypeChange('AVLEGGER')}
+                        className="text-honey-600 focus:ring-honey-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Avlegger</span>
+                </label>
             </div>
           </div>
           
-          <div className="border-t border-gray-100 pt-4 mt-4 print:border-gray-300">
+          <div className="border-t border-gray-100 pt-4 print:border-gray-300">
             <div className="flex items-start gap-3">
               <MapPin className="w-5 h-5 text-gray-400 mt-0.5 print:hidden" />
               <div>
@@ -251,10 +347,12 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                           <span className="font-bold text-gray-900">{inspection.status}</span>
+                           <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getStatusColor(inspection.status)}`}>
+                             {inspection.status}
+                           </span>
                            {inspection.weather && <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{inspection.weather}</span>}
                         </div>
-                        <p className="text-sm text-gray-500 truncate max-w-[200px] print:max-w-none">
+                        <p className="text-sm text-gray-500 truncate max-w-[200px] print:max-w-none mt-1">
                           {inspection.notes || 'Ingen notater'}
                         </p>
                       </div>
@@ -310,6 +408,35 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
             )}
           </div>
         </div>
+
+        {/* Logs Section (Restored & Filtered for Movements/Important Events) */}
+        {logs.length > 0 && (
+            <div className="print:hidden">
+                <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <History className="w-5 h-5" /> Logg
+                </h3>
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    {logs.map((log) => (
+                        <div key={log.id} className="p-4 border-b border-gray-100 last:border-none flex items-start gap-3">
+                            <div className={`mt-1 rounded-full p-1.5 ${
+                                log.action === 'FLYTTET' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                                {log.action === 'FLYTTET' ? <Truck className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-gray-900">{log.action}</p>
+                                <p className="text-sm text-gray-600">{log.details}</p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                    {new Date(log.created_at).toLocaleString('no-NO', { 
+                                        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+                                    })}
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
 
       </main>
 
