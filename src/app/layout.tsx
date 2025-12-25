@@ -18,6 +18,8 @@ export const viewport = {
   maximumScale: 1,
 };
 
+import BottomNav from "@/components/BottomNav";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -31,7 +33,8 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         {children}
-        <footer className="py-4 text-center text-xs text-gray-400">
+        <BottomNav />
+        <footer className="py-4 text-center text-xs text-gray-400 pb-20">
           v0.1.0
         </footer>
       </body>

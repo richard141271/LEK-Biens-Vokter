@@ -1,0 +1,440 @@
+'use client';
+
+import { createClient } from '@/utils/supabase/client';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import Link from 'next/link';
+import { ArrowLeft, Check, AlertCircle } from 'lucide-react';
+
+export default function RegisterPage() {
+  const router = useRouter();
+  const supabase = createClient();
+  
+  const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Form State
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    fullName: '',
+    address: '',
+    postalCode: '',
+    city: '',
+    phoneNumber: '',
+    isNorgesBirokterlagMember: false,
+    memberNumber: '',
+    localAssociation: '',
+    isLekHonningMember: false,
+    interests: [] as string[],
+    beekeepingType: 'hobby', // 'hobby' or 'business'
+    companyName: '',
+    orgNumber: '',
+    companyBankAccount: '',
+    companyAddress: '',
+    privateBankAccount: ''
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setFormData(prev => ({ ...prev, [name]: checked }));
+  };
+
+  const handleInterestChange = (interest: string) => {
+    setFormData(prev => {
+      const interests = prev.interests.includes(interest)
+        ? prev.interests.filter(i => i !== interest)
+        : [...prev.interests, interest];
+      return { ...prev, interests };
+    });
+  };
+
+  const validateStep1 = () => {
+    if (!formData.email || !formData.password || !formData.fullName) return false;
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passordene er ikke like');
+      return false;
+    }
+    if (formData.password.length < 6) {
+      setError('Passordet må være minst 6 tegn');
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    if (!validateStep1()) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // 1. Sign Up User
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+          },
+        },
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // 2. Create Profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authData.user.id,
+            full_name: formData.fullName,
+            address: formData.address,
+            postal_code: formData.postalCode,
+            city: formData.city,
+            phone_number: formData.phoneNumber,
+            is_norges_birokterlag_member: formData.isNorgesBirokterlagMember,
+            member_number: formData.memberNumber,
+            local_association: formData.localAssociation,
+            is_lek_honning_member: formData.isLekHonningMember,
+            interests: formData.interests,
+            beekeeping_type: formData.beekeepingType,
+            company_name: formData.companyName,
+            org_number: formData.orgNumber,
+            company_bank_account: formData.companyBankAccount,
+            company_address: formData.companyAddress,
+            private_bank_account: formData.privateBankAccount
+          });
+
+        if (profileError) {
+          // If profile creation fails, we should probably delete the user or warn
+          console.error('Profile creation failed:', profileError);
+          throw new Error('Kunne ikke opprette brukerprofil. ' + profileError.message);
+        }
+
+        router.push('/dashboard');
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-honey-50 to-white py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-3xl mx-auto">
+        <div className="mb-8 text-center">
+          <Link href="/" className="inline-flex items-center text-honey-600 hover:text-honey-700 mb-4">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Tilbake til forsiden
+          </Link>
+          <h1 className="text-3xl font-bold text-gray-900">Registrer deg som Birøkter</h1>
+          <p className="mt-2 text-gray-600">Bli med i revolusjonen og få full oversikt over bigården din</p>
+        </div>
+
+        <div className="bg-white shadow-xl rounded-2xl overflow-hidden border border-honey-100">
+          <form onSubmit={handleSubmit} className="p-8 space-y-8">
+            
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-50 text-red-600 p-4 rounded-lg flex items-center gap-2">
+                <AlertCircle className="w-5 h-5" />
+                {error}
+              </div>
+            )}
+
+            {/* Section 1: Basic Info & Login */}
+            <div className="space-y-6">
+              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">1. Personalia & Innlogging</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fullt Navn</label>
+                  <input
+                    required
+                    name="fullName"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
+                    placeholder="Ola Nordmann"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">E-post</label>
+                  <input
+                    required
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
+                    placeholder="ola@eksempel.no"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefonnummer</label>
+                  <input
+                    required
+                    type="tel"
+                    name="phoneNumber"
+                    value={formData.phoneNumber}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
+                    placeholder="900 00 000"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Passord</label>
+                  <input
+                    required
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
+                    placeholder="Minst 6 tegn"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bekreft Passord</label>
+                  <input
+                    required
+                    type="password"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
+                    placeholder="Gjenta passord"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                  <input
+                    required
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
+                    placeholder="Gateveien 1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Postnummer</label>
+                  <input
+                    required
+                    name="postalCode"
+                    value={formData.postalCode}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
+                    placeholder="0001"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Poststed</label>
+                  <input
+                    required
+                    name="city"
+                    value={formData.city}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
+                    placeholder="Oslo"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Membership & Interests */}
+            <div className="space-y-6">
+              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">2. Medlemskap & Interesser</h2>
+              
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="nbk"
+                    name="isNorgesBirokterlagMember"
+                    checked={formData.isNorgesBirokterlagMember}
+                    onChange={handleCheckboxChange}
+                    className="mt-1 w-5 h-5 text-honey-600 rounded focus:ring-honey-500 border-gray-300"
+                  />
+                  <div className="flex-1">
+                    <label htmlFor="nbk" className="font-medium text-gray-900 block">Medlem i Norges Birøkterlag</label>
+                    {formData.isNorgesBirokterlagMember && (
+                      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                        <input
+                          name="memberNumber"
+                          value={formData.memberNumber}
+                          onChange={handleChange}
+                          placeholder="Medlemsnummer"
+                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
+                        />
+                        <input
+                          name="localAssociation"
+                          value={formData.localAssociation}
+                          onChange={handleChange}
+                          placeholder="Lokallag"
+                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="lek"
+                    name="isLekHonningMember"
+                    checked={formData.isLekHonningMember}
+                    onChange={handleCheckboxChange}
+                    className="w-5 h-5 text-honey-600 rounded focus:ring-honey-500 border-gray-300"
+                  />
+                  <label htmlFor="lek" className="font-medium text-gray-900">Medlem i LEK Honning</label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Hva er du interessert i?</label>
+                <div className="flex flex-wrap gap-3">
+                  {['Salg', 'Rekruttering', 'Kurs', 'Samarbeid'].map((interest) => (
+                    <button
+                      key={interest}
+                      type="button"
+                      onClick={() => handleInterestChange(interest)}
+                      className={`px-4 py-2 rounded-full border transition-all ${
+                        formData.interests.includes(interest)
+                          ? 'bg-honey-100 border-honey-500 text-honey-700 font-medium'
+                          : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {interest} {formData.interests.includes(interest) && '✓'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Economy & Business */}
+            <div className="space-y-6">
+              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">3. Økonomi & Driftstype</h2>
+              
+              <div className="flex gap-6 mb-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="beekeepingType"
+                    value="hobby"
+                    checked={formData.beekeepingType === 'hobby'}
+                    onChange={handleChange}
+                    className="w-5 h-5 text-honey-600 focus:ring-honey-500 border-gray-300"
+                  />
+                  <span className="font-medium text-gray-900">Hobbybirøkt</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="beekeepingType"
+                    value="business"
+                    checked={formData.beekeepingType === 'business'}
+                    onChange={handleChange}
+                    className="w-5 h-5 text-honey-600 focus:ring-honey-500 border-gray-300"
+                  />
+                  <span className="font-medium text-gray-900">Næringsbirøkt</span>
+                </label>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Privat Kontonummer (For utbetalinger)</label>
+                  <input
+                    required
+                    name="privateBankAccount"
+                    value={formData.privateBankAccount}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none"
+                    placeholder="1234.56.78903"
+                  />
+                </div>
+
+                {formData.beekeepingType === 'business' && (
+                  <div className="bg-honey-50 p-6 rounded-xl border border-honey-100 space-y-4 animate-in fade-in">
+                    <h3 className="font-medium text-honey-900">Firmaopplysninger</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Firmanavn</label>
+                        <input
+                          required
+                          name="companyName"
+                          value={formData.companyName}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Organisasjonsnummer</label>
+                        <input
+                          required
+                          name="orgNumber"
+                          value={formData.orgNumber}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Firma Kontonummer</label>
+                        <input
+                          required
+                          name="companyBankAccount"
+                          value={formData.companyBankAccount}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Firmaadresse</label>
+                        <input
+                          required
+                          name="companyAddress"
+                          value={formData.companyAddress}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-6">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-honey-500 hover:bg-honey-600 text-white font-bold py-4 rounded-xl shadow-lg transition-all transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
+              >
+                {loading ? 'Registrerer...' : 'Fullfør Registrering'}
+              </button>
+            </div>
+            
+            <p className="text-center text-sm text-gray-500">
+              Har du allerede bruker? <Link href="/login" className="text-honey-600 font-medium hover:underline">Logg inn her</Link>
+            </p>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}

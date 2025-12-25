@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { MapPin, Warehouse, Store, Truck, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
@@ -10,6 +10,7 @@ export default function NewApiaryPage() {
   const [name, setName] = useState('');
   const [type, setType] = useState('bigård');
   const [locationStr, setLocationStr] = useState('');
+  const [registrationNumber, setRegistrationNumber] = useState(''); // New: Car Reg Number
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
@@ -19,6 +20,7 @@ export default function NewApiaryPage() {
     { id: 'lager', label: 'Lager', icon: Warehouse },
     { id: 'butikk', label: 'Butikk', icon: Store },
     { id: 'bil', label: 'Bil', icon: Truck },
+    { id: 'oppstart', label: 'Oppstart', icon: Store }, // Added 'Oppstart'
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,14 +32,20 @@ export default function NewApiaryPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Du må være logget inn');
 
-      // 2. Generer ID (BG-XXX) - Forenklet versjon for nå
-      // I en produksjonsapp ville vi gjort dette med en database-funksjon for å være 100% sikre på unikhet
+      // 2. Generer ID basert på type
       const { count } = await supabase
         .from('apiaries')
         .select('*', { count: 'exact', head: true });
       
       const nextNum = (count || 0) + 1;
-      const apiaryNumber = `BG-${nextNum.toString().padStart(3, '0')}`;
+      let prefix = 'BG'; // Default Bigård
+      
+      if (type === 'bil') prefix = 'BIL';
+      if (type === 'lager') prefix = 'LAGER';
+      if (type === 'butikk') prefix = 'BUTIKK';
+      if (type === 'oppstart') prefix = 'START';
+
+      const apiaryNumber = `${prefix}-${nextNum.toString().padStart(3, '0')}`;
 
       // 3. Lagre i databasen
       const { error } = await supabase.from('apiaries').insert({
@@ -46,11 +54,12 @@ export default function NewApiaryPage() {
         type,
         location: locationStr,
         apiary_number: apiaryNumber,
+        registration_number: type === 'bil' ? registrationNumber : null, // Only for cars
       });
 
       if (error) throw error;
 
-      router.push('/dashboard'); // Vi må lage denne siden etterpå
+      router.push('/dashboard');
     } catch (error: any) {
       alert('Feil ved lagring: ' + error.message);
     } finally {
@@ -109,6 +118,21 @@ export default function NewApiaryPage() {
               })}
             </div>
           </div>
+
+          {/* Bilnummer (Conditional) */}
+          {type === 'bil' && (
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm animate-in fade-in slide-in-from-top-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Registreringsnummer (Bilskilt)</label>
+              <input
+                type="text"
+                value={registrationNumber}
+                onChange={(e) => setRegistrationNumber(e.target.value.toUpperCase())}
+                placeholder="AB 12345"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none font-mono uppercase"
+                required={type === 'bil'}
+              />
+            </div>
+          )}
 
           {/* Lokasjon */}
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">

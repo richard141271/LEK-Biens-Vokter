@@ -26,7 +26,7 @@ export default function Home() {
           </p>
           <div className="flex justify-center gap-4">
             <Link 
-              href="/login"
+              href="/register"
               className="bg-honey-500 hover:bg-honey-600 text-white font-bold py-3 px-8 rounded-full transition-colors flex items-center gap-2"
             >
               Start gratis

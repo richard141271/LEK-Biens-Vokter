@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Archive, Truck, Trash2, X, Check, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Plus, Archive, Truck, Trash2, X, Check, MoreVertical, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store, MapPin } from 'lucide-react';
 
@@ -338,17 +338,29 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                   </div>
                   <p className="text-xs text-gray-500">{hive.hive_number}</p>
                 </div>
+                
+                {/* Inspection Button */}
+                {!isSelectionMode && (
+                  <Link 
+                    href={`/hives/${hive.id}/new-inspection`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-2 text-gray-400 hover:text-honey-600 hover:bg-honey-50 rounded-full"
+                    title="Ny inspeksjon"
+                  >
+                    <ClipboardList className="w-5 h-5" />
+                  </Link>
+                )}
               </div>
             ))}
           </div>
         )}
       </main>
 
-      {/* FAB to add Hive */}
-      {!isSelectionMode && (
+      {/* FAB to add Hive - Only show in Allowed Types */}
+      {!isSelectionMode && ['butikk', 'oppstart'].includes(apiary.type) && (
         <button 
           onClick={() => setIsCreateModalOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-honey-500 hover:bg-honey-600 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95 z-10"
+          className="fixed bottom-24 right-6 w-14 h-14 bg-honey-500 hover:bg-honey-600 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95 z-10"
         >
           <Plus className="w-8 h-8" />
         </button>
