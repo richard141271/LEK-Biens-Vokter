@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Archive, Truck, Trash2, X, Check, MoreVertical, ClipboardList, Edit } from 'lucide-react';
+import { ArrowLeft, Archive, Truck, Trash2, X, Check, MoreVertical, ClipboardList, Edit } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store, MapPin } from 'lucide-react';
 
@@ -17,10 +17,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [isSelectionMode, setIsSelectionMode] = useState(false);
 
   // Modals
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [createCount, setCreateCount] = useState(1);
-  const [isCreating, setIsCreating] = useState(false);
-
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
   const [targetApiaryId, setTargetApiaryId] = useState('');
   const [availableApiaries, setAvailableApiaries] = useState<any[]>([]);
@@ -91,66 +87,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       setSelectedHiveIds(new Set());
     } else {
       setSelectedHiveIds(new Set(hives.map(h => h.id)));
-    }
-  };
-
-  // --- CREATE HIVES LOGIC ---
-  const handleCreateSubmit = async () => {
-    setIsCreating(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Fetch all hive numbers for this user to determine the next available number safely
-      const { data: hivesData, error: hivesError } = await supabase
-        .from('hives')
-        .select('hive_number')
-        .eq('user_id', user.id);
-      
-      if (hivesError) throw hivesError;
-
-      let maxNum = 0;
-      if (hivesData && hivesData.length > 0) {
-        maxNum = hivesData.reduce((max, hive) => {
-          // Extract number from "KUBE-XXX"
-          const match = hive.hive_number?.match(/KUBE-(\d+)/);
-          if (match) {
-            const num = parseInt(match[1], 10);
-            return num > max ? num : max;
-          }
-          return max;
-        }, 0);
-      }
-      
-      let startNum = maxNum + 1;
-      const newHives = [];
-
-      for (let i = 0; i < createCount; i++) {
-        const hiveNumber = `KUBE-${(startNum + i).toString().padStart(3, '0')}`;
-        newHives.push({
-          user_id: user.id,
-          apiary_id: params.id,
-          hive_number: hiveNumber,
-          status: 'aktiv'
-        });
-      }
-
-      const { error } = await supabase.from('hives').insert(newHives);
-      if (error) throw error;
-
-      // Log creation? Maybe later. For now just create.
-      
-      await fetchData();
-      setIsCreateModalOpen(false);
-      setCreateCount(1);
-      
-      // If we are in a "Store" (Butikk), maybe prompt to move?
-      // For now, let user decide to move manually.
-
-    } catch (error: any) {
-      alert('Feil ved opprettelse: ' + error.message);
-    } finally {
-      setIsCreating(false);
     }
   };
 
@@ -321,13 +257,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         {hives.length === 0 ? (
           <div className="text-center py-12 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">
             <Archive className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p className="mb-4">Ingen bikuber her enda.</p>
-            <button 
-              onClick={() => setIsCreateModalOpen(true)}
-              className="text-honey-600 font-medium hover:underline"
-            >
-              Opprett kuber
-            </button>
+            <p className="mb-4">Ingen bikuber her enda. Opprett fra oversikten.</p>
           </div>
         ) : (
           <div className="grid gap-3">
@@ -380,54 +310,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
           </div>
         )}
       </main>
-
-      {/* FAB to add Hive - Only show in Allowed Types */}
-      {!isSelectionMode && ['bigård', 'oppstart'].includes(apiary.type) && (
-        <button 
-          onClick={() => setIsCreateModalOpen(true)}
-          className="fixed bottom-24 right-6 w-14 h-14 bg-honey-500 hover:bg-honey-600 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95 z-10"
-        >
-          <Plus className="w-8 h-8" />
-        </button>
-      )}
-
-      {/* CREATE MODAL */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-900">Registrer nye kuber</h3>
-              <button onClick={() => setIsCreateModalOpen(false)}><X className="w-6 h-6 text-gray-400" /></button>
-            </div>
-            
-            <p className="text-sm text-gray-600 mb-4">Hvor mange kuber vil du registrere på denne lokasjonen?</p>
-            
-            <div className="flex items-center justify-center gap-6 mb-8">
-              <button 
-                onClick={() => setCreateCount(Math.max(1, createCount - 1))}
-                className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl font-bold hover:bg-gray-200"
-              >
-                -
-              </button>
-              <span className="text-3xl font-bold text-honey-600">{createCount}</span>
-              <button 
-                onClick={() => setCreateCount(createCount + 1)}
-                className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl font-bold hover:bg-gray-200"
-              >
-                +
-              </button>
-            </div>
-
-            <button
-              onClick={handleCreateSubmit}
-              disabled={isCreating}
-              className="w-full bg-honey-500 text-white font-bold py-3 rounded-xl hover:bg-honey-600 disabled:opacity-50"
-            >
-              {isCreating ? 'Oppretter...' : `Opprett ${createCount} kuber`}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* MOVE MODAL */}
       {isMoveModalOpen && (

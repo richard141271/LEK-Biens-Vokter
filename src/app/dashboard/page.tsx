@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown } from 'lucide-react';
 import WeatherWidget from '@/components/WeatherWidget';
 
 export default function DashboardPage() {
@@ -17,6 +17,14 @@ export default function DashboardPage() {
     activeHives: 0
   });
   const [recentLogs, setRecentLogs] = useState<any[]>([]);
+  
+  // Create Hive State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createCount, setCreateCount] = useState(1);
+  const [isCreating, setIsCreating] = useState(false);
+  const [selectedApiaryId, setSelectedApiaryId] = useState('');
+  const [availableApiaries, setAvailableApiaries] = useState<any[]>([]);
+
   const supabase = createClient();
   const router = useRouter();
 
@@ -67,7 +75,84 @@ export default function DashboardPage() {
 
     if (logs) setRecentLogs(logs);
 
+    // Fetch Apiaries for dropdown
+    const { data: apiariesData } = await supabase
+      .from('apiaries')
+      .select('id, name, type')
+      .order('name');
+    
+    if (apiariesData) {
+        setAvailableApiaries(apiariesData);
+        if (apiariesData.length > 0) setSelectedApiaryId(apiariesData[0].id);
+    }
+
     setLoading(false);
+  };
+
+  const handleCreateSubmit = async () => {
+    if (!selectedApiaryId) {
+        alert('Du må velge en bigård/lokasjon først.');
+        return;
+    }
+    
+    setIsCreating(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Fetch all hive numbers for this user to determine the next available number safely
+      const { data: hivesData, error: hivesError } = await supabase
+        .from('hives')
+        .select('hive_number')
+        .eq('user_id', user.id);
+      
+      if (hivesError) throw hivesError;
+
+      let maxNum = 0;
+      if (hivesData && hivesData.length > 0) {
+        maxNum = hivesData.reduce((max, hive) => {
+          // Extract number from "KUBE-XXX"
+          const match = hive.hive_number?.match(/KUBE-(\d+)/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            return num > max ? num : max;
+          }
+          return max;
+        }, 0);
+      }
+      
+      let startNum = maxNum + 1;
+      const newHives = [];
+
+      for (let i = 0; i < createCount; i++) {
+        const hiveNumber = `KUBE-${(startNum + i).toString().padStart(3, '0')}`;
+        newHives.push({
+          user_id: user.id,
+          apiary_id: selectedApiaryId,
+          hive_number: hiveNumber,
+          status: 'aktiv'
+        });
+      }
+
+      const { error } = await supabase.from('hives').insert(newHives);
+      if (error) throw error;
+      
+      // Update stats locally
+      setStats(prev => ({
+          ...prev,
+          hives: prev.hives + createCount,
+          activeHives: prev.activeHives + createCount
+      }));
+
+      setIsCreateModalOpen(false);
+      setCreateCount(1);
+      alert(`${createCount} nye kuber opprettet!`);
+      
+    } catch (error: any) {
+      alert('Feil ved opprettelse: ' + error.message);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const handleSignOut = async () => {
@@ -178,19 +263,29 @@ export default function DashboardPage() {
           <WeatherWidget />
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-2 gap-4">
-              <Link href="/apiaries" className="bg-honey-500 hover:bg-honey-600 text-white p-6 rounded-xl shadow-sm text-center transition-transform active:scale-95">
-                  <div className="font-bold text-lg mb-1">BIGÅRDER</div>
-                  <div className="text-honey-100 text-sm">Lokasjoner</div>
-              </Link>
-              <Link href="/hives" className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-6 rounded-xl shadow-sm text-center transition-transform active:scale-95">
-                  <div className="font-bold text-lg mb-1">BIKUBER</div>
-                  <div className="text-gray-500 text-sm">Alle kuber</div>
-              </Link>
-              <Link href="/settings" className="col-span-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-4 rounded-xl shadow-sm text-center transition-transform active:scale-95 flex items-center justify-center gap-2">
-                  <Settings className="w-5 h-5 text-gray-400" />
-                  <div className="font-bold text-lg">INNSTILLINGER</div>
-              </Link>
+          <div className="space-y-4">
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="w-full bg-honey-500 hover:bg-honey-600 text-white p-4 rounded-xl shadow-md flex items-center justify-center gap-2 font-bold text-lg transition-transform active:scale-95"
+              >
+                <Plus className="w-6 h-6" />
+                REGISTRER NYE KUBER
+              </button>
+
+              <div className="grid grid-cols-2 gap-4">
+                  <Link href="/apiaries" className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-6 rounded-xl shadow-sm text-center transition-transform active:scale-95">
+                      <div className="font-bold text-lg mb-1">BIGÅRDER</div>
+                      <div className="text-gray-500 text-sm">Lokasjoner</div>
+                  </Link>
+                  <Link href="/hives" className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-6 rounded-xl shadow-sm text-center transition-transform active:scale-95">
+                      <div className="font-bold text-lg mb-1">BIKUBER</div>
+                      <div className="text-gray-500 text-sm">Alle kuber</div>
+                  </Link>
+                  <Link href="/settings" className="col-span-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-4 rounded-xl shadow-sm text-center transition-transform active:scale-95 flex items-center justify-center gap-2">
+                      <Settings className="w-5 h-5 text-gray-400" />
+                      <div className="font-bold text-lg">INNSTILLINGER</div>
+                  </Link>
+              </div>
           </div>
 
           {/* Recent Activity */}
@@ -236,6 +331,69 @@ export default function DashboardPage() {
 
           <p className="text-center text-gray-400 text-xs mt-8">© 2025 - LEK-Honning™</p>
       </main>
+
+      {/* CREATE HIVE MODAL */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Registrer nye kuber</h3>
+              <button onClick={() => setIsCreateModalOpen(false)}><X className="w-6 h-6 text-gray-400" /></button>
+            </div>
+            
+            <div className="space-y-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Velg lokasjon (Bigård)</label>
+                    <div className="relative">
+                        <select
+                            value={selectedApiaryId}
+                            onChange={(e) => setSelectedApiaryId(e.target.value)}
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg appearance-none font-medium text-gray-900 pr-10"
+                        >
+                            <option value="" disabled>Velg en bigård...</option>
+                            {availableApiaries.map(apiary => (
+                                <option key={apiary.id} value={apiary.id}>
+                                    {apiary.name} ({apiary.type || 'Standard'})
+                                </option>
+                            ))}
+                        </select>
+                        <ChevronDown className="absolute right-3 top-3.5 w-5 h-5 text-gray-400 pointer-events-none" />
+                    </div>
+                    {availableApiaries.length === 0 && (
+                        <p className="text-xs text-red-500 mt-1">Du må opprette en bigård først.</p>
+                    )}
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Antall kuber</label>
+                    <div className="flex items-center justify-center gap-6">
+                        <button 
+                            onClick={() => setCreateCount(Math.max(1, createCount - 1))}
+                            className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl font-bold hover:bg-gray-200"
+                        >
+                            -
+                        </button>
+                        <span className="text-3xl font-bold text-honey-600">{createCount}</span>
+                        <button 
+                            onClick={() => setCreateCount(createCount + 1)}
+                            className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl font-bold hover:bg-gray-200"
+                        >
+                            +
+                        </button>
+                    </div>
+                </div>
+
+                <button
+                onClick={handleCreateSubmit}
+                disabled={isCreating || !selectedApiaryId}
+                className="w-full bg-honey-500 text-white font-bold py-3 rounded-xl hover:bg-honey-600 disabled:opacity-50 mt-4"
+                >
+                {isCreating ? 'Oppretter...' : `Opprett ${createCount} kuber`}
+                </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
