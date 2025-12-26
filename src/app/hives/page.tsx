@@ -291,24 +291,23 @@ export default function AllHivesPage() {
               </tbody>
             </table>
           ) : printLayout === 'qr' ? (
-            // QR CODE VIEW - Optimized for 8-10 per page
-            <div className="grid grid-cols-2 gap-4 print:gap-4 p-4 print:p-0">
+            // QR CODE VIEW - Optimized for 4 per row (approx 20-24 per page)
+            <div className="grid grid-cols-4 gap-2 print:gap-2 p-4 print:p-0">
               {filteredHives
                 .filter(h => selectedHives.length === 0 || selectedHives.includes(h.id))
                 .map(hive => (
-                  <div key={hive.id} className="border-2 border-black p-3 rounded-lg flex flex-col items-center justify-center text-center break-inside-avoid h-[240px]">
-                    <h2 className="text-lg font-bold mb-1 leading-tight">{hive.hive_number}</h2>
-                    <p className="text-xs text-gray-600 mb-2 truncate max-w-full px-2">{hive.name}</p>
+                  <div key={hive.id} className="border border-black p-2 rounded-lg flex flex-col items-center justify-center text-center break-inside-avoid h-[160px]">
+                    <h2 className="text-sm font-bold mb-0.5 leading-tight">{hive.hive_number}</h2>
+                    <p className="text-[10px] text-gray-600 mb-1 truncate max-w-full px-1">{hive.name}</p>
                     
                     <QRCodeSVG 
                       value={`${window.location.origin}/hives/${hive.id}`}
-                      size={120}
+                      size={80}
                       level="H"
                       includeMargin={true}
                     />
                     
-                    <p className="text-[10px] text-gray-500 mt-2 truncate max-w-full">{hive.apiaries?.name}</p>
-                    <p className="text-[8px] text-gray-300 mt-0.5">LEK-Biens Vokter</p>
+                    <p className="text-[8px] text-gray-500 mt-1 truncate max-w-full">{hive.apiaries?.name}</p>
                   </div>
                 ))}
             </div>
