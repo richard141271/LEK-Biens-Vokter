@@ -18,6 +18,15 @@ export default function AllHivesPage() {
   const [printLayout, setPrintLayout] = useState<'cards' | 'list' | 'qr' | null>(null);
   const [printData, setPrintData] = useState<{ [key: string]: { inspections: any[], logs: any[] } }>({});
   const [loadingPrintData, setLoadingPrintData] = useState(false);
+  
+  // Print Options Modal
+  const [isPrintOptionsOpen, setIsPrintOptionsOpen] = useState(false);
+  const [printOptions, setPrintOptions] = useState({
+      includeHistory: true,
+      includeLogs: true,
+      includeImages: true,
+      includeNotes: true
+  });
 
   // Mass Action State
   const [isMassActionModalOpen, setIsMassActionModalOpen] = useState(false);
@@ -86,7 +95,13 @@ export default function AllHivesPage() {
     );
   };
 
-  const handlePrint = async (layout: 'cards' | 'list' | 'qr') => {
+  const handlePrint = async (layout: 'cards' | 'list' | 'qr', skipOptions = false) => {
+    // If cards and options not skipped, open modal first
+    if (layout === 'cards' && !skipOptions) {
+        setIsPrintOptionsOpen(true);
+        return;
+    }
+
     setLoadingPrintData(true);
     
     // Determine which hives to print
@@ -221,6 +236,7 @@ export default function AllHivesPage() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b-2 border-black">
+                  <th className="py-2 font-bold w-12">Bilde</th>
                   <th className="py-2 font-bold w-16">Kube #</th>
                   <th className="py-2 font-bold w-32">Navn/Lokasjon</th>
                   <th className="py-2 font-bold w-16">Status</th>
@@ -236,6 +252,11 @@ export default function AllHivesPage() {
                     const lastLog = printData[hive.id]?.logs?.[0];
                     return (
                       <tr key={hive.id} className="border-b border-gray-300 break-inside-avoid">
+                        <td className="py-2 align-top">
+                            {lastInsp?.image_url && (
+                                <img src={lastInsp.image_url} alt="" className="w-8 h-8 object-cover rounded border border-gray-300" />
+                            )}
+                        </td>
                         <td className="py-2 align-top font-mono font-bold">{hive.hive_number}</td>
                         <td className="py-2 align-top">
                             <div className="font-bold">{hive.name}</div>
@@ -296,100 +317,159 @@ export default function AllHivesPage() {
                 ))}
             </div>
           ) : (
-            // CARD VIEW (One per page/Grid)
+            // CARD VIEW (Grouped by Apiary)
             <div className="space-y-8">
-                {filteredHives
-                  .filter(h => selectedHives.length === 0 || selectedHives.includes(h.id))
-                  .map(hive => {
-                    const hiveInspections = printData[hive.id]?.inspections || [];
-                    const hiveLogs = printData[hive.id]?.logs || [];
+                {Object.entries(
+                    filteredHives
+                        .filter(h => selectedHives.length === 0 || selectedHives.includes(h.id))
+                        .reduce((acc, hive) => {
+                            const apiaryName = hive.apiaries?.name || 'Ingen Bigård';
+                            if (!acc[apiaryName]) acc[apiaryName] = [];
+                            acc[apiaryName].push(hive);
+                            return acc;
+                        }, {} as {[key: string]: any[]})
+                ).map(([apiaryName, hives]) => {
+                    const apiaryHives = hives as any[];
+                    const activeHives = apiaryHives.filter(h => h.active !== false).length;
+                    const inactiveHives = apiaryHives.length - activeHives;
+
                     return (
-                    <div key={hive.id} className="break-inside-avoid border-2 border-black rounded-xl p-6 mb-8 page-break-auto">
-                        <div className="flex justify-between items-start mb-6 border-b-2 border-black pb-4">
-                            <div>
-                                <h2 className="text-3xl font-bold mb-1">{hive.hive_number}</h2>
-                                <p className="text-xl">{hive.name}</p>
-                            </div>
-                            <div className="text-right">
-                                <div className="text-lg font-bold uppercase">{hive.type || 'PRODUKSJON'}</div>
-                                <div className="text-gray-600">{hive.apiaries?.name}</div>
-                            </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-8 mb-6">
-                            <div>
-                                <h3 className="font-bold border-b border-gray-400 mb-2">STATUS</h3>
-                                <div className="text-lg mb-4">
-                                    {getStatusText(hive)} 
-                                    <span className="text-sm text-gray-500 ml-2">({hive.active === false ? 'Inaktiv' : 'Aktiv'})</span>
+                        <div key={apiaryName} className="mb-12">
+                            {/* Apiary Header / Summary */}
+                            <div className="border-b-4 border-black pb-4 mb-8 break-before-page">
+                                <h2 className="text-4xl font-bold uppercase">{apiaryName}</h2>
+                                <div className="flex gap-8 mt-2 text-xl">
+                                    <div><strong>Antall kuber:</strong> {apiaryHives.length}</div>
+                                    <div><strong>Aktive:</strong> {activeHives}</div>
+                                    <div><strong>Inaktive:</strong> {inactiveHives}</div>
                                 </div>
                             </div>
-                            
-                            <div>
-                                <h3 className="font-bold border-b border-gray-400 mb-2">SISTE INSPEKSJON</h3>
-                                <div className="text-lg mb-4">{hive.last_inspection_date || 'Aldri'}</div>
+
+                            <div className="grid grid-cols-1 gap-8">
+                                {apiaryHives.map(hive => {
+                                    const hiveInspections = printData[hive.id]?.inspections || [];
+                                    const hiveLogs = printData[hive.id]?.logs || [];
+                                    const lastInsp = hiveInspections[0];
+
+                                    return (
+                                        <div key={hive.id} className="break-inside-avoid border-2 border-black rounded-xl p-6 page-break-auto relative overflow-hidden">
+                                            <div className="flex justify-between items-start mb-4 border-b-2 border-black pb-4">
+                                                <div>
+                                                    <h2 className="text-3xl font-bold mb-1">{hive.hive_number}</h2>
+                                                    <p className="text-xl">{hive.name}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-lg font-bold uppercase">{hive.type || 'PRODUKSJON'}</div>
+                                                    <div className="text-gray-600">{hive.apiaries?.name}</div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex gap-6">
+                                                <div className="flex-1">
+                                                    <div className="grid grid-cols-2 gap-4 mb-4">
+                                                        <div>
+                                                            <h3 className="font-bold border-b border-gray-400 mb-1 text-sm">STATUS</h3>
+                                                            <div className="text-base">
+                                                                {getStatusText(hive)} 
+                                                                <span className="text-xs text-gray-500 ml-2">({hive.active === false ? 'Inaktiv' : 'Aktiv'})</span>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div>
+                                                            <h3 className="font-bold border-b border-gray-400 mb-1 text-sm">SISTE INSPEKSJON</h3>
+                                                            <div className="text-base">{hive.last_inspection_date || 'Aldri'}</div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Inspection History Table */}
+                                                    {printOptions.includeHistory && (
+                                                        <div className="mb-4">
+                                                            <h3 className="font-bold border-b border-black mb-1 text-sm">INSPEKSJONSHISTORIKK</h3>
+                                                            {hiveInspections.length > 0 ? (
+                                                                <table className="w-full text-xs text-left">
+                                                                    <thead>
+                                                                        <tr className="border-b border-gray-400">
+                                                                            <th className="py-1 w-20">Dato</th>
+                                                                            <th className="py-1 w-20">Status</th>
+                                                                            <th className="py-1">Notater</th>
+                                                                            <th className="py-1 w-24">Detaljer</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {hiveInspections.slice(0, 5).map((insp: any) => (
+                                                                            <tr key={insp.id} className="border-b border-gray-200">
+                                                                                <td className="py-1 align-top">{new Date(insp.inspection_date).toLocaleDateString()}</td>
+                                                                                <td className="py-1 align-top">{insp.status}</td>
+                                                                                <td className="py-1 align-top italic text-gray-600 line-clamp-1">{insp.notes || '-'}</td>
+                                                                                <td className="py-1 align-top text-[10px]">
+                                                                                    {insp.queen_seen && <span className="mr-1">👑</span>}
+                                                                                    {insp.eggs_seen && <span className="mr-1">🥚</span>}
+                                                                                    {insp.honey_stores && <span className="mr-1">🍯 {insp.honey_stores}</span>}
+                                                                                </td>
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            ) : (
+                                                                <p className="text-gray-500 italic text-xs">Ingen inspeksjoner.</p>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Logs */}
+                                                    {printOptions.includeLogs && (
+                                                        <div className="mb-4">
+                                                            <h3 className="font-bold border-b border-black mb-1 text-sm">LOGG</h3>
+                                                            {hiveLogs.length > 0 ? (
+                                                                <ul className="text-xs space-y-1">
+                                                                    {hiveLogs.slice(0, 3).map((log: any) => (
+                                                                        <li key={log.id} className="flex gap-2">
+                                                                            <span className="font-mono text-gray-500 w-20 flex-shrink-0">
+                                                                                {new Date(log.created_at).toLocaleDateString()}
+                                                                            </span>
+                                                                            <span className="font-bold uppercase w-16 flex-shrink-0 mt-0.5">{log.action}</span>
+                                                                            <span className="text-gray-700 line-clamp-1">{log.details}</span>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            ) : (
+                                                                <p className="text-gray-500 italic text-xs">Ingen loggføringer.</p>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {/* Manual Notes Area */}
+                                                    {printOptions.includeNotes && (
+                                                        <div className="mt-2 border-t border-black pt-2 break-inside-avoid">
+                                                            <h3 className="font-bold mb-1 text-xs">NOTATER:</h3>
+                                                            <div className="h-16 border border-gray-300 rounded bg-gray-50"></div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Image Column */}
+                                                {printOptions.includeImages && lastInsp?.image_url && (
+                                                    <div className="w-1/3 flex flex-col gap-2">
+                                                        <div className="font-bold border-b border-gray-400 mb-1 text-sm">SISTE BILDE</div>
+                                                        <div className="rounded-lg border border-gray-300 overflow-hidden bg-gray-100">
+                                                            <img 
+                                                                src={lastInsp.image_url} 
+                                                                alt="Siste inspeksjon" 
+                                                                className="w-full h-48 object-cover"
+                                                            />
+                                                        </div>
+                                                        <div className="text-xs text-gray-500 italic text-center">
+                                                            {new Date(lastInsp.inspection_date).toLocaleDateString()}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
-
-                        {/* Inspection History Table */}
-                        <div className="mb-6">
-                            <h3 className="font-bold border-b border-black mb-2">INSPEKSJONSHISTORIKK</h3>
-                            {hiveInspections.length > 0 ? (
-                                <table className="w-full text-sm text-left">
-                                    <thead>
-                                        <tr className="border-b border-gray-400">
-                                            <th className="py-1 w-24">Dato</th>
-                                            <th className="py-1 w-24">Status</th>
-                                            <th className="py-1">Notater / Observasjoner</th>
-                                            <th className="py-1 w-32">Detaljer</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {hiveInspections.slice(0, 10).map((insp: any) => (
-                                            <tr key={insp.id} className="border-b border-gray-200">
-                                                <td className="py-1 align-top">{new Date(insp.inspection_date).toLocaleDateString()}</td>
-                                                <td className="py-1 align-top">{insp.status}</td>
-                                                <td className="py-1 align-top italic text-gray-600">{insp.notes || '-'}</td>
-                                                <td className="py-1 align-top text-xs">
-                                                    {insp.queen_seen && <span className="mr-1">👑</span>}
-                                                    {insp.eggs_seen && <span className="mr-1">🥚</span>}
-                                                    {insp.honey_stores && <span className="mr-1">🍯 {insp.honey_stores}</span>}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            ) : (
-                                <p className="text-gray-500 italic">Ingen inspeksjoner registrert.</p>
-                            )}
-                        </div>
-
-                        {/* Logs */}
-                        <div className="mb-6">
-                            <h3 className="font-bold border-b border-black mb-2">LOGG</h3>
-                            {hiveLogs.length > 0 ? (
-                                <ul className="text-sm space-y-1">
-                                    {hiveLogs.slice(0, 5).map((log: any) => (
-                                        <li key={log.id} className="flex gap-2">
-                                            <span className="font-mono text-gray-500 w-24 flex-shrink-0">
-                                                {new Date(log.created_at).toLocaleDateString()}
-                                            </span>
-                                            <span className="font-bold uppercase w-20 flex-shrink-0 text-xs mt-0.5">{log.action}</span>
-                                            <span className="text-gray-700">{log.details}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : (
-                                <p className="text-gray-500 italic">Ingen loggføringer.</p>
-                            )}
-                        </div>
-
-                        <div className="mt-4 border-t-2 border-black pt-4 break-inside-avoid">
-                            <h3 className="font-bold mb-2">NYE NOTATER:</h3>
-                            <div className="h-24 border border-gray-300 rounded bg-gray-50"></div>
-                        </div>
-                    </div>
-                  );
+                    );
                 })}
             </div>
           )}
@@ -400,75 +480,10 @@ export default function AllHivesPage() {
       <header className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10 print:hidden">
         <div className="flex justify-between items-center mb-4">
             <h1 className="text-xl font-bold text-gray-900">Alle Bikuber</h1>
-            <div className="flex gap-2">
-                {isSelectionMode ? (
-                    <>
-                        <button 
-                            onClick={() => {
-                                if (selectedHives.length === filteredHives.length) {
-                                    setSelectedHives([]);
-                                } else {
-                                    setSelectedHives(filteredHives.map(h => h.id));
-                                }
-                            }}
-                            className="bg-gray-200 text-gray-800 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors"
-                        >
-                            {selectedHives.length === filteredHives.length ? 'Velg ingen' : 'Velg alle'}
-                        </button>
-                        <button 
-                            onClick={() => {
-                                handlePrint('list');
-                            }}
-                            className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium"
-                        >
-                            Liste
-                        </button>
-                        <button 
-                            onClick={() => {
-                                handlePrint('cards');
-                            }}
-                            className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium"
-                        >
-                            Kort
-                        </button>
-                        <button 
-                             onClick={() => {
-                                 handlePrint('qr');
-                             }}
-                             className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium"
-                         >
-                             QR-Koder
-                         </button>
-                         <button 
-                             onClick={() => setIsMassActionModalOpen(true)}
-                             className="bg-honey-500 hover:bg-honey-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium"
-                         >
-                             Registrer Hendelse
-                         </button>
-                         <button 
-                             onClick={() => {
-                                 setIsSelectionMode(false);
-                                 setSelectedHives([]);
-                             }}
-                            className="text-gray-500 px-3 py-1.5"
-                        >
-                            Avbryt
-                        </button>
-                    </>
-                ) : (
-                    <button 
-                        onClick={() => setIsSelectionMode(true)}
-                        className="bg-honey-100 text-honey-700 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1"
-                    >
-                        <Printer className="w-4 h-4" />
-                        Utskrift
-                    </button>
-                )}
-            </div>
         </div>
         
         {/* Search Bar */}
-        <div className="relative">
+        <div className="relative mb-4">
           <input
             type="text"
             placeholder="Søk på nummer, lokasjon, status..."
@@ -477,6 +492,73 @@ export default function AllHivesPage() {
             className="w-full pl-10 pr-4 py-3 bg-gray-100 border-none rounded-xl text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-honey-500 outline-none transition-all"
           />
           <Search className="absolute left-3 top-3.5 w-5 h-5 text-gray-400" />
+        </div>
+
+        {/* Action Menu */}
+        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+            {isSelectionMode ? (
+                <>
+                    <button 
+                        onClick={() => {
+                            if (selectedHives.length === filteredHives.length) {
+                                setSelectedHives([]);
+                            } else {
+                                setSelectedHives(filteredHives.map(h => h.id));
+                            }
+                        }}
+                        className="bg-gray-200 text-gray-800 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors whitespace-nowrap"
+                    >
+                        {selectedHives.length === filteredHives.length ? 'Velg ingen' : 'Velg alle'}
+                    </button>
+                    <button 
+                        onClick={() => {
+                            handlePrint('list');
+                        }}
+                        className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap"
+                    >
+                        Liste
+                    </button>
+                    <button 
+                        onClick={() => {
+                            handlePrint('cards');
+                        }}
+                        className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap"
+                    >
+                        Kort
+                    </button>
+                    <button 
+                            onClick={() => {
+                                handlePrint('qr');
+                            }}
+                            className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap"
+                        >
+                            QR-Koder
+                        </button>
+                        <button 
+                            onClick={() => setIsMassActionModalOpen(true)}
+                            className="bg-honey-500 hover:bg-honey-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap"
+                        >
+                            Registrer Hendelse
+                        </button>
+                        <button 
+                            onClick={() => {
+                                setIsSelectionMode(false);
+                                setSelectedHives([]);
+                            }}
+                        className="text-gray-500 px-3 py-1.5 whitespace-nowrap"
+                    >
+                        Avbryt
+                    </button>
+                </>
+            ) : (
+                <button 
+                    onClick={() => setIsSelectionMode(true)}
+                    className="bg-honey-100 text-honey-700 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1 w-full justify-center"
+                >
+                    <Printer className="w-4 h-4" />
+                    Velg / Skriv ut
+                </button>
+            )}
         </div>
       </header>
 
@@ -576,6 +658,87 @@ export default function AllHivesPage() {
           ))
         )}
       </main>
+      {/* Print Options Modal */}
+      {isPrintOptionsOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 print:hidden">
+            <div className="bg-white rounded-xl p-6 w-full max-w-sm">
+                <h3 className="text-xl font-bold mb-4">Utskriftsvalg</h3>
+                <div className="space-y-3 mb-6">
+                    <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input 
+                            type="checkbox"
+                            checked={printOptions.includeHistory}
+                            onChange={e => setPrintOptions({...printOptions, includeHistory: e.target.checked})}
+                            className="w-5 h-5 text-honey-600 rounded"
+                        />
+                        <div className="flex-1">
+                            <div className="font-bold">Inspeksjonshistorikk</div>
+                            <div className="text-xs text-gray-500">Siste 5 inspeksjoner</div>
+                        </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input 
+                            type="checkbox"
+                            checked={printOptions.includeLogs}
+                            onChange={e => setPrintOptions({...printOptions, includeLogs: e.target.checked})}
+                            className="w-5 h-5 text-honey-600 rounded"
+                        />
+                        <div className="flex-1">
+                            <div className="font-bold">Logg</div>
+                            <div className="text-xs text-gray-500">Siste 3 hendelser</div>
+                        </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input 
+                            type="checkbox"
+                            checked={printOptions.includeImages}
+                            onChange={e => setPrintOptions({...printOptions, includeImages: e.target.checked})}
+                            className="w-5 h-5 text-honey-600 rounded"
+                        />
+                        <div className="flex-1">
+                            <div className="font-bold">Bilder</div>
+                            <div className="text-xs text-gray-500">Bilde fra siste inspeksjon</div>
+                        </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input 
+                            type="checkbox"
+                            checked={printOptions.includeNotes}
+                            onChange={e => setPrintOptions({...printOptions, includeNotes: e.target.checked})}
+                            className="w-5 h-5 text-honey-600 rounded"
+                        />
+                        <div className="flex-1">
+                            <div className="font-bold">Notatfelt</div>
+                            <div className="text-xs text-gray-500">Tomt felt for manuelle notater</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => setIsPrintOptionsOpen(false)}
+                        className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg"
+                    >
+                        Avbryt
+                    </button>
+                    <button
+                        onClick={() => {
+                            setIsPrintOptionsOpen(false);
+                            handlePrint('cards', true);
+                        }}
+                        className="flex-1 py-2 bg-honey-500 hover:bg-honey-600 text-white font-bold rounded-lg flex items-center justify-center gap-2"
+                    >
+                        <Printer className="w-4 h-4" />
+                        Skriv ut
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
       {/* Mass Action Modal */}
       {isMassActionModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
