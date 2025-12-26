@@ -8,7 +8,7 @@ export default function BottomNav() {
   const pathname = usePathname();
 
   // Hide on login/register pages
-  if (pathname === '/login' || pathname === '/register' || pathname === '/') return null;
+  if (pathname === '/login' || pathname === '/register' || pathname === '/' || pathname === '/about') return null;
 
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
 

@@ -11,8 +11,8 @@ export default function DesktopNav() {
   const router = useRouter();
   const supabase = createClient();
 
-  // Hide on login/register pages
-  if (pathname === '/login' || pathname === '/register' || pathname === '/') return null;
+  // Hide on login/register/about pages
+  if (pathname === '/login' || pathname === '/register' || pathname === '/' || pathname === '/about') return null;
 
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
 

@@ -47,7 +47,7 @@ export default function Header() {
   }, [mounted]);
 
   // Hide on auth pages
-  if (pathname === '/login' || pathname === '/register' || pathname === '/') return null;
+  if (pathname === '/login' || pathname === '/register' || pathname === '/' || pathname === '/about') return null;
 
   if (!mounted) return null;
 

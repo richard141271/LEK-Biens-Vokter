@@ -23,6 +23,8 @@ import DesktopNav from "@/components/DesktopNav";
 import Header from "@/components/Header";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
+import MainLayout from "@/components/MainLayout";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -37,10 +39,10 @@ export default function RootLayout({
       <body className={`${inter.className} bg-gray-50`}>
         <DesktopNav />
         
-        <div className="md:pl-64 min-h-screen">
+        <MainLayout>
           <Header />
           {children}
-        </div>
+        </MainLayout>
         
         <div className="md:hidden print:hidden">
           <BottomNav />
