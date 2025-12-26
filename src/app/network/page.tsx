@@ -186,12 +186,39 @@ export default function NetworkPage() {
   }
 
   // ----------------------------------------------------------------------
+  // HELPER: Share Link
+  // ----------------------------------------------------------------------
+  const shareLink = async () => {
+    const url = `${window.location.origin}/register?ref=${userProfile?.referral_code}`;
+    const shareData = {
+      title: 'Bli med i Biens Vokter!',
+      text: 'Bli med meg og redd biene samtidig som du tjener penger. Registrer deg her:',
+      url: url,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.log('Error sharing:', err);
+      }
+    } else {
+      navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // ----------------------------------------------------------------------
   // VIEW: DASHBOARD
   // ----------------------------------------------------------------------
+  const isFreeTier = !userProfile?.membership_tier || userProfile?.membership_tier === 'free';
+  const potentialEarnings = (stats?.earnings || 0) + (stats?.salesCommission || 0);
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
-      <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white pt-8 pb-24 px-4 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white pt-8 pb-32 px-4 relative overflow-hidden">
         <div className="absolute top-0 right-0 p-32 bg-honey-500/10 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
         
         <div className="max-w-4xl mx-auto relative z-10">
@@ -209,71 +236,107 @@ export default function NetworkPage() {
                 <Users className="w-8 h-8 text-honey-400" />
                 Mitt Partnernettverk
               </h1>
-              <p className="text-gray-400">
-                Bygg din bikube og tjen passiv inntekt.
+              <p className="text-gray-400 max-w-lg">
+                Del din unike lenke. Når folk registrerer seg via den, havner de automatisk i din bikube.
               </p>
             </div>
             
-            {/* Referral Code Card */}
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-xl flex flex-col gap-2 min-w-[250px]">
-              <span className="text-xs font-bold uppercase text-honey-400 tracking-wider">Din Vervekode</span>
+            {/* Share Card */}
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-xl flex flex-col gap-3 min-w-[280px]">
+              <span className="text-xs font-bold uppercase text-honey-400 tracking-wider">Din Vervelenke</span>
               <button 
-                onClick={copyCode}
-                className="flex items-center justify-between gap-4 bg-black/30 p-3 rounded-lg hover:bg-black/50 transition-colors group"
+                onClick={shareLink}
+                className="flex items-center justify-between gap-4 bg-honey-500 hover:bg-honey-400 text-black p-3 rounded-lg transition-all shadow-lg group font-bold"
               >
-                <span className="font-mono text-xl font-bold tracking-widest text-white">
-                  {userProfile?.referral_code || '...'}
-                </span>
+                <span>Del Vervelenke</span>
                 {copied ? (
-                  <CheckCircle className="w-5 h-5 text-green-400" />
+                  <CheckCircle className="w-5 h-5" />
                 ) : (
-                  <Copy className="w-5 h-5 text-gray-400 group-hover:text-white" />
+                  <Copy className="w-5 h-5 group-hover:scale-110 transition-transform" />
                 )}
               </button>
-              <span className="text-[10px] text-gray-500">Trykk for å kopiere</span>
+              <div className="text-[10px] text-gray-400 text-center">
+                 Eller kopier koden: <span className="font-mono text-white">{userProfile?.referral_code || '...'}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 -mt-16 relative z-20 space-y-6">
+      <div className="max-w-4xl mx-auto px-4 -mt-24 relative z-20 space-y-6">
         
-        {/* Earnings Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white p-6 rounded-2xl shadow-lg border-l-4 border-green-500">
-                <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-                        <DollarSign className="w-6 h-6" />
+        {/* FOMO / Earnings Stats */}
+        {isFreeTier && potentialEarnings > 0 ? (
+           <div className="bg-red-50 border-2 border-red-500 rounded-2xl p-6 shadow-xl animate-pulse">
+              <div className="flex items-start gap-4">
+                 <AlertCircle className="w-8 h-8 text-red-600 shrink-0" />
+                 <div className="flex-1">
+                    <h3 className="text-xl font-bold text-red-800 mb-1">Du går glipp av inntekt!</h3>
+                    <p className="text-red-700 mb-4">
+                       Du har bygget opp et nettverk som omsetter, men som GRATIS medlem får du ikke utbetalt provisjon.
+                    </p>
+                    <div className="bg-white rounded-xl p-4 border border-red-200 flex justify-between items-center mb-4">
+                       <span className="text-gray-600 font-bold">Tapt inntekt denne måneden:</span>
+                       <span className="text-2xl font-black text-red-600">{potentialEarnings.toLocaleString()} NOK</span>
                     </div>
-                    <div>
-                        <p className="text-sm text-gray-500 font-bold uppercase">Estimert månedsinntekt</p>
-                        <h2 className="text-3xl font-black text-gray-900">
-                            {stats?.earnings.toLocaleString()} NOK
-                        </h2>
-                    </div>
-                </div>
-                <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
-                    Basert på aktivt medlemskap i ditt nettverk. Utbetales månedlig.
-                </div>
-            </div>
+                    <button className="w-full bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 transition-colors shadow-lg">
+                       Oppgrader til Bronse eller Gull for å motta pengene
+                    </button>
+                 </div>
+              </div>
+           </div>
+        ) : (
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="bg-white p-6 rounded-2xl shadow-lg border-l-4 border-green-500">
+                   <div className="flex items-center gap-4 mb-4">
+                       <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                           <DollarSign className="w-6 h-6" />
+                       </div>
+                       <div>
+                           <p className="text-sm text-gray-500 font-bold uppercase">Estimert månedsinntekt</p>
+                           <h2 className="text-3xl font-black text-gray-900">
+                               {stats?.earnings.toLocaleString()} NOK
+                           </h2>
+                       </div>
+                   </div>
+               </div>
 
-            <div className="bg-white p-6 rounded-2xl shadow-lg border-l-4 border-honey-500">
-                <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-honey-100 flex items-center justify-center text-honey-600">
-                        <TrendingUp className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <p className="text-sm text-gray-500 font-bold uppercase">Salgsbonus (1%)</p>
-                        <h2 className="text-3xl font-black text-gray-900">
-                            {stats?.salesCommission.toLocaleString()} NOK
-                        </h2>
-                    </div>
-                </div>
-                 <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
-                    1% av all omsetning i dine 3 ledd. Oppdateres fortløpende.
-                </div>
-            </div>
-        </div>
+               <div className="bg-white p-6 rounded-2xl shadow-lg border-l-4 border-honey-500">
+                   <div className="flex items-center gap-4 mb-4">
+                       <div className="w-12 h-12 rounded-full bg-honey-100 flex items-center justify-center text-honey-600">
+                           <TrendingUp className="w-6 h-6" />
+                       </div>
+                       <div>
+                           <p className="text-sm text-gray-500 font-bold uppercase">Salgsbonus (1%)</p>
+                           <h2 className="text-3xl font-black text-gray-900">
+                               {stats?.salesCommission.toLocaleString()} NOK
+                           </h2>
+                       </div>
+                   </div>
+               </div>
+           </div>
+        )}
+        
+        {/* If Free Tier but no earnings yet, show Potential */}
+        {isFreeTier && potentialEarnings === 0 && (
+           <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+              <h3 className="font-bold text-lg mb-2">Ditt Inntektspotensiale</h3>
+              <p className="text-gray-600 mb-4">
+                 Som GRATIS medlem kan du bygge nettverk, men du må oppgradere for å få utbetalt provisjon. 
+                 Når nettverket ditt vokser, vil du se her hvor mye du kunne ha tjent.
+              </p>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                 <div className="bg-gray-50 p-3 rounded-lg">
+                    <span className="block text-gray-500">Bronse Medlem</span>
+                    <span className="font-bold text-gray-900">239,- /mnd</span>
+                 </div>
+                 <div className="bg-gray-50 p-3 rounded-lg">
+                    <span className="block text-gray-500">Gull Medlem</span>
+                    <span className="font-bold text-gray-900">686,- /mnd</span>
+                 </div>
+              </div>
+           </div>
+        )}
 
         {/* Network Tree Visualization */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
