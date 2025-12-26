@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info } from 'lucide-react';
+import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, Image as ImageIcon, X } from 'lucide-react';
 
 export default function NewInspectionPage({ params }: { params: { id: string } }) {
   const [hive, setHive] = useState<any>(null);
@@ -25,6 +25,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [weather, setWeather] = useState('');
   const [temperature, setTemperature] = useState('');
   const [weatherLoading, setWeatherLoading] = useState(false);
+
+  // Image Upload State
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const supabase = createClient();
   const router = useRouter();
@@ -81,12 +86,50 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     return 'Ukjent';
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedImage(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const uploadImage = async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${params.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('inspection-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('inspection-images')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      return null;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
+
+      let imageUrl = null;
+      if (selectedImage) {
+        setUploadingImage(true);
+        imageUrl = await uploadImage(selectedImage);
+        setUploadingImage(false);
+      }
 
       // 1. Insert Inspection
       const { error: inspectionError } = await supabase
@@ -104,7 +147,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           notes: notes,
           status: status, 
           temperature: temperature ? parseFloat(temperature) : null,
-          weather: weather
+          weather: weather,
+          image_url: imageUrl
         });
 
       if (inspectionError) throw inspectionError;
@@ -311,15 +355,53 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             </div>
           </div>
 
-          {/* Notes */}
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Notater</label>
-            <textarea 
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg h-32 resize-none"
-              placeholder="Skriv notater her..."
-            />
+          {/* Notes & Image */}
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-4">
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              <Info className="w-4 h-4" /> Notater & Bilde
+            </h3>
+            
+            {/* Image Upload */}
+            <div className="space-y-2">
+                <label className="block text-xs font-bold text-gray-500 uppercase">Last opp bilde (valgfritt)</label>
+                <div className="flex items-center gap-4">
+                    <label className="cursor-pointer flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                        <ImageIcon className="w-5 h-5 text-gray-500" />
+                        <span className="text-sm text-gray-700">Velg bilde</span>
+                        <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            className="hidden"
+                        />
+                    </label>
+                    {imagePreview && (
+                        <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
+                            <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    setSelectedImage(null);
+                                    setImagePreview(null);
+                                }}
+                                className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded-bl"
+                            >
+                                <X className="w-3 h-3" />
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Notater</label>
+              <textarea 
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm h-24"
+                placeholder="Skriv dine observasjoner..."
+              />
+            </div>
           </div>
 
           {/* Submit */}
