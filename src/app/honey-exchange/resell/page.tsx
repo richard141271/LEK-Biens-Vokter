@@ -15,7 +15,7 @@ function ResellContent() {
   
   const router = useRouter();
   const searchParams = useSearchParams();
-  const transactionId = searchParams.get('transactionId');
+  const transactionId = searchParams.get('txId') || searchParams.get('transactionId');
   const supabase = createClient();
 
   useEffect(() => {

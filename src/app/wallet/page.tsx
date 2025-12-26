@@ -11,6 +11,7 @@ export default function WalletPage() {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState(false);
+  const [customAmount, setCustomAmount] = useState('');
   
   const supabase = createClient();
   const router = useRouter();

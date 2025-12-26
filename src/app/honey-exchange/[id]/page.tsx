@@ -12,7 +12,7 @@ export default function ListingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [buyAmount, setBuyAmount] = useState(20);
+  const [buyAmount, setBuyAmount] = useState(1);
   
   const supabase = createClient();
   const router = useRouter();
@@ -72,14 +72,14 @@ export default function ListingDetailPage() {
 
   const handleIncrement = () => {
     if (!listing) return;
-    if (buyAmount + 20 <= listing.remaining_kg) {
-      setBuyAmount(prev => prev + 20);
+    if (buyAmount + 1 <= listing.remaining_kg) {
+      setBuyAmount(prev => prev + 1);
     }
   };
 
   const handleDecrement = () => {
-    if (buyAmount > 20) {
-      setBuyAmount(prev => prev - 20);
+    if (buyAmount > 1) {
+      setBuyAmount(prev => prev - 1);
     }
   };
 

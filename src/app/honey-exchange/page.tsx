@@ -269,7 +269,7 @@ export default function HoneyExchangePage() {
                       </div>
                       <div className="flex items-center gap-1">
                         <Scale className="w-4 h-4 text-gray-400" />
-                        <span>Min. kjøp: 20 kg</span>
+                        <span>Min. kjøp: 1 kg</span>
                       </div>
                     </div>
                   </div>
