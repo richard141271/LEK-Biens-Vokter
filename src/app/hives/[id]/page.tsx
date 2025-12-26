@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Truck, Calendar, Activity, X, Check, Printer, ChevronDown, ChevronUp, History, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, MapPin, Truck, Calendar, Activity, X, Check, Printer, ChevronDown, ChevronUp, History, AlertTriangle, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store } from 'lucide-react';
 
@@ -161,6 +161,27 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
       alert('Kunne ikke endre status');
       fetchHiveDetails(); // Revert
     }
+  };
+
+  const handleDeleteInspection = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent toggling expansion
+    
+    if (!confirm('Er du sikker på at du vil slette denne inspeksjonen?')) return;
+
+    const { error } = await supabase
+      .from('inspections')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting inspection:', error);
+      alert('Kunne ikke slette inspeksjon: ' + error.message);
+      return;
+    }
+
+    // Update local state
+    setInspections(prev => prev.filter(i => i.id !== id));
+    if (expandedInspectionId === id) setExpandedInspectionId(null);
   };
 
   const toggleInspection = (id: string) => {
@@ -402,6 +423,16 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                         <p className="text-gray-800 whitespace-pre-wrap">{inspection.notes}</p>
                       </div>
                     )}
+                    
+                    <div className="mt-4 flex justify-end print:hidden">
+                        <button 
+                            onClick={(e) => handleDeleteInspection(inspection.id, e)}
+                            className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            Slett inspeksjon
+                        </button>
+                    </div>
                   </div>
                 </div>
               ))

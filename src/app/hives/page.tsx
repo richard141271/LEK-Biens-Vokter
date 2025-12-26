@@ -15,6 +15,8 @@ export default function AllHivesPage() {
   const [selectedHives, setSelectedHives] = useState<string[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [printLayout, setPrintLayout] = useState<'cards' | 'list' | null>(null);
+  const [printData, setPrintData] = useState<{ [key: string]: { inspections: any[], logs: any[] } }>({});
+  const [loadingPrintData, setLoadingPrintData] = useState(false);
 
   const supabase = createClient();
   const router = useRouter();
@@ -60,13 +62,49 @@ export default function AllHivesPage() {
     );
   };
 
-  const handlePrint = (layout: 'cards' | 'list') => {
+  const handlePrint = async (layout: 'cards' | 'list') => {
+    setLoadingPrintData(true);
+    
+    // Determine which hives to print
+    const hivesToPrint = hives
+        .filter(h => filteredHives.includes(h)) // Only search results
+        .filter(h => selectedHives.length === 0 || selectedHives.includes(h.id));
+
+    const hiveIds = hivesToPrint.map(h => h.id);
+
+    if (hiveIds.length > 0) {
+        // Fetch inspections
+        const { data: inspections } = await supabase
+            .from('inspections')
+            .select('*')
+            .in('hive_id', hiveIds)
+            .order('inspection_date', { ascending: false });
+
+        // Fetch logs
+        const { data: logs } = await supabase
+            .from('hive_logs')
+            .select('*')
+            .in('hive_id', hiveIds)
+            .order('created_at', { ascending: false });
+
+        // Group data by hive_id
+        const newData: { [key: string]: { inspections: any[], logs: any[] } } = {};
+        hiveIds.forEach(id => {
+            newData[id] = {
+                inspections: inspections?.filter(i => i.hive_id === id) || [],
+                logs: logs?.filter(l => l.hive_id === id) || []
+            };
+        });
+        setPrintData(newData);
+    }
+
+    setLoadingPrintData(false);
     setPrintLayout(layout);
+    
     // Use a small timeout to allow state to update and DOM to render before printing
     setTimeout(() => {
       window.print();
-      // Optional: Reset after print? No, let user close.
-    }, 100);
+    }, 500); // Increased timeout slightly to ensure data renders
   };
 
   const getStatusColor = (hive: any) => {
@@ -99,39 +137,59 @@ export default function AllHivesPage() {
 
           {printLayout === 'list' ? (
              // LIST VIEW (Table)
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="border-b-2 border-black">
-                  <th className="py-2 font-bold">Kube #</th>
-                  <th className="py-2 font-bold">Navn</th>
-                  <th className="py-2 font-bold">Type</th>
-                  <th className="py-2 font-bold">Lokasjon</th>
-                  <th className="py-2 font-bold">Status</th>
-                  <th className="py-2 font-bold">Sist Inspisert</th>
-                  <th className="py-2 font-bold">Notater</th>
+                  <th className="py-2 font-bold w-16">Kube #</th>
+                  <th className="py-2 font-bold w-32">Navn/Lokasjon</th>
+                  <th className="py-2 font-bold w-16">Status</th>
+                  <th className="py-2 font-bold w-64">Siste Inspeksjon</th>
+                  <th className="py-2 font-bold">Siste Logg</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredHives
                   .filter(h => selectedHives.length === 0 || selectedHives.includes(h.id))
-                  .map(hive => (
-                  <tr key={hive.id} className="border-b border-gray-300">
-                    <td className="py-3 align-top font-mono font-bold">{hive.hive_number}</td>
-                    <td className="py-3 align-top">{hive.name}</td>
-                    <td className="py-3 align-top capitalize">{hive.type?.toLowerCase() || '-'}</td>
-                    <td className="py-3 align-top">
-                        <div>{hive.apiaries?.name}</div>
-                        <div className="text-xs text-gray-500">{hive.apiaries?.location}</div>
-                    </td>
-                    <td className="py-3 align-top">
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getStatusColor(hive)}`}>
-                            {getStatusText(hive)}
-                        </span>
-                    </td>
-                    <td className="py-3 align-top">{hive.last_inspection_date || '-'}</td>
-                    <td className="py-3 align-top border border-gray-200 h-16 w-48 bg-gray-50"></td>
-                  </tr>
-                ))}
+                  .map(hive => {
+                    const lastInsp = printData[hive.id]?.inspections?.[0];
+                    const lastLog = printData[hive.id]?.logs?.[0];
+                    return (
+                      <tr key={hive.id} className="border-b border-gray-300 break-inside-avoid">
+                        <td className="py-2 align-top font-mono font-bold">{hive.hive_number}</td>
+                        <td className="py-2 align-top">
+                            <div className="font-bold">{hive.name}</div>
+                            <div className="text-gray-600">{hive.apiaries?.name}</div>
+                            <div className="text-gray-500 uppercase text-[10px]">{hive.type || 'PRODUKSJON'}</div>
+                        </td>
+                        <td className="py-2 align-top">
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${getStatusColor(hive)}`}>
+                                {getStatusText(hive)}
+                            </span>
+                        </td>
+                        <td className="py-2 align-top">
+                            {lastInsp ? (
+                                <div>
+                                    <div className="font-bold">{new Date(lastInsp.inspection_date).toLocaleDateString()}</div>
+                                    <div className="flex gap-1 flex-wrap mt-0.5">
+                                        {lastInsp.queen_seen && <span className="text-[10px] bg-green-50 text-green-700 px-1 rounded">Dronning</span>}
+                                        {lastInsp.eggs_seen && <span className="text-[10px] bg-green-50 text-green-700 px-1 rounded">Egg</span>}
+                                    </div>
+                                    {lastInsp.notes && <div className="text-gray-600 italic mt-1 line-clamp-3">{lastInsp.notes}</div>}
+                                </div>
+                            ) : '-'}
+                        </td>
+                        <td className="py-2 align-top">
+                            {lastLog ? (
+                                <div>
+                                    <div className="font-bold">{new Date(lastLog.created_at).toLocaleDateString()}</div>
+                                    <div className="text-[10px] uppercase font-bold text-gray-500">{lastLog.action}</div>
+                                    <div className="text-gray-600 line-clamp-2">{lastLog.details}</div>
+                                </div>
+                            ) : '-'}
+                        </td>
+                      </tr>
+                    );
+                })}
               </tbody>
             </table>
           ) : (
@@ -139,7 +197,10 @@ export default function AllHivesPage() {
             <div className="space-y-8">
                 {filteredHives
                   .filter(h => selectedHives.length === 0 || selectedHives.includes(h.id))
-                  .map(hive => (
+                  .map(hive => {
+                    const hiveInspections = printData[hive.id]?.inspections || [];
+                    const hiveLogs = printData[hive.id]?.logs || [];
+                    return (
                     <div key={hive.id} className="break-inside-avoid border-2 border-black rounded-xl p-6 mb-8 page-break-auto">
                         <div className="flex justify-between items-start mb-6 border-b-2 border-black pb-4">
                             <div>
@@ -152,30 +213,81 @@ export default function AllHivesPage() {
                             </div>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-8">
+                        <div className="grid grid-cols-2 gap-8 mb-6">
                             <div>
                                 <h3 className="font-bold border-b border-gray-400 mb-2">STATUS</h3>
                                 <div className="text-lg mb-4">
                                     {getStatusText(hive)} 
                                     <span className="text-sm text-gray-500 ml-2">({hive.active === false ? 'Inaktiv' : 'Aktiv'})</span>
                                 </div>
-                                
-                                <h3 className="font-bold border-b border-gray-400 mb-2">SISTE INSPEKSJON</h3>
-                                <div className="text-lg mb-4">{hive.last_inspection_date || 'Aldri'}</div>
                             </div>
                             
                             <div>
-                                <h3 className="font-bold border-b border-gray-400 mb-2">TYPE</h3>
-                                <div className="text-lg mb-4 capitalize">{hive.type?.toLowerCase() || 'Produksjon'}</div>
+                                <h3 className="font-bold border-b border-gray-400 mb-2">SISTE INSPEKSJON</h3>
+                                <div className="text-lg mb-4">{hive.last_inspection_date || 'Aldri'}</div>
                             </div>
                         </div>
 
-                        <div className="mt-8 border-t-2 border-black pt-4">
-                            <h3 className="font-bold mb-2">NOTATER / OBSERVASJONER:</h3>
-                            <div className="h-32 border border-gray-300 rounded bg-gray-50"></div>
+                        {/* Inspection History Table */}
+                        <div className="mb-6">
+                            <h3 className="font-bold border-b border-black mb-2">INSPEKSJONSHISTORIKK</h3>
+                            {hiveInspections.length > 0 ? (
+                                <table className="w-full text-sm text-left">
+                                    <thead>
+                                        <tr className="border-b border-gray-400">
+                                            <th className="py-1 w-24">Dato</th>
+                                            <th className="py-1 w-24">Status</th>
+                                            <th className="py-1">Notater / Observasjoner</th>
+                                            <th className="py-1 w-32">Detaljer</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {hiveInspections.slice(0, 10).map((insp: any) => (
+                                            <tr key={insp.id} className="border-b border-gray-200">
+                                                <td className="py-1 align-top">{new Date(insp.inspection_date).toLocaleDateString()}</td>
+                                                <td className="py-1 align-top">{insp.status}</td>
+                                                <td className="py-1 align-top italic text-gray-600">{insp.notes || '-'}</td>
+                                                <td className="py-1 align-top text-xs">
+                                                    {insp.queen_seen && <span className="mr-1">👑</span>}
+                                                    {insp.eggs_seen && <span className="mr-1">🥚</span>}
+                                                    {insp.honey_stores && <span className="mr-1">🍯 {insp.honey_stores}</span>}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            ) : (
+                                <p className="text-gray-500 italic">Ingen inspeksjoner registrert.</p>
+                            )}
+                        </div>
+
+                        {/* Logs */}
+                        <div className="mb-6">
+                            <h3 className="font-bold border-b border-black mb-2">LOGG</h3>
+                            {hiveLogs.length > 0 ? (
+                                <ul className="text-sm space-y-1">
+                                    {hiveLogs.slice(0, 5).map((log: any) => (
+                                        <li key={log.id} className="flex gap-2">
+                                            <span className="font-mono text-gray-500 w-24 flex-shrink-0">
+                                                {new Date(log.created_at).toLocaleDateString()}
+                                            </span>
+                                            <span className="font-bold uppercase w-20 flex-shrink-0 text-xs mt-0.5">{log.action}</span>
+                                            <span className="text-gray-700">{log.details}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="text-gray-500 italic">Ingen loggføringer.</p>
+                            )}
+                        </div>
+
+                        <div className="mt-4 border-t-2 border-black pt-4 break-inside-avoid">
+                            <h3 className="font-bold mb-2">NYE NOTATER:</h3>
+                            <div className="h-24 border border-gray-300 rounded bg-gray-50"></div>
                         </div>
                     </div>
-                ))}
+                  );
+                })}
             </div>
           )}
         </div>
@@ -188,6 +300,18 @@ export default function AllHivesPage() {
             <div className="flex gap-2">
                 {isSelectionMode ? (
                     <>
+                        <button 
+                            onClick={() => {
+                                if (selectedHives.length === filteredHives.length) {
+                                    setSelectedHives([]);
+                                } else {
+                                    setSelectedHives(filteredHives.map(h => h.id));
+                                }
+                            }}
+                            className="bg-gray-200 text-gray-800 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors"
+                        >
+                            {selectedHives.length === filteredHives.length ? 'Velg ingen' : 'Velg alle'}
+                        </button>
                         <button 
                             onClick={() => {
                                 handlePrint('list');

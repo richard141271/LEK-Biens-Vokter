@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Archive, Truck, Trash2, X, Check, MoreVertical, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Plus, Archive, Truck, Trash2, X, Check, MoreVertical, ClipboardList, Edit } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store, MapPin } from 'lucide-react';
 
@@ -237,13 +237,22 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
               <p className="text-sm text-gray-500">{apiary.apiary_number}</p>
             </div>
           </div>
-          <button 
-            onClick={handleDeleteApiary}
-            className="p-2 hover:bg-red-50 text-red-500 rounded-full"
-            title="Slett lokasjon"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <Link
+              href={`/apiaries/${params.id}/edit`}
+              className="p-2 hover:bg-gray-100 text-gray-600 rounded-full"
+              title="Rediger lokasjon"
+            >
+              <Edit className="w-5 h-5" />
+            </Link>
+            <button 
+              onClick={handleDeleteApiary}
+              className="p-2 hover:bg-red-50 text-red-500 rounded-full"
+              title="Slett lokasjon"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </header>
 
