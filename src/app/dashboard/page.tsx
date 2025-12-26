@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings } from 'lucide-react';
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -131,6 +131,10 @@ export default function DashboardPage() {
               <Link href="/hives" className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-6 rounded-xl shadow-sm text-center transition-transform active:scale-95">
                   <div className="font-bold text-lg mb-1">BIKUBER</div>
                   <div className="text-gray-500 text-sm">Alle kuber</div>
+              </Link>
+              <Link href="/settings" className="col-span-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-4 rounded-xl shadow-sm text-center transition-transform active:scale-95 flex items-center justify-center gap-2">
+                  <Settings className="w-5 h-5 text-gray-400" />
+                  <div className="font-bold text-lg">INNSTILLINGER</div>
               </Link>
           </div>
 
