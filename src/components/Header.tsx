@@ -9,16 +9,25 @@ import VoiceAssistant from './VoiceAssistant';
 export default function Header() {
   const [profile, setProfile] = useState<any>(null);
   const [apiaries, setApiaries] = useState<any[]>([]);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Hide on auth pages
   if (pathname === '/login' || pathname === '/register' || pathname === '/') return null;
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (mounted) {
+      fetchData();
+    }
+  }, [mounted]);
+
+  if (!mounted) return null;
 
   const fetchData = async () => {
     try {

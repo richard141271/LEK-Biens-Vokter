@@ -22,36 +22,42 @@ export default function VoiceAssistant({ onCommand, apiaries }: VoiceAssistantPr
   const synthRef = useRef<SpeechSynthesis | null>(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const { webkitSpeechRecognition, SpeechRecognition } = window as unknown as IWindow;
-      const SpeechRecognitionConstructor = SpeechRecognition || webkitSpeechRecognition;
+    try {
+      if (typeof window !== 'undefined') {
+        const { webkitSpeechRecognition, SpeechRecognition } = window as unknown as IWindow;
+        const SpeechRecognitionConstructor = SpeechRecognition || webkitSpeechRecognition;
 
-      if (SpeechRecognitionConstructor) {
-        const recognition = new SpeechRecognitionConstructor();
-        recognition.continuous = false;
-        recognition.lang = 'no-NO';
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
+        if (SpeechRecognitionConstructor) {
+          const recognition = new SpeechRecognitionConstructor();
+          recognition.continuous = false;
+          recognition.lang = 'no-NO';
+          recognition.interimResults = false;
+          recognition.maxAlternatives = 1;
 
-        recognition.onresult = (event: any) => {
-          const text = event.results[0][0].transcript.toLowerCase();
-          handleVoiceInput(text);
-        };
+          recognition.onresult = (event: any) => {
+            const text = event.results[0][0].transcript.toLowerCase();
+            handleVoiceInput(text);
+          };
 
-        recognition.onend = () => {
-          setIsListening(false);
-        };
+          recognition.onend = () => {
+            setIsListening(false);
+          };
 
-        recognition.onerror = (event: any) => {
-          console.error('Speech recognition error', event.error);
-          setIsListening(false);
-          setFeedback('Kunne ikke oppfatte hva du sa.');
-        };
+          recognition.onerror = (event: any) => {
+            console.error('Speech recognition error', event.error);
+            setIsListening(false);
+            setFeedback('Kunne ikke oppfatte hva du sa.');
+          };
 
-        recognitionRef.current = recognition;
+          recognitionRef.current = recognition;
+        }
+
+        if (window.speechSynthesis) {
+          synthRef.current = window.speechSynthesis;
+        }
       }
-
-      synthRef.current = window.speechSynthesis;
+    } catch (e) {
+      console.error("VoiceAssistant initialization error", e);
     }
   }, [step, apiaries]); // Re-bind if dependencies change significantly, though mostly stable
 
