@@ -23,6 +23,7 @@ export default function RegisterPage() {
     postalCode: '',
     city: '',
     phoneNumber: '',
+    referralCode: '',
     isNorgesBirokterlagMember: false,
     memberNumber: '',
     localAssociation: '',
@@ -205,6 +206,26 @@ export default function RegisterPage() {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
                     placeholder="Ola Nordmann"
                   />
+                </div>
+
+                {/* Referral Code */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-bold text-honey-700 mb-1 flex items-center gap-2">
+                    Har du en vervekode?
+                    <span className="text-xs font-normal text-gray-500">(Valgfritt)</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="referralCode"
+                    value={(formData as any).referralCode || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, referralCode: e.target.value.toUpperCase() }))}
+                    className="w-full px-4 py-2 border border-honey-200 bg-honey-50/50 rounded-lg focus:ring-honey-500 focus:border-honey-500 placeholder-gray-400 font-mono tracking-wider"
+                    placeholder="ABC12345"
+                    maxLength={8}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Bruk koden fra den som inviterte deg for å koble deg til nettverket.
+                  </p>
                 </div>
                 
                 <div>

@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, Users, ChevronRight } from 'lucide-react';
 import WeatherWidget from '@/components/WeatherWidget';
 
 export default function DashboardPage() {
@@ -317,6 +317,20 @@ export default function DashboardPage() {
               </button>
 
               <div className="grid grid-cols-2 gap-4">
+                  {/* Network Card */}
+                  <Link href="/network" className="col-span-2 bg-gradient-to-r from-gray-900 to-gray-800 text-white p-4 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-between group">
+                      <div className="flex items-center gap-4">
+                          <div className="bg-white/10 p-3 rounded-full group-hover:bg-white/20 transition-colors">
+                              <Users className="w-6 h-6 text-honey-400" />
+                          </div>
+                          <div>
+                              <div className="font-bold text-lg">MITT PARTNERNETTVERK</div>
+                              <div className="text-gray-400 text-xs">Se din bikube og inntjening</div>
+                          </div>
+                      </div>
+                      <ChevronRight className="w-6 h-6 text-gray-500 group-hover:text-white transition-colors" />
+                  </Link>
+
                   <Link href="/apiaries" className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-6 rounded-xl shadow-sm text-center transition-transform active:scale-95">
                       <div className="font-bold text-lg mb-1">BIGÅRDER</div>
                       <div className="text-gray-500 text-sm">Lokasjoner</div>
