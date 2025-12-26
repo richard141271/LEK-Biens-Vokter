@@ -13,7 +13,7 @@ export default function BottomNav() {
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 pb-safe z-50">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 pb-safe z-[100]">
       <div className="flex justify-around items-center h-16">
         <Link 
           href="/dashboard" 
