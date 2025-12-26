@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Truck, Calendar, Activity, X, Check, Printer, ChevronDown, ChevronUp, History, AlertTriangle, Trash2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Truck, Calendar, Activity, X, Check, Printer, ChevronDown, ChevronUp, History, AlertTriangle, Trash2, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store } from 'lucide-react';
 
@@ -321,7 +321,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                   <Activity className="w-6 h-6" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">Status</h2>
+                  <h2 className="text-lg font-bold text-gray-900">Status: {hive.name}</h2>
                   <div className="flex gap-2 mt-1">
                     <span className={`font-medium px-2 py-0.5 rounded-full text-sm border ${getStatusColor(hive.status || 'OK')}`}>
                         {hive.status || 'OK'}
@@ -437,6 +437,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                              {inspection.status}
                            </span>
                            {inspection.weather && <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{inspection.weather}</span>}
+                           {inspection.image_url && <ImageIcon className="w-4 h-4 text-gray-400" />}
                         </div>
                         <p className="text-sm text-gray-500 truncate max-w-[200px] print:max-w-none mt-1">
                           {inspection.notes || 'Ingen notater'}
@@ -486,6 +487,19 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                       <div className="mt-4 bg-white p-3 rounded border border-gray-200 print:border-none print:p-0">
                         <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Notater</span>
                         <p className="text-gray-800 whitespace-pre-wrap">{inspection.notes}</p>
+                      </div>
+                    )}
+                    
+                    {inspection.image_url && (
+                      <div className="mt-4">
+                        <span className="block text-xs font-bold text-gray-500 uppercase mb-2">Bilde</span>
+                        <div className="rounded-lg overflow-hidden border border-gray-200 max-w-sm">
+                          <img 
+                            src={inspection.image_url} 
+                            alt="Inspeksjonsbilde" 
+                            className="w-full h-auto object-cover"
+                          />
+                        </div>
                       </div>
                     )}
                     
