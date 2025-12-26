@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Map, Box, Settings, LogOut } from 'lucide-react';
+import { Home, Map, Box, Settings, LogOut, Wallet } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 
@@ -25,6 +25,7 @@ export default function DesktopNav() {
     { href: '/dashboard', label: 'Oversikt', icon: Home },
     { href: '/apiaries', label: 'Bigårder', icon: Map },
     { href: '/hives', label: 'Bikuber', icon: Box },
+    { href: '/wallet', label: 'Lommebok', icon: Wallet },
     { href: '/settings', label: 'Innstillinger', icon: Settings },
   ];
 

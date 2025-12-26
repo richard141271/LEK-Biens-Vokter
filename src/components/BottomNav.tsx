@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Map, Box, Settings } from 'lucide-react';
+import { Home, Map, Box, Settings, Wallet } from 'lucide-react';
 
 export default function BottomNav() {
   const pathname = usePathname();
@@ -37,6 +37,14 @@ export default function BottomNav() {
         >
           <Box className="w-6 h-6 mb-1" />
           <span className="text-[10px] font-medium">Bikuber</span>
+        </Link>
+
+        <Link 
+          href="/wallet" 
+          className={`flex flex-col items-center justify-center w-full h-full ${isActive('/wallet') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}
+        >
+          <Wallet className="w-6 h-6 mb-1" />
+          <span className="text-[10px] font-medium">Lommebok</span>
         </Link>
 
         <Link 
