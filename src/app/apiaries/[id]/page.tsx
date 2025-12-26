@@ -286,9 +286,11 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                   <div className="flex justify-between items-center">
                     <h3 className="font-bold text-gray-900">{hive.name}</h3>
                     <div className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider ${
-                      hive.status === 'aktiv' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      (hive.active === false ? 'inaktiv' : (hive.status || 'aktiv')).toLowerCase() === 'aktiv' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {hive.status}
+                      {hive.active === false ? 'INAKTIV' : (hive.status || 'AKTIV')}
                     </div>
                   </div>
                   <p className="text-xs text-gray-500">{hive.hive_number}</p>

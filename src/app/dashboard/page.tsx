@@ -4,8 +4,9 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode } from 'lucide-react';
 import WeatherWidget from '@/components/WeatherWidget';
+import VoiceAssistant from '@/components/VoiceAssistant';
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -24,6 +25,11 @@ export default function DashboardPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [selectedApiaryId, setSelectedApiaryId] = useState('');
   const [availableApiaries, setAvailableApiaries] = useState<any[]>([]);
+
+  // Wizard State
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [wizardApiaryName, setWizardApiaryName] = useState('');
 
   const supabase = createClient();
   const router = useRouter();
@@ -86,7 +92,57 @@ export default function DashboardPage() {
         if (apiariesData.length > 0) setSelectedApiaryId(apiariesData[0].id);
     }
 
+    // Trigger Wizard if no apiaries
+    if ((apiaryCount || 0) === 0) {
+        setIsWizardOpen(true);
+    }
+
     setLoading(false);
+  };
+
+  const handleVoiceCommand = (command: string, args?: any) => {
+    if (command === 'create_hive' && args?.apiaryId) {
+      setSelectedApiaryId(args.apiaryId);
+      setCreateCount(1);
+      setIsCreateModalOpen(true);
+    }
+  };
+
+  const handleWizardCreateApiary = async () => {
+    if (!wizardApiaryName) return;
+    
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Generate number (simplified)
+        const apiaryNumber = `BG-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+
+        const { data, error } = await supabase
+            .from('apiaries')
+            .insert({
+                user_id: user.id,
+                name: wizardApiaryName,
+                apiary_number: apiaryNumber,
+                type: 'bigård', // Default
+                location: 'Hjemme'
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        
+        // Refresh apiaries
+        setStats(prev => ({ ...prev, apiaries: prev.apiaries + 1 }));
+        setAvailableApiaries(prev => [...prev, { id: data.id, name: data.name, type: data.type }]);
+        setSelectedApiaryId(data.id);
+        
+        // Go to next step
+        setWizardStep(2);
+
+    } catch (e: any) {
+        alert('Feil: ' + e.message);
+    }
   };
 
   const handleCreateSubmit = async () => {
@@ -272,6 +328,14 @@ export default function DashboardPage() {
                 REGISTRER NYE KUBER
               </button>
 
+              <button
+                onClick={() => alert('QR-skanner kommer snart! Her vil du kunne skanne kuber direkte fra butikk.')}
+                className="w-full bg-white border-2 border-honey-100 hover:border-honey-500 text-honey-600 p-4 rounded-xl shadow-sm flex items-center justify-center gap-2 font-bold text-lg transition-transform active:scale-95"
+              >
+                <QrCode className="w-6 h-6" />
+                SKANN QR-KODE
+              </button>
+
               <div className="grid grid-cols-2 gap-4">
                   <Link href="/apiaries" className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-6 rounded-xl shadow-sm text-center transition-transform active:scale-95">
                       <div className="font-bold text-lg mb-1">BIGÅRDER</div>
@@ -392,6 +456,65 @@ export default function DashboardPage() {
                 </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Voice Assistant */}
+      <VoiceAssistant onCommand={handleVoiceCommand} apiaries={availableApiaries} />
+
+      {/* Startup Wizard Modal */}
+      {isWizardOpen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[60]">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-8 text-center">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Velkommen til LEK-Biens Vokter! 🐝</h2>
+            <p className="text-gray-600 mb-8">La oss sette opp din første bigård så du kan komme i gang.</p>
+            
+            {wizardStep === 1 && (
+                <div className="space-y-4">
+                <div className="text-left">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Hva heter bigården din?</label>
+                    <input 
+                        type="text" 
+                        value={wizardApiaryName}
+                        onChange={(e) => setWizardApiaryName(e.target.value)}
+                        placeholder="F.eks. Hjemmehagen"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none"
+                    />
+                </div>
+                <button 
+                    onClick={handleWizardCreateApiary}
+                    disabled={!wizardApiaryName}
+                    className="w-full bg-honey-500 text-white font-bold py-3 rounded-xl hover:bg-honey-600 disabled:opacity-50"
+                >
+                    Opprett Bigård
+                </button>
+                </div>
+            )}
+
+            {wizardStep === 2 && (
+                <div className="space-y-4">
+                <div className="bg-green-100 text-green-800 p-4 rounded-lg mb-4">
+                    Bigård opprettet! 🎉
+                </div>
+                <p className="text-sm text-gray-600">Nå kan du registrere dine første kuber.</p>
+                <button 
+                    onClick={() => {
+                        setIsWizardOpen(false);
+                        setIsCreateModalOpen(true);
+                    }}
+                    className="w-full bg-honey-500 text-white font-bold py-3 rounded-xl hover:bg-honey-600"
+                >
+                    Registrer Kuber
+                </button>
+                <button 
+                    onClick={() => setIsWizardOpen(false)}
+                    className="text-gray-400 text-sm hover:underline mt-4"
+                >
+                    Hopp over for nå
+                </button>
+                </div>
+            )}
+            </div>
         </div>
       )}
     </div>

@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, User, ShieldCheck, AlertCircle } from 'lucide-react';
+import { LogOut, User, ShieldCheck, AlertCircle, Database } from 'lucide-react';
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -289,6 +289,18 @@ export default function SettingsPage() {
                 className="w-full bg-black text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition-colors"
               >
                 Endre/oppdatere profil
+              </button>
+            </div>
+
+            {/* Data Handling */}
+            <div className="bg-white rounded-xl shadow-sm p-6 mt-4">
+              <h2 className="text-lg font-bold text-gray-900 mb-4">Datahåndtering</h2>
+              <button
+                onClick={() => alert('Masse-import fra Excel/CSV kommer snart! Her vil du kunne laste opp lister med kuber.')}
+                className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2"
+              >
+                <Database className="w-5 h-5" />
+                Importer data (CSV)
               </button>
             </div>
           </>
