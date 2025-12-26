@@ -35,24 +35,15 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon.png" />
       </head>
       <body className={`${inter.className} bg-gray-50`}>
-        <ErrorBoundary name="DesktopNav">
-          <DesktopNav />
-        </ErrorBoundary>
+        <DesktopNav />
         
         <div className="md:pl-64 min-h-screen">
-          <ErrorBoundary name="Header">
-            <Header />
-          </ErrorBoundary>
-          
-          <ErrorBoundary name="PageContent">
-            {children}
-          </ErrorBoundary>
+          <Header />
+          {children}
         </div>
         
         <div className="md:hidden print:hidden">
-          <ErrorBoundary name="BottomNav">
-            <BottomNav />
-          </ErrorBoundary>
+          <BottomNav />
         </div>
         
         <footer className="py-4 text-center text-xs text-gray-400 pb-20 md:pl-64 print:hidden">
