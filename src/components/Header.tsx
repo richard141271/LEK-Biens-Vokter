@@ -21,25 +21,42 @@ export default function Header() {
   }, []);
 
   const fetchData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error || !user) {
+            // If we are on a protected route and no user, we might want to redirect, 
+            // but Next.js middleware or page logic usually handles that.
+            // For the header, we just stop.
+            return;
+        }
 
-    // Fetch Profile
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-    setProfile(profileData || { full_name: user.user_metadata?.full_name });
+        // Fetch Profile
+        const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+        
+        // Safe check if component is still mounted would be ideal, but for now:
+        setProfile(profileData || { full_name: user.user_metadata?.full_name });
 
-    // Fetch Apiaries (for Voice Assistant context)
-    const { data: apData } = await supabase.from('apiaries').select('id, name');
-    if (apData) setApiaries(apData);
+        // Fetch Apiaries (for Voice Assistant context)
+        const { data: apData } = await supabase.from('apiaries').select('id, name');
+        if (apData) setApiaries(apData);
+    } catch (e) {
+        console.error("Header fetch error", e);
+    }
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/');
+    try {
+        await supabase.auth.signOut();
+        // Force hard reload to clear any client state if needed, or just push
+        window.location.href = '/'; 
+    } catch (e) {
+        console.error("Sign out error", e);
+        router.push('/');
+    }
   };
 
   const handleVoiceCommand = async (command: string, args: any) => {
@@ -101,7 +118,7 @@ export default function Header() {
   };
 
   return (
-    <div className="md:hidden flex flex-col w-full z-40 relative"> 
+    <div className="md:hidden flex flex-col w-full z-40 sticky top-0"> 
       {/* Top Yellow Bar */}
       <div className="bg-[#F79009] text-black px-4 py-3 flex items-center justify-between shadow-sm relative z-50">
         {/* Left: Logo */}

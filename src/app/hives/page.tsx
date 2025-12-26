@@ -82,11 +82,13 @@ export default function AllHivesPage() {
     const apiaryName = hive.apiaries?.name?.toLowerCase() || '';
     const apiaryLoc = hive.apiaries?.location?.toLowerCase() || '';
     const status = (hive.active === false ? 'inaktiv' : (hive.status || 'aktiv')).toLowerCase();
+    const type = (hive.type || 'produksjon').toLowerCase();
 
     return hiveNum.includes(term) || 
            apiaryName.includes(term) || 
            apiaryLoc.includes(term) || 
-           status.includes(term);
+           status.includes(term) ||
+           type.includes(term);
   });
 
   const toggleSelection = (id: string) => {
