@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
-import { Plus, MapPin, Warehouse, Store, Truck, LogOut } from 'lucide-react';
+import { Plus, MapPin, Warehouse, Store, Truck, LogOut, Box } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -25,7 +25,7 @@ export default function ApiariesPage() {
 
     const { data, error } = await supabase
       .from('apiaries')
-      .select('*')
+      .select('*, hives(id, active)')
       .order('created_at', { ascending: false });
 
     if (data) setApiaries(data);
@@ -59,6 +59,8 @@ export default function ApiariesPage() {
         ) : (
           apiaries.map((apiary) => {
             const Icon = getIcon(apiary.type);
+            const activeHiveCount = apiary.hives?.filter((h: any) => h.active).length || 0;
+
             return (
               <Link href={`/apiaries/${apiary.id}`} key={apiary.id}>
                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:border-honey-500 transition-colors cursor-pointer">
@@ -68,9 +70,17 @@ export default function ApiariesPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start gap-2">
                       <h3 className="font-bold text-gray-900 truncate">{apiary.name}</h3>
-                      <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-600 shrink-0">
-                        {apiary.apiary_number}
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {activeHiveCount > 0 && (
+                          <span className="text-xs font-medium bg-honey-100 text-honey-700 px-2 py-1 rounded-full flex items-center gap-1">
+                            <Box className="w-3 h-3" />
+                            {activeHiveCount}
+                          </span>
+                        )}
+                        <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-600">
+                          {apiary.apiary_number}
+                        </span>
+                      </div>
                     </div>
                     <p className="text-sm text-gray-500 truncate">{apiary.location || 'Ingen adresse'}</p>
                     {apiary.registration_number && (
