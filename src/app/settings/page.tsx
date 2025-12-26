@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight } from 'lucide-react';
+import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight } from 'lucide-react';
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -275,6 +275,41 @@ export default function SettingsPage() {
               >
                 Endre/oppdatere profil
               </button>
+            </div>
+
+            {/* Modules / Beta Features */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <button
+                  onClick={() => router.push('/network')}
+                  className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-between group text-left"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="bg-white/10 p-3 rounded-full group-hover:bg-white/20 transition-colors">
+                      <Users className="w-6 h-6 text-honey-400" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-lg">Partnernettverk</div>
+                      <div className="text-gray-400 text-xs">Administrer ditt nettverk</div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-6 h-6 text-gray-500 group-hover:text-white transition-colors" />
+                </button>
+
+                <button
+                  onClick={() => router.push('/wallet')}
+                  className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-6 rounded-xl shadow-sm transition-all flex items-center justify-between group text-left"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="bg-honey-100 p-3 rounded-full group-hover:bg-honey-200 transition-colors">
+                      <Wallet className="w-6 h-6 text-honey-600" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-lg">Min Lommebok</div>
+                      <div className="text-gray-500 text-xs">Saldo og transaksjoner</div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-6 h-6 text-gray-300 group-hover:text-gray-500 transition-colors" />
+                </button>
             </div>
 
             {/* Data Handling */}
