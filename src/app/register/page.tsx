@@ -52,11 +52,11 @@ export default function RegisterPage() {
     const fetchCity = async () => {
       if (formData.postalCode.length === 4) {
         try {
-          const response = await fetch(`https://api.zippopotam.us/no/${formData.postalCode}`);
+          const response = await fetch(`https://api.bring.com/shippingguide/api/postalCode.json?clientUrl=lek-biensvokter&pnr=${formData.postalCode}`);
           if (response.ok) {
             const data = await response.json();
-            if (data.places && data.places.length > 0) {
-              setFormData(prev => ({ ...prev, city: data.places[0]['place name'] }));
+            if (data.valid) {
+              setFormData(prev => ({ ...prev, city: data.result }));
             }
           }
         } catch (err) {

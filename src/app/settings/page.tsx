@@ -39,6 +39,28 @@ export default function SettingsPage() {
     fetchProfile();
   }, []);
 
+  // Auto-fetch City based on Postal Code (Bring API)
+  useEffect(() => {
+    const fetchCity = async () => {
+      if (isEditing && formData.postal_code && formData.postal_code.length === 4) {
+        try {
+          const response = await fetch(`https://api.bring.com/shippingguide/api/postalCode.json?clientUrl=lek-biensvokter&pnr=${formData.postal_code}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.valid) {
+              setFormData((prev: any) => ({ ...prev, city: data.result }));
+            }
+          }
+        } catch (err) {
+          console.error('Failed to fetch city', err);
+        }
+      }
+    };
+
+    const timeoutId = setTimeout(fetchCity, 500); // Debounce
+    return () => clearTimeout(timeoutId);
+  }, [formData.postal_code, isEditing]);
+
   const fetchProfile = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
