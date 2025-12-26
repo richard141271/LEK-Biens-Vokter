@@ -26,8 +26,8 @@ export default function LoginPage() {
       if (error) throw error;
       
       // Suksess! Send til dashboard
-      router.push('/dashboard');
-      router.refresh();
+      // Bruker window.location for å sikre en hard reload og unngå client-side state feil ved innlogging
+      window.location.href = '/dashboard';
     } catch (error: any) {
       setMessage('Kunne ikke logge inn: ' + error.message);
     } finally {

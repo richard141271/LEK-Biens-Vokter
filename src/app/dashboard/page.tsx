@@ -34,69 +34,76 @@ export default function DashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    fetchData();
+    fetchData().catch(e => {
+        console.error("Dashboard fetch error:", e);
+        setLoading(false);
+    });
   }, []);
 
   const fetchData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push('/login');
-      return;
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            router.push('/login');
+            return;
+        }
+
+        // Fetch Profile Data
+        const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+        
+        setProfile(profileData || { full_name: user.user_metadata?.full_name || user.email });
+
+        // Fetch Stats
+        const { count: apiaryCount } = await supabase
+        .from('apiaries')
+        .select('*', { count: 'exact', head: true });
+
+        const { data: hivesData } = await supabase
+        .from('hives')
+        .select('active');
+
+        const totalHives = hivesData?.length || 0;
+        const activeHives = hivesData?.filter(h => h.active).length || 0;
+
+        setStats({
+        apiaries: apiaryCount || 0,
+        hives: totalHives,
+        activeHives: activeHives
+        });
+
+        // Fetch Recent Activity (Logs)
+        const { data: logs } = await supabase
+        .from('hive_logs')
+        .select('*, hives(hive_number)')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+        if (logs) setRecentLogs(logs);
+
+        // Fetch Apiaries for dropdown
+        const { data: apiariesData } = await supabase
+        .from('apiaries')
+        .select('id, name, type')
+        .order('name');
+        
+        if (apiariesData) {
+            setAvailableApiaries(apiariesData);
+            if (apiariesData.length > 0) setSelectedApiaryId(apiariesData[0].id);
+        }
+
+        // Trigger Wizard if no apiaries
+        if ((apiaryCount || 0) === 0) {
+            setIsWizardOpen(true);
+        }
+    } catch (e) {
+        console.error("Critical error in dashboard fetch:", e);
+    } finally {
+        setLoading(false);
     }
-
-    // Fetch Profile Data
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-    
-    setProfile(profileData || { full_name: user.user_metadata?.full_name || user.email });
-
-    // Fetch Stats
-    const { count: apiaryCount } = await supabase
-      .from('apiaries')
-      .select('*', { count: 'exact', head: true });
-
-    const { data: hivesData } = await supabase
-      .from('hives')
-      .select('active');
-
-    const totalHives = hivesData?.length || 0;
-    const activeHives = hivesData?.filter(h => h.active).length || 0;
-
-    setStats({
-      apiaries: apiaryCount || 0,
-      hives: totalHives,
-      activeHives: activeHives
-    });
-
-    // Fetch Recent Activity (Logs)
-    const { data: logs } = await supabase
-      .from('hive_logs')
-      .select('*, hives(hive_number)')
-      .order('created_at', { ascending: false })
-      .limit(5);
-
-    if (logs) setRecentLogs(logs);
-
-    // Fetch Apiaries for dropdown
-    const { data: apiariesData } = await supabase
-      .from('apiaries')
-      .select('id, name, type')
-      .order('name');
-    
-    if (apiariesData) {
-        setAvailableApiaries(apiariesData);
-        if (apiariesData.length > 0) setSelectedApiaryId(apiariesData[0].id);
-    }
-
-    // Trigger Wizard if no apiaries
-    if ((apiaryCount || 0) === 0) {
-        setIsWizardOpen(true);
-    }
-
-    setLoading(false);
   };
 
   const handleWizardCreateApiary = async () => {
@@ -221,7 +228,7 @@ export default function DashboardPage() {
                       <User className="w-6 h-6" />
                   </div>
                   <div>
-                      <h2 className="text-lg font-bold text-gray-900">{profile?.full_name}</h2>
+                      <h2 className="text-lg font-bold text-gray-900">{profile?.full_name || 'Laster...'}</h2>
                       <p className="text-sm text-gray-500">Medlem #{profile?.member_number || 'Ikke registrert'}</p>
                   </div>
               </div>

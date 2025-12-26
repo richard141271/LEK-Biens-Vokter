@@ -21,6 +21,7 @@ export const viewport = {
 import BottomNav from "@/components/BottomNav";
 import DesktopNav from "@/components/DesktopNav";
 import Header from "@/components/Header";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 export default function RootLayout({
   children,
@@ -34,14 +35,26 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon.png" />
       </head>
       <body className={`${inter.className} bg-gray-50`}>
-        <DesktopNav />
+        <ErrorBoundary name="DesktopNav">
+          <DesktopNav />
+        </ErrorBoundary>
+        
         <div className="md:pl-64 min-h-screen">
-          <Header />
-          {children}
+          <ErrorBoundary name="Header">
+            <Header />
+          </ErrorBoundary>
+          
+          <ErrorBoundary name="PageContent">
+            {children}
+          </ErrorBoundary>
         </div>
+        
         <div className="md:hidden print:hidden">
-          <BottomNav />
+          <ErrorBoundary name="BottomNav">
+            <BottomNav />
+          </ErrorBoundary>
         </div>
+        
         <footer className="py-4 text-center text-xs text-gray-400 pb-20 md:pl-64 print:hidden">
           v0.1.0
         </footer>

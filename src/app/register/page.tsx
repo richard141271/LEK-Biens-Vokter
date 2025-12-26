@@ -159,7 +159,8 @@ export default function RegisterPage() {
           // But auth worked. We should redirect.
         }
 
-        router.push('/dashboard');
+        // Use hard navigation to ensure clean state
+        window.location.href = '/dashboard';
       }
     } catch (err: any) {
       setError(err.message);
