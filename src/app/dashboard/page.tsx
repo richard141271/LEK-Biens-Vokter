@@ -10,6 +10,12 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
   const [honeyStatus, setHoneyStatus] = useState('Ikke klar');
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    apiaries: 0,
+    hives: 0,
+    activeHives: 0
+  });
+  const [recentLogs, setRecentLogs] = useState<any[]>([]);
   const supabase = createClient();
   const router = useRouter();
 
@@ -32,6 +38,34 @@ export default function DashboardPage() {
       .single();
     
     setProfile(profileData || { full_name: user.user_metadata?.full_name || user.email });
+
+    // Fetch Stats
+    const { count: apiaryCount } = await supabase
+      .from('apiaries')
+      .select('*', { count: 'exact', head: true });
+
+    const { data: hivesData } = await supabase
+      .from('hives')
+      .select('active');
+
+    const totalHives = hivesData?.length || 0;
+    const activeHives = hivesData?.filter(h => h.active).length || 0;
+
+    setStats({
+      apiaries: apiaryCount || 0,
+      hives: totalHives,
+      activeHives: activeHives
+    });
+
+    // Fetch Recent Activity (Logs)
+    const { data: logs } = await supabase
+      .from('hive_logs')
+      .select('*, hives(hive_number)')
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (logs) setRecentLogs(logs);
+
     setLoading(false);
   };
 
@@ -122,6 +156,23 @@ export default function DashboardPage() {
               </div>
           </div>
 
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                  <p className="text-gray-500 text-sm mb-1">Aktive kuber</p>
+                  <div className="flex items-end gap-2">
+                      <span className="text-2xl font-bold text-gray-900">{stats.activeHives}</span>
+                      <span className="text-gray-400 text-sm mb-1">/ {stats.hives} totalt</span>
+                  </div>
+              </div>
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                  <p className="text-gray-500 text-sm mb-1">Bigårder</p>
+                  <div className="flex items-end gap-2">
+                      <span className="text-2xl font-bold text-gray-900">{stats.apiaries}</span>
+                  </div>
+              </div>
+          </div>
+
           {/* Quick Actions */}
           <div className="grid grid-cols-2 gap-4">
               <Link href="/apiaries" className="bg-honey-500 hover:bg-honey-600 text-white p-6 rounded-xl shadow-sm text-center transition-transform active:scale-95">
@@ -137,6 +188,37 @@ export default function DashboardPage() {
                   <div className="font-bold text-lg">INNSTILLINGER</div>
               </Link>
           </div>
+
+          {/* Recent Activity */}
+          {recentLogs.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                <div className="flex items-center gap-2 mb-4">
+                    <Database className="w-5 h-5 text-honey-500" />
+                    <h3 className="font-bold text-gray-900">Siste Aktivitet</h3>
+                </div>
+                <div className="space-y-4">
+                    {recentLogs.map((log) => (
+                        <div key={log.id} className="flex gap-3 text-sm border-b border-gray-100 last:border-0 pb-3 last:pb-0">
+                            <div className="w-2 h-2 mt-1.5 rounded-full bg-honey-400 shrink-0" />
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-bold text-gray-900">{log.action}</span>
+                                    {log.hives?.hive_number && (
+                                        <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600 font-mono">
+                                            {log.hives.hive_number}
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-gray-600 mt-0.5">{log.details}</p>
+                                <p className="text-gray-400 text-xs mt-1">
+                                    {new Date(log.created_at).toLocaleDateString()}
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+          )}
 
           {/* External Links */}
           <div className="space-y-3 pt-4">
