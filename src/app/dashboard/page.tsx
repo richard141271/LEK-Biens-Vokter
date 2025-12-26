@@ -125,12 +125,12 @@ export default function DashboardPage() {
           {/* Quick Actions */}
           <div className="grid grid-cols-2 gap-4">
               <Link href="/apiaries" className="bg-honey-500 hover:bg-honey-600 text-white p-6 rounded-xl shadow-sm text-center transition-transform active:scale-95">
-                  <div className="font-bold text-lg mb-1">MINE BIGÅRDER</div>
-                  <div className="text-honey-100 text-sm">Se oversikt</div>
+                  <div className="font-bold text-lg mb-1">BIGÅRDER</div>
+                  <div className="text-honey-100 text-sm">Lokasjoner</div>
               </Link>
-              <Link href="/settings" className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-6 rounded-xl shadow-sm text-center transition-transform active:scale-95">
-                  <div className="font-bold text-lg mb-1">INNSTILLINGER</div>
-                  <div className="text-gray-500 text-sm">Endre profil</div>
+              <Link href="/hives" className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-6 rounded-xl shadow-sm text-center transition-transform active:scale-95">
+                  <div className="font-bold text-lg mb-1">BIKUBER</div>
+                  <div className="text-gray-500 text-sm">Alle kuber</div>
               </Link>
           </div>
 
