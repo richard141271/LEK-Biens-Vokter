@@ -18,7 +18,6 @@ export default function NewApiaryPage() {
   const types = [
     { id: 'bigård', label: 'Bigård', icon: MapPin },
     { id: 'lager', label: 'Lager', icon: Warehouse },
-    { id: 'butikk', label: 'Butikk', icon: Store },
     { id: 'bil', label: 'Bil', icon: Truck },
     { id: 'oppstart', label: 'Oppstart', icon: Store }, // Added 'Oppstart'
   ];
@@ -58,7 +57,6 @@ export default function NewApiaryPage() {
       
       if (type === 'bil') prefix = 'BIL';
       if (type === 'lager') prefix = 'LG';
-      if (type === 'butikk') prefix = 'BUT';
       if (type === 'oppstart') prefix = 'START';
 
       const apiaryNumber = `${prefix}-${nextNum.toString().padStart(3, '0')}`;

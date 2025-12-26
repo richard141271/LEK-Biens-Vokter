@@ -19,7 +19,6 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
   const types = [
     { id: 'bigård', label: 'Bigård', icon: MapPin },
     { id: 'lager', label: 'Lager', icon: Warehouse },
-    { id: 'butikk', label: 'Butikk', icon: Store },
     { id: 'bil', label: 'Bil', icon: Truck },
     { id: 'oppstart', label: 'Oppstart', icon: Store },
   ];

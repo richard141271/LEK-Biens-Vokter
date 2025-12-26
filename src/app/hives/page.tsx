@@ -408,35 +408,35 @@ export default function AllHivesPage() {
                         selectedHives.includes(hive.id) ? 'border-honey-500 ring-1 ring-honey-500' : 'hover:border-honey-500'
                     }`}
                 >
-                    <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold font-mono text-lg ${
+                    <div className="flex justify-between items-start mb-2 gap-2">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold font-mono text-lg shrink-0 ${
                             hive.active === false ? 'bg-gray-100 text-gray-400' : 'bg-honey-50 text-honey-600'
                         }`}>
                         {hive.hive_number}
                         </div>
-                        <div>
+                        <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                            <h3 className={`font-bold transition-colors ${
+                            <h3 className={`font-bold transition-colors truncate ${
                                 hive.active === false ? 'text-gray-500' : 'text-gray-900 group-hover:text-honey-600'
                             }`}>
                                 {hive.name || `Kube ${hive.hive_number}`}
                             </h3>
                             {/* Type Indicator */}
                             {hive.type === 'AVLEGGER' && (
-                                <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                                <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide shrink-0">
                                     Avlegger
                                 </span>
                             )}
                              {hive.type === 'PRODUKSJON' && (
-                                <span className="text-[10px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                                <span className="text-[10px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide shrink-0">
                                     PROD
                                 </span>
                             )}
                         </div>
-                        <div className="flex items-center gap-1 text-xs text-gray-500">
-                            <MapPin className="w-3 h-3" />
-                            {hive.apiaries?.name || 'Ingen lokasjon'}
+                        <div className="flex items-center gap-1 text-xs text-gray-500 min-w-0">
+                            <MapPin className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{hive.apiaries?.name || 'Ingen lokasjon'}</span>
                         </div>
                         </div>
                     </div>

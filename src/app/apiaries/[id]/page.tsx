@@ -101,12 +101,27 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get current count for unique numbering
-      const { count } = await supabase
+      // Fetch all hive numbers to determine the next available number safely
+      const { data: hivesData, error: hivesError } = await supabase
         .from('hives')
-        .select('*', { count: 'exact', head: true });
+        .select('hive_number');
       
-      let startNum = (count || 0) + 1;
+      if (hivesError) throw hivesError;
+
+      let maxNum = 0;
+      if (hivesData && hivesData.length > 0) {
+        maxNum = hivesData.reduce((max, hive) => {
+          // Extract number from "KUBE-XXX"
+          const match = hive.hive_number?.match(/KUBE-(\d+)/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            return num > max ? num : max;
+          }
+          return max;
+        }, 0);
+      }
+      
+      let startNum = maxNum + 1;
       const newHives = [];
 
       for (let i = 0; i < createCount; i++) {
@@ -366,7 +381,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       </main>
 
       {/* FAB to add Hive - Only show in Allowed Types */}
-      {!isSelectionMode && ['butikk', 'oppstart'].includes(apiary.type) && (
+      {!isSelectionMode && ['bigård', 'oppstart'].includes(apiary.type) && (
         <button 
           onClick={() => setIsCreateModalOpen(true)}
           className="fixed bottom-24 right-6 w-14 h-14 bg-honey-500 hover:bg-honey-600 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95 z-10"

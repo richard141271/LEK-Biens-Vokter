@@ -35,8 +35,8 @@ export default function ApiariesPage() {
   const getIcon = (type: string) => {
     switch (type) {
       case 'lager': return Warehouse;
-      case 'butikk': return Store;
       case 'bil': return Truck;
+      case 'oppstart': return Store;
       default: return MapPin;
     }
   };
@@ -65,10 +65,10 @@ export default function ApiariesPage() {
                   <div className="w-12 h-12 bg-honey-50 rounded-full flex items-center justify-center text-honey-600 shrink-0">
                     <Icon className="w-6 h-6" />
                   </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <h3 className="font-bold text-gray-900">{apiary.name}</h3>
-                      <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-600">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start gap-2">
+                      <h3 className="font-bold text-gray-900 truncate">{apiary.name}</h3>
+                      <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-600 shrink-0">
                         {apiary.apiary_number}
                       </span>
                     </div>
