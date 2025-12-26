@@ -288,6 +288,35 @@ export default function SettingsPage() {
                 Importer data (CSV)
               </button>
             </div>
+
+            {/* LEK-Honning™️ Link */}
+            <div className="bg-gradient-to-br from-honey-50 to-yellow-50 rounded-xl shadow-sm p-6 mt-4 border border-honey-200">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 bg-honey-100 rounded-full flex items-center justify-center text-honey-600">
+                    <ShieldCheck className="w-6 h-6" />
+                </div>
+                <h2 className="text-lg font-bold text-honey-900">LEK-Honning™️</h2>
+              </div>
+              <p className="text-honey-800 text-sm mb-6 leading-relaxed">
+                Velkommen til fremtidens honningbørs. Kjøp og salg av honning direkte mellom birøktere. 
+                Registrer deg som honningmegler i dag!
+              </p>
+              <button
+                onClick={() => router.push('/honey-exchange')}
+                className="w-full bg-honey-500 text-white font-bold py-4 rounded-xl hover:bg-honey-600 transition-colors flex items-center justify-center gap-2 shadow-md"
+              >
+                Gå til Honningbørsen
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+
+            <button 
+                onClick={handleSignOut}
+                className="w-full mt-8 bg-gray-100 text-gray-600 font-bold py-3 rounded-xl hover:bg-gray-200 flex items-center justify-center gap-2"
+            >
+                <LogOut className="w-4 h-4" />
+                Logg ut
+            </button>
           </>
         ) : (
           /* EDIT MODE */
