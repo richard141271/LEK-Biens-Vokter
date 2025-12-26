@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Check, AlertCircle, MapPin } from 'lucide-react';
+import { ArrowLeft, Check, AlertCircle, MapPin, Coins } from 'lucide-react';
 import { HoneyType } from '@/types/honey-exchange';
 
 const HONEY_TYPES: HoneyType[] = ['Lynghonning', 'Sommerhonning', 'Raps', 'Bringebær', 'Skogshonning', 'Annet'];
@@ -21,7 +21,8 @@ export default function SellHoneyPage() {
     moisture_percentage: '',
     production_year: new Date().getFullYear().toString(),
     location: '',
-    description: ''
+    description: '',
+    currency: 'NOK' as 'NOK' | 'HC'
   });
 
   useEffect(() => {
@@ -61,17 +62,22 @@ export default function SellHoneyPage() {
       if (Number(formData.amount_kg) < 20) {
         throw new Error('Minimum salgsvolum er 20 kg');
       }
-      if (Number(formData.price_per_kg) < 70) {
-        throw new Error('Minstepris er satt til 70 kr/kg');
+      // Minstepris sjekk (70 kr eller 140 HC)
+      const minPrice = formData.currency === 'HC' ? 140 : 70;
+      if (Number(formData.price_per_kg) < minPrice) {
+        throw new Error(`Minstepris er satt til ${minPrice} ${formData.currency}/kg`);
       }
 
       const { error } = await supabase
         .from('honey_listings')
         .insert({
           seller_id: user.id,
+          keeper_id: user.id, // I am the physical holder for new listings
           honey_type: formData.honey_type,
           amount_kg: Number(formData.amount_kg),
+          remaining_kg: Number(formData.amount_kg),
           price_per_kg: Number(formData.price_per_kg),
+          currency: formData.currency,
           moisture_percentage: Number(formData.moisture_percentage),
           production_year: Number(formData.production_year),
           location: formData.location,
@@ -178,6 +184,27 @@ export default function SellHoneyPage() {
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-6">
             <h2 className="font-bold text-gray-900 text-lg border-b pb-2">Pris & Logistikk</h2>
             
+            {/* Currency Selector */}
+            <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Valuta</label>
+                <div className="flex gap-4">
+                    <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, currency: 'HC' }))}
+                        className={`flex-1 py-3 px-4 rounded-lg border font-bold flex items-center justify-center gap-2 ${formData.currency === 'HC' ? 'bg-yellow-500 text-white border-yellow-500' : 'bg-white border-gray-200 text-gray-600'}`}
+                    >
+                        <Coins className="w-4 h-4" /> HonnyCoin (HC)
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, currency: 'NOK' }))}
+                        className={`flex-1 py-3 px-4 rounded-lg border font-bold ${formData.currency === 'NOK' ? 'bg-black text-white border-black' : 'bg-white border-gray-200 text-gray-600'}`}
+                    >
+                        NOK (Kroner)
+                    </button>
+                </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Mengde (kg)</label>
@@ -195,18 +222,20 @@ export default function SellHoneyPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Pris pr kg (kr)</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Pris pr kg ({formData.currency})</label>
                 <input
                   type="number"
                   name="price_per_kg"
                   value={formData.price_per_kg}
                   onChange={handleChange}
-                  placeholder="Min 70 kr"
+                  placeholder={formData.currency === 'HC' ? 'Min 140 HC' : 'Min 70 kr'}
                   required
-                  min="70"
+                  min={formData.currency === 'HC' ? 140 : 70}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none"
                 />
-                <p className="text-xs text-gray-400 mt-1">Minstepris 70 kr</p>
+                <p className="text-xs text-gray-400 mt-1">
+                    {formData.currency === 'HC' ? 'Minstepris 140 HC' : 'Minstepris 70 kr'}
+                </p>
               </div>
             </div>
 
@@ -233,8 +262,13 @@ export default function SellHoneyPage() {
                 <div>
                     <p className="text-xs font-bold text-honey-700 uppercase">Estimert salgssum</p>
                     <p className="text-2xl font-bold text-honey-900">
-                        {(Number(formData.amount_kg) * Number(formData.price_per_kg)).toLocaleString()},-
+                        {(Number(formData.amount_kg) * Number(formData.price_per_kg)).toLocaleString()} {formData.currency}
                     </p>
+                    {formData.currency === 'HC' && (
+                        <p className="text-xs text-honey-600">
+                            ≈ {(Number(formData.amount_kg) * Number(formData.price_per_kg) / 2).toLocaleString()} NOK
+                        </p>
+                    )}
                 </div>
                 <div className="text-right text-xs text-honey-600">
                     <p>+ Plattformavgift kommer i tillegg for kjøper</p>
