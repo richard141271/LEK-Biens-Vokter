@@ -10,6 +10,10 @@ export default function SettingsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    newPassword: '',
+    confirmPassword: ''
+  });
   
   // Form State - Matches RegisterPage structure
   const [formData, setFormData] = useState<any>({
@@ -115,9 +119,30 @@ export default function SettingsPage() {
     });
   };
 
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswordData((prev) => ({ ...prev, [name]: value }));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
+      // 1. Update Password if provided
+      if (passwordData.newPassword) {
+        if (passwordData.newPassword.length < 6) {
+            throw new Error('Nytt passord må være minst 6 tegn');
+        }
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            throw new Error('Passordene er ikke like');
+        }
+        
+        const { error: passwordError } = await supabase.auth.updateUser({ 
+            password: passwordData.newPassword 
+        });
+
+        if (passwordError) throw passwordError;
+      }
+
       // Remove email from update payload as it's not in profiles table
       const { email, ...updateData } = formData;
       
@@ -134,6 +159,7 @@ export default function SettingsPage() {
       if (error) throw error;
       
       setProfile({ ...updateData, id: user.id });
+      setPasswordData({ newPassword: '', confirmPassword: '' }); // Reset password fields
       setIsEditing(false);
       alert('Profil oppdatert!');
     } catch (error: any) {
@@ -474,9 +500,39 @@ export default function SettingsPage() {
                 />
               </div>
 
+              {/* Password Change Section */}
+              <div className="pt-6 border-t border-gray-200">
+                <h3 className="text-sm font-bold text-gray-900 mb-4">Endre Passord (Valgfritt)</h3>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nytt Passord</label>
+                        <input
+                        type="password"
+                        name="newPassword"
+                        value={passwordData.newPassword}
+                        onChange={handlePasswordChange}
+                        placeholder="La stå tomt for å beholde dagens"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none"
+                        />
+                    </div>
+                    {passwordData.newPassword && (
+                        <div className="animate-in fade-in slide-in-from-top-2">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bekreft Nytt Passord</label>
+                            <input
+                            type="password"
+                            name="confirmPassword"
+                            value={passwordData.confirmPassword}
+                            onChange={handlePasswordChange}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none"
+                            />
+                        </div>
+                    )}
+                </div>
+              </div>
+
             </div>
 
-            <div className="flex gap-3 pt-6 pb-20">
+            <div className="flex gap-3 pt-6 pb-32">
               <button 
                 onClick={() => setIsEditing(false)}
                 className="flex-1 bg-white border border-gray-300 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-50"
