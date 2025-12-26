@@ -77,6 +77,16 @@ export default function SignInPage() {
           </button>
         </form>
 
+        <div className="mt-6 text-center border-t pt-6">
+          <p className="text-gray-600 mb-2">Ny birøkter?</p>
+          <Link
+            href="/register"
+            className="text-orange-600 hover:text-orange-700 font-bold hover:underline"
+          >
+            Registrer deg her
+          </Link>
+        </div>
+
         {message && (
           <div className="mt-4 p-4 rounded-lg text-sm bg-red-50 text-red-800">
             {message}

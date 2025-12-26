@@ -72,7 +72,7 @@ export default function Home() {
             )}
             
             <Link 
-              href="/signin" // Changed from # to signin as well for now, or could be a different info page
+              href="/about" 
               className="bg-white hover:bg-gray-50 text-gray-900 font-semibold py-3 px-8 rounded-full border border-gray-200 transition-colors"
             >
               Lær mer
@@ -118,6 +118,61 @@ export default function Home() {
                 Aldri mist data igjen.
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3-Step Plan Section */}
+      <section className="py-16 px-4 bg-gray-50 border-t border-gray-200">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">Vår Plan mot 100% Autonomi</h2>
+          <div className="space-y-8">
+            
+            {/* Step 1 - Active */}
+            <div className="relative flex gap-6 p-6 bg-white rounded-2xl shadow-lg border-2 border-honey-500 transform scale-105">
+              <div className="absolute -top-3 -right-3 bg-honey-500 text-white px-4 py-1 rounded-full text-sm font-bold shadow-md">
+                VI ER HER
+              </div>
+              <div className="flex-shrink-0 w-16 h-16 bg-honey-100 rounded-full flex items-center justify-center text-2xl font-bold text-honey-600 border-4 border-honey-200">
+                1
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Digitalisering & Kontroll</h3>
+                <p className="text-gray-600">
+                  Full digital oversikt over bigårder og kuber. QR-sporing, masseregistrering og 
+                  handsfree inspeksjon. Vi bygger fundamentet for datadrevet birøkt.
+                </p>
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="flex gap-6 p-6 bg-white/50 rounded-2xl border border-gray-200 opacity-75">
+              <div className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-2xl font-bold text-gray-400">
+                2
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Sensorikk & Varsling</h3>
+                <p className="text-gray-600">
+                  Integrasjon av smarte vekter og fuktsensorer. AI Aurora begynner å lære 
+                  av kubenes adferd og gir prediktive varsler om sverm og trekk.
+                </p>
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="flex gap-6 p-6 bg-white/50 rounded-2xl border border-gray-200 opacity-75">
+              <div className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-2xl font-bold text-gray-400">
+                3
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Total Autonomi</h3>
+                <p className="text-gray-600">
+                  Selvstyrende kuber med robotisert høsting og logistikk. 
+                  Bikubene bestiller selv tømming. Birøkteren blir prosessoperatør.
+                </p>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
