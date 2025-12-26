@@ -19,6 +19,29 @@ export default function AllHivesPage() {
   const [printData, setPrintData] = useState<{ [key: string]: { inspections: any[], logs: any[] } }>({});
   const [loadingPrintData, setLoadingPrintData] = useState(false);
 
+  // Mass Action State
+  const [isMassActionModalOpen, setIsMassActionModalOpen] = useState(false);
+  const [massActionType, setMassActionType] = useState<'inspeksjon' | 'logg' | null>(null);
+  const [isSubmittingMassAction, setIsSubmittingMassAction] = useState(false);
+  
+  // Mass Inspection Form
+  const [massInspectionData, setMassInspectionData] = useState({
+    queen_seen: false,
+    eggs_seen: false,
+    larvae_seen: false,
+    pupa_seen: false,
+    food_status: 'medium',
+    health_status: 'good',
+    temperament: 'calm',
+    notes: ''
+  });
+
+  // Mass Log Form
+  const [massLogData, setMassLogData] = useState({
+    action: 'BEHANDLING',
+    details: ''
+  });
+
   const supabase = createClient();
   const router = useRouter();
 
@@ -105,6 +128,64 @@ export default function AllHivesPage() {
     setTimeout(() => {
       window.print();
     }, 500); // Increased timeout slightly to ensure data renders
+  };
+
+  const handleMassActionSubmit = async () => {
+    if (selectedHives.length === 0 || !massActionType) return;
+    setIsSubmittingMassAction(true);
+
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        if (massActionType === 'inspeksjon') {
+            const inspections = selectedHives.map(id => ({
+                hive_id: id,
+                user_id: user.id,
+                inspection_date: new Date().toISOString().split('T')[0],
+                ...massInspectionData
+            }));
+
+            const { error } = await supabase.from('inspections').insert(inspections);
+            if (error) throw error;
+        } else {
+            const logs = selectedHives.map(id => ({
+                hive_id: id,
+                user_id: user.id,
+                action: massLogData.action,
+                details: massLogData.details
+            }));
+
+            const { error } = await supabase.from('hive_logs').insert(logs);
+            if (error) throw error;
+        }
+
+        alert(`${massActionType === 'inspeksjon' ? 'Inspeksjoner' : 'Logger'} registrert på ${selectedHives.length} kuber!`);
+        setIsMassActionModalOpen(false);
+        setMassActionType(null);
+        setSelectedHives([]);
+        setIsSelectionMode(false);
+        // Reset forms
+        setMassInspectionData({
+            queen_seen: false,
+            eggs_seen: false,
+            larvae_seen: false,
+            pupa_seen: false,
+            food_status: 'medium',
+            health_status: 'good',
+            temperament: 'calm',
+            notes: ''
+        });
+        setMassLogData({
+            action: 'BEHANDLING',
+            details: ''
+        });
+
+    } catch (error: any) {
+        alert('Feil ved masseregistrering: ' + error.message);
+    } finally {
+        setIsSubmittingMassAction(false);
+    }
   };
 
   const getStatusColor = (hive: any) => {
@@ -351,19 +432,24 @@ export default function AllHivesPage() {
                             Kort
                         </button>
                         <button 
-                            onClick={() => {
-                                handlePrint('qr');
-                            }}
-                            className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium"
-                        >
-                            QR-Koder
-                        </button>
-                        <button 
-                            onClick={() => {
-                                setIsSelectionMode(false);
-                                setSelectedHives([]);
-                                setPrintLayout(null);
-                            }}
+                             onClick={() => {
+                                 handlePrint('qr');
+                             }}
+                             className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium"
+                         >
+                             QR-Koder
+                         </button>
+                         <button 
+                             onClick={() => setIsMassActionModalOpen(true)}
+                             className="bg-honey-500 hover:bg-honey-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium"
+                         >
+                             Registrer Hendelse
+                         </button>
+                         <button 
+                             onClick={() => {
+                                 setIsSelectionMode(false);
+                                 setSelectedHives([]);
+                             }}
                             className="text-gray-500 px-3 py-1.5"
                         >
                             Avbryt
@@ -490,6 +576,131 @@ export default function AllHivesPage() {
           ))
         )}
       </main>
+      {/* Mass Action Modal */}
+      {isMassActionModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-bold mb-4">Massehandling ({selectedHives.length} kuber)</h3>
+            
+            {!massActionType ? (
+                <div className="space-y-3">
+                    <p className="text-gray-600 mb-4">Hva vil du registrere for disse kubene?</p>
+                    <button
+                        onClick={() => setMassActionType('inspeksjon')}
+                        className="w-full p-4 rounded-lg border border-gray-200 hover:border-honey-500 hover:bg-honey-50 flex items-center gap-3 transition-colors text-left"
+                    >
+                        <Calendar className="w-6 h-6 text-honey-500" />
+                        <div>
+                            <div className="font-bold text-gray-900">Inspeksjon</div>
+                            <div className="text-sm text-gray-500">Registrer samme inspeksjon på alle</div>
+                        </div>
+                    </button>
+                    <button
+                        onClick={() => setMassActionType('logg')}
+                        className="w-full p-4 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 flex items-center gap-3 transition-colors text-left"
+                    >
+                        <Box className="w-6 h-6 text-blue-500" />
+                        <div>
+                            <div className="font-bold text-gray-900">Logghendelse</div>
+                            <div className="text-sm text-gray-500">F.eks. fôring eller behandling</div>
+                        </div>
+                    </button>
+                </div>
+            ) : massActionType === 'inspeksjon' ? (
+                <div className="space-y-4">
+                    <div className="flex gap-2 flex-wrap">
+                         <label className="flex items-center gap-2 border p-2 rounded cursor-pointer hover:bg-gray-50">
+                            <input 
+                                type="checkbox" 
+                                checked={massInspectionData.queen_seen}
+                                onChange={e => setMassInspectionData({...massInspectionData, queen_seen: e.target.checked})}
+                                className="w-4 h-4 text-honey-600"
+                            />
+                            <span>Dronning sett</span>
+                        </label>
+                        <label className="flex items-center gap-2 border p-2 rounded cursor-pointer hover:bg-gray-50">
+                            <input 
+                                type="checkbox" 
+                                checked={massInspectionData.eggs_seen}
+                                onChange={e => setMassInspectionData({...massInspectionData, eggs_seen: e.target.checked})}
+                                className="w-4 h-4 text-honey-600"
+                            />
+                            <span>Egg sett</span>
+                        </label>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Fôrstatus</label>
+                        <select 
+                            value={massInspectionData.food_status}
+                            onChange={e => setMassInspectionData({...massInspectionData, food_status: e.target.value})}
+                            className="w-full p-2 border rounded-lg"
+                        >
+                            <option value="low">Lite</option>
+                            <option value="medium">Middels</option>
+                            <option value="high">Mye</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Notater (gjelder alle)</label>
+                        <textarea
+                            value={massInspectionData.notes}
+                            onChange={e => setMassInspectionData({...massInspectionData, notes: e.target.value})}
+                            className="w-full p-2 border rounded-lg h-24"
+                            placeholder="Skriv notat..."
+                        />
+                    </div>
+                </div>
+            ) : (
+                <div className="space-y-4">
+                     <div>
+                        <label className="block text-sm font-medium mb-1">Handling</label>
+                        <select 
+                            value={massLogData.action}
+                            onChange={e => setMassLogData({...massLogData, action: e.target.value})}
+                            className="w-full p-2 border rounded-lg"
+                        >
+                            <option value="BEHANDLING">Behandling (f.eks. Varroa)</option>
+                            <option value="FÔRING">Fôring</option>
+                            <option value="ANNET">Annet</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Detaljer</label>
+                        <textarea
+                            value={massLogData.details}
+                            onChange={e => setMassLogData({...massLogData, details: e.target.value})}
+                            className="w-full p-2 border rounded-lg h-24"
+                            placeholder="Beskriv hva som ble gjort..."
+                        />
+                    </div>
+                </div>
+            )}
+
+            <div className="flex gap-3 mt-6">
+                <button
+                    onClick={() => {
+                        if (massActionType) setMassActionType(null);
+                        else setIsMassActionModalOpen(false);
+                    }}
+                    className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg"
+                >
+                    {massActionType ? 'Tilbake' : 'Avbryt'}
+                </button>
+                {massActionType && (
+                    <button
+                        onClick={handleMassActionSubmit}
+                        disabled={isSubmittingMassAction}
+                        className="flex-1 py-3 px-4 bg-honey-500 hover:bg-honey-600 text-white font-bold rounded-lg disabled:opacity-50"
+                    >
+                        {isSubmittingMassAction ? 'Lagrer...' : 'Bekreft'}
+                    </button>
+                )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
