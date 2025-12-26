@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings } from 'lucide-react';
+import WeatherWidget from '@/components/WeatherWidget';
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -172,6 +173,9 @@ export default function DashboardPage() {
                   </div>
               </div>
           </div>
+          
+          {/* Weather Widget */}
+          <WeatherWidget />
 
           {/* Quick Actions */}
           <div className="grid grid-cols-2 gap-4">

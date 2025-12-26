@@ -3,8 +3,9 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Filter, Box, MapPin, Calendar, ArrowRight, Printer } from 'lucide-react';
+import { Search, Filter, Box, MapPin, Calendar, ArrowRight, Printer, QrCode } from 'lucide-react';
 import Link from 'next/link';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function AllHivesPage() {
   const [hives, setHives] = useState<any[]>([]);
@@ -14,7 +15,7 @@ export default function AllHivesPage() {
   // Print State
   const [selectedHives, setSelectedHives] = useState<string[]>([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [printLayout, setPrintLayout] = useState<'cards' | 'list' | null>(null);
+  const [printLayout, setPrintLayout] = useState<'cards' | 'list' | 'qr' | null>(null);
   const [printData, setPrintData] = useState<{ [key: string]: { inspections: any[], logs: any[] } }>({});
   const [loadingPrintData, setLoadingPrintData] = useState(false);
 
@@ -62,7 +63,7 @@ export default function AllHivesPage() {
     );
   };
 
-  const handlePrint = async (layout: 'cards' | 'list') => {
+  const handlePrint = async (layout: 'cards' | 'list' | 'qr') => {
     setLoadingPrintData(true);
     
     // Determine which hives to print
@@ -72,15 +73,14 @@ export default function AllHivesPage() {
 
     const hiveIds = hivesToPrint.map(h => h.id);
 
-    if (hiveIds.length > 0) {
-        // Fetch inspections
+    if (hiveIds.length > 0 && layout !== 'qr') {
+        // Fetch inspections and logs ONLY if not QR mode (QR mode doesn't need them)
         const { data: inspections } = await supabase
             .from('inspections')
             .select('*')
             .in('hive_id', hiveIds)
             .order('inspection_date', { ascending: false });
 
-        // Fetch logs
         const { data: logs } = await supabase
             .from('hive_logs')
             .select('*')
@@ -192,6 +192,28 @@ export default function AllHivesPage() {
                 })}
               </tbody>
             </table>
+          ) : printLayout === 'qr' ? (
+            // QR CODE VIEW
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+              {filteredHives
+                .filter(h => selectedHives.length === 0 || selectedHives.includes(h.id))
+                .map(hive => (
+                  <div key={hive.id} className="border-2 border-black p-4 rounded-xl flex flex-col items-center justify-center text-center break-inside-avoid">
+                    <h2 className="text-xl font-bold mb-1">{hive.hive_number}</h2>
+                    <p className="text-sm text-gray-600 mb-4">{hive.name}</p>
+                    
+                    <QRCodeSVG 
+                      value={`${window.location.origin}/hives/${hive.id}`}
+                      size={150}
+                      level="H"
+                      includeMargin={true}
+                    />
+                    
+                    <p className="text-xs text-gray-400 mt-2">{hive.apiaries?.name}</p>
+                    <p className="text-[10px] text-gray-300 mt-1">LEK-Biens Vokter</p>
+                  </div>
+                ))}
+            </div>
           ) : (
             // CARD VIEW (One per page/Grid)
             <div className="space-y-8">
@@ -327,6 +349,14 @@ export default function AllHivesPage() {
                             className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium"
                         >
                             Kort
+                        </button>
+                        <button 
+                            onClick={() => {
+                                handlePrint('qr');
+                            }}
+                            className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium"
+                        >
+                            QR-Koder
                         </button>
                         <button 
                             onClick={() => {
