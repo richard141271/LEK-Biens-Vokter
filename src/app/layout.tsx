@@ -37,10 +37,10 @@ export default function RootLayout({
         <div className="md:pl-64 min-h-screen">
           {children}
         </div>
-        <div className="md:hidden">
+        <div className="md:hidden print:hidden">
           <BottomNav />
         </div>
-        <footer className="py-4 text-center text-xs text-gray-400 pb-20 md:pl-64">
+        <footer className="py-4 text-center text-xs text-gray-400 pb-20 md:pl-64 print:hidden">
           v0.1.0
         </footer>
       </body>
