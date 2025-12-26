@@ -101,10 +101,11 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch all hive numbers to determine the next available number safely
+      // Fetch all hive numbers for this user to determine the next available number safely
       const { data: hivesData, error: hivesError } = await supabase
         .from('hives')
-        .select('hive_number');
+        .select('hive_number')
+        .eq('user_id', user.id);
       
       if (hivesError) throw hivesError;
 

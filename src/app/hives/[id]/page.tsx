@@ -20,6 +20,13 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   const [targetApiaryId, setTargetApiaryId] = useState('');
   const [moving, setMoving] = useState(false);
 
+  // Archive Modal State
+  const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
+  const [archiveType, setArchiveType] = useState<'SOLGT' | 'DESTRUERT' | null>(null);
+  const [destructionReason, setDestructionReason] = useState<'ØDELAGT' | 'SYKDOM' | null>(null);
+  const [diseaseDetails, setDiseaseDetails] = useState('');
+  const [archiving, setArchiving] = useState(false);
+
   const supabase = createClient();
   const router = useRouter();
 
@@ -225,6 +232,56 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
     }
   };
 
+  const handleArchiveSubmit = async () => {
+    if (!archiveType) return;
+    if (archiveType === 'DESTRUERT' && !destructionReason) return;
+    if (archiveType === 'DESTRUERT' && destructionReason === 'SYKDOM' && !diseaseDetails) return;
+
+    setArchiving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      let details = '';
+      if (archiveType === 'SOLGT') {
+        details = 'Solgt';
+      } else if (archiveType === 'DESTRUERT') {
+        details = `Destruert: ${destructionReason === 'ØDELAGT' ? 'Ødelagt/Utdatert' : `Sykdom (${diseaseDetails})`}`;
+      }
+
+      // 1. Update hive status
+      const { error: updateError } = await supabase
+        .from('hives')
+        .update({ 
+          status: archiveType,
+          active: false 
+        })
+        .eq('id', params.id);
+
+      if (updateError) throw updateError;
+
+      // 2. Log archival
+      const { error: logError } = await supabase
+        .from('hive_logs')
+        .insert({
+          hive_id: params.id,
+          user_id: user?.id,
+          action: archiveType,
+          details: details
+        });
+
+      if (logError) throw logError;
+
+      alert(`Kube markert som ${archiveType.toLowerCase()}!`);
+      router.push('/hives'); // Go back to list
+
+    } catch (error: any) {
+      alert('Feil ved arkivering: ' + error.message);
+    } finally {
+      setArchiving(false);
+      setIsArchiveModalOpen(false);
+    }
+  };
+
   if (loading) return <div className="p-8 text-center">Laster bikube...</div>;
   if (!hive) return <div className="p-8 text-center">Fant ikke bikube</div>;
 
@@ -340,6 +397,14 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
             <Calendar className="w-8 h-8 text-honey-500" />
             <span className="font-medium text-gray-900">Ny inspeksjon</span>
           </Link>
+
+          <button 
+            onClick={() => setIsArchiveModalOpen(true)}
+            className="col-span-2 p-4 bg-red-50 border border-red-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:bg-red-100 transition-colors text-red-700 mt-2"
+          >
+            <Trash2 className="w-5 h-5" />
+            <span className="font-medium">Avslutt / Slett kube</span>
+          </button>
         </div>
 
         {/* Inspections History */}
@@ -533,6 +598,134 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                     {moving ? 'Flytter...' : 'Bekreft flytting'}
                 </button>
                 </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Archive Modal */}
+      {isArchiveModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h3 className="text-xl font-bold mb-4">Avslutt bikube</h3>
+            
+            {!archiveType ? (
+              <div className="space-y-3">
+                <p className="text-gray-600 mb-4">Hva vil du gjøre med kuben?</p>
+                <button
+                  onClick={() => setArchiveType('SOLGT')}
+                  className="w-full p-4 rounded-lg border border-gray-200 hover:border-honey-500 hover:bg-honey-50 flex items-center gap-3 transition-colors text-left"
+                >
+                  <div className="bg-green-100 p-2 rounded-full text-green-600">
+                    <Store className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-gray-900">Solgt</div>
+                    <div className="text-sm text-gray-500">Kuben er solgt til en annen birøkter</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setArchiveType('DESTRUERT')}
+                  className="w-full p-4 rounded-lg border border-gray-200 hover:border-red-500 hover:bg-red-50 flex items-center gap-3 transition-colors text-left"
+                >
+                  <div className="bg-red-100 p-2 rounded-full text-red-600">
+                    <Trash2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-gray-900">Destruert</div>
+                    <div className="text-sm text-gray-500">Kuben er ødelagt eller har sykdom</div>
+                  </div>
+                </button>
+              </div>
+            ) : archiveType === 'DESTRUERT' && !destructionReason ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-4 text-red-600 bg-red-50 p-3 rounded-lg">
+                  <AlertTriangle className="w-5 h-5" />
+                  <p className="text-sm font-medium">Hvorfor skal kuben destrueres?</p>
+                </div>
+                
+                <button
+                  onClick={() => setDestructionReason('ØDELAGT')}
+                  className="w-full p-4 rounded-lg border border-gray-200 hover:border-gray-400 flex items-center gap-3 transition-colors text-left"
+                >
+                  <div className="font-bold text-gray-900">Ødelagt / Utdatert</div>
+                </button>
+
+                <button
+                  onClick={() => setDestructionReason('SYKDOM')}
+                  className="w-full p-4 rounded-lg border border-gray-200 hover:border-red-500 hover:bg-red-50 flex items-center gap-3 transition-colors text-left"
+                >
+                  <div className="font-bold text-gray-900">Sykdom</div>
+                </button>
+              </div>
+            ) : archiveType === 'DESTRUERT' && destructionReason === 'SYKDOM' ? (
+               <div className="space-y-4">
+                 <div className="flex items-center gap-2 mb-2 text-red-600 bg-red-50 p-3 rounded-lg">
+                  <AlertTriangle className="w-5 h-5" />
+                  <p className="text-sm font-medium">Spesifiser sykdomsårsak</p>
+                </div>
+                 <div>
+                   <label className="block text-sm font-bold text-gray-700 mb-1">Hvilken sykdom/årsak?</label>
+                   <input
+                     type="text"
+                     value={diseaseDetails}
+                     onChange={(e) => setDiseaseDetails(e.target.value)}
+                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"
+                     placeholder="F.eks. Lukket yngelråte, Kalkyngel..."
+                   />
+                 </div>
+               </div>
+            ) : (
+              <div className="space-y-4">
+                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-600 mb-1">Du er i ferd med å markere kuben som:</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {archiveType}
+                      {archiveType === 'DESTRUERT' && (
+                        <span className="text-sm font-normal text-gray-500 block">
+                          Årsak: {destructionReason === 'ØDELAGT' ? 'Ødelagt/Utdatert' : `Sykdom (${diseaseDetails})`}
+                        </span>
+                      )}
+                    </p>
+                 </div>
+                 <p className="text-sm text-gray-500">
+                   Kuben vil bli markert som inaktiv og fjernet fra den daglige oversikten, men historikken beholdes.
+                 </p>
+              </div>
+            )}
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  if (destructionReason === 'SYKDOM') {
+                    setDestructionReason(null);
+                    setDiseaseDetails('');
+                  } else if (destructionReason) {
+                    setDestructionReason(null);
+                  } else if (archiveType) {
+                    setArchiveType(null);
+                  } else {
+                    setIsArchiveModalOpen(false);
+                  }
+                }}
+                className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg transition-colors"
+              >
+                {archiveType ? 'Tilbake' : 'Avbryt'}
+              </button>
+              
+              {(archiveType === 'SOLGT' || (archiveType === 'DESTRUERT' && destructionReason === 'ØDELAGT') || (archiveType === 'DESTRUERT' && destructionReason === 'SYKDOM' && diseaseDetails)) && (
+                <button
+                  onClick={handleArchiveSubmit}
+                  disabled={archiving}
+                  className={`flex-1 py-3 px-4 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                    archiveType === 'DESTRUERT' 
+                      ? 'bg-red-600 hover:bg-red-700' 
+                      : 'bg-green-600 hover:bg-green-700'
+                  }`}
+                >
+                  {archiving ? 'Lagrer...' : 'Bekreft'}
+                </button>
               )}
             </div>
           </div>
