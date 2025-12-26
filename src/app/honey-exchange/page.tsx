@@ -89,9 +89,10 @@ export default function HoneyExchangePage() {
         }));
         setListings(formattedListings);
       }
-    } catch (err) {
-      console.log('Using mock data due to missing tables or error:', err);
-      setListings(MOCK_LISTINGS);
+    } catch (err: any) {
+      console.log('Error fetching listings:', err);
+      // setListings(MOCK_LISTINGS); // Disable mock data to avoid confusion
+      alert('Kunne ikke laste annonser: ' + err.message);
     } finally {
       setLoading(false);
     }
