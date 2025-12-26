@@ -32,13 +32,28 @@ export default function NewApiaryPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Du må være logget inn');
 
-      // 2. Generer ID basert på type (Hver type har sin egen nummerserie)
-      const { count } = await supabase
+      // 2. Generer ID basert på type for innlogget bruker
+      const { data: latestApiary } = await supabase
         .from('apiaries')
-        .select('*', { count: 'exact', head: true })
-        .eq('type', type); // Filter by type to get independent counts
+        .select('apiary_number')
+        .eq('user_id', user.id)
+        .eq('type', type)
+        .order('apiary_number', { ascending: false })
+        .limit(1)
+        .single();
       
-      const nextNum = (count || 0) + 1;
+      let nextNum = 1;
+      
+      if (latestApiary && latestApiary.apiary_number) {
+        const parts = latestApiary.apiary_number.split('-');
+        if (parts.length === 2) {
+          const numPart = parseInt(parts[1], 10);
+          if (!isNaN(numPart)) {
+            nextNum = numPart + 1;
+          }
+        }
+      }
+
       let prefix = 'BG'; // Default Bigård
       
       if (type === 'bil') prefix = 'BIL';
