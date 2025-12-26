@@ -343,7 +343,7 @@ export default function ListingDetailPage() {
                                 <div className="flex items-center gap-4 bg-white rounded-xl p-2 shadow-sm border border-gray-200">
                                     <button 
                                         onClick={handleDecrement}
-                                        disabled={buyAmount <= 20}
+                                        disabled={buyAmount <= 1}
                                         className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-gray-100 disabled:opacity-30 transition-colors"
                                     >
                                         <Minus className="w-5 h-5 text-gray-600" />
@@ -356,7 +356,7 @@ export default function ListingDetailPage() {
 
                                     <button 
                                         onClick={handleIncrement}
-                                        disabled={buyAmount + 20 > listing.remaining_kg}
+                                        disabled={buyAmount + 1 > listing.remaining_kg}
                                         className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-gray-100 disabled:opacity-30 transition-colors"
                                     >
                                         <Plus className="w-5 h-5 text-gray-600" />

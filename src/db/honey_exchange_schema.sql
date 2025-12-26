@@ -24,7 +24,7 @@ create table if not exists honey_transactions (
   listing_id uuid references honey_listings(id) not null,
   buyer_id uuid references auth.users(id) not null,
   seller_id uuid references auth.users(id) not null,
-  amount_kg numeric not null check (amount_kg >= 20),
+  amount_kg numeric not null check (amount_kg >= 1),
   total_price numeric not null,
   status transaction_status default 'pending_payment',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null

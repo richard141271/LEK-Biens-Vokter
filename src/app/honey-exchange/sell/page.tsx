@@ -213,12 +213,12 @@ export default function SellHoneyPage() {
                   name="amount_kg"
                   value={formData.amount_kg}
                   onChange={handleChange}
-                  placeholder="Min 20 kg"
+                  placeholder="Min 1 kg"
                   required
-                  min="20"
+                  min="1"
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none"
                 />
-                <p className="text-xs text-gray-400 mt-1">Minimum 20 kg</p>
+                <p className="text-xs text-gray-400 mt-1">Minimum 1 kg</p>
               </div>
 
               <div>

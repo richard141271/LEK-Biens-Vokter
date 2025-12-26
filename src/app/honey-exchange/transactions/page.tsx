@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertCircle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle, Clock, AlertCircle, RefreshCw, CreditCard } from 'lucide-react';
 import { HoneyTransaction } from '@/types/honey-exchange';
 
 export default function MyTransactionsPage() {
@@ -126,6 +126,13 @@ export default function MyTransactionsPage() {
 
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Mine Transaksjoner</h1>
+        <button
+          onClick={() => router.push('/wallet')}
+          className="bg-yellow-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-yellow-600 transition-colors flex items-center gap-2"
+        >
+          <CreditCard className="w-5 h-5" />
+          Kjøp HonnyCoin
+        </button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
