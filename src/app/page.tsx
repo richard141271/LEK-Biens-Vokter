@@ -56,10 +56,10 @@ export default function Home() {
               </Link>
             ) : (
               <Link 
-                href="/register"
+                href="/login"
                 className="bg-honey-500 hover:bg-honey-600 text-white font-bold py-3 px-8 rounded-full transition-colors flex items-center gap-2"
               >
-                Start gratis
+                Prøv gratis
                 <ArrowRight className="w-5 h-5" />
               </Link>
             )}

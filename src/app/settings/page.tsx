@@ -162,11 +162,54 @@ export default function SettingsPage() {
               </p>
 
               {profile?.is_norges_birokterlag_member && (
-                <div className="bg-honey-50 border border-honey-100 rounded-xl p-4 mb-4">
-                  <span className="text-xs text-honey-600 font-bold uppercase tracking-wider">Medlemsnummer</span>
-                  <div className="text-3xl font-bold text-gray-900">{profile?.member_number || 'Ikke registrert'}</div>
+                <div className="bg-honey-50 border border-honey-100 rounded-xl p-4 mb-4 text-left">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <span className="text-xs text-honey-600 font-bold uppercase tracking-wider block">Medlemsnummer</span>
+                        <div className="text-lg font-bold text-gray-900">{profile?.member_number || 'Ikke registrert'}</div>
+                    </div>
+                    <div>
+                        <span className="text-xs text-honey-600 font-bold uppercase tracking-wider block">Lokallag</span>
+                        <div className="text-lg font-bold text-gray-900">{profile?.local_association || '-'}</div>
+                    </div>
+                  </div>
                 </div>
               )}
+
+              {/* Økonomi info visning */}
+              <div className="bg-gray-50 rounded-xl p-4 mb-4 text-left space-y-3">
+                  <h4 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-2">Økonomi & Drift</h4>
+                  
+                  <div>
+                      <span className="text-xs text-gray-500 font-bold uppercase block">Privat kontonummer (Utbetaling)</span>
+                      <div className="font-mono text-gray-700">{profile?.private_bank_account || '-'}</div>
+                  </div>
+
+                  {profile?.beekeeping_type === 'business' && (
+                      <>
+                        <div className="grid grid-cols-2 gap-4 pt-2">
+                            <div>
+                                <span className="text-xs text-gray-500 font-bold uppercase block">Firmanavn</span>
+                                <div className="text-gray-900">{profile?.company_name || '-'}</div>
+                            </div>
+                            <div>
+                                <span className="text-xs text-gray-500 font-bold uppercase block">Org.nummer</span>
+                                <div className="font-mono text-gray-700">{profile?.org_number || '-'}</div>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <span className="text-xs text-gray-500 font-bold uppercase block">Firma Konto</span>
+                                <div className="font-mono text-gray-700">{profile?.company_bank_account || '-'}</div>
+                            </div>
+                            <div>
+                                <span className="text-xs text-gray-500 font-bold uppercase block">Firmaadresse</span>
+                                <div className="text-gray-900">{profile?.company_address || '-'}</div>
+                            </div>
+                        </div>
+                      </>
+                  )}
+              </div>
 
               <div className="bg-gray-50 rounded-xl p-4 text-left text-sm space-y-2 mb-6">
                 <div className="flex items-center gap-2">
