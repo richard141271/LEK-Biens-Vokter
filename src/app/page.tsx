@@ -24,13 +24,22 @@ export default function Home() {
         <div className="font-bold text-xl text-gray-900 flex items-center gap-2">
           <img src="/icon.png" alt="Logo" className="w-8 h-8 rounded-full" /> Biens Vokter
         </div>
-        {/* User requested removal of header login/dashboard button functionality */}
-        <button 
-          className="text-gray-400 font-medium bg-white/50 backdrop-blur-sm px-4 py-2 rounded-full border border-gray-200 cursor-not-allowed opacity-50"
-          title="Midlertidig deaktivert"
-        >
-          {user ? 'Oversikt' : 'Logg inn'}
-        </button>
+        
+        {user ? (
+          <Link 
+            href="/dashboard"
+            className="text-gray-900 font-medium hover:text-orange-600 transition-colors"
+          >
+            Oversikt
+          </Link>
+        ) : (
+          <Link 
+            href="/signin"
+            className="text-gray-900 font-medium hover:text-orange-600 transition-colors"
+          >
+            Logg inn
+          </Link>
+        )}
       </nav>
 
       {/* Hero Section */}
@@ -44,21 +53,29 @@ export default function Home() {
             AI-drevet innsikt og full kontroll over bigården.
           </p>
           <div className="flex justify-center gap-4">
-            {/* User requested removal of main CTA functionality */}
-            <button 
-              className="bg-gray-300 text-white font-bold py-3 px-8 rounded-full cursor-not-allowed flex items-center gap-2 opacity-50"
-              title="Midlertidig deaktivert"
-            >
-              {user ? 'Gå til oversikt' : 'Prøv gratis'}
-              <ArrowRight className="w-5 h-5" />
-            </button>
+            {user ? (
+              <Link 
+                href="/dashboard"
+                className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-full flex items-center gap-2 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              >
+                Gå til oversikt
+                <ArrowRight className="w-5 h-5" />
+              </Link>
+            ) : (
+              <Link 
+                href="/signin"
+                className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-full flex items-center gap-2 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              >
+                Logg inn
+                <ArrowRight className="w-5 h-5" />
+              </Link>
+            )}
             
-            {/* "Lær mer" is now the new login button */}
             <Link 
-              href="/signin"
+              href="/signin" // Changed from # to signin as well for now, or could be a different info page
               className="bg-white hover:bg-gray-50 text-gray-900 font-semibold py-3 px-8 rounded-full border border-gray-200 transition-colors"
             >
-              Logg inn (Ny)
+              Lær mer
             </Link>
           </div>
         </div>

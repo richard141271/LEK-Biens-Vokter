@@ -17,14 +17,14 @@ export default function Header() {
     setMounted(true);
   }, []);
 
-  // Hide on auth pages
-  if (pathname === '/login' || pathname === '/register' || pathname === '/') return null;
-
   useEffect(() => {
     if (mounted) {
       fetchData();
     }
   }, [mounted]);
+
+  // Hide on auth pages
+  if (pathname === '/login' || pathname === '/register' || pathname === '/') return null;
 
   if (!mounted) return null;
 
