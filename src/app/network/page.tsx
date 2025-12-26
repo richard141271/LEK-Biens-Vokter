@@ -95,7 +95,8 @@ export default function NetworkPage() {
       setAgreementSigned(true);
       fetchNetworkStats(userProfile.id);
     } else {
-      alert('Kunne ikke signere avtalen. Prøv igjen.');
+      console.error('Sign agreement error:', error);
+      alert(`Kunne ikke signere avtalen. Feilmelding: ${error.message} (Kode: ${error.code || 'ukjent'})`);
     }
   };
 
