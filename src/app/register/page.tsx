@@ -8,6 +8,7 @@ import { ArrowLeft, Check, AlertCircle } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
   
   const [loading, setLoading] = useState(false);
@@ -36,6 +37,14 @@ export default function RegisterPage() {
     companyAddress: '',
     privateBankAccount: ''
   });
+
+  // Check for referral code in URL
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) {
+      setFormData(prev => ({ ...prev, referralCode: ref }));
+    }
+  }, [searchParams]);
 
   // Check if already logged in
   useEffect(() => {
