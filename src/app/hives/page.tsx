@@ -39,7 +39,7 @@ export default function AllHivesPage() {
     eggs_seen: false,
     larvae_seen: false,
     pupa_seen: false,
-    food_status: 'medium',
+    honey_stores: 'medium', // Changed from food_status to honey_stores
     health_status: 'good',
     temperament: 'calm',
     notes: ''
@@ -186,7 +186,7 @@ export default function AllHivesPage() {
             eggs_seen: false,
             larvae_seen: false,
             pupa_seen: false,
-            food_status: 'medium',
+            honey_stores: 'medium',
             health_status: 'good',
             temperament: 'calm',
             notes: ''
@@ -295,24 +295,24 @@ export default function AllHivesPage() {
               </tbody>
             </table>
           ) : printLayout === 'qr' ? (
-            // QR CODE VIEW
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+            // QR CODE VIEW - Optimized for 8-10 per page
+            <div className="grid grid-cols-2 gap-4 print:gap-4 p-4 print:p-0">
               {filteredHives
                 .filter(h => selectedHives.length === 0 || selectedHives.includes(h.id))
                 .map(hive => (
-                  <div key={hive.id} className="border-2 border-black p-4 rounded-xl flex flex-col items-center justify-center text-center break-inside-avoid">
-                    <h2 className="text-xl font-bold mb-1">{hive.hive_number}</h2>
-                    <p className="text-sm text-gray-600 mb-4">{hive.name}</p>
+                  <div key={hive.id} className="border-2 border-black p-3 rounded-lg flex flex-col items-center justify-center text-center break-inside-avoid h-[240px]">
+                    <h2 className="text-lg font-bold mb-1 leading-tight">{hive.hive_number}</h2>
+                    <p className="text-xs text-gray-600 mb-2 truncate max-w-full px-2">{hive.name}</p>
                     
                     <QRCodeSVG 
                       value={`${window.location.origin}/hives/${hive.id}`}
-                      size={150}
+                      size={120}
                       level="H"
                       includeMargin={true}
                     />
                     
-                    <p className="text-xs text-gray-400 mt-2">{hive.apiaries?.name}</p>
-                    <p className="text-[10px] text-gray-300 mt-1">LEK-Biens Vokter</p>
+                    <p className="text-[10px] text-gray-500 mt-2 truncate max-w-full">{hive.apiaries?.name}</p>
+                    <p className="text-[8px] text-gray-300 mt-0.5">LEK-Biens Vokter</p>
                   </div>
                 ))}
             </div>
@@ -477,7 +477,7 @@ export default function AllHivesPage() {
       )}
 
       {/* Screen Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10 print:hidden">
+      <div className="bg-white border-b border-gray-200 px-4 py-4 print:hidden">
         <div className="flex justify-between items-center mb-4">
             <h1 className="text-xl font-bold text-gray-900">Alle Bikuber</h1>
         </div>
@@ -560,7 +560,7 @@ export default function AllHivesPage() {
                 </button>
             )}
         </div>
-      </header>
+      </div>
 
       <main className="p-4 space-y-4 print:hidden">
         <div className="flex justify-between items-center text-sm text-gray-500 px-1">
@@ -795,8 +795,8 @@ export default function AllHivesPage() {
                     <div>
                         <label className="block text-sm font-medium mb-1">Fôrstatus</label>
                         <select 
-                            value={massInspectionData.food_status}
-                            onChange={e => setMassInspectionData({...massInspectionData, food_status: e.target.value})}
+                            value={massInspectionData.honey_stores}
+                            onChange={e => setMassInspectionData({...massInspectionData, honey_stores: e.target.value})}
                             className="w-full p-2 border rounded-lg"
                         >
                             <option value="low">Lite</option>

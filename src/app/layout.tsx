@@ -20,6 +20,7 @@ export const viewport = {
 
 import BottomNav from "@/components/BottomNav";
 import DesktopNav from "@/components/DesktopNav";
+import Header from "@/components/Header";
 
 export default function RootLayout({
   children,
@@ -35,6 +36,7 @@ export default function RootLayout({
       <body className={`${inter.className} bg-gray-50`}>
         <DesktopNav />
         <div className="md:pl-64 min-h-screen">
+          <Header />
           {children}
         </div>
         <div className="md:hidden print:hidden">

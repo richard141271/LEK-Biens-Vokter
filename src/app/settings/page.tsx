@@ -178,23 +178,8 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      {/* Header */}
-      <header className="bg-honey-500 text-white px-4 py-6 shadow-md">
-        <div className="flex justify-between items-start mb-4">
-          <img src="/icon.png" alt="Logo" className="w-10 h-10 rounded-full bg-white p-0.5" />
-          <button 
-            onClick={handleSignOut}
-            className="bg-honey-600 hover:bg-honey-700 text-white text-xs font-bold py-2 px-4 rounded-full uppercase tracking-wider"
-          >
-            Logg ut
-          </button>
-        </div>
-        
-        <h1 className="text-2xl font-bold">Birøkter Registeret</h1>
-        <p className="opacity-90">{profile?.full_name || formData.email}</p>
-      </header>
-
-      <main className="max-w-md mx-auto p-4 -mt-4 relative z-10 space-y-4">
+      
+      <main className="max-w-md mx-auto p-4 space-y-4">
         
         {/* VIEW MODE */}
         {!isEditing ? (

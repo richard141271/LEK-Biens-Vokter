@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Archive, Truck, Trash2, X, Check, MoreVertical, ClipboardList, Edit } from 'lucide-react';
+import { ArrowLeft, Archive, Truck, Trash2, X, Check, MoreVertical, ClipboardList, Edit, QrCode } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store, MapPin } from 'lucide-react';
 
@@ -21,6 +21,12 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [targetApiaryId, setTargetApiaryId] = useState('');
   const [availableApiaries, setAvailableApiaries] = useState<any[]>([]);
   const [isMoving, setIsMoving] = useState(false);
+
+  // Scan Modal State
+  const [isScanModalOpen, setIsScanModalOpen] = useState(false);
+  const [scanInput, setScanInput] = useState('');
+  const [scannedHives, setScannedHives] = useState<{ number: string, status: 'created' | 'moved' | 'error', msg: string }[]>([]);
+  const [isProcessingScan, setIsProcessingScan] = useState(false);
 
   const supabase = createClient();
   const router = useRouter();
@@ -136,6 +142,91 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     }
   };
 
+  // --- SCAN / MASS REGISTRATION LOGIC ---
+  const handleScanSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!scanInput.trim() || isProcessingScan) return;
+
+    setIsProcessingScan(true);
+    const input = scanInput.trim(); 
+    // Assume input is Hive Number (e.g., "KUBE-101") or UUID or just "101"
+    // Normalize: If just number "101", make it "KUBE-101"
+    let hiveNumber = input;
+    if (/^\d+$/.test(input)) {
+        hiveNumber = `KUBE-${input.padStart(3, '0')}`;
+    }
+
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        // Check if hive exists
+        const { data: existingHive } = await supabase
+            .from('hives')
+            .select('*')
+            .or(`hive_number.eq.${hiveNumber},id.eq.${input}`)
+            .single();
+
+        if (existingHive) {
+            // Move to this apiary if not already here
+            if (existingHive.apiary_id !== params.id) {
+                await supabase
+                    .from('hives')
+                    .update({ apiary_id: params.id })
+                    .eq('id', existingHive.id);
+                
+                // Log movement
+                await supabase.from('hive_logs').insert({
+                    hive_id: existingHive.id,
+                    user_id: user?.id,
+                    action: 'FLYTTET',
+                    details: `Flyttet til ${apiary.name} (via skanning)`
+                });
+
+                setScannedHives(prev => [{ number: existingHive.hive_number, status: 'moved', msg: 'Flyttet hit' }, ...prev]);
+            } else {
+                setScannedHives(prev => [{ number: existingHive.hive_number, status: 'moved', msg: 'Allerede her' }, ...prev]);
+            }
+        } else {
+            // Create new hive
+            const { data: newHive, error: createError } = await supabase
+                .from('hives')
+                .insert({
+                    hive_number: hiveNumber,
+                    apiary_id: params.id,
+                    user_id: user?.id,
+                    name: hiveNumber,
+                    status: 'AKTIV',
+                    type: 'PRODUKSJON'
+                })
+                .select()
+                .single();
+
+            if (createError) throw createError;
+
+            // Log creation
+            await supabase.from('hive_logs').insert({
+                hive_id: newHive.id,
+                user_id: user?.id,
+                action: 'OPPRETTET',
+                details: `Opprettet via skanning i ${apiary.name}`
+            });
+
+            setScannedHives(prev => [{ number: hiveNumber, status: 'created', msg: 'Opprettet ny' }, ...prev]);
+        }
+        
+        setScanInput(''); // Clear for next scan
+        fetchData(); // Refresh list in background
+
+    } catch (error: any) {
+        setScannedHives(prev => [{ number: hiveNumber, status: 'error', msg: 'Feil: ' + error.message }, ...prev]);
+    } finally {
+        setIsProcessingScan(false);
+        // Keep focus
+        const inputEl = document.getElementById('scan-input');
+        if (inputEl) inputEl.focus();
+    }
+  };
+
   // --- DELETE APIARY LOGIC ---
   const handleDeleteApiary = async () => {
     if (hives.length > 0) {
@@ -177,8 +268,8 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10">
+      {/* Page Title & Actions */}
+      <div className="bg-white border-b border-gray-200 px-4 py-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-4">
             <Link href="/dashboard" className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
@@ -206,7 +297,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             </button>
           </div>
         </div>
-      </header>
+      </div>
 
       <main className="p-4 space-y-4">
         {/* Actions Bar */}
@@ -216,6 +307,17 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
            </div>
            
            <div className="flex gap-2">
+             <button 
+                onClick={() => {
+                    setIsScanModalOpen(true);
+                    setTimeout(() => document.getElementById('scan-input')?.focus(), 100);
+                }}
+                className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-800"
+             >
+                <QrCode className="w-4 h-4" />
+                Skann / Ny
+             </button>
+
              {hives.length > 0 && (
                <button 
                  onClick={() => setIsSelectionMode(!isSelectionMode)}
@@ -359,6 +461,79 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
               >
                 {isMoving ? 'Flytter...' : 'Bekreft flytting'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SCAN MODAL */}
+      {isScanModalOpen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-900 text-white">
+              <div className="flex items-center gap-2">
+                <QrCode className="w-6 h-6" />
+                <h3 className="font-bold text-lg">Hurtig-registrering</h3>
+              </div>
+              <button onClick={() => setIsScanModalOpen(false)}><X className="w-6 h-6 text-gray-400 hover:text-white" /></button>
+            </div>
+            
+            <div className="p-6 flex-1 overflow-y-auto">
+              <p className="text-sm text-gray-600 mb-6">
+                Skann QR-koden på kuben eller skriv inn nummeret manuelt og trykk enter. 
+                Hvis kuben ikke finnes, blir den opprettet her. Hvis den finnes, flyttes den hit.
+              </p>
+
+              <form onSubmit={handleScanSubmit} className="mb-8">
+                <div className="relative">
+                    <input
+                        id="scan-input"
+                        type="text"
+                        value={scanInput}
+                        onChange={(e) => setScanInput(e.target.value)}
+                        placeholder="KUBE-XXX"
+                        className="w-full text-3xl font-mono font-bold p-4 border-2 border-gray-300 rounded-xl focus:border-honey-500 focus:ring-4 focus:ring-honey-100 outline-none text-center uppercase placeholder-gray-200"
+                        autoComplete="off"
+                    />
+                    {isProcessingScan && (
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-honey-500"></div>
+                        </div>
+                    )}
+                </div>
+                <p className="text-center text-xs text-gray-400 mt-2">Trykk Enter for å registrere</p>
+              </form>
+
+              {/* Recent Scans */}
+              <div className="space-y-2">
+                <h4 className="font-bold text-sm text-gray-500 uppercase tracking-wider mb-2">Nylig skannet</h4>
+                {scannedHives.length === 0 ? (
+                    <div className="text-center py-8 text-gray-300 italic">Ingen kuber skannet enda</div>
+                ) : (
+                    scannedHives.map((item, i) => (
+                        <div key={i} className={`flex items-center justify-between p-3 rounded-lg border ${
+                            item.status === 'error' ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'
+                        } animate-in slide-in-from-top-2 fade-in duration-300`}>
+                            <div className="flex items-center gap-3">
+                                <div className={`font-mono font-bold ${item.status === 'error' ? 'text-red-700' : 'text-green-700'}`}>
+                                    {item.number}
+                                </div>
+                                <div className="text-sm text-gray-600">{item.msg}</div>
+                            </div>
+                            {item.status !== 'error' && <Check className="w-5 h-5 text-green-600" />}
+                        </div>
+                    ))
+                )}
+              </div>
+            </div>
+            
+            <div className="p-4 border-t bg-gray-50">
+                <button 
+                    onClick={() => setIsScanModalOpen(false)}
+                    className="w-full bg-gray-900 text-white font-bold py-3 rounded-lg hover:bg-gray-800"
+                >
+                    Ferdig
+                </button>
             </div>
           </div>
         </div>

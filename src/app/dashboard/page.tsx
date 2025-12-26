@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode } from 'lucide-react';
 import WeatherWidget from '@/components/WeatherWidget';
-import VoiceAssistant from '@/components/VoiceAssistant';
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -98,14 +97,6 @@ export default function DashboardPage() {
     }
 
     setLoading(false);
-  };
-
-  const handleVoiceCommand = (command: string, args?: any) => {
-    if (command === 'create_hive' && args?.apiaryId) {
-      setSelectedApiaryId(args.apiaryId);
-      setCreateCount(1);
-      setIsCreateModalOpen(true);
-    }
   };
 
   const handleWizardCreateApiary = async () => {
@@ -220,25 +211,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      {/* Header - Standard Clean Style */}
-      <header className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10">
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-                <img src="/icon.png" alt="Logo" className="w-10 h-10 object-contain" />
-                <div>
-                    <h1 className="text-xl font-bold text-gray-900">Oversikt</h1>
-                    <p className="text-sm text-gray-500">{profile?.full_name}</p>
-                </div>
-            </div>
-            <button 
-                onClick={handleSignOut}
-                className="p-2 hover:bg-gray-100 rounded-full text-gray-600"
-            >
-                <LogOut className="w-5 h-5" />
-            </button>
-        </div>
-      </header>
-
+      
       <main className="p-4 space-y-6 max-w-lg mx-auto">
           
           {/* Profile Card */}
@@ -458,9 +431,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
-      {/* Voice Assistant */}
-      <VoiceAssistant onCommand={handleVoiceCommand} apiaries={availableApiaries} />
 
       {/* Startup Wizard Modal */}
       {isWizardOpen && (

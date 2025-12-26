@@ -287,8 +287,8 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 print:bg-white print:pb-0">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10 print:hidden">
+      {/* Page Title & Actions */}
+      <div className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10 print:hidden">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-4">
             <button onClick={() => router.back()} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
@@ -303,7 +303,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
             <Printer className="w-5 h-5" />
           </button>
         </div>
-      </header>
+      </div>
 
       {/* Print Header */}
       <div className="hidden print:block p-8 pb-0">

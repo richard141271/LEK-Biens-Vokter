@@ -1,14 +1,20 @@
 'use client';
 
 import { createClient } from '@/utils/supabase/client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, Image as ImageIcon, X } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, Image as ImageIcon, X, Mic, MicOff } from 'lucide-react';
 
 export default function NewInspectionPage({ params }: { params: { id: string } }) {
   const [hive, setHive] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const searchParams = useSearchParams();
+  const autoVoice = searchParams.get('autoVoice');
+
+  // Voice State
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   // Form State
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -36,7 +42,88 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   useEffect(() => {
     fetchHiveAndWeather();
-  }, [params.id]);
+    
+    // Initialize Voice if requested
+    if (autoVoice === 'true') {
+        setTimeout(() => {
+            startListening();
+        }, 3000); // Wait for "Kube funnet..." to finish speaking roughly
+    }
+  }, [params.id, autoVoice]);
+
+  // Voice Logic
+  const startListening = () => {
+      if (typeof window !== 'undefined' && !recognitionRef.current) {
+          const { webkitSpeechRecognition, SpeechRecognition } = window as any;
+          const SpeechRecognitionConstructor = SpeechRecognition || webkitSpeechRecognition;
+          
+          if (SpeechRecognitionConstructor) {
+              const recognition = new SpeechRecognitionConstructor();
+              recognition.continuous = true; // Keep listening
+              recognition.lang = 'no-NO';
+              recognition.interimResults = false;
+              
+              recognition.onresult = (event: any) => {
+                  const last = event.results.length - 1;
+                  const text = event.results[last][0].transcript.toLowerCase();
+                  handleVoiceCommand(text);
+              };
+
+              recognition.onend = () => {
+                  // Auto-restart if we want continuous listening, or just stop
+                  // setIsListening(false);
+              };
+
+              recognitionRef.current = recognition;
+          }
+      }
+
+      if (recognitionRef.current) {
+          try {
+            recognitionRef.current.start();
+            setIsListening(true);
+          } catch (e) {
+              console.error(e);
+          }
+      }
+  };
+
+  const stopListening = () => {
+      if (recognitionRef.current) {
+          recognitionRef.current.stop();
+          setIsListening(false);
+      }
+  };
+
+  const handleVoiceCommand = (text: string) => {
+      console.log("Voice Command:", text);
+      
+      // Simple Keyword Matching
+      if (text.includes('dronning sett') || text.includes('dronning er her')) setQueenSeen(true);
+      if (text.includes('ingen dronning')) setQueenSeen(false);
+      
+      if (text.includes('egg sett') || text.includes('ser egg')) setEggsSeen(true);
+      
+      if (text.includes('lite honning')) setHoneyStores('lite');
+      if (text.includes('middels honning')) setHoneyStores('middels');
+      if (text.includes('mye honning')) setHoneyStores('mye');
+      
+      if (text.includes('rolig')) setTemperament('rolig');
+      if (text.includes('urolig')) setTemperament('urolig');
+      if (text.includes('aggressiv') || text.includes('sint')) setTemperament('aggressiv');
+
+      if (text.includes('svak')) setStatus('SVAK');
+      if (text.includes('død')) setStatus('DØD');
+      if (text.includes('ok') || text.includes('alt bra')) setStatus('OK');
+
+      if (text.includes('lagre') || text.includes('send inn')) {
+          // Trigger submit? Maybe dangerous to auto-submit
+          alert('Sa du lagre? Trykk på knappen for å bekrefte.');
+      }
+
+      // Add everything to notes as well for safety
+      setNotes(prev => prev + (prev ? '\n' : '') + "Stemme: " + text);
+  };
 
   const fetchHiveAndWeather = async () => {
     // 1. Fetch Hive Info
@@ -197,6 +284,18 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             <p className="text-sm text-gray-500">{hive?.name || 'Laster...'}</p>
           </div>
         </div>
+        
+        {/* Voice Toggle */}
+        <button
+            onClick={isListening ? stopListening : startListening}
+            className={`p-3 rounded-full transition-all ${
+                isListening 
+                ? 'bg-red-500 text-white animate-pulse shadow-lg' 
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+        >
+            {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+        </button>
       </header>
 
       <main className="p-4">

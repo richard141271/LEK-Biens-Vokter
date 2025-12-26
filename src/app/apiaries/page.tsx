@@ -45,12 +45,9 @@ export default function ApiariesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10">
-        <h1 className="text-xl font-bold text-gray-900">Mine Lokasjoner</h1>
-      </header>
-
+      
       <main className="p-4 space-y-4">
+        <h1 className="text-xl font-bold text-gray-900 mb-2">Mine Lokasjoner</h1>
         {apiaries.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <p className="mb-4">Du har ingen lokasjoner enda.</p>
