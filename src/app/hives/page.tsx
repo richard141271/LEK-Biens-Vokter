@@ -438,7 +438,9 @@ export default function AllHivesPage() {
                                                     {printOptions.includeNotes && (
                                                         <div className="mt-2 border-t border-black pt-2 break-inside-avoid">
                                                             <h3 className="font-bold mb-1 text-xs">NOTATER:</h3>
-                                                            <div className="h-16 border border-gray-300 rounded bg-gray-50"></div>
+                                                            <div className="min-h-[4rem] p-2 border border-gray-300 rounded bg-gray-50 text-sm whitespace-pre-wrap">
+                                                                {lastInsp?.notes || ''}
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
