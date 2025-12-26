@@ -39,14 +39,18 @@ export default function ListingDetailPage() {
             });
         } else {
             // Mock Fallback
-             if (listingId === '1' || listingId === '2') {
+             const mockId1 = '00000000-0000-0000-0000-000000000001';
+             const mockId2 = '00000000-0000-0000-0000-000000000002';
+             
+             if (listingId === mockId1 || listingId === mockId2 || listingId === '1' || listingId === '2') {
+                 const isId1 = listingId === mockId1 || listingId === '1';
                  const mock = {
-                    id: listingId,
-                    seller_id: 'mock',
-                    honey_type: listingId === '1' ? 'Lynghonning' : 'Sommerhonning',
-                    amount_kg: listingId === '1' ? 50 : 120,
-                    remaining_kg: listingId === '1' ? 50 : 120,
-                    price_per_kg: listingId === '1' ? 150 : 90,
+                    id: isId1 ? mockId1 : mockId2,
+                    seller_id: '00000000-0000-0000-0000-000000000000',
+                    honey_type: isId1 ? 'Lynghonning' : 'Sommerhonning',
+                    amount_kg: isId1 ? 50 : 120,
+                    remaining_kg: isId1 ? 50 : 120,
+                    price_per_kg: isId1 ? 150 : 90,
                     moisture_percentage: 17.5,
                     production_year: 2024,
                     location: 'Halden',

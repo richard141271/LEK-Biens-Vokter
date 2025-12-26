@@ -9,8 +9,8 @@ import { HoneyListing } from '@/types/honey-exchange';
 // Mock data for fallback
 const MOCK_LISTINGS: HoneyListing[] = [
   {
-    id: '1',
-    seller_id: 'user1',
+    id: '00000000-0000-0000-0000-000000000001',
+    seller_id: '00000000-0000-0000-0000-000000000000',
     honey_type: 'Lynghonning',
     amount_kg: 50,
     remaining_kg: 50,
@@ -25,8 +25,8 @@ const MOCK_LISTINGS: HoneyListing[] = [
     seller_city: 'Halden'
   },
   {
-    id: '2',
-    seller_id: 'user2',
+    id: '00000000-0000-0000-0000-000000000002',
+    seller_id: '00000000-0000-0000-0000-000000000000',
     honey_type: 'Sommerhonning',
     amount_kg: 120,
     remaining_kg: 120,
