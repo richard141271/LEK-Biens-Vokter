@@ -19,6 +19,29 @@ export default function Header() {
 
   useEffect(() => {
     if (mounted) {
+      const fetchData = async () => {
+        try {
+            const { data: { user }, error } = await supabase.auth.getUser();
+            if (error || !user) {
+                // If we are on a protected route and no user, we might want to redirect, 
+                // but Next.js middleware or page logic usually handles that.
+                // For the header, we just stop.
+                return;
+            }
+    
+            // Fetch Profile
+            const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+            
+            // Safe check if component is still mounted would be ideal, but for now:
+            setProfile(profileData || { full_name: user.user_metadata?.full_name });
+        } catch (e) {
+            console.error("Header fetch error", e);
+        }
+      };
       fetchData();
     }
   }, [mounted]);
@@ -27,30 +50,6 @@ export default function Header() {
   if (pathname === '/login' || pathname === '/register' || pathname === '/') return null;
 
   if (!mounted) return null;
-
-  const fetchData = async () => {
-    try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error || !user) {
-            // If we are on a protected route and no user, we might want to redirect, 
-            // but Next.js middleware or page logic usually handles that.
-            // For the header, we just stop.
-            return;
-        }
-
-        // Fetch Profile
-        const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-        
-        // Safe check if component is still mounted would be ideal, but for now:
-        setProfile(profileData || { full_name: user.user_metadata?.full_name });
-    } catch (e) {
-        console.error("Header fetch error", e);
-    }
-  };
 
   const handleSignOut = async () => {
     try {
