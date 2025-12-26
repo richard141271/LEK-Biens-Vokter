@@ -103,10 +103,8 @@ export default function Header() {
            <p className="text-sm font-medium opacity-80 mt-0.5">{profile?.full_name || 'Laster...'}</p>
         </div>
 
-        {/* Right: Status Dot */}
-        <div className="w-12 flex justify-end items-center">
-            <div className="w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow-sm animate-pulse"></div>
-        </div>
+        {/* Right: Spacer for balance */}
+        <div className="w-12"></div>
       </div>
 
       {/* Bottom Black Bar */}
