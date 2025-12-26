@@ -37,11 +37,8 @@ export default function AllHivesPage() {
   const [massInspectionData, setMassInspectionData] = useState({
     queen_seen: false,
     eggs_seen: false,
-    larvae_seen: false,
-    pupa_seen: false,
-    honey_stores: 'medium', // Changed from food_status to honey_stores
-    health_status: 'good',
-    temperament: 'calm',
+    honey_stores: 'middels', // Changed from food_status to honey_stores
+    temperament: 'rolig',
     notes: ''
   });
 
@@ -186,11 +183,8 @@ export default function AllHivesPage() {
         setMassInspectionData({
             queen_seen: false,
             eggs_seen: false,
-            larvae_seen: false,
-            pupa_seen: false,
-            honey_stores: 'medium',
-            health_status: 'good',
-            temperament: 'calm',
+            honey_stores: 'middels',
+            temperament: 'rolig',
             notes: ''
         });
         setMassLogData({
@@ -801,9 +795,9 @@ export default function AllHivesPage() {
                             onChange={e => setMassInspectionData({...massInspectionData, honey_stores: e.target.value})}
                             className="w-full p-2 border rounded-lg"
                         >
-                            <option value="low">Lite</option>
-                            <option value="medium">Middels</option>
-                            <option value="high">Mye</option>
+                            <option value="lite">Lite</option>
+                            <option value="middels">Middels</option>
+                            <option value="mye">Mye</option>
                         </select>
                     </div>
 
