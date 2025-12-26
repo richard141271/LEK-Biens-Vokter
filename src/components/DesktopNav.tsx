@@ -25,7 +25,6 @@ export default function DesktopNav() {
     { href: '/dashboard', label: 'Oversikt', icon: Home },
     { href: '/apiaries', label: 'Bigårder', icon: Map },
     { href: '/hives', label: 'Bikuber', icon: Box },
-    { href: '/wallet', label: 'Lommebok', icon: Wallet },
     { href: '/settings', label: 'Innstillinger', icon: Settings },
   ];
 
