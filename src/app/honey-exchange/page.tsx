@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Droplets, MapPin, Scale, TrendingUp, DollarSign, Search, Clock, ArrowUpRight, Activity, FileText, ArrowDownRight, Minus } from 'lucide-react';
+import { ArrowLeft, Plus, Droplets, MapPin, Scale, TrendingUp, DollarSign, Search, Clock, ArrowUpRight, Activity, FileText, ArrowDownRight, Minus, Users, Wallet, ChevronRight } from 'lucide-react';
 import { HoneyListing } from '@/types/honey-exchange';
 
 // Mock data for fallback
