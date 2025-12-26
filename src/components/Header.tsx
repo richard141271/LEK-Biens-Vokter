@@ -4,11 +4,10 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { LogOut, QrCode } from 'lucide-react';
-import VoiceAssistant from './VoiceAssistant';
+// VoiceAssistant removed by user request
 
 export default function Header() {
   const [profile, setProfile] = useState<any>(null);
-  const [apiaries, setApiaries] = useState<any[]>([]);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
@@ -48,10 +47,6 @@ export default function Header() {
         
         // Safe check if component is still mounted would be ideal, but for now:
         setProfile(profileData || { full_name: user.user_metadata?.full_name });
-
-        // Fetch Apiaries (for Voice Assistant context)
-        const { data: apData } = await supabase.from('apiaries').select('id, name');
-        if (apData) setApiaries(apData);
     } catch (e) {
         console.error("Header fetch error", e);
     }
@@ -65,36 +60,6 @@ export default function Header() {
     } catch (e) {
         console.error("Sign out error", e);
         router.push('/');
-    }
-  };
-
-  const handleVoiceCommand = async (command: string, args: any) => {
-    console.log('Voice Command:', command, args);
-    if (command === 'create_hive') {
-       if (args.apiaryId) {
-         try {
-             const { data: { user } } = await supabase.auth.getUser();
-             
-             const { data: newHive, error } = await supabase
-                .from('hives')
-                .insert({
-                    hive_number: 'NY-KUBE', // Placeholder, should be auto-increment logic
-                    apiary_id: args.apiaryId,
-                    user_id: user?.id,
-                    status: 'AKTIV',
-                    type: 'PRODUKSJON'
-                })
-                .select()
-                .single();
-             
-             if (newHive) {
-                 alert(`Kube opprettet i bigård!`); 
-                 router.push(`/apiaries/${args.apiaryId}`);
-             }
-         } catch (e) {
-             console.error(e);
-         }
-       }
     }
   };
 
@@ -114,12 +79,10 @@ export default function Header() {
             .single();
 
           if (hive) {
-                  // Navigate to Inspection page directly
-                  router.push(`/hives/${hive.id}/new-inspection?autoVoice=true`);
-                  // Trigger voice feedback
-                  const utterance = new SpeechSynthesisUtterance("Kube funnet. Starter inspeksjon. Hva ser du?");
-                  utterance.lang = 'no-NO';
-                  window.speechSynthesis.speak(utterance);
+                  // Navigate to Inspection page directly - REMOVED autoVoice
+                  router.push(`/hives/${hive.id}/new-inspection`);
+                  // REMOVED voice feedback
+                  alert("Kube funnet. Starter inspeksjon.");
               } else {
               alert('Kube ikke funnet. Opprett ny?');
           }
@@ -167,8 +130,7 @@ export default function Header() {
           </button>
       </div>
 
-      {/* Global Voice Assistant (Mounted here to persist) */}
-      <VoiceAssistant onCommand={handleVoiceCommand} apiaries={apiaries} />
+      {/* Global Voice Assistant REMOVED */}
     </div>
   );
 }

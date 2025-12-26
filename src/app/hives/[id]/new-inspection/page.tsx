@@ -43,12 +43,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   useEffect(() => {
     fetchHiveAndWeather();
     
-    // Initialize Voice if requested
+    // Auto-voice removed by user request
+    /*
     if (autoVoice === 'true') {
         setTimeout(() => {
             startListening();
-        }, 3000); // Wait for "Kube funnet..." to finish speaking roughly
+        }, 3000); 
     }
+    */
   }, [params.id, autoVoice]);
 
   // Voice Logic
