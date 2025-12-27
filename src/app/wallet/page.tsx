@@ -159,6 +159,36 @@ export default function WalletPage() {
             </p>
         </div>
 
+        {/* Custom Amount */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h2 className="font-bold text-gray-900 mb-4">Valgfritt beløp</h2>
+            <div className="flex gap-4 items-end">
+                <div className="flex-1">
+                    <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Beløp i HC</label>
+                    <input 
+                        type="number" 
+                        value={customAmount}
+                        onChange={(e) => setCustomAmount(e.target.value)}
+                        placeholder="Min 10 HC"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none"
+                    />
+                </div>
+                <div className="flex-1">
+                        <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Pris i NOK</label>
+                        <div className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-600">
+                        {customAmount ? (Number(customAmount) / 2).toLocaleString() : '0'} kr
+                        </div>
+                </div>
+            </div>
+            <button 
+                disabled={buying || !customAmount || Number(customAmount) < 1}
+                onClick={() => handleBuyCoins(Number(customAmount) / 2, Number(customAmount))}
+                className="w-full mt-4 bg-black text-white font-bold py-3 rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+                Kjøp {customAmount || '0'} HC
+            </button>
+        </div>
+
         {/* Transaction History */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <h2 className="font-bold text-gray-900 mb-4 flex items-center gap-2">

@@ -58,6 +58,12 @@ export default function SellHoneyPage() {
     setLoading(true);
 
     try {
+      // Check session first
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+          throw new Error('Du er ikke logget inn. Vennligst logg inn på nytt.');
+      }
+
       // Validation
       if (Number(formData.amount_kg) < 20) {
         throw new Error('Minimum salgsvolum er 20 kg');
@@ -71,8 +77,8 @@ export default function SellHoneyPage() {
       const { error } = await supabase
         .from('honey_listings')
         .insert({
-          seller_id: user.id,
-          keeper_id: user.id, // I am the physical holder for new listings
+          seller_id: session.user.id,
+          keeper_id: session.user.id, // I am the physical holder for new listings
           honey_type: formData.honey_type,
           amount_kg: Number(formData.amount_kg),
           remaining_kg: Number(formData.amount_kg),
