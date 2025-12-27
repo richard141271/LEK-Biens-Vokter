@@ -20,12 +20,13 @@ export default function ArchivePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Fetch ONLY inactive hives
+    // Fetch ONLY archived hives (Sold, Destroyed, Disease)
+    // We filter by status being one of the archive statuses
     const { data, error } = await supabase
       .from('hives')
       .select('*, apiaries(name)')
       .eq('user_id', user.id)
-      .eq('active', false)
+      .in('status', ['SOLGT', 'DESTRUERT', 'SYKDOM'])
       .order('updated_at', { ascending: false });
 
     if (error) {

@@ -66,7 +66,9 @@ export default function AllHivesPage() {
     const { data, error } = await supabase
       .from('hives')
       .select('*, apiaries(name, location)')
-      .neq('active', false) // Only show active hives
+      .neq('status', 'SOLGT')
+      .neq('status', 'DESTRUERT')
+      .neq('status', 'SYKDOM')
       .order('hive_number', { ascending: true });
 
     if (data) setHives(data);

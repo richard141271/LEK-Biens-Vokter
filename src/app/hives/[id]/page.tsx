@@ -289,7 +289,9 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
         .from('hives')
         .update({ 
           status: archiveType,
-          active: false 
+          active: false,
+          archive_reason: archiveType === 'DESTRUERT' ? destructionReason : archiveType,
+          archived_at: new Date().toISOString()
         })
         .eq('id', params.id);
 
