@@ -308,13 +308,13 @@ export default function DashboardPage() {
                 REGISTRER NYE KUBER
               </button>
 
-              <button
-                onClick={() => alert('QR-skanner kommer snart! Her vil du kunne skanne kuber direkte fra butikk.')}
+              <Link
+                href="/scan"
                 className="w-full bg-white border-2 border-honey-100 hover:border-honey-500 text-honey-600 p-4 rounded-xl shadow-sm flex items-center justify-center gap-2 font-bold text-lg transition-transform active:scale-95"
               >
                 <QrCode className="w-6 h-6" />
                 SKANN QR-KODE
-              </button>
+              </Link>
 
               <div className="grid grid-cols-2 gap-4">
                   <Link href="/apiaries" className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-6 rounded-xl shadow-sm text-center transition-transform active:scale-95">

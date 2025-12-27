@@ -32,25 +32,26 @@ export default function NewApiaryPage() {
       if (!user) throw new Error('Du må være logget inn');
 
       // 2. Generer ID basert på type for innlogget bruker
-      const { data: latestApiary } = await supabase
+      const { data: allApiaries } = await supabase
         .from('apiaries')
         .select('apiary_number')
-        .eq('user_id', user.id)
-        .eq('type', type)
-        .order('apiary_number', { ascending: false })
-        .limit(1)
-        .single();
+        .eq('user_id', user.id);
       
       let nextNum = 1;
       
-      if (latestApiary && latestApiary.apiary_number) {
-        const parts = latestApiary.apiary_number.split('-');
-        if (parts.length === 2) {
-          const numPart = parseInt(parts[1], 10);
-          if (!isNaN(numPart)) {
-            nextNum = numPart + 1;
+      if (allApiaries && allApiaries.length > 0) {
+        // Finn høyeste nummer uavhengig av sortering
+        const maxNum = allApiaries.reduce((max, apiary) => {
+          if (!apiary.apiary_number) return max;
+          const parts = apiary.apiary_number.split('-');
+          if (parts.length === 2) {
+            const num = parseInt(parts[1], 10);
+            return !isNaN(num) && num > max ? num : max;
           }
-        }
+          return max;
+        }, 0);
+        
+        nextNum = maxNum + 1;
       }
 
       let prefix = 'BG'; // Default Bigård
@@ -73,7 +74,7 @@ export default function NewApiaryPage() {
 
       if (error) throw error;
 
-      router.push('/dashboard');
+      router.push('/apiaries');
     } catch (error: any) {
       alert('Feil ved lagring: ' + error.message);
     } finally {
