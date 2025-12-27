@@ -47,8 +47,8 @@ export default function Header() {
     }
   }, [mounted]);
 
-  // Hide on auth pages and dashboard (dashboard has its own profile card/controls)
-  if (pathname === '/login' || pathname === '/register' || pathname === '/' || pathname === '/about' || pathname === '/dashboard') return null;
+  // Hide on auth pages
+  if (pathname === '/login' || pathname === '/register' || pathname === '/' || pathname === '/about') return null;
 
   if (!mounted) return null;
 
@@ -108,8 +108,9 @@ export default function Header() {
         <div className="w-12"></div>
       </div>
 
-      {/* Bottom Black Bar */}
-      <div className="bg-black text-white px-4 py-2 flex justify-between items-center shadow-md z-40">
+      {/* Bottom Black Bar - Hide on Dashboard as it has its own controls */}
+      {pathname !== '/dashboard' && (
+        <div className="bg-black text-white px-4 py-2 flex justify-between items-center shadow-md z-40">
           {/* Left: QR Scan Button */}
           <Link 
             href="/scan" 
@@ -126,7 +127,8 @@ export default function Header() {
           >
             Logg ut
           </button>
-      </div>
+        </div>
+      )}
 
       {/* Global Voice Assistant REMOVED */}
     </div>
