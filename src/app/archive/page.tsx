@@ -37,8 +37,8 @@ export default function ArchivePage() {
   };
 
   const filteredHives = hives.filter(hive => 
-    hive.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    hive.hive_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (hive.name && hive.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (hive.hive_number && hive.hive_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (hive.status && hive.status.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 

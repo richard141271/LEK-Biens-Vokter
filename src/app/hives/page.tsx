@@ -66,6 +66,7 @@ export default function AllHivesPage() {
     const { data, error } = await supabase
       .from('hives')
       .select('*, apiaries(name, location)')
+      .neq('active', false) // Only show active hives
       .order('hive_number', { ascending: true });
 
     if (data) setHives(data);
@@ -80,12 +81,14 @@ export default function AllHivesPage() {
     const apiaryLoc = hive.apiaries?.location?.toLowerCase() || '';
     const status = (hive.active === false ? 'inaktiv' : (hive.status || 'aktiv')).toLowerCase();
     const type = (hive.type || 'produksjon').toLowerCase();
+    const name = hive.name?.toLowerCase() || ''; // Added name search
 
     return hiveNum.includes(term) || 
            apiaryName.includes(term) || 
            apiaryLoc.includes(term) || 
            status.includes(term) ||
-           type.includes(term);
+           type.includes(term) ||
+           name.includes(term); // Include name in search
   });
 
   const toggleSelection = (id: string) => {
