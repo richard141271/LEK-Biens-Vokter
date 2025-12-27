@@ -393,6 +393,18 @@ export default function SettingsPage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Kontonummer (Utbetaling)</label>
+                <input
+                  name="private_bank_account"
+                  value={formData.private_bank_account || ''}
+                  onChange={handleChange}
+                  placeholder="Frivillig, men kreves for utbetaling av provisjon/bonus"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none"
+                />
+                <p className="text-[10px] text-gray-500 mt-1">Fylles ut hvis du ønsker utbetaling av opptjente midler.</p>
+              </div>
+
               {/* Memberships */}
               <div className="pt-4 border-t space-y-4">
                  <div className="space-y-3">
@@ -551,16 +563,6 @@ export default function SettingsPage() {
                 )}
               </div>
               
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Kontonummer (Utbetaling)</label>
-                <input
-                  name="private_bank_account"
-                  value={formData.private_bank_account || ''}
-                  onChange={handleChange}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none"
-                />
-              </div>
-
               {/* Password Change Section */}
               <div className="pt-6 border-t border-gray-200">
                 <h3 className="text-sm font-bold text-gray-900 mb-4">Endre Passord (Valgfritt)</h3>
