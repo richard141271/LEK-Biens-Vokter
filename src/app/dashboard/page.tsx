@@ -217,7 +217,7 @@ export default function DashboardPage() {
   if (loading) return <div className="p-8 text-center">Laster oversikt...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-12">
+    <div className="min-h-screen bg-gray-50 pb-24">
       
       <main className="p-2 space-y-2 max-w-lg mx-auto">
           
