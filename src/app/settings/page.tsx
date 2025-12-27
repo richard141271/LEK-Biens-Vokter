@@ -33,6 +33,8 @@ export default function SettingsPage() {
     org_number: '',
     company_bank_account: '',
     company_address: '',
+    company_email: '',
+    company_phone: '',
     private_bank_account: ''
   });
   
@@ -84,7 +86,10 @@ export default function SettingsPage() {
         ...data,
         email: user.email, // Add email from auth user
         interests: data.interests || [], // Ensure array
-        beekeeping_type: data.beekeeping_type || 'hobby'
+        beekeeping_type: data.beekeeping_type || 'hobby',
+        // Auto-fill company contact info if empty
+        company_email: data.company_email || user.email || '',
+        company_phone: data.company_phone || data.phone_number || ''
       });
     } else {
       // Fallback to auth metadata if profile doesn't exist yet
@@ -93,7 +98,9 @@ export default function SettingsPage() {
         full_name: user.user_metadata?.full_name || '',
         // Initialize other fields as empty/default
         interests: [],
-        beekeeping_type: 'hobby'
+        beekeeping_type: 'hobby',
+        company_email: user.email || '',
+        company_phone: ''
       });
     }
     setLoading(false);
@@ -336,6 +343,16 @@ export default function SettingsPage() {
               </div>
 
               <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">E-post</label>
+                <input
+                  name="email"
+                  value={formData.email || ''}
+                  readOnly
+                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 outline-none cursor-not-allowed"
+                />
+              </div>
+
+              <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Adresse</label>
                 <input
                   name="address"
@@ -508,6 +525,24 @@ export default function SettingsPage() {
                       <input
                         name="company_address"
                         value={formData.company_address || ''}
+                        onChange={handleChange}
+                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Firma E-post</label>
+                      <input
+                        name="company_email"
+                        value={formData.company_email || ''}
+                        onChange={handleChange}
+                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Firma Telefon</label>
+                      <input
+                        name="company_phone"
+                        value={formData.company_phone || ''}
                         onChange={handleChange}
                         className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
                       />
