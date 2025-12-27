@@ -278,21 +278,23 @@ export default function DashboardPage() {
               </div>
           </div>
 
-          {/* Stats Cards */}
+          {/* Navigation Cards (formerly Stats) */}
           <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+              <Link href="/hives" className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:bg-gray-50 transition-transform active:scale-95 block text-left">
+                  <div className="font-bold text-lg text-gray-900 mb-2">BIKUBER</div>
                   <p className="text-gray-500 text-sm mb-1">Aktive kuber</p>
                   <div className="flex items-end gap-2">
                       <span className="text-2xl font-bold text-gray-900">{stats.activeHives}</span>
                       <span className="text-gray-400 text-sm mb-1">/ {stats.hives} totalt</span>
                   </div>
-              </div>
-              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                  <p className="text-gray-500 text-sm mb-1">Bigårder</p>
+              </Link>
+              <Link href="/apiaries" className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:bg-gray-50 transition-transform active:scale-95 block text-left">
+                  <div className="font-bold text-lg text-gray-900 mb-2">BIGÅRDER</div>
+                  <p className="text-gray-500 text-sm mb-1">Antall</p>
                   <div className="flex items-end gap-2">
                       <span className="text-2xl font-bold text-gray-900">{stats.apiaries}</span>
                   </div>
-              </div>
+              </Link>
           </div>
           
           {/* Weather Widget */}
@@ -316,20 +318,10 @@ export default function DashboardPage() {
                 SKANN QR-KODE
               </Link>
 
-              <div className="grid grid-cols-2 gap-4">
-                  <Link href="/apiaries" className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-6 rounded-xl shadow-sm text-center transition-transform active:scale-95">
-                      <div className="font-bold text-lg mb-1">BIGÅRDER</div>
-                      <div className="text-gray-500 text-sm">Lokasjoner</div>
-                  </Link>
-                  <Link href="/hives" className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-6 rounded-xl shadow-sm text-center transition-transform active:scale-95">
-                      <div className="font-bold text-lg mb-1">BIKUBER</div>
-                      <div className="text-gray-500 text-sm">Alle kuber</div>
-                  </Link>
-                  <Link href="/settings" className="col-span-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-4 rounded-xl shadow-sm text-center transition-transform active:scale-95 flex items-center justify-center gap-2">
-                      <Settings className="w-5 h-5 text-gray-400" />
-                      <div className="font-bold text-lg">INNSTILLINGER</div>
-                  </Link>
-              </div>
+              <Link href="/settings" className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-4 rounded-xl shadow-sm text-center transition-transform active:scale-95 flex items-center justify-center gap-2">
+                  <Settings className="w-5 h-5 text-gray-400" />
+                  <div className="font-bold text-lg">INNSTILLINGER</div>
+              </Link>
           </div>
 
           {/* Recent Activity */}
