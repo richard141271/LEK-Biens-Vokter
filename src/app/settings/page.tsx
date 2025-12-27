@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight } from 'lucide-react';
+import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight, Archive } from 'lucide-react';
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -181,12 +181,24 @@ export default function SettingsPage() {
     router.push('/');
   };
 
-  if (loading) return <div className="p-8 text-center">Laster profil...</div>;
+  if (loading) return <div className="p-8 text-center">Laster innstillinger...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-20">
       
-      <main className="max-w-md mx-auto p-4 space-y-4">
+      {/* Header with Archive Link */}
+      <div className="bg-white p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 z-10">
+        <h1 className="text-xl font-bold text-gray-900">Innstillinger</h1>
+        <button 
+          onClick={() => router.push('/archive')}
+          className="text-gray-600 hover:text-honey-600 flex items-center gap-1.5 text-sm font-medium bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-honey-50 hover:border-honey-200 transition-colors"
+        >
+          <Archive className="w-4 h-4" />
+          Arkiv
+        </button>
+      </div>
+
+      <div className="max-w-3xl mx-auto p-4 space-y-6">
         
         {/* VIEW MODE */}
         {!isEditing ? (
@@ -612,7 +624,7 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

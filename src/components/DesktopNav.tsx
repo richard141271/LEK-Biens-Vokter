@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Map, Box, Settings, LogOut, Wallet } from 'lucide-react';
+import { Home, Map, Box, Settings, LogOut, Wallet, Archive } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 

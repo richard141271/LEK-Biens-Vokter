@@ -41,6 +41,14 @@ export default function BottomNav() {
 
 
         <Link 
+          href="/archive" 
+          className={`flex flex-col items-center justify-center w-full h-full ${isActive('/archive') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}
+        >
+          <Archive className="w-6 h-6 mb-1" />
+          <span className="text-[10px] font-medium">Arkiv</span>
+        </Link>
+
+        <Link 
           href="/settings" 
           className={`flex flex-col items-center justify-center w-full h-full ${isActive('/settings') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}
         >

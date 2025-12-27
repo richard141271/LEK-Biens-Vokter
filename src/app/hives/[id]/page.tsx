@@ -144,26 +144,62 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   const handleActiveToggle = async () => {
     const isCurrentlyActive = hive.active !== false; // Default true if undefined
 
+    let updates: any = { active: !isCurrentlyActive };
+    let logAction = '';
+    let logDetails = '';
+
     if (!isCurrentlyActive) {
-      // Activating is usually safe
-      const confirm = window.confirm('Vil du aktivere denne kuben igjen?');
+      // REACTIVATING
+      const confirm = window.confirm('Vil du gjenaktivere denne kuben? (F.eks. tilbakekjøpt eller feilregistrert)');
       if (!confirm) return;
+
+      updates.archive_reason = null;
+      updates.archived_at = null;
+      
+      // Reset status if it was an end-state
+      if (['SOLGT', 'DESTRUERT', 'DØD', 'SYKDOM'].includes(hive.status)) {
+           updates.status = 'OK';
+      }
+
+      logAction = 'GJENAKTIVERT';
+      logDetails = 'Kuben er aktivert igjen (tilbakekjøpt/angret)';
+
     } else {
-      // Deactivating needs warning
-      const confirm = window.confirm('Er du sikker på at du vil sette kuben inaktiv? Den vil ikke lenger vises i oversikter som standard.');
+      // DEACTIVATING (Manual toggle, not via archive modal)
+      const confirm = window.confirm('Er du sikker på at du vil sette kuben inaktiv manuelt? Bruk heller "Avslutt / Slett" knappen for å arkivere korrekt.');
       if (!confirm) return;
+      
+      logAction = 'DEAKTIVERT';
+      logDetails = 'Satt inaktiv manuelt';
     }
 
-    const newActiveState = !isCurrentlyActive;
     // Optimistic update
-    setHive({ ...hive, active: newActiveState });
+    setHive({ ...hive, ...updates });
 
-    const { error } = await supabase
-      .from('hives')
-      .update({ active: newActiveState })
-      .eq('id', params.id);
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
 
-    if (error) {
+        const { error } = await supabase
+        .from('hives')
+        .update(updates)
+        .eq('id', params.id);
+
+        if (error) throw error;
+
+        // Log it
+        if (logAction) {
+            await supabase.from('hive_logs').insert({
+                hive_id: params.id,
+                user_id: user?.id,
+                action: logAction,
+                details: logDetails
+            });
+        }
+        
+        // Refresh to be safe
+        fetchHiveDetails();
+
+    } catch (error) {
       console.error('Failed to update active status', error);
       alert('Kunne ikke endre status');
       fetchHiveDetails(); // Revert

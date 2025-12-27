@@ -374,7 +374,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <p className="text-center text-gray-400 text-[9px] mt-2">© 2025 - LEK-Honning™</p>
+          <p className="text-center text-gray-400 text-[9px] mt-2">© 2025 - LEK-Honning™ v1.0.0</p>
       </main>
 
       {/* CREATE HIVE MODAL */}
