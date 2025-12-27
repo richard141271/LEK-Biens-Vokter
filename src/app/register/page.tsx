@@ -7,6 +7,14 @@ import Link from 'next/link';
 import { ArrowLeft, Check, AlertCircle } from 'lucide-react';
 
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Laster registreringsskjema...</div>}>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
