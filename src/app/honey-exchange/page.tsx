@@ -8,9 +8,9 @@ import { HoneyListing } from '@/types/honey-exchange';
 
 // Modules Data
 const MODULES = [
-  { id: 1, name: 'Biens Vokter', icon: ShieldCheck, desc: 'Digital Bigårdsstyring', status: 'active', link: '/dashboard' },
-  { id: 2, name: 'Honningbørsen', icon: DollarSign, desc: 'Markedsplass for honning', status: 'locked', link: '#' },
-  { id: 3, name: 'Partnernettverk (MLM)', icon: Users, desc: 'Tjen penger på nettverk', status: 'active', link: '/network' },
+  { id: 1, name: 'Biens Vokter', icon: ShieldCheck, desc: 'Digital Bigårdsstyring', status: 'active', link: '/info/biens-vokter' },
+  { id: 2, name: 'Honningbørsen', icon: DollarSign, desc: 'Markedsplass for honning', status: 'locked', link: '/info/honningborsen' },
+  { id: 3, name: 'Partnernettverk (MLM)', icon: Users, desc: 'Tjen penger på nettverk', status: 'active', link: '/info/partnernettverk' },
   { id: 4, name: 'LEI EN KUBE', icon: Box, desc: 'Utleie til private/bedrifter', status: 'active', link: '/lei-en-kube' },
   { id: 5, name: 'BARNAS birøkter', icon: Smile, desc: 'Kurs og sertifisering for barn', status: 'active', link: '/kids-beekeeper' },
   { id: 6, name: 'Franchise', icon: ShoppingBag, desc: 'Salgsavdeling & Butikkløsning', status: 'active', link: '/franchise' },
@@ -227,27 +227,30 @@ export default function HoneyExchangePage() {
         <div>
            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 ml-1">Våre Moduler</h3>
            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {MODULES.map((mod) => (
-                 <div key={mod.id} className={`p-4 rounded-xl border flex flex-col items-center text-center gap-2 transition-all ${
-                    mod.status === 'active' 
-                      ? 'bg-white border-honey-100 shadow-sm hover:shadow-md cursor-pointer' 
-                      : 'bg-gray-50 border-gray-200 opacity-75 grayscale-[0.5]'
-                 }`}>
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                       mod.status === 'active' ? 'bg-honey-100 text-honey-600' : 'bg-gray-200 text-gray-500'
-                    }`}>
-                       <mod.icon className="w-5 h-5" />
-                    </div>
-                    <div>
-                       <div className="font-bold text-sm text-gray-900">{mod.name}</div>
-                       <div className="text-[10px] text-gray-500 leading-tight mt-1">{mod.desc}</div>
-                    </div>
-                    {mod.status === 'coming' && (
-                       <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full mt-1">Kommer snart</span>
-                    )}
-                 </div>
-              ))}
-           </div>
+             {MODULES.map((mod) => (
+                <button
+                   key={mod.id}
+                   onClick={() => router.push(mod.link)}
+                   className={`p-4 rounded-xl border flex flex-col items-center text-center gap-2 transition-all ${
+                   mod.status === 'active' || mod.status === 'locked'
+                     ? 'bg-white border-honey-100 shadow-sm hover:shadow-md cursor-pointer hover:bg-gray-50' 
+                     : 'bg-gray-50 border-gray-200 opacity-75 grayscale-[0.5]'
+                }`}>
+                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      mod.status === 'active' ? 'bg-honey-100 text-honey-600' : 'bg-gray-200 text-gray-500'
+                   }`}>
+                      <mod.icon className="w-5 h-5" />
+                   </div>
+                   <div>
+                      <div className="font-bold text-sm text-gray-900">{mod.name}</div>
+                      <div className="text-[10px] text-gray-500 leading-tight mt-1">{mod.desc}</div>
+                   </div>
+                   {mod.status === 'coming' && (
+                      <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full mt-1">Kommer snart</span>
+                   )}
+                </button>
+             ))}
+          </div>
         </div>
 
         {/* Locked Marketplace Section */}
