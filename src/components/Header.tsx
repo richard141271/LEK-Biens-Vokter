@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { LogOut, QrCode } from 'lucide-react';
+import Link from 'next/link';
 // VoiceAssistant removed by user request
 
 export default function Header() {
@@ -110,13 +111,13 @@ export default function Header() {
       {/* Bottom Black Bar */}
       <div className="bg-black text-white px-4 py-2 flex justify-between items-center shadow-md z-40">
           {/* Left: QR Scan Button */}
-          <button 
-            onClick={handleScan} 
+          <Link 
+            href="/scan" 
             className="text-honey-500 flex items-center gap-2 font-bold text-xs uppercase hover:text-white transition-colors"
           >
             <QrCode className="w-5 h-5" />
             Skann
-          </button>
+          </Link>
 
           {/* Right: Log Out */}
           <button 
