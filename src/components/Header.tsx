@@ -47,8 +47,8 @@ export default function Header() {
     }
   }, [mounted]);
 
-  // Hide on auth pages
-  if (pathname === '/login' || pathname === '/register' || pathname === '/' || pathname === '/about') return null;
+  // Hide on auth pages and dashboard (dashboard has its own profile card/controls)
+  if (pathname === '/login' || pathname === '/register' || pathname === '/' || pathname === '/about' || pathname === '/dashboard') return null;
 
   if (!mounted) return null;
 

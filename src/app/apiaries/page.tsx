@@ -189,58 +189,74 @@ export default function ApiariesPage() {
 
       {/* PRINT VIEW (Varselskilt) */}
       {printLayout === 'sign' && (
-        <div className="hidden print:block bg-white">
+        <div className="hidden print:block bg-white fixed inset-0 z-[9999]">
+          <style jsx global>{`
+            @media print {
+              @page {
+                size: A4 portrait;
+                margin: 0;
+              }
+              body {
+                margin: 0;
+                padding: 0;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+            }
+          `}</style>
           {apiaries
             .filter(a => selectedApiaries.includes(a.id))
             .map(apiary => (
-              <div key={apiary.id} className="w-full h-screen flex flex-col items-center justify-center p-8 break-after-page text-center">
+              <div key={apiary.id} className="w-[210mm] h-[297mm] relative overflow-hidden bg-yellow-300 break-after-page page-break-after-always">
                 
-                {/* Yellow Sign Container */}
-                <div className="border-[12px] border-black bg-yellow-300 w-full max-w-3xl aspect-[1/1.2] flex flex-col items-center justify-between p-12 shadow-none box-border relative">
+                {/* Border Container */}
+                <div className="absolute inset-0 border-[15px] border-black pointer-events-none z-50"></div>
+
+                <div className="flex flex-col items-center justify-between h-full py-16 px-12 relative z-10">
                   
-                  {/* HEXAGON SHAPE (Optional visual flair via ClipPath or just CSS) */}
-                  {/* Using a simple rectangular warning sign style for maximum readability and ease of print */}
-
-                  <div className="w-full space-y-6">
-                    <h1 className="text-[120px] leading-none font-black tracking-tighter uppercase mb-8">BIGÅRD</h1>
+                  {/* HEADER */}
+                  <div className="w-full text-center space-y-6">
+                    <h1 className="text-[120px] leading-none font-black tracking-tighter uppercase text-black">BIGÅRD</h1>
                     
-                    <div className="text-4xl font-bold">
-                      <p className="uppercase tracking-wide mb-2">Tilhører:</p>
-                      <p className="text-6xl mb-4">{profile?.full_name || 'Ukjent Eier'}</p>
-                      <p className="text-3xl font-normal">{profile?.address || ''}</p>
-                      <p className="text-3xl font-normal">{profile?.post_code} {profile?.city}</p>
+                    <div className="space-y-4">
+                      <p className="uppercase tracking-widest text-xl font-bold text-black/60">ANSVARLIG BIRØKTER</p>
+                      <div className="space-y-1">
+                        <p className="text-5xl font-black text-black uppercase">{profile?.full_name || 'Ukjent Eier'}</p>
+                        <p className="text-3xl font-bold text-black">{profile?.address || ''}</p>
+                        <p className="text-3xl font-bold text-black">{profile?.post_code} {profile?.city}</p>
+                      </div>
+                      <div className="pt-4">
+                         <p className="text-4xl font-black text-black">Tlf: {profile?.phone_number || ''}</p>
+                      </div>
                     </div>
 
-                    <div className="text-4xl font-bold mt-8">
-                      <p>Tlf: {profile?.phone_number || ''}</p>
-                    </div>
-
-                    <div className="flex flex-col gap-4 mt-12 items-center">
+                    <div className="flex flex-col gap-4 mt-12 items-center w-full">
                       {profile?.is_norges_birokterlag_member && (
-                        <div className="bg-black text-yellow-300 px-6 py-2 text-2xl font-bold uppercase w-full max-w-2xl">
-                          Medlem av Norges Birøkterlag
+                        <div className="bg-black text-yellow-300 px-8 py-3 text-2xl font-black uppercase tracking-wider w-full max-w-2xl transform -skew-x-12 border-4 border-yellow-300 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]">
+                          <span className="block transform skew-x-12">Medlem av Norges Birøkterlag</span>
                         </div>
                       )}
                       {profile?.is_lek_honning_member && (
-                        <div className="bg-black text-yellow-300 px-6 py-2 text-2xl font-bold uppercase w-full max-w-2xl">
-                          Medlem av LEK-Honning™ Norge
+                        <div className="bg-black text-yellow-300 px-8 py-3 text-2xl font-black uppercase tracking-wider w-full max-w-2xl transform -skew-x-12 border-4 border-yellow-300 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]">
+                          <span className="block transform skew-x-12">Medlem av LEK-Honning™ Norge</span>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="w-full flex justify-between items-end mt-12">
+                  {/* BOTTOM SECTION */}
+                  <div className="w-full flex justify-between items-end mt-auto pt-8 border-t-4 border-black">
                      {/* ID */}
                      <div className="text-left">
-                        <p className="text-2xl font-bold uppercase text-gray-800 mb-1">Bigård ID</p>
-                        <p className="text-6xl font-black font-mono tracking-widest">{apiary.apiary_number}</p>
+                        <p className="text-2xl font-black uppercase text-black/60 mb-2">LOKASJON ID</p>
+                        <p className="text-7xl font-black font-mono tracking-widest text-black">{apiary.apiary_number}</p>
                      </div>
 
                      {/* QR Code */}
-                     <div className="bg-white p-4 border-4 border-black">
+                     <div className="bg-white p-3 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
                         <QRCodeSVG 
                           value={`${window.location.origin}/apiaries/${apiary.id}`}
-                          size={200}
+                          size={180}
                           level="H"
                           includeMargin={true}
                         />
@@ -248,9 +264,6 @@ export default function ApiariesPage() {
                   </div>
 
                 </div>
-                
-                {/* Cut Instructions */}
-                <p className="mt-8 text-gray-400 text-sm print:hidden">Klipp ut og laminer for best holdbarhet.</p>
               </div>
             ))}
         </div>

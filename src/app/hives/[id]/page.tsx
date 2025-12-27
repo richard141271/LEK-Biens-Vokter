@@ -286,7 +286,22 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   if (!hive) return <div className="p-8 text-center">Fant ikke bikube</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 print:bg-white print:pb-0">
+    <div className="min-h-screen bg-gray-50 pb-20 print:bg-white print:pb-0 print:min-h-0 print:h-auto">
+      <style jsx global>{`
+        @media print {
+          @page {
+            margin: 0.5cm;
+            size: auto;
+          }
+          body {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
+          /* Hide everything by default, only show what we want if needed, 
+             but here we rely on tailwind 'print:hidden' classes */
+        }
+      `}</style>
+
       {/* Page Title & Actions */}
       <div className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10 print:hidden">
         <div className="flex items-center justify-between mb-2">

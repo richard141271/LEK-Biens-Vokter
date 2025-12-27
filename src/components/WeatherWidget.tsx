@@ -49,28 +49,30 @@ export default function WeatherWidget() {
   if (!weather) return null;
 
   return (
-    <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-5 text-white shadow-sm">
-      <div className="flex justify-between items-start mb-4">
+    <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-3 text-white shadow-sm">
+      <div className="flex justify-between items-start mb-1">
         <div>
-          <h3 className="font-bold text-lg">Været i Halden</h3>
-          <p className="text-blue-100 text-sm">{getWeatherText(weather.weather_code)}</p>
+          <h3 className="font-bold text-xs">Været i Halden</h3>
+          <p className="text-blue-100 text-[10px]">{getWeatherText(weather.weather_code)}</p>
         </div>
-        <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
-            {getWeatherIcon(weather.weather_code)}
+        <div className="bg-white/20 p-1.5 rounded-lg backdrop-blur-sm">
+            <div className="scale-75 origin-top-right">
+                {getWeatherIcon(weather.weather_code)}
+            </div>
         </div>
       </div>
       
-      <div className="flex items-end gap-1 mb-4">
-        <span className="text-4xl font-bold">{Math.round(weather.temperature_2m)}°</span>
+      <div className="flex items-end gap-1 mb-2">
+        <span className="text-2xl font-bold">{Math.round(weather.temperature_2m)}°</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 text-sm text-blue-100">
-        <div className="flex items-center gap-2 bg-white/10 p-2 rounded-lg">
-            <Wind className="w-4 h-4" />
+      <div className="grid grid-cols-2 gap-2 text-[10px] text-blue-100">
+        <div className="flex items-center gap-1.5 bg-white/10 p-1.5 rounded-lg">
+            <Wind className="w-3 h-3" />
             <span>{weather.wind_speed_10m} m/s</span>
         </div>
-        <div className="flex items-center gap-2 bg-white/10 p-2 rounded-lg">
-            <Droplets className="w-4 h-4" />
+        <div className="flex items-center gap-1.5 bg-white/10 p-1.5 rounded-lg">
+            <Droplets className="w-3 h-3" />
             <span>{weather.relative_humidity_2m}%</span>
         </div>
       </div>

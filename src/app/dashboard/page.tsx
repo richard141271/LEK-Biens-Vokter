@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, Users, ChevronRight } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode } from 'lucide-react';
 import WeatherWidget from '@/components/WeatherWidget';
 
 export default function DashboardPage() {
@@ -217,31 +217,38 @@ export default function DashboardPage() {
   if (loading) return <div className="p-8 text-center">Laster oversikt...</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-12">
       
-      <main className="p-4 space-y-6 max-w-lg mx-auto">
+      <main className="p-2 space-y-2 max-w-lg mx-auto">
           
           {/* Profile Card */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-              <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-honey-100 rounded-full flex items-center justify-center text-honey-600">
-                      <User className="w-6 h-6" />
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 relative">
+              <button 
+                onClick={handleSignOut}
+                className="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition-colors"
+                title="Logg ut"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+              <div className="flex items-center gap-3 mb-2">
+                  <div className="w-8 h-8 bg-honey-100 rounded-full flex items-center justify-center text-honey-600">
+                      <User className="w-4 h-4" />
                   </div>
                   <div>
-                      <h2 className="text-lg font-bold text-gray-900">{profile?.full_name || 'Laster...'}</h2>
-                      <p className="text-sm text-gray-500">Medlem #{profile?.member_number || 'Ikke registrert'}</p>
+                      <h2 className="text-sm font-bold text-gray-900">{profile?.full_name || 'Laster...'}</h2>
+                      <p className="text-[10px] text-gray-500">Medlem #{profile?.member_number || 'Ikke registrert'}</p>
                   </div>
               </div>
               
-              <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <ShieldCheck className={`w-4 h-4 ${profile?.is_norges_birokterlag_member ? 'text-green-600' : 'text-gray-300'}`} />
+              <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-700">
+                      <ShieldCheck className={`w-3 h-3 ${profile?.is_norges_birokterlag_member ? 'text-green-600' : 'text-gray-300'}`} />
                       <span className={profile?.is_norges_birokterlag_member ? 'text-gray-900' : 'text-gray-400'}>
                           Norges Birøkterlag
                       </span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <ShieldCheck className={`w-4 h-4 ${profile?.is_lek_honning_member ? 'text-green-600' : 'text-gray-300'}`} />
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-700">
+                      <ShieldCheck className={`w-3 h-3 ${profile?.is_lek_honning_member ? 'text-green-600' : 'text-gray-300'}`} />
                       <span className={profile?.is_lek_honning_member ? 'text-gray-900' : 'text-gray-400'}>
                           LEK-Honning™
                       </span>
@@ -250,28 +257,28 @@ export default function DashboardPage() {
           </div>
 
           {/* Honningstatus */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-              <div className="flex justify-between items-center mb-4">
-                  <div className="flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-honey-500" />
-                      <h3 className="font-bold text-gray-900">Honningstatus</h3>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
+              <div className="flex justify-between items-center mb-2">
+                  <div className="flex items-center gap-1.5">
+                      <Activity className="w-3.5 h-3.5 text-honey-500" />
+                      <h3 className="font-bold text-gray-900 text-xs">Honningstatus</h3>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                       honeyStatus === 'Klar' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
                   }`}>
                       {honeyStatus}
                   </span>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                   <button 
                     onClick={() => setHoneyStatus('Klar')} 
-                    className="py-2 px-3 bg-green-50 text-green-700 font-medium text-sm rounded-lg hover:bg-green-100 border border-green-200"
+                    className="py-1 px-2 bg-green-50 text-green-700 font-medium text-[10px] rounded-lg hover:bg-green-100 border border-green-200"
                   >
                     Sett Klar
                   </button>
                   <button 
                     onClick={() => setHoneyStatus('Ikke klar')} 
-                    className="py-2 px-3 bg-gray-50 text-gray-700 font-medium text-sm rounded-lg hover:bg-gray-100 border border-gray-200"
+                    className="py-1 px-2 bg-gray-50 text-gray-700 font-medium text-[10px] rounded-lg hover:bg-gray-100 border border-gray-200"
                   >
                     Ikke klar
                   </button>
@@ -279,20 +286,20 @@ export default function DashboardPage() {
           </div>
 
           {/* Navigation Cards (formerly Stats) */}
-          <div className="grid grid-cols-2 gap-4">
-              <Link href="/hives" className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:bg-gray-50 transition-transform active:scale-95 block text-left">
-                  <div className="font-bold text-lg text-gray-900 mb-2">BIKUBER</div>
-                  <p className="text-gray-500 text-sm mb-1">Aktive kuber</p>
-                  <div className="flex items-end gap-2">
-                      <span className="text-2xl font-bold text-gray-900">{stats.activeHives}</span>
-                      <span className="text-gray-400 text-sm mb-1">/ {stats.hives} totalt</span>
+          <div className="grid grid-cols-2 gap-2">
+              <Link href="/hives" className="bg-white p-2.5 rounded-xl border border-gray-200 shadow-sm hover:bg-gray-50 transition-transform active:scale-95 block text-left">
+                  <div className="font-bold text-sm text-gray-900 mb-0.5">BIKUBER</div>
+                  <p className="text-gray-500 text-[10px] mb-0.5">Aktive kuber</p>
+                  <div className="flex items-end gap-1">
+                      <span className="text-lg font-bold text-gray-900">{stats.activeHives}</span>
+                      <span className="text-gray-400 text-[10px] mb-1">/ {stats.hives} totalt</span>
                   </div>
               </Link>
-              <Link href="/apiaries" className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:bg-gray-50 transition-transform active:scale-95 block text-left">
-                  <div className="font-bold text-lg text-gray-900 mb-2">BIGÅRDER</div>
-                  <p className="text-gray-500 text-sm mb-1">Antall</p>
-                  <div className="flex items-end gap-2">
-                      <span className="text-2xl font-bold text-gray-900">{stats.apiaries}</span>
+              <Link href="/apiaries" className="bg-white p-2.5 rounded-xl border border-gray-200 shadow-sm hover:bg-gray-50 transition-transform active:scale-95 block text-left">
+                  <div className="font-bold text-sm text-gray-900 mb-0.5">BIGÅRDER</div>
+                  <p className="text-gray-500 text-[10px] mb-0.5">Antall</p>
+                  <div className="flex items-end gap-1">
+                      <span className="text-lg font-bold text-gray-900">{stats.apiaries}</span>
                   </div>
               </Link>
           </div>
@@ -300,52 +307,64 @@ export default function DashboardPage() {
           {/* Weather Widget */}
           <WeatherWidget />
 
-          {/* Quick Actions */}
-          <div className="space-y-4">
+          {/* Quick Actions - Compact Grid */}
+          <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() => setIsCreateModalOpen(true)}
-                className="w-full bg-honey-500 hover:bg-honey-600 text-white p-4 rounded-xl shadow-md flex items-center justify-center gap-2 font-bold text-lg transition-transform active:scale-95"
+                className="bg-honey-500 hover:bg-honey-600 text-white p-2 rounded-xl shadow-md flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20"
               >
-                <Plus className="w-6 h-6" />
-                REGISTRER NYE KUBER
+                <Plus className="w-5 h-5" />
+                <span className="font-bold text-[10px] text-center leading-tight">NY KUBE</span>
               </button>
 
               <Link
                 href="/scan"
-                className="w-full bg-white border-2 border-honey-100 hover:border-honey-500 text-honey-600 p-4 rounded-xl shadow-sm flex items-center justify-center gap-2 font-bold text-lg transition-transform active:scale-95"
+                className="bg-white border-2 border-honey-100 hover:border-honey-500 text-honey-600 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20"
               >
-                <QrCode className="w-6 h-6" />
-                SKANN QR-KODE
+                <QrCode className="w-5 h-5" />
+                <span className="font-bold text-[10px] text-center leading-tight">SKANN</span>
               </Link>
 
-              <Link href="/settings" className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-4 rounded-xl shadow-sm text-center transition-transform active:scale-95 flex items-center justify-center gap-2">
+              <Link href="/settings" className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20">
                   <Settings className="w-5 h-5 text-gray-400" />
-                  <div className="font-bold text-lg">INNSTILLINGER</div>
+                  <span className="font-bold text-[10px] text-center leading-tight">INNSTILLINGER</span>
               </Link>
+          </div>
+
+          {/* External Links (Moved Up) */}
+          <div className="space-y-1 pt-1">
+              <h3 className="text-[10px] font-bold text-gray-500 uppercase px-1">Nyttige lenker</h3>
+              <div className="grid grid-cols-3 gap-1.5">
+                  <ExternalLinkButton href="https://richard141271.github.io/" label="LEK-HONNING" />
+                  <ExternalLinkButton href="https://honning.no/" label="HC" />
+                  <ExternalLinkButton href="https://norges-birokterlag.no" label="BIRØKTERLAG" />
+                  <ExternalLinkButton href="https://honninglandet.no/nyheter/nm-i-honning-2025/" label="NM HONNING" />
+                  <ExternalLinkButton href="https://mattilsynet.no" label="MATTILSYNET" />
+              </div>
           </div>
 
           {/* Recent Activity */}
           {recentLogs.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-                <div className="flex items-center gap-2 mb-4">
-                    <Database className="w-5 h-5 text-honey-500" />
-                    <h3 className="font-bold text-gray-900">Siste Aktivitet</h3>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                    <Database className="w-3.5 h-3.5 text-honey-500" />
+                    <h3 className="font-bold text-gray-900 text-xs">Siste Aktivitet</h3>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-2">
                     {recentLogs.map((log) => (
-                        <div key={log.id} className="flex gap-3 text-sm border-b border-gray-100 last:border-0 pb-3 last:pb-0">
-                            <div className="w-2 h-2 mt-1.5 rounded-full bg-honey-400 shrink-0" />
+                        <div key={log.id} className="flex gap-2 text-xs border-b border-gray-100 last:border-0 pb-2 last:pb-0">
+                            <div className="w-1.5 h-1.5 mt-1.5 rounded-full bg-honey-400 shrink-0" />
                             <div>
-                                <div className="flex items-center gap-2">
-                                    <span className="font-bold text-gray-900">{log.action}</span>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-gray-900 text-[10px]">{log.action}</span>
                                     {log.hives?.hive_number && (
-                                        <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded text-gray-600 font-mono">
+                                        <span className="text-[9px] bg-gray-100 px-1 py-0.5 rounded text-gray-600 font-mono">
                                             {log.hives.hive_number}
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-gray-600 mt-0.5">{log.details}</p>
-                                <p className="text-gray-400 text-xs mt-1">
+                                <p className="text-gray-600 mt-0.5 text-[10px]">{log.details}</p>
+                                <p className="text-gray-400 text-[9px] mt-0.5">
                                     {new Date(log.created_at).toLocaleDateString()}
                                 </p>
                             </div>
@@ -355,17 +374,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* External Links */}
-          <div className="space-y-3 pt-4">
-              <h3 className="text-sm font-bold text-gray-500 uppercase px-1">Nyttige lenker</h3>
-              <ExternalLinkButton href="https://richard141271.github.io/" label="LEK-HONNING™" />
-              <ExternalLinkButton href="https://honning.no/" label="HONNINGCENTRALEN" />
-              <ExternalLinkButton href="https://norges-birokterlag.no" label="NORGES BIRØKTERLAG" />
-              <ExternalLinkButton href="https://honninglandet.no/nyheter/nm-i-honning-2025/" label="NM I HONNING" />
-              <ExternalLinkButton href="https://mattilsynet.no" label="MATTILSYNET" />
-          </div>
-
-          <p className="text-center text-gray-400 text-xs mt-8">© 2025 - LEK-Honning™</p>
+          <p className="text-center text-gray-400 text-[9px] mt-2">© 2025 - LEK-Honning™</p>
       </main>
 
       {/* CREATE HIVE MODAL */}
@@ -492,9 +501,9 @@ export default function DashboardPage() {
 
 function ExternalLinkButton({ href, label }: { href: string, label: string }) {
     return (
-        <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between w-full bg-white border border-gray-200 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors group">
-            <span className="font-medium">{label}</span>
-            <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-honey-500 transition-colors" />
+        <a href={href} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center justify-center w-full bg-white border border-gray-200 text-gray-700 p-2 rounded-lg hover:bg-gray-50 transition-colors group text-center h-full">
+            <span className="font-bold text-[9px] leading-tight mb-1">{label}</span>
+            <ExternalLink className="w-3 h-3 text-gray-400 group-hover:text-honey-500 transition-colors shrink-0" />
         </a>
     );
 }

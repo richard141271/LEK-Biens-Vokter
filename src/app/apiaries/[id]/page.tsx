@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Archive, Truck, Trash2, X, Check, MoreVertical, ClipboardList, Edit, QrCode } from 'lucide-react';
+import { ArrowLeft, Archive, Truck, Trash2, X, Check, MoreVertical, ClipboardList, Edit, QrCode, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store, MapPin } from 'lucide-react';
 
@@ -362,11 +362,11 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             <p className="mb-4">Ingen bikuber her enda. Opprett fra oversikten.</p>
           </div>
         ) : (
-          <div className="grid gap-3">
+          <div className="space-y-3">
             {hives.map((hive) => (
               <div 
                 key={hive.id} 
-                className={`bg-white p-4 rounded-xl border shadow-sm flex items-center gap-3 transition-all ${
+                className={`bg-white p-4 rounded-xl border shadow-sm transition-all hover:border-honey-300 ${
                   selectedHiveIds.has(hive.id) 
                     ? 'border-honey-500 ring-1 ring-honey-500 bg-honey-50' 
                     : 'border-gray-200'
@@ -376,39 +376,72 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                   else router.push(`/hives/${hive.id}`);
                 }}
               >
-                {isSelectionMode && (
-                  <div className={`w-5 h-5 rounded border flex items-center justify-center ${
-                    selectedHiveIds.has(hive.id) ? 'bg-honey-500 border-honey-500' : 'border-gray-300 bg-white'
-                  }`}>
-                    {selectedHiveIds.has(hive.id) && <Check className="w-3.5 h-3.5 text-white" />}
-                  </div>
-                )}
-                
-                <div className="flex-1">
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-bold text-gray-900">{hive.name}</h3>
-                    <div className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider ${
-                      (hive.active === false ? 'inaktiv' : (hive.status || 'aktiv')).toLowerCase() === 'aktiv' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
+                <div className="flex items-start gap-3">
+                    {/* Selection Checkbox */}
+                    {isSelectionMode && (
+                    <div className={`mt-1 w-5 h-5 rounded border flex items-center justify-center shrink-0 ${
+                        selectedHiveIds.has(hive.id) ? 'bg-honey-500 border-honey-500' : 'border-gray-300 bg-white'
                     }`}>
-                      {hive.active === false ? 'INAKTIV' : (hive.status || 'AKTIV')}
+                        {selectedHiveIds.has(hive.id) && <Check className="w-3.5 h-3.5 text-white" />}
                     </div>
-                  </div>
-                  <p className="text-xs text-gray-500">{hive.hive_number}</p>
+                    )}
+                    
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start mb-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-honey-600 font-black text-lg tracking-tight">
+                                    {hive.hive_number}
+                                </span>
+                                <h3 className="font-bold text-gray-900 truncate">
+                                    {hive.name !== hive.hive_number ? hive.name : ''}
+                                </h3>
+                                
+                                {/* Type Badge */}
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+                                    hive.type === 'AVLEGGER' 
+                                        ? 'bg-blue-100 text-blue-700' 
+                                        : 'bg-purple-100 text-purple-700'
+                                }`}>
+                                    {hive.type === 'AVLEGGER' ? 'Avlegger' : 'Prod'}
+                                </span>
+                            </div>
+
+                            {/* Status Badge */}
+                            <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                                (hive.active === false ? 'inaktiv' : (hive.status || 'aktiv')).toLowerCase() === 'aktiv' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                {hive.active === false ? 'INAKTIV' : (hive.status || 'AKTIV')}
+                            </div>
+                        </div>
+
+                        {/* Secondary Info */}
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                            <div className="flex items-center gap-1">
+                                <Calendar className="w-3.5 h-3.5" />
+                                <span>
+                                    Sist inspisert: {hive.last_inspection_date 
+                                        ? new Date(hive.last_inspection_date).toLocaleDateString() 
+                                        : 'Aldri'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* Action Button (only when not selecting) */}
+                    {!isSelectionMode && (
+                        <Link 
+                            href={`/hives/${hive.id}/new-inspection`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-2 -mr-2 -mt-2 text-gray-400 hover:text-honey-600 hover:bg-honey-50 rounded-full transition-colors"
+                            title="Ny inspeksjon"
+                        >
+                            <ClipboardList className="w-5 h-5" />
+                        </Link>
+                    )}
                 </div>
-                
-                {/* Inspection Button */}
-                {!isSelectionMode && (
-                  <Link 
-                    href={`/hives/${hive.id}/new-inspection`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="p-2 text-gray-400 hover:text-honey-600 hover:bg-honey-50 rounded-full"
-                    title="Ny inspeksjon"
-                  >
-                    <ClipboardList className="w-5 h-5" />
-                  </Link>
-                )}
               </div>
             ))}
           </div>

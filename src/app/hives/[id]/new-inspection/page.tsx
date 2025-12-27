@@ -282,7 +282,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             <ArrowLeft className="w-6 h-6 text-gray-600" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Ny Inspeksjon</h1>
+            <h1 className="text-xl font-bold text-gray-900">
+              Ny Inspeksjon {hive?.hive_number ? <span className="text-honey-600"> {hive.hive_number}</span> : ''}
+            </h1>
             <p className="text-sm text-gray-500">{hive?.name || 'Laster...'}</p>
           </div>
         </div>
