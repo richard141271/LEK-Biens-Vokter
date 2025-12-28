@@ -196,16 +196,28 @@ export default function ApiariesPage() {
                 size: A4 portrait;
                 margin: 0;
               }
-              html, body {
+              body {
                 width: 210mm;
                 height: 297mm;
                 margin: 0 !important;
                 padding: 0 !important;
                 overflow: hidden;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                visibility: hidden;
               }
-              /* Hide everything else */
-              body > *:not(.print-container) {
-                display: none !important;
+              
+              /* Show only the print container and its children */
+              .print-container, .print-container * {
+                visibility: visible;
+              }
+              
+              .print-container {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 210mm;
+                height: 297mm;
               }
             }
           `}</style>
