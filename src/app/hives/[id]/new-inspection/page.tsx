@@ -263,7 +263,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       if (logError) throw logError;
 
-      router.push(`/hives/${params.id}`);
+      router.push('/hives');
     } catch (error: any) {
       alert('Feil ved lagring: ' + error.message);
     } finally {

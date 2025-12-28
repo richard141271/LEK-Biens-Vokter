@@ -27,6 +27,16 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   const [diseaseDetails, setDiseaseDetails] = useState('');
   const [archiving, setArchiving] = useState(false);
 
+  // Print State
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [printFilter, setPrintFilter] = useState<{
+      limit: 'last5' | 'all' | 'dateRange',
+      dateRange: { start: string, end: string }
+  }>({
+      limit: 'last5',
+      dateRange: { start: '', end: '' }
+  });
+
   const supabase = createClient();
   const router = useRouter();
 
@@ -236,7 +246,14 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   };
 
   const handlePrint = () => {
-    window.print();
+    setIsPrintModalOpen(true);
+  };
+
+  const executePrint = () => {
+    setIsPrintModalOpen(false);
+    setTimeout(() => {
+        window.print();
+    }, 100);
   };
 
   const getIcon = (type: string) => {
@@ -460,9 +477,9 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
           </button>
         </div>
 
-        {/* Inspections History */}
-        <div>
-          <h3 className="text-lg font-bold text-gray-900 mb-3 print:text-xl">Inspeksjonshistorikk</h3>
+        {/* Inspections History - Screen View */}
+        <div className="print:hidden">
+          <h3 className="text-lg font-bold text-gray-900 mb-3">Inspeksjonshistorikk</h3>
           <div className="space-y-3">
             {inspections.length === 0 ? (
               <p className="text-gray-500 text-center py-4">Ingen inspeksjoner enda.</p>
@@ -470,17 +487,17 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
               inspections.map((inspection) => (
                 <div 
                   key={inspection.id} 
-                  className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden transition-all print:border-black print:shadow-none print:break-inside-avoid ${
+                  className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden transition-all ${
                     expandedInspectionId === inspection.id ? 'ring-2 ring-honey-500' : ''
                   }`}
                 >
                   <button 
                     type="button"
                     onClick={() => toggleInspection(inspection.id)}
-                    className="w-full text-left p-4 flex items-center justify-between hover:bg-gray-50 print:hover:bg-white focus:outline-none focus:bg-gray-50 transition-colors"
+                    className="w-full text-left p-4 flex items-center justify-between hover:bg-gray-50 focus:outline-none focus:bg-gray-50 transition-colors"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="bg-gray-100 p-2 rounded-lg text-center min-w-[3rem] print:bg-white print:border print:border-gray-300">
+                      <div className="bg-gray-100 p-2 rounded-lg text-center min-w-[3rem]">
                         <div className="text-xs text-gray-500 uppercase font-bold">{new Date(inspection.inspection_date).toLocaleString('default', { month: 'short' })}</div>
                         <div className="text-lg font-bold text-gray-900">{new Date(inspection.inspection_date).getDate()}</div>
                       </div>
@@ -492,20 +509,20 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                            {inspection.weather && <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{inspection.weather}</span>}
                            {inspection.image_url && <ImageIcon className="w-4 h-4 text-gray-400" />}
                         </div>
-                        <p className="text-sm text-gray-500 truncate max-w-[200px] print:max-w-none mt-1">
+                        <p className="text-sm text-gray-500 truncate max-w-[200px] mt-1">
                           {inspection.notes || 'Ingen notater'}
                         </p>
                       </div>
                     </div>
                     {expandedInspectionId === inspection.id ? (
-                      <ChevronUp className="w-5 h-5 text-gray-400 print:hidden" />
+                      <ChevronUp className="w-5 h-5 text-gray-400" />
                     ) : (
-                      <ChevronDown className="w-5 h-5 text-gray-400 print:hidden" />
+                      <ChevronDown className="w-5 h-5 text-gray-400" />
                     )}
                   </button>
 
-                  {/* Expanded Details - CSS based print visibility instead of JS */}
-                  <div className={`${expandedInspectionId === inspection.id ? 'block' : 'hidden'} print:block px-4 pb-4 pt-0 bg-gray-50 border-t border-gray-100 print:bg-white`}>
+                  {/* Expanded Details */}
+                  <div className={`${expandedInspectionId === inspection.id ? 'block' : 'hidden'} px-4 pb-4 pt-0 bg-gray-50 border-t border-gray-100`}>
                     <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
                       <div>
                         <span className="block text-xs font-bold text-gray-500 uppercase">Dronning</span>
@@ -537,7 +554,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                       </div>
                     </div>
                     {inspection.notes && (
-                      <div className="mt-4 bg-white p-3 rounded border border-gray-200 print:border-none print:p-0">
+                      <div className="mt-4 bg-white p-3 rounded border border-gray-200">
                         <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Notater</span>
                         <p className="text-gray-800 whitespace-pre-wrap">{inspection.notes}</p>
                       </div>
@@ -556,7 +573,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                       </div>
                     )}
                     
-                    <div className="mt-4 flex justify-end print:hidden">
+                    <div className="mt-4 flex justify-end">
                         <button 
                             onClick={(e) => handleDeleteInspection(inspection.id, e)}
                             className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -570,6 +587,53 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
               ))
             )}
           </div>
+        </div>
+
+        {/* Inspections History - Print View */}
+        <div className="hidden print:block mt-6">
+            <h3 className="text-lg font-bold text-black mb-4 border-b-2 border-black pb-2">INSPEKSJONSHISTORIKK</h3>
+            <table className="w-full text-sm text-left">
+                <thead>
+                    <tr className="border-b border-black">
+                        <th className="py-2">Dato</th>
+                        <th className="py-2">Status</th>
+                        <th className="py-2">Notater</th>
+                        <th className="py-2">Detaljer</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {inspections
+                        .filter(insp => {
+                            if (printFilter.limit === 'all') return true;
+                            if (printFilter.limit === 'dateRange') {
+                                if (!printFilter.dateRange.start && !printFilter.dateRange.end) return true;
+                                const date = new Date(insp.inspection_date);
+                                const start = printFilter.dateRange.start ? new Date(printFilter.dateRange.start) : new Date(0);
+                                const end = printFilter.dateRange.end ? new Date(printFilter.dateRange.end) : new Date(8640000000000000);
+                                if (printFilter.dateRange.end) end.setHours(23, 59, 59, 999);
+                                return date >= start && date <= end;
+                            }
+                            return true;
+                        })
+                        .slice(0, printFilter.limit === 'last5' ? 5 : undefined)
+                        .map((inspection) => (
+                        <tr key={inspection.id} className="border-b border-gray-300">
+                            <td className="py-2 align-top">{new Date(inspection.inspection_date).toLocaleDateString()}</td>
+                            <td className="py-2 align-top">{inspection.status}</td>
+                            <td className="py-2 align-top max-w-[200px]">{inspection.notes || '-'}</td>
+                            <td className="py-2 align-top text-xs">
+                                <div className="grid grid-cols-2 gap-x-2">
+                                    <span>{inspection.queen_seen ? '👑 Dronning' : '-'}</span>
+                                    <span>{inspection.eggs_seen ? '🥚 Egg' : '-'}</span>
+                                    {inspection.honey_stores && <span>🍯 {inspection.honey_stores}</span>}
+                                    {inspection.temperament && <span>😡 {inspection.temperament}</span>}
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            {inspections.length === 0 && <p className="text-gray-500 italic mt-2">Ingen inspeksjoner.</p>}
         </div>
 
         {/* Logs Section (Restored & Filtered for Movements/Important Events) */}
@@ -796,6 +860,94 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
               )}
             </div>
           </div>
+        </div>
+      )}
+      {/* Print Options Modal */}
+      {isPrintModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 print:hidden">
+            <div className="bg-white rounded-xl p-6 w-full max-w-sm">
+                <h3 className="text-xl font-bold mb-4">Utskriftsvalg</h3>
+                
+                <div className="space-y-4 mb-6">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                        <input 
+                            type="radio"
+                            name="printLimit"
+                            checked={printFilter.limit === 'last5'}
+                            onChange={() => setPrintFilter({...printFilter, limit: 'last5'})}
+                            className="w-4 h-4 text-honey-600"
+                        />
+                        <span className="text-sm">Siste 5 inspeksjoner (Standard)</span>
+                    </label>
+
+                    <label className="flex items-center gap-3 cursor-pointer">
+                        <input 
+                            type="radio"
+                            name="printLimit"
+                            checked={printFilter.limit === 'all'}
+                            onChange={() => setPrintFilter({...printFilter, limit: 'all'})}
+                            className="w-4 h-4 text-honey-600"
+                        />
+                        <span className="text-sm">Alle inspeksjoner</span>
+                    </label>
+
+                    <label className="flex items-center gap-3 cursor-pointer">
+                        <input 
+                            type="radio"
+                            name="printLimit"
+                            checked={printFilter.limit === 'dateRange'}
+                            onChange={() => setPrintFilter({...printFilter, limit: 'dateRange'})}
+                            className="w-4 h-4 text-honey-600"
+                        />
+                        <span className="text-sm">Velg periode</span>
+                    </label>
+
+                    {printFilter.limit === 'dateRange' && (
+                        <div className="grid grid-cols-2 gap-2 pl-7">
+                            <div>
+                                <label className="text-xs text-gray-500 block mb-1">Fra</label>
+                                <input 
+                                    type="date"
+                                    value={printFilter.dateRange.start}
+                                    onChange={e => setPrintFilter({
+                                        ...printFilter, 
+                                        dateRange: {...printFilter.dateRange, start: e.target.value}
+                                    })}
+                                    className="w-full text-sm p-1.5 border rounded"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-500 block mb-1">Til</label>
+                                <input 
+                                    type="date"
+                                    value={printFilter.dateRange.end}
+                                    onChange={e => setPrintFilter({
+                                        ...printFilter, 
+                                        dateRange: {...printFilter.dateRange, end: e.target.value}
+                                    })}
+                                    className="w-full text-sm p-1.5 border rounded"
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => setIsPrintModalOpen(false)}
+                        className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg"
+                    >
+                        Avbryt
+                    </button>
+                    <button
+                        onClick={executePrint}
+                        className="flex-1 py-2 bg-honey-500 hover:bg-honey-600 text-white font-bold rounded-lg flex items-center justify-center gap-2"
+                    >
+                        <Printer className="w-4 h-4" />
+                        Skriv ut
+                    </button>
+                </div>
+            </div>
         </div>
       )}
     </div>

@@ -382,33 +382,51 @@ export default function AllHivesPage() {
                                                     </div>
 
                                                     {/* Inspection History Table */}
-                                                    {printOptions.includeHistory && (
-                                                        <div className="mb-4">
-                                                            <h3 className="font-bold border-b border-black mb-1 text-sm">INSPEKSJONSHISTORIKK</h3>
-                                                            {hiveInspections.length > 0 ? (
-                                                                <table className="w-full text-xs text-left">
-                                                                    <thead>
-                                                                        <tr className="border-b border-gray-400">
-                                                                            <th className="py-1 w-20">Dato</th>
-                                                                            <th className="py-1 w-20">Status</th>
-                                                                            <th className="py-1">Notater</th>
-                                                                            <th className="py-1 w-24">Detaljer</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        {hiveInspections.slice(0, 5).map((insp: any) => (
-                                                                            <tr key={insp.id} className="border-b border-gray-200">
-                                                                                <td className="py-1 align-top">{new Date(insp.inspection_date).toLocaleDateString()}</td>
-                                                                                <td className="py-1 align-top">{insp.status}</td>
-                                                                                <td className="py-1 align-top italic text-gray-600 line-clamp-1">{insp.notes || '-'}</td>
-                                                                                <td className="py-1 align-top text-[10px]">
-                                                                                    {insp.queen_seen && <span className="mr-1">👑</span>}
-                                                                                    {insp.eggs_seen && <span className="mr-1">🥚</span>}
-                                                                                    {insp.honey_stores && <span className="mr-1">🍯 {insp.honey_stores}</span>}
-                                                                                </td>
-                                                                            </tr>
-                                                                        ))}
-                                                                    </tbody>
+                                    {printOptions.includeHistory && (
+                                        <div className="mb-4">
+                                            <h3 className="font-bold border-b border-black mb-1 text-sm">INSPEKSJONSHISTORIKK</h3>
+                                            {hiveInspections.length > 0 ? (
+                                                <table className="w-full text-xs text-left">
+                                                    <thead>
+                                                        <tr className="border-b border-gray-400">
+                                                            <th className="py-1 w-20">Dato</th>
+                                                            <th className="py-1 w-20">Status</th>
+                                                            <th className="py-1">Notater</th>
+                                                            <th className="py-1 w-24">Detaljer</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {hiveInspections
+                                                            .filter((insp: any) => {
+                                                                if (printOptions.inspectionLimit === 'all') return true;
+                                                                if (printOptions.inspectionLimit === 'dateRange') {
+                                                                     // If no dates selected, show all
+                                                                     if (!printOptions.dateRange.start && !printOptions.dateRange.end) return true;
+                                                                     
+                                                                     const date = new Date(insp.inspection_date);
+                                                                     const start = printOptions.dateRange.start ? new Date(printOptions.dateRange.start) : new Date(0);
+                                                                     // Set end date to end of day
+                                                                     const end = printOptions.dateRange.end ? new Date(printOptions.dateRange.end) : new Date(8640000000000000);
+                                                                     if (printOptions.dateRange.end) end.setHours(23, 59, 59, 999);
+                                                                     
+                                                                     return date >= start && date <= end;
+                                                                }
+                                                                return true; // For last5, we slice next
+                                                            })
+                                                            .slice(0, printOptions.inspectionLimit === 'last5' ? 5 : undefined)
+                                                            .map((insp: any) => (
+                                                            <tr key={insp.id} className="border-b border-gray-200">
+                                                                <td className="py-1 align-top">{new Date(insp.inspection_date).toLocaleDateString()}</td>
+                                                                <td className="py-1 align-top">{insp.status}</td>
+                                                                <td className="py-1 align-top italic text-gray-600 line-clamp-1">{insp.notes || '-'}</td>
+                                                                <td className="py-1 align-top text-[10px]">
+                                                                    {insp.queen_seen && <span className="mr-1">👑</span>}
+                                                                    {insp.eggs_seen && <span className="mr-1">🥚</span>}
+                                                                    {insp.honey_stores && <span className="mr-1">🍯 {insp.honey_stores}</span>}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
                                                                 </table>
                                                             ) : (
                                                                 <p className="text-gray-500 italic text-xs">Ingen inspeksjoner.</p>

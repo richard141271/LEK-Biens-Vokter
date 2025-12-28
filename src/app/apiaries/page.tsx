@@ -189,25 +189,30 @@ export default function ApiariesPage() {
 
       {/* PRINT VIEW (Varselskilt) */}
       {printLayout === 'sign' && (
-        <div className="hidden print:block bg-white fixed inset-0 z-[9999]">
+        <div className="hidden print:block bg-white absolute top-0 left-0 w-full h-full z-[9999] print-container">
           <style jsx global>{`
             @media print {
               @page {
                 size: A4 portrait;
                 margin: 0;
               }
-              body {
-                margin: 0;
-                padding: 0;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
+              html, body {
+                width: 210mm;
+                height: 297mm;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden;
+              }
+              /* Hide everything else */
+              body > *:not(.print-container) {
+                display: none !important;
               }
             }
           `}</style>
           {apiaries
             .filter(a => selectedApiaries.includes(a.id))
             .map(apiary => (
-              <div key={apiary.id} className="w-[210mm] h-[297mm] relative overflow-hidden bg-yellow-300 break-after-page page-break-after-always">
+              <div key={apiary.id} className="w-[210mm] h-[297mm] relative overflow-hidden bg-yellow-300 break-after-page page-break-after-always print:w-[210mm] print:h-[297mm]">
                 
                 {/* Border Container */}
                 <div className="absolute inset-0 border-[15px] border-black pointer-events-none z-50"></div>

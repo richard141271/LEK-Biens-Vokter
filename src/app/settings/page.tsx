@@ -189,13 +189,6 @@ export default function SettingsPage() {
       {/* Header with Archive Link */}
       <div className="bg-white p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 z-10">
         <h1 className="text-xl font-bold text-gray-900">Innstillinger</h1>
-        <button 
-          onClick={() => router.push('/archive')}
-          className="text-gray-600 hover:text-honey-600 flex items-center gap-1.5 text-sm font-medium bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-honey-50 hover:border-honey-200 transition-colors"
-        >
-          <Archive className="w-4 h-4" />
-          Arkiv
-        </button>
       </div>
 
       <div className="max-w-3xl mx-auto p-4 space-y-6">
@@ -293,6 +286,14 @@ export default function SettingsPage() {
                 className="w-full bg-black text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition-colors"
               >
                 Endre/oppdatere profil
+              </button>
+              
+              <button 
+                onClick={() => router.push('/archive')}
+                className="w-full mt-4 bg-white text-gray-700 font-bold py-3 rounded-xl border border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+              >
+                <Archive className="w-5 h-5" />
+                Arkiv
               </button>
             </div>
 
