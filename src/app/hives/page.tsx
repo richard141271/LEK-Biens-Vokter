@@ -25,7 +25,9 @@ export default function AllHivesPage() {
       includeHistory: true,
       includeLogs: true,
       includeImages: true,
-      includeNotes: true
+      includeNotes: true,
+      inspectionLimit: 'last5',
+      dateRange: { start: '', end: '' }
   });
 
   // Mass Action State
