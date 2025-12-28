@@ -307,8 +307,8 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
         .update({ 
           status: archiveType,
           active: false,
-          archive_reason: archiveType === 'DESTRUERT' ? destructionReason : archiveType,
-          archived_at: new Date().toISOString()
+          // archive_reason: archiveType === 'DESTRUERT' ? destructionReason : archiveType, // Temporarily disabled due to missing column
+          // archived_at: new Date().toISOString() // Temporarily disabled due to missing column
         })
         .eq('id', params.id);
 

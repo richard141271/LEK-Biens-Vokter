@@ -61,6 +61,9 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       .from('hives')
       .select('*')
       .eq('apiary_id', params.id)
+      .neq('status', 'SOLGT')
+      .neq('status', 'DESTRUERT')
+      .neq('status', 'SYKDOM')
       .order('hive_number', { ascending: true });
 
     if (hivesData) setHives(hivesData);
