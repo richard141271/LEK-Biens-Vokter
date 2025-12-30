@@ -85,16 +85,22 @@ Da det er levende dyr, som klargjøres spesielt til hver enkelt leietaker, er de
 `;
 
 const OWNERSHIP_COSTS = [
-  { item: 'Startpakke halvkasser', price: 3500 },
-  { item: 'Bifolk', price: 4500 },
-  { item: 'Byggevoks', price: 1000 },
-  { item: 'Ekstra rammer & voks', price: 1500 },
-  { item: 'Birøkterkurs', price: 4500 },
-  { item: 'Diverse småutstyr', price: 1000 },
-  { item: 'Beskyttelsesutstyr', price: 2000 },
-  { item: 'Røykpuster + utstyr', price: 800 },
-  { item: 'Kubeverktøy', price: 800 },
-  { item: 'Håndslynge (minstekrav)', price: 6900 },
+  { item: 'Startpakke halvkasser (3110)', price: 3500 },
+  { item: 'Bifolk (bier + dronning)', price: 4500 },
+  { item: 'Byggevoks (4033/4027 + lister)', price: 1000 },
+  { item: 'Ekstra rammer + voks-buffer', price: 1500 },
+  { item: 'Birøkterkurs (Halden Birøkterlag)', price: 4500 },
+  { item: 'Diverse kurs-småting', price: 1000 },
+  { item: 'Beskyttelsesutstyr (drakt+slør+hansker)', price: 2000 },
+  { item: 'Røykpuster + røykmateriale', price: 800 },
+  { item: 'Kubeverktøy + skrape + børste', price: 800 },
+  { item: 'Billigste håndslynge (3000)', price: 6900 },
+];
+
+const HIDDEN_COSTS = [
+  { item: 'Ekstra magasin, dronningbur, fôr, småutstyr', price: 2000 },
+  { item: 'Glass og etiketter til egen honning', price: 600 },
+  { item: 'Transport, ekstra medisiner, logistikk', price: 1000 },
 ];
 
 export default function RentHivePage() {
@@ -380,10 +386,12 @@ export default function RentHivePage() {
                 {showCostComparison && (
                   <div className="mt-4 animate-in slide-in-from-top-2">
                     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                      {/* Eie Selv Section */}
                       <div className="bg-gray-900 text-white p-4 text-center">
-                        <h4 className="font-bold">Realistisk kostnad første år (Eie selv)</h4>
-                        <p className="text-xs text-gray-400">Basert på markedspriser 2025</p>
+                        <h4 className="font-bold">Alternativ 1 – Eie egen bikube</h4>
+                        <p className="text-xs text-gray-400">Realistisk kostnad første år (Markedspriser 2025)</p>
                       </div>
+                      
                       <div className="p-4 space-y-2 text-sm">
                         {OWNERSHIP_COSTS.map((cost, idx) => (
                           <div key={idx} className="flex justify-between border-b border-gray-50 last:border-0 py-1">
@@ -391,16 +399,75 @@ export default function RentHivePage() {
                             <span className="font-medium">{cost.price.toLocaleString()} kr</span>
                           </div>
                         ))}
-                        <div className="pt-3 flex justify-between font-bold text-lg border-t border-gray-200 mt-2">
-                          <span>TOTALT</span>
+                        
+                        <div className="mt-4 pt-4 border-t border-dashed border-gray-300">
+                          <p className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-orange-500" />
+                            Tillegg nesten alle kjøper første år:
+                          </p>
+                          {HIDDEN_COSTS.map((cost, idx) => (
+                            <div key={`hidden-${idx}`} className="flex justify-between py-1 text-gray-500 italic">
+                              <span>{cost.item}</span>
+                              <span>{cost.price.toLocaleString()} kr</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="pt-4 flex justify-between font-bold text-lg border-t-2 border-gray-900 mt-4">
+                          <span>TOTALT FØRSTE ÅR</span>
                           <span className="text-red-600">≈ 26 500 kr</span>
                         </div>
-                      </div>
-                      <div className="bg-green-50 p-4 text-center border-t border-green-100">
-                        <p className="text-sm text-green-800 font-medium">
-                          Med LEK-leie betaler du kun <span className="font-bold">{monthlyPrice} kr/mnd</span>
-                          <br/>og slipper investering, risiko og alt grovarbeidet!
+                        <p className="text-xs text-center text-gray-500 mt-2">
+                          🔎 Mange blir overrasket. Bier er rimelig i drift – men dyrt å starte.
                         </p>
+                      </div>
+
+                      {/* LEK-leie Section */}
+                      <div className="bg-honey-100 p-4 border-t border-honey-200">
+                        <div className="text-center mb-4">
+                          <h4 className="font-bold text-honey-900">Alternativ 2 – LEK-kube-leie</h4>
+                          <p className="text-xs text-honey-700">Lokasjons-effektivt og Birøkter-fulgt</p>
+                        </div>
+                        
+                        <div className="bg-white rounded-lg p-4 shadow-sm">
+                          <div className="grid grid-cols-2 gap-4 text-sm mb-4 border-b border-gray-100 pb-4">
+                            <div>
+                              <p className="text-gray-500 text-xs">Kostnad første 12 mnd (Eie)</p>
+                              <p className="font-bold text-red-600 text-lg">26 500 kr</p>
+                              <p className="text-xs text-gray-400">1 kube i 1 år</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500 text-xs">Kostnad første 12 mnd (Leie 2 stk)</p>
+                              <p className="font-bold text-green-600 text-lg">3 588 kr</p>
+                              <p className="text-xs text-gray-400">2 kuber i 1 år</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-start gap-3 bg-green-50 p-3 rounded-lg">
+                            <Leaf className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                            <p className="text-sm text-green-800">
+                              <span className="font-bold">👉 Konklusjon:</span> Du kan leie 2 kuber i ca. 7 år for omtrent det det koster å starte med én kube selv.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 space-y-2 text-sm">
+                          <div className="flex justify-between items-center bg-white/50 p-2 rounded">
+                            <span>1 kube</span>
+                            <span className="font-mono">350 kr/mnd</span>
+                            <span className="text-xs text-gray-500">Høy logistikk-kostnad</span>
+                          </div>
+                          <div className="flex justify-between items-center bg-white p-2 rounded border border-green-200 shadow-sm">
+                            <span className="font-bold">2 kuber</span>
+                            <span className="font-mono font-bold text-green-600">299 kr/mnd</span>
+                            <span className="text-xs text-green-700 font-bold">Beste start! ✅</span>
+                          </div>
+                          <div className="flex justify-between items-center bg-white/50 p-2 rounded">
+                            <span>3+ kuber</span>
+                            <span className="font-mono">+100 kr/stk</span>
+                            <span className="text-xs text-gray-500">Skaleringseffekt</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
