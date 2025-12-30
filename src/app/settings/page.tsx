@@ -465,6 +465,20 @@ export default function SettingsPage() {
                         />
                         <label className="font-medium text-gray-900">Medlem av LEK-Honning™</label>
                     </div>
+
+                    <div className="flex items-center gap-3 bg-green-50 p-3 rounded-lg border border-green-100">
+                        <input
+                        type="checkbox"
+                        name="wants_service_assignments"
+                        checked={formData.wants_service_assignments || false}
+                        onChange={handleCheckboxChange}
+                        className="w-5 h-5 text-honey-600 rounded"
+                        />
+                        <div>
+                          <label className="font-bold text-gray-900 block">Ønsker å drifte utleiekuber</label>
+                          <p className="text-xs text-gray-600">Motta oppdrag om drift av utleiekuber i ditt nærområde mot betaling.</p>
+                        </div>
+                    </div>
                  </div>
               </div>
 

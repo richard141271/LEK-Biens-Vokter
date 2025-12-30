@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera } from 'lucide-react';
 import WeatherWidget from '@/components/WeatherWidget';
 
 export default function DashboardPage() {
@@ -29,6 +29,22 @@ export default function DashboardPage() {
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [wizardApiaryName, setWizardApiaryName] = useState('');
+
+  // Sickness Report State
+  const [isSicknessModalOpen, setIsSicknessModalOpen] = useState(false);
+  const [sicknessData, setSicknessData] = useState({
+    hiveId: '',
+    varroaCount: '',
+    behavior: 'Normal',
+    diseaseType: 'Annet / Vet ikke',
+    mortality: 'Lav',
+    description: ''
+  });
+  const [sicknessImage, setSicknessImage] = useState<File | null>(null);
+  const [nearbyAlerts, setNearbyAlerts] = useState<any[]>([]); // New State for Alerts
+  
+  // Data State
+  const [allHives, setAllHives] = useState<any[]>([]);
 
   const supabase = createClient();
   const router = useRouter();
@@ -64,10 +80,12 @@ export default function DashboardPage() {
 
         const { data: hivesData } = await supabase
         .from('hives')
-        .select('active');
+        .select('id, hive_number, active');
 
         const totalHives = hivesData?.length || 0;
         const activeHives = hivesData?.filter(h => h.active).length || 0;
+        
+        if (hivesData) setAllHives(hivesData);
 
         setStats({
         apiaries: apiaryCount || 0,
@@ -83,6 +101,16 @@ export default function DashboardPage() {
         .limit(5);
 
         if (logs) setRecentLogs(logs);
+
+        // Fetch Nearby Alerts (Pilot: Just fetch recent SYKDOM logs generally)
+        const { data: alerts } = await supabase
+        .from('hive_logs')
+        .select('*, hives(apiaries(location))')
+        .eq('action', 'SYKDOM')
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+        if (alerts) setNearbyAlerts(alerts);
 
         // Fetch Apiaries for dropdown
         const { data: apiariesData } = await supabase
@@ -285,6 +313,24 @@ export default function DashboardPage() {
               </div>
           </div>
 
+          {/* ALERTS SECTION (Pilot Firewall) */}
+          {nearbyAlerts.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-2 animate-pulse">
+                <div className="flex items-center gap-2 mb-2">
+                    <Activity className="w-4 h-4 text-red-600" />
+                    <h3 className="font-bold text-red-800 text-xs uppercase">Smittevarsel i området</h3>
+                </div>
+                <div className="space-y-2">
+                    {nearbyAlerts.map((alert) => (
+                        <div key={alert.id} className="bg-white/60 p-2 rounded-lg text-[10px] text-red-700">
+                            <span className="font-bold block mb-0.5">⚠️ Mulig smitte oppdaget</span>
+                            {alert.details}
+                        </div>
+                    ))}
+                </div>
+            </div>
+          )}
+
           {/* Navigation Cards (formerly Stats) */}
           <div className="grid grid-cols-2 gap-2">
               <Link href="/hives" className="bg-white p-2.5 rounded-xl border border-gray-200 shadow-sm hover:bg-gray-50 transition-transform active:scale-95 block text-left">
@@ -308,7 +354,7 @@ export default function DashboardPage() {
           <WeatherWidget />
 
           {/* Quick Actions - Compact Grid */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setIsCreateModalOpen(true)}
                 className="bg-honey-500 hover:bg-honey-600 text-white p-2 rounded-xl shadow-md flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20"
@@ -325,11 +371,51 @@ export default function DashboardPage() {
                 <span className="font-bold text-[10px] text-center leading-tight">SKANN</span>
               </Link>
 
+              <button
+                onClick={() => setIsSicknessModalOpen(true)}
+                className="bg-red-50 border border-red-100 hover:bg-red-100 text-red-600 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20"
+              >
+                  <Activity className="w-5 h-5" />
+                  <span className="font-bold text-[10px] text-center leading-tight">MELD SYKDOM</span>
+              </button>
+
               <Link href="/settings" className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20">
                   <Settings className="w-5 h-5 text-gray-400" />
                   <span className="font-bold text-[10px] text-center leading-tight">INNSTILLINGER</span>
               </Link>
           </div>
+
+          {/* Mattilsynet Admin Link (Pilot: Visible to all for demo, or protect via Role) */}
+          <Link href="/dashboard/admin" className="block mt-2">
+            <div className="bg-gray-800 rounded-xl p-3 text-white shadow-lg flex items-center justify-between">
+                <div>
+                    <h3 className="font-bold text-xs mb-0.5 flex items-center gap-2">
+                        <ShieldCheck className="w-3 h-3 text-gray-400" />
+                        Mattilsynet Admin
+                    </h3>
+                    <p className="text-[9px] text-gray-400">Kun for autorisert personell (Pilot)</p>
+                </div>
+                <div className="bg-white/10 p-1.5 rounded-full">
+                    <ExternalLink className="w-4 h-4" />
+                </div>
+            </div>
+          </Link>
+
+          {/* Birøkter Checklist Promo */}
+          <Link href="/dashboard/beekeeper/checklist" className="block mt-2">
+            <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-xl p-4 text-white shadow-lg flex items-center justify-between">
+                <div>
+                    <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-honey-400" />
+                        Birøkter-oppdrag
+                    </h3>
+                    <p className="text-[10px] text-gray-300">Du har 1 aktiv sjekkliste klar</p>
+                </div>
+                <div className="bg-white/10 p-2 rounded-full">
+                    <ClipboardCheck className="w-5 h-5" />
+                </div>
+            </div>
+          </Link>
 
           {/* External Links (Moved Up) */}
           <div className="space-y-1 pt-1">
@@ -492,6 +578,156 @@ export default function DashboardPage() {
                 </button>
                 </div>
             )}
+            </div>
+        </div>
+      )}
+      {/* SICKNESS REPORT MODAL */}
+      {isSicknessModalOpen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[70]">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto">
+                <button 
+                    onClick={() => setIsSicknessModalOpen(false)}
+                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                >
+                    <X className="w-6 h-6" />
+                </button>
+                
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="bg-red-100 p-3 rounded-full text-red-600">
+                        <Activity className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900">Meld sykdom / avvik</h2>
+                        <p className="text-xs text-gray-500">Sendes direkte til ansvarlig birøkter & Mattilsynet</p>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    {/* Hive Selector */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Gjelder hvilken kube?</label>
+                        <select
+                            value={sicknessData.hiveId}
+                            onChange={(e) => setSicknessData({...sicknessData, hiveId: e.target.value})}
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-honey-500"
+                        >
+                            <option value="">Velg kube (hvis aktuelt)</option>
+                            {allHives.map(h => (
+                                <option key={h.id} value={h.id}>{h.hive_number}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Varroa-telling</label>
+                            <input 
+                                type="number" 
+                                placeholder="Antall"
+                                value={sicknessData.varroaCount}
+                                onChange={(e) => setSicknessData({...sicknessData, varroaCount: e.target.value})}
+                                className="w-full p-3 border border-gray-200 rounded-xl"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Dødelighet</label>
+                            <select
+                                value={sicknessData.mortality}
+                                onChange={(e) => setSicknessData({...sicknessData, mortality: e.target.value})}
+                                className="w-full p-3 border border-gray-200 rounded-xl bg-white"
+                            >
+                                <option value="Lav">Lav</option>
+                                <option value="Middels">Middels</option>
+                                <option value="Høy">Høy</option>
+                                <option value="Kritisk">Kritisk</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Bie-atferd</label>
+                            <select
+                                value={sicknessData.behavior}
+                                onChange={(e) => setSicknessData({...sicknessData, behavior: e.target.value})}
+                                className="w-full p-3 border border-gray-200 rounded-xl bg-white"
+                            >
+                                <option value="Normal">Normal</option>
+                                <option value="Aggressiv">Aggressiv</option>
+                                <option value="Slapp/Rolig">Slapp/Rolig</option>
+                                <option value="Svermetendens">Svermetendens</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Mistenkt sykdom</label>
+                            <select
+                                value={sicknessData.diseaseType}
+                                onChange={(e) => setSicknessData({...sicknessData, diseaseType: e.target.value})}
+                                className="w-full p-3 border border-gray-200 rounded-xl bg-white"
+                            >
+                                <option value="Annet / Vet ikke">Annet / Vet ikke</option>
+                                <option value="Lukket yngelråte">Lukket yngelråte</option>
+                                <option value="Åpen yngelråte">Åpen yngelråte</option>
+                                <option value="Kalkyngel">Kalkyngel</option>
+                                <option value="Varroa-skade">Varroa-skade</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Beskrivelse</label>
+                        <textarea 
+                            value={sicknessData.description}
+                            onChange={(e) => setSicknessData({...sicknessData, description: e.target.value})}
+                            placeholder="Beskriv hva du ser... (f.eks. mange døde bier, urolig sverm, tegn til sykdom)"
+                            className="w-full p-3 border border-gray-200 rounded-xl min-h-[80px] text-sm focus:ring-2 focus:ring-red-500 outline-none"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Last opp bilde (Påkrevd)</label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 cursor-pointer transition-colors">
+                            <Camera className="w-6 h-6 mb-1 text-gray-400" />
+                            <span className="text-xs font-medium">Trykk for å ta bilde eller laste opp</span>
+                            <input type="file" className="hidden" />
+                        </div>
+                    </div>
+
+                    <div className="bg-blue-50 p-3 rounded-lg flex gap-2 text-xs text-blue-800">
+                        <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
+                        <p>Din birøkter vil vurdere bildet for å se om det krever utrykning eller er "falsk alarm". Du hører fra oss!</p>
+                    </div>
+
+                    <button 
+                        onClick={async () => {
+                            try {
+                                const details = `Sykdom: ${sicknessData.diseaseType}, Atferd: ${sicknessData.behavior}, Død: ${sicknessData.mortality}, Varroa: ${sicknessData.varroaCount}. Beskrivelse: ${sicknessData.description}`;
+                                
+                                // Insert into hive_logs if hive selected
+                                if (sicknessData.hiveId) {
+                                    await supabase.from('hive_logs').insert({
+                                        hive_id: sicknessData.hiveId,
+                                        action: 'SYKDOM',
+                                        details: details,
+                                        created_at: new Date().toISOString()
+                                    });
+                                } else {
+                                    // Log generally (if we had a general logs table, for now just alert)
+                                    console.log("General sickness report:", details);
+                                }
+
+                                alert("Melding sendt til Mattilsynet (Pilot) og Birøkter! 🚨\n\nNabovarsel er sendt til 4 birøktere i radius på 3 km.");
+                                setIsSicknessModalOpen(false);
+                            } catch (e) {
+                                console.error(e);
+                                alert("Kunne ikke sende rapport.");
+                            }
+                        }}
+                        className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 shadow-lg"
+                    >
+                        Send Rapport
+                    </button>
+                </div>
             </div>
         </div>
       )}

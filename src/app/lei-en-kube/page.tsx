@@ -14,7 +14,11 @@ import {
   ChevronRight,
   FileText,
   PenTool,
-  Coins
+  Coins,
+  CreditCard,
+  Lock,
+  X,
+  Info
 } from 'lucide-react';
 
 // --- CONTRACT TEXT CONSTANT ---
@@ -88,17 +92,19 @@ Da det er levende dyr, som klargjøres spesielt til hver enkelt leietaker, er de
 `;
 
 const OWNERSHIP_COSTS = [
-  { item: 'Startkube halvkasser (3110)', price: 3500 },
+  { item: 'Startkube halvkasser (varenr 3110)', price: 3500 },
   { item: 'Bifolk (bier + dronning)', price: 4500 },
-  { item: 'Byggevoks + bivei lister (4033/4027 + 1129/1131)', price: 1000 },
-  { item: 'Ekstra rammer + ekstra voks til utskift ved høsting', price: 1500 },
-  { item: 'Bidrakt + hansker + slør', price: 2000 },
+  { item: 'Byggevoks + bivei-lister', price: 1000 },
+  { item: 'Ekstra rammer + voks til utskift ved høsting', price: 1500 },
+  { item: 'Beskyttelsesutstyr (drakt + hansker + slør)', price: 2000 },
   { item: 'Røykpuster + røykmateriale', price: 800 },
   { item: 'Kubeverktøy + skrape + børste', price: 800 },
   { item: 'Fôringsutstyr + oppstartsfôr', price: 500 },
-  { item: 'Birøkterkurs (Halden Birøkterlag, reell pris)', price: 4500 },
-  { item: 'Diverse småting man alltid ender opp med', price: 1000 },
-  { item: 'Billigste reelle håndslynge m/sil (3000)', price: 6900 },
+  { item: 'Birøkterkurs (Halden Birøkterlag)', price: 4500 },
+  { item: 'Diverse småting', price: 1000 },
+  { item: 'Billigste håndslynge m/sil (varenr 3000)', price: 6900 },
+  { item: 'Glass og etiketter til tapping', price: 600 },
+  { item: 'Transport/ekstra medisiner/logistikk', price: 1000 },
 ];
 
 const HIDDEN_COSTS = [
@@ -114,9 +120,10 @@ export default function RentHivePage() {
   // State
   const [user, setUser] = useState<any>(null);
   const [hiveCount, setHiveCount] = useState(2);
-  const [step, setStep] = useState<'info' | 'details' | 'contract' | 'success'>('info');
+  const [step, setStep] = useState<'info' | 'details' | 'contract' | 'payment' | 'success'>('info');
   const [loading, setLoading] = useState(false);
   const [showCostComparison, setShowCostComparison] = useState(false);
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   
   // Form State
   const [formData, setFormData] = useState({
@@ -154,6 +161,11 @@ export default function RentHivePage() {
   const pricePerHive = Math.round(monthlyPrice / hiveCount);
 
   // Handlers
+  const scrollToOrder = (count: number) => {
+    setHiveCount(count);
+    document.getElementById('bestilling')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const handleStartOrder = () => {
     if (!user) {
       // Redirect to login or show warning
@@ -170,6 +182,10 @@ export default function RentHivePage() {
 
   const handleSignAndPay = async () => {
     if (!formData.signature) return;
+    setStep('payment');
+  };
+
+  const handleProcessPayment = async () => {
     setLoading(true);
 
     try {
@@ -194,6 +210,9 @@ export default function RentHivePage() {
         });
 
       if (error) throw error;
+
+      // Simulate payment processing time
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // 2. Success
       setStep('success');
@@ -337,144 +356,47 @@ export default function RentHivePage() {
               </div>
             </div>
 
-            {/* Honey Profit / Volume Incentive Section */}
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-8 border border-amber-100 shadow-lg relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-24 bg-honey-400/10 rounded-full blur-3xl transform translate-x-1/3 -translate-y-1/3"></div>
+            {/* --- NY SAMMENLIGNING: Eie vs Leie --- */}
+            <div className="py-8 font-sans">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-2">🐝 Start med bier i egen hage</h2>
+              <p className="text-gray-600 mb-8 text-lg">Ærlig sammenligning: Eie selv vs. LEK-kube-leie</p>
               
-              <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="bg-white p-3 rounded-xl shadow-sm">
-                    <Coins className="w-6 h-6 text-honey-600" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900">Slik tjener du på å ha biene i hagen</h2>
+              {/* Alternativ 1: Eie selv */}
+              <div className="mb-12 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="p-4 bg-gray-50 border-b border-gray-100">
+                  <h3 className="font-bold text-lg text-gray-900">💰 Alternativ 1 – Eie 1 bikube selv (Norge, realistisk første år)</h3>
                 </div>
-
-                <div className="prose prose-honey max-w-none mb-8">
-                  <p className="text-lg text-gray-700 leading-relaxed">
-                    Når du leier kuber, får du <strong className="text-honey-700">førsterett på å kjøpe honning fra egne kuber</strong> – til sterkt redusert pris (kun 200 kr/kg). 
-                    Markedspris for ferdig tappet honning er gjerne 260–300+ kr/kg.
-                  </p>
-                  
-                  {/* Honey Resale Value Table */}
-                  <div className="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden my-6 not-prose">
-                    <table className="w-full text-sm text-left">
-                      <thead className="bg-amber-100/50 text-gray-700 font-bold border-b border-amber-100">
-                        <tr>
-                          <th className="p-3">Honningtype</th>
-                          <th className="p-3 hidden sm:table-cell">Ordinær pris</th>
-                          <th className="p-3">Din pris</th>
-                          <th className="p-3 font-extrabold text-green-700">Potensiell verdi</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        <tr>
-                          <td className="p-3 font-medium">Rå honning i bøtte (20 kg)</td>
-                          <td className="p-3 text-gray-500 hidden sm:table-cell">260 kr/kg</td>
-                          <td className="p-3 font-bold text-honey-700">200 kr/kg</td>
-                          <td className="p-3 text-green-700">260–700 kr/kg</td>
-                        </tr>
-                        <tr>
-                          <td className="p-3 font-medium">Ferdig tappet glass</td>
-                          <td className="p-3 text-gray-500 hidden sm:table-cell">320–450 kr/kg</td>
-                          <td className="p-3 font-bold text-honey-700">200 kr/kg</td>
-                          <td className="p-3 text-green-700">260–700 kr/kg</td>
-                        </tr>
-                        <tr>
-                          <td className="p-3 font-medium">Premium småglass</td>
-                          <td className="p-3 text-gray-500 hidden sm:table-cell">450–700 kr/kg</td>
-                          <td className="p-3 font-bold text-honey-700">200 kr/kg</td>
-                          <td className="p-3 text-green-700">450–900 kr/kg</td>
-                        </tr>
-                        <tr className="bg-amber-50/30">
-                          <td className="p-3 font-medium">Sjeldne sorter (lyng, skog)</td>
-                          <td className="p-3 text-gray-500 hidden sm:table-cell">600–900 kr/kg</td>
-                          <td className="p-3 font-bold text-honey-700">200 kr/kg</td>
-                          <td className="p-3 text-green-700 font-bold">600–1200 kr/kg</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <div className="p-3 bg-gray-50 text-xs text-gray-500 italic text-center">
-                      * Pris avhenger av smak, type, sjeldenhet og sesong.
-                    </div>
-                  </div>
-
-                  <p className="text-gray-600">
-                    Jo flere kuber du har på samme lokasjon, jo mer honning produseres, og jo mer kan du tjene på videresalg. 
-                    Du velger selv om du vil ha honningen i bøtter for egen tapping, eller ferdig på glass med etikett (mot et tillegg).
-                  </p>
-
-                  {/* Premium Honey & Profit Potential Section */}
-                  <div className="my-8 space-y-8">
-                    
-                    {/* Premium vs Standard Explanation */}
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                      <h3 className="text-lg font-bold text-gray-900 mb-4">Hvorfor er prisen høyere på 1 kube og premiumhonning?</h3>
-                      <div className="space-y-4 text-sm text-gray-700">
-                        <p>
-                          <span className="font-bold block text-gray-900 mb-1">Logistikk:</span>
-                          Birøkteren må kjøre ut til én adresse uansett. Honning som må slynges separat kan ikke kombineres med annen type – det krever egen prosess og egen utrykning. Dette er ærlige driftskostnader, ikke overprising.
-                        </p>
-                        <p>
-                          <span className="font-bold block text-gray-900 mb-1">Premium honning (Lyng, Skog, etc):</span>
-                          Må høstes og slynges separat. Kan ikke blandes. Derfor er innkjøpsprisen høyere (400 kr/kg), men videresalgsverdien er også dobbel (800+ kr/kg).
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Profit Scenarios Table */}
-                    <div className="overflow-hidden rounded-xl border border-green-200">
-                      <div className="bg-green-50 p-4 border-b border-green-200">
-                        <h3 className="font-bold text-green-900">Hva kan du tjene med kuber i hagen?</h3>
-                        <p className="text-xs text-green-700">Eksempler med realistisk prispsykologi og faktisk mulig utfall</p>
-                      </div>
-                      <table className="w-full text-sm text-left bg-white">
-                        <thead className="bg-green-50/50 text-gray-700 font-bold border-b border-green-100">
-                          <tr>
-                            <th className="p-3">Salgstype</th>
-                            <th className="p-3">Du betaler</th>
-                            <th className="p-3">Du kan få igjen</th>
-                            <th className="p-3 font-extrabold text-green-700">Fortjeneste</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          <tr>
-                            <td className="p-3">
-                              <span className="font-medium block text-gray-900">20 kg sommerhonning</span>
-                              <span className="text-xs text-gray-500">Standard, smart start</span>
-                            </td>
-                            <td className="p-3 text-gray-600">kr 4 000</td>
-                            <td className="p-3 text-gray-900 font-medium">kr 8 000</td>
-                            <td className="p-3 text-green-700 font-bold">+ 4 000 kr</td>
-                          </tr>
-                          <tr className="bg-amber-50/30">
-                            <td className="p-3">
-                              <span className="font-medium block text-gray-900">20 kg premiumhonning</span>
-                              <span className="text-xs text-gray-500">Separat høsting (lyng/skog)</span>
-                            </td>
-                            <td className="p-3 text-gray-600">kr 8 000</td>
-                            <td className="p-3 text-gray-900 font-medium">kr 16 000</td>
-                            <td className="p-3 text-green-700 font-bold">+ 8 000 kr</td>
-                          </tr>
-                          <tr>
-                            <td className="p-3">
-                              <span className="font-medium block text-gray-900">20 kg premium i småglass</span>
-                              <span className="text-xs text-gray-500">Selges på julemarked (krever innsats)</span>
-                            </td>
-                            <td className="p-3 text-gray-600">kr 8 000</td>
-                            <td className="p-3 text-gray-900 font-medium">20–30 000 kr</td>
-                            <td className="p-3 text-green-700 font-bold">12–22 000+ kr</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-gray-50/50 text-gray-700 font-bold border-b border-gray-200">
+                    <tr>
+                      <th className="p-3">Post</th>
+                      <th className="p-3 text-right">Pris (NOK inkl. mva)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {OWNERSHIP_COSTS.map((cost, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50/50">
+                        <td className="p-3 text-gray-700">{cost.item}</td>
+                        <td className="p-3 text-right font-medium text-gray-900">{cost.price.toLocaleString()} kr</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-gray-50 font-bold text-gray-900 border-t-2 border-gray-200">
+                      <td className="p-3">Total første år</td>
+                      <td className="p-3 text-right">≈ 36 000 kr</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div className="p-4 bg-gray-50 text-sm text-gray-600 border-t border-gray-100">
+                  <p className="mb-2"><strong className="text-gray-900">+ Arbeid:</strong> Du må slynge, røre, tappe og vaske selv. Ca 40–80 timer første år.</p>
+                  <p><strong className="text-gray-900">+ Risiko:</strong> Dør biene om vinteren? Du må kjøpe nye (4500 kr).</p>
                 </div>
+              </div>
 
-              {/* Upsell Model Table */}
-              <div className="bg-white rounded-xl shadow-sm border border-honey-200 overflow-hidden mb-8">
+              {/* Alternativ 2: LEK-leie */}
+              <div className="mb-12 bg-white rounded-xl shadow-sm border border-honey-200 overflow-hidden">
                 <div className="p-4 bg-honey-50 border-b border-honey-100">
-                  <h3 className="font-bold text-lg text-honey-900">LEK-kube-leie – effektiv drift på lokasjon</h3>
-                  <p className="text-sm text-honey-700">Startprisen er per lokasjon, ikke per kube. Flere kuber samlet = mindre jobb per kube = mer honning og bedre pris.</p>
+                  <h3 className="font-bold text-lg text-honey-900">🧡 Alternativ 2 – LEK-kube-leie (Vi gjør jobben, du får kosen)</h3>
+                  <p className="text-sm text-honey-700">Startprisen er per lokasjon. Flere kuber = lavere pris per kube = mer honning.</p>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
@@ -484,99 +406,176 @@ export default function RentHivePage() {
                         <th className="p-3">Pris/mnd</th>
                         <th className="p-3 hidden sm:table-cell">Pris/år</th>
                         <th className="p-3">Honningfortrinn inkludert</th>
+                        <th className="p-3"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      <tr>
+                      <tr className="hover:bg-honey-50/30 transition-colors">
                         <td className="p-3 font-medium">1 kube</td>
                         <td className="p-3 text-gray-600">350 kr</td>
                         <td className="p-3 text-gray-400 hidden sm:table-cell">4 200 kr</td>
                         <td className="p-3 text-gray-500">Ingen fortrinn</td>
+                        <td className="p-3 text-right">
+                          <button onClick={() => scrollToOrder(1)} className="text-honey-600 font-bold hover:underline text-xs">Velg</button>
+                        </td>
                       </tr>
-                      <tr className="bg-green-50/50">
+                      <tr className="bg-green-50/50 hover:bg-green-50 transition-colors border-l-4 border-green-400">
                         <td className="p-3 font-bold text-gray-900">2 kuber <span className="bg-green-100 text-green-800 text-xs px-1.5 py-0.5 rounded ml-1">Start</span></td>
                         <td className="p-3 font-bold text-green-700">299 kr</td>
                         <td className="p-3 text-green-700 font-medium hidden sm:table-cell">3 588 kr</td>
                         <td className="p-3 text-gray-700">Begrenset uttak</td>
+                        <td className="p-3 text-right">
+                           <button onClick={() => scrollToOrder(2)} className="bg-green-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-green-700 shadow-sm">Velg</button>
+                        </td>
                       </tr>
-                      <tr>
+                      <tr className="hover:bg-honey-50/30 transition-colors">
                         <td className="p-3 font-medium">3 kuber</td>
                         <td className="p-3 text-gray-600">399 kr</td>
                         <td className="p-3 text-gray-400 hidden sm:table-cell">4 788 kr</td>
                         <td className="p-3 text-gray-500">-</td>
+                        <td className="p-3 text-right">
+                          <button onClick={() => scrollToOrder(3)} className="text-honey-600 font-bold hover:underline text-xs">Velg</button>
+                        </td>
                       </tr>
-                      <tr className="bg-honey-50/50 border-l-4 border-honey-400">
+                      <tr className="bg-honey-50/50 hover:bg-honey-100/50 transition-colors border-l-4 border-honey-400">
                         <td className="p-3 font-bold text-gray-900">4 kuber <span className="bg-honey-100 text-honey-800 text-xs px-1.5 py-0.5 rounded ml-1">Anbefalt</span></td>
                         <td className="p-3 font-bold text-honey-700">499 kr</td>
                         <td className="p-3 text-honey-700 font-medium hidden sm:table-cell">5 988 kr</td>
-                        <td className="p-3 text-gray-900 font-medium">Nok honning til verdikjede + fortrinn på 80 kg/år</td>
+                        <td className="p-3 text-gray-900 font-medium">
+                          Nok honning til verdikjede + fortrinn på 80 kg/år
+                          <button onClick={() => setIsPremiumModalOpen(true)} className="block mt-1 text-xs text-honey-600 underline hover:text-honey-800 flex items-center gap-1">
+                            <Info className="w-3 h-3" /> Hva er Premium?
+                          </button>
+                        </td>
+                         <td className="p-3 text-right">
+                           <button onClick={() => scrollToOrder(4)} className="bg-honey-500 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-honey-600 shadow-sm">Velg</button>
+                        </td>
                       </tr>
-                      <tr>
+                      <tr className="hover:bg-honey-50/30 transition-colors">
                         <td className="p-3 font-medium">5 kuber</td>
                         <td className="p-3 text-gray-600">599 kr</td>
                         <td className="p-3 text-gray-400 hidden sm:table-cell">7 188 kr</td>
                         <td className="p-3 text-gray-500">-</td>
+                        <td className="p-3 text-right">
+                          <button onClick={() => scrollToOrder(5)} className="text-honey-600 font-bold hover:underline text-xs">Velg</button>
+                        </td>
                       </tr>
-                      <tr className="bg-amber-50/50">
+                      <tr className="bg-amber-50/50 hover:bg-amber-50 transition-colors border-l-4 border-amber-400">
                         <td className="p-3 font-bold text-gray-900">6 kuber <span className="bg-amber-100 text-amber-800 text-xs px-1.5 py-0.5 rounded ml-1">Optimal</span></td>
                         <td className="p-3 font-bold text-amber-700">699 kr</td>
                         <td className="p-3 text-amber-700 font-medium hidden sm:table-cell">8 388 kr</td>
                         <td className="p-3 text-gray-900 font-medium">Optimal drift + fortrinn på 120 kg/år</td>
+                        <td className="p-3 text-right">
+                           <button onClick={() => scrollToOrder(6)} className="bg-amber-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-amber-700 shadow-sm">Velg</button>
+                        </td>
                       </tr>
                       <tr>
                         <td className="p-3 font-medium">10-20+ kuber</td>
                         <td className="p-3 text-gray-600">Skalerer</td>
                         <td className="p-3 text-gray-400 hidden sm:table-cell">Kontakt oss</td>
                         <td className="p-3 text-gray-900 font-bold">Stor bulk-rett på honning (Hage-investor)</td>
+                        <td className="p-3 text-right">
+                          <button onClick={() => scrollToOrder(10)} className="text-gray-400 font-bold hover:underline text-xs">Kontakt</button>
+                        </td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
               </div>
 
-              {/* 4-6+ Hives Incentive Block */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-honey-200">
-                  <h3 className="text-lg font-bold text-honey-800 mb-3 flex items-center gap-2">
-                    <Box className="w-5 h-5" />
-                    Med 4–6 kuber i hagen kan du:
-                  </h3>
-                  
-                  {/* Honning-rettighets-trigger */}
-                  <div className="mb-4 bg-honey-50 p-3 rounded-lg border border-honey-100 text-sm text-honey-900 italic font-medium">
-                    «Har du 4 kuber eller fler, får du fortrinn på mer av honningen fra dine kuber når sesongen er god.»
+              {/* Slik tjener du på honning */}
+              <div className="mb-12 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                 <div className="flex items-center gap-3 mb-6">
+                  <div className="bg-honey-100 p-3 rounded-xl shadow-sm">
+                    <Coins className="w-6 h-6 text-honey-600" />
                   </div>
+                  <h2 className="text-2xl font-bold text-gray-900">Slik tjener du på å ha biene i hagen</h2>
+                </div>
+                
+                <p className="text-gray-600 mb-6 leading-relaxed">
+                  Når du leier kuber, får du <strong className="text-honey-700">førsterett på å kjøpe honning fra egne kuber</strong> – til sterkt redusert pris (kun 200 kr/kg). 
+                  Du kan selge den videre for 260–700 kr/kg (eller mer for premium).
+                </p>
 
-                  <ul className="space-y-2 text-sm text-gray-700 mb-4">
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                      Sikre nok honning til slynging, salg og læring gjennom hele verdikjeden
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                      <span className="font-bold text-honey-700">Få første rett på honning fra dine egne kuber</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                      Kjøpe den til redusert pris: 200 kr/kg
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                      Selge den videre selv i ønsket emballasje for 260–700+ kr/kg
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                      Tjene mer – jo flere kuber du har samlet på én lokasjon
-                    </li>
-                  </ul>
-                  <div className="text-sm font-medium text-center text-gray-500 italic">
-                    "2 kuber er en start. 4–6+ er en mulighet. 10+ er en investering."
-                  </div>
+                <div className="grid md:grid-cols-2 gap-8">
+                    {/* Hvorfor premium koster mer */}
+                    <div className="bg-gray-50 rounded-xl p-5 border border-gray-100">
+                        <h4 className="font-bold text-gray-900 mb-3">Hvorfor høyere pris på 1 kube / premium?</h4>
+                        <ul className="space-y-3 text-sm text-gray-700">
+                            <li><strong className="text-gray-900">Logistikk:</strong> Birøkteren må kjøre ut til én adresse uansett. Separat slynging krever egen prosess.</li>
+                            <li><strong className="text-gray-900">Premium (Lyng/Skog):</strong> Må høstes og slynges separat. Kan ikke blandes. Derfor er innkjøpsprisen høyere (400 kr/kg), men videresalgsverdien er også dobbel (800+ kr/kg).</li>
+                        </ul>
+                    </div>
+
+                    {/* Fortjeneste tabell */}
+                    <div className="bg-green-50 rounded-xl border border-green-100 overflow-hidden">
+                        <div className="p-3 bg-green-100 border-b border-green-200">
+                            <h4 className="font-bold text-green-900 text-sm">Din fortjeneste (eksempler)</h4>
+                        </div>
+                        <table className="w-full text-sm text-left">
+                            <tbody className="divide-y divide-green-200">
+                                <tr>
+                                    <td className="p-3 text-gray-700">20 kg sommerhonning</td>
+                                    <td className="p-3 text-right font-bold text-green-700">+ 4 000 kr</td>
+                                </tr>
+                                <tr>
+                                    <td className="p-3 text-gray-700">20 kg premium (lyng)</td>
+                                    <td className="p-3 text-right font-bold text-green-700">+ 8 000 kr</td>
+                                </tr>
+                                <tr>
+                                    <td className="p-3 text-gray-700">20 kg småglass (marked)</td>
+                                    <td className="p-3 text-right font-bold text-green-700">+ 12 000 kr</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
               </div>
+
+              {/* Oppsummeringstablå */}
+              <div className="bg-gray-900 rounded-xl shadow-lg overflow-hidden text-white">
+                 <div className="p-6 border-b border-gray-800">
+                    <h3 className="text-xl font-bold">Oppsummering: Verdi for deg</h3>
+                 </div>
+                 <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left text-gray-300">
+                        <thead className="bg-gray-800 text-gray-100 font-bold border-b border-gray-700">
+                            <tr>
+                                <th className="p-4">Faktor</th>
+                                <th className="p-4 w-1/3">Eie selv (1-2 kuber)</th>
+                                <th className="p-4 w-1/3 text-honey-400">LEK-leie (4 kuber)</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-800">
+                            <tr>
+                                <td className="p-4 font-medium text-white">Investering år 1</td>
+                                <td className="p-4 text-red-300">≈ 36 000 kr (høy risiko)</td>
+                                <td className="p-4 text-green-400">0 kr (kun leie)</td>
+                            </tr>
+                             <tr>
+                                <td className="p-4 font-medium text-white">Arbeidstimer</td>
+                                <td className="p-4">40–80 timer (tunge løft)</td>
+                                <td className="p-4 text-honey-400">0 timer (bare kos)</td>
+                            </tr>
+                             <tr>
+                                <td className="p-4 font-medium text-white">Honning-garanti</td>
+                                <td className="p-4">Ingen (biene kan dø)</td>
+                                <td className="p-4 text-honey-400">Opsjon på kjøp (stabilt)</td>
+                            </tr>
+                             <tr>
+                                <td className="p-4 font-medium text-white">Vinter-risiko</td>
+                                <td className="p-4 text-red-300">Du tar tapet (4500 kr/kube)</td>
+                                <td className="p-4 text-green-400">Vi tar risikoen</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                 </div>
+              </div>
+
             </div>
 
             {/* Pricing & Ordering */}
-            <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
+            <div id="bestilling" className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
               <div className="p-8 bg-gray-900 text-white">
                 <h2 className="text-2xl font-bold mb-2">Velg antall kuber</h2>
                 <p className="text-gray-400">Tilpass etter ditt behov. 2 kuber anbefales for best læring og stabilitet.</p>
@@ -908,34 +907,118 @@ export default function RentHivePage() {
                 </div>
                 <button 
                   onClick={handleSignAndPay}
-                  disabled={!formData.signature || loading}
+                  disabled={!formData.signature}
                   className={`bg-green-600 text-white px-8 py-3 rounded-xl font-bold shadow-lg transition-all flex items-center gap-2
-                    ${(!formData.signature || loading) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-700 hover:scale-105'}
+                    ${!formData.signature ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-700 hover:scale-105'}
                   `}
                 >
-                  {loading ? 'Behandler...' : 'Signer & Bestill'}
+                  Gå til betaling
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {step === 'success' && (
-          <div className="bg-white rounded-2xl shadow-xl p-12 border border-green-100 text-center animate-in zoom-in-95">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-10 h-10 text-green-600" />
+        {step === 'payment' && (
+          <div className="bg-white rounded-2xl shadow-xl p-8 border border-honey-100 animate-in fade-in slide-in-from-right-4 max-w-lg mx-auto">
+            <div className="flex items-center gap-3 mb-6">
+              <CreditCard className="w-8 h-8 text-honey-600" />
+              <h2 className="text-2xl font-bold text-gray-900">Betaling</h2>
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Gratulerer!</h2>
-            <p className="text-lg text-gray-600 mb-8 max-w-lg mx-auto">
-              Din bestilling av {hiveCount} bikuber er mottatt og avtalen er signert.
-              <br/><br/>
-              En LEK-sertifisert birøkter i ditt nærområde vil snart ta kontakt for å avtale levering.
+
+            <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 mb-6">
+              <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
+                <span className="text-gray-600">Produkt</span>
+                <span className="font-medium text-gray-900">Leie av {hiveCount} kuber</span>
+              </div>
+              <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
+                <span className="text-gray-600">Periode</span>
+                <span className="font-medium text-gray-900">Per måned</span>
+              </div>
+              <div className="flex justify-between items-center text-lg font-bold">
+                <span className="text-gray-900">Å betale nå</span>
+                <span className="text-honey-600">{monthlyPrice} kr</span>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <button
+                onClick={handleProcessPayment}
+                disabled={loading}
+                className="w-full bg-[#FF5B24] text-white p-4 rounded-xl font-bold flex items-center justify-between hover:bg-[#E5400A] transition-colors group"
+              >
+                <span className="flex items-center gap-3">
+                  <span className="bg-white/20 p-1.5 rounded text-xs font-mono">Vipps</span>
+                  <span>Betal med Vipps</span>
+                </span>
+                {loading ? <span className="animate-spin">⌛</span> : <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
+              </button>
+
+              <button
+                onClick={handleProcessPayment}
+                disabled={loading}
+                className="w-full bg-gray-900 text-white p-4 rounded-xl font-bold flex items-center justify-between hover:bg-black transition-colors group"
+              >
+                <span className="flex items-center gap-3">
+                  <CreditCard className="w-5 h-5" />
+                  <span>Kortbetaling</span>
+                </span>
+                {loading ? <span className="animate-spin">⌛</span> : <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
+              </button>
+            </div>
+
+            <div className="mt-6 text-center flex items-center justify-center gap-2 text-xs text-gray-400">
+              <Lock className="w-3 h-3" />
+              Sikker betaling via Stripe / Vipps
+            </div>
+          </div>
+        )}
+
+        {step === 'success' && (
+          <div className="bg-white rounded-2xl shadow-xl p-8 border border-green-100 text-center animate-in zoom-in-95 max-w-xl mx-auto relative overflow-hidden">
+            {/* Kvittering "Tear" effect top */}
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-gray-200 to-gray-300"></div>
+            
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+            
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Betaling gjennomført!</h2>
+            <p className="text-gray-500 mb-8">Takk for at du leier kuber hos oss.</p>
+
+            <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 text-left mb-8 font-mono text-sm relative">
+                <div className="flex justify-between mb-2">
+                    <span className="text-gray-500">Dato:</span>
+                    <span className="text-gray-900">{new Date().toLocaleDateString()}</span>
+                </div>
+                <div className="flex justify-between mb-2">
+                    <span className="text-gray-500">Ref:</span>
+                    <span className="text-gray-900">LEK-{Math.floor(Math.random() * 100000)}</span>
+                </div>
+                <div className="border-t border-dashed border-gray-300 my-4"></div>
+                <div className="flex justify-between mb-1">
+                    <span className="text-gray-900">Leie av {hiveCount} kuber</span>
+                    <span className="text-gray-900">{monthlyPrice} kr</span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-500 mb-4">
+                    <span>Månedlig trekk</span>
+                </div>
+                <div className="border-t border-gray-300 my-4"></div>
+                <div className="flex justify-between font-bold text-lg">
+                    <span>TOTALT</span>
+                    <span>{monthlyPrice} kr</span>
+                </div>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-8">
+              En LEK-sertifisert birøkter i ditt nærområde vil snart ta kontakt for å avtale levering. 
+              Du finner kopi av avtalen på Min Side.
             </p>
             
             <div className="flex justify-center gap-4">
               <button 
                 onClick={() => router.push('/dashboard')}
-                className="bg-honey-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-honey-600 transition-colors"
+                className="bg-honey-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-honey-600 transition-colors shadow-lg"
               >
                 Gå til Min Side
               </button>
@@ -944,6 +1027,72 @@ export default function RentHivePage() {
         )}
 
       </div>
+
+      {/* Premium Info Modal */}
+      {isPremiumModalOpen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative overflow-hidden">
+             {/* Header Image / Pattern */}
+             <div className="h-32 bg-gradient-to-br from-amber-500 to-orange-600 relative overflow-hidden">
+                <div className="absolute inset-0 bg-black/10"></div>
+                <div className="absolute bottom-0 left-0 p-6 text-white">
+                    <h3 className="text-2xl font-bold">Premium Honning? 🍯</h3>
+                    <p className="opacity-90 text-sm">Hvorfor det lønner seg med 4+ kuber</p>
+                </div>
+                <button 
+                  onClick={() => setIsPremiumModalOpen(false)}
+                  className="absolute top-4 right-4 bg-black/20 hover:bg-black/40 text-white rounded-full p-2 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+             </div>
+
+             <div className="p-8 space-y-6">
+                <div>
+                    <h4 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+                        <Leaf className="w-5 h-5 text-green-600" />
+                        Sommerhonning (Standard)
+                    </h4>
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                        Den vanlige honningen biene lager av bringebær, kløver og hageblomster. 
+                        Deilig, mild og lys. Selges typisk for <strong>200–250 kr/kg</strong>.
+                    </p>
+                </div>
+
+                <div className="border-t border-gray-100"></div>
+
+                <div>
+                    <h4 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
+                        <Coins className="w-5 h-5 text-amber-600" />
+                        Lyng- og Skogshonning (Premium)
+                    </h4>
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                        Kommer sent på sesongen. Krever at biene fraktes til heia/skogen. 
+                        Mørkere, kraftigere smak og veldig ettertraktet.
+                        Selges ofte for <strong>400–800 kr/kg</strong>!
+                    </p>
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <p className="text-sm text-amber-900 font-bold mb-1">
+                        Hvorfor 4 kuber er "Anbefalt"?
+                    </p>
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                        Med 4 kuber produserer du nok honning til at vi kan kjøre en egen "Premium-batch" for deg (separat slynging). 
+                        Da får du din egen unike honning som du kan selge dyrt, i stedet for "blandings-honning" som er standard ved færre kuber.
+                    </p>
+                </div>
+
+                <button 
+                  onClick={() => setIsPremiumModalOpen(false)}
+                  className="w-full bg-gray-900 text-white font-bold py-3 rounded-xl hover:bg-black transition-colors"
+                >
+                  Jeg skjønner!
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
