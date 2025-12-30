@@ -45,7 +45,10 @@ Startdato: [DAGENS DATO]
 Sluttdato: [SESONG SLUTT]
 (Leieavtalen fornyes automatisk om den ikke sies opp. Den må sies opp minimum 3 mnd før innvintring. Innvintring skjer normalt i midten av Oktober. Man binder seg til minimum en sesong av gangen, grunnet kompleksiteten i å flytte en bikube som er i drift)
 
-3. Inkludert i leien (kryss av)
+3. Pris og Betaling
+Leiepris: [PRIS_MND] kr per måned (faktureres sesongvis forskudd: [PRIS_TOTAL] kr).
+
+4. Inkludert i leien (kryss av)
 [x] Full kube med bifolk + tavler
 [x] Oppstartsfôr 2–3 kg
 [x] Deltakelse i honningslynging
@@ -54,24 +57,24 @@ Sluttdato: [SESONG SLUTT]
 [x] LEK-sertifisering etter fullført sesong (kun for barn)
 [x] Forsikring inkludert i perioden
 
-4. Ansvar og sikkerhet
+5. Ansvar og sikkerhet
 - Utleier har ansvar for at kuben er sertifisert, trygg og sykdomskontrollert ved utlevering
 - Leietaker har ansvar for forsvarlig bruk og å følge sikkerhetsinstrukser
 - Barn/medlemmer skal ikke åpne kube uten tilsyn av godkjent, Sertifisert LEK-birøkter
 - Ved skade på utstyr som skyldes uforsvarlig bruk, kan erstatning kreves
 - Ved sykdomstegn skal dette rapporteres umiddelbart i LEK-appen
 
-5. Honning og inntektsfordeling
+6. Honning og inntektsfordeling
 Hvis honningproduksjon og salg er del av leien, fordeles inntekten slik:
 Leietaker betaler en fast lav pris for kjøp av honning fra leide kuber, og har forkjøpsrett til ALL honning i de leide kubene. Honningprisen blir beregnet hvert år ved sesongens slutt, og offentliggjøres på LEK-Honning™️ sine nettsider, og i appen.
 Alle salg skal dokumenteres og gjennomføres i appen
 
-6. Allergi og helse
+7. Allergi og helse
 Leietaker bekrefter at gruppen har sjekket allergier:
 [x] Ingen kjent allergi (bekreftet ved signering)
 Utleier anbefaler at Epipen eller førstehjelpsplan finnes i gruppen, men det er ikke krav fra utleier
 
-7. Databruk og innhold i app
+8. Databruk og innhold i app
 Leietaker godkjenner at:
 Observasjonsbilder og kubelogger kan brukes i anonymisert form i LEK-systemet
 Ingen persondata publiseres uten samtykke
@@ -85,22 +88,23 @@ Da det er levende dyr, som klargjøres spesielt til hver enkelt leietaker, er de
 `;
 
 const OWNERSHIP_COSTS = [
-  { item: 'Startpakke halvkasser (3110)', price: 3500 },
+  { item: 'Startkube halvkasser (3110)', price: 3500 },
   { item: 'Bifolk (bier + dronning)', price: 4500 },
-  { item: 'Byggevoks (4033/4027 + lister)', price: 1000 },
-  { item: 'Ekstra rammer + voks-buffer', price: 1500 },
-  { item: 'Birøkterkurs (Halden Birøkterlag)', price: 4500 },
-  { item: 'Diverse kurs-småting', price: 1000 },
-  { item: 'Beskyttelsesutstyr (drakt+slør+hansker)', price: 2000 },
+  { item: 'Byggevoks + bivei lister (4033/4027 + 1129/1131)', price: 1000 },
+  { item: 'Ekstra rammer + ekstra voks til utskift ved høsting', price: 1500 },
+  { item: 'Bidrakt + hansker + slør', price: 2000 },
   { item: 'Røykpuster + røykmateriale', price: 800 },
   { item: 'Kubeverktøy + skrape + børste', price: 800 },
-  { item: 'Billigste håndslynge (3000)', price: 6900 },
+  { item: 'Fôringsutstyr + oppstartsfôr', price: 500 },
+  { item: 'Birøkterkurs (Halden Birøkterlag, reell pris)', price: 4500 },
+  { item: 'Diverse småting man alltid ender opp med', price: 1000 },
+  { item: 'Billigste reelle håndslynge m/sil (3000)', price: 6900 },
 ];
 
 const HIDDEN_COSTS = [
-  { item: 'Ekstra magasin, dronningbur, fôr, småutstyr', price: 2000 },
-  { item: 'Glass og etiketter til egen honning', price: 600 },
-  { item: 'Transport, ekstra medisiner, logistikk', price: 1000 },
+  { item: 'Ekstra magasin, dronningbur, tavler, småutstyr', price: 2000 },
+  { item: 'Glass og etiketter til tapping', price: 600 },
+  { item: 'Transport/ekstra medisiner/logistikk', price: 1000 },
 ];
 
 export default function RentHivePage() {
@@ -117,6 +121,7 @@ export default function RentHivePage() {
   // Form State
   const [formData, setFormData] = useState({
     name: '',
+    organization: '',
     address: '',
     phone: '',
     email: '',
@@ -139,8 +144,9 @@ export default function RentHivePage() {
   // Pricing Logic (Monthly)
   const calculateMonthlyPrice = (count: number) => {
     if (count === 1) return 350;
-    if (count === 2) return 299; // Total for 2 hives (cheaper than 1!)
-    // 3+ hives: 299 base + 100 per extra hive
+    if (count === 2) return 299; 
+    // 3+ hives: 299 base + 100 per extra hive above 2
+    // 3: 399, 4: 499, 5: 599, 6: 699, 7: 799
     return 299 + ((count - 2) * 100);
   };
 
@@ -177,6 +183,7 @@ export default function RentHivePage() {
           total_price: monthlyPrice, // Storing monthly price
           status: 'active', 
           contact_name: formData.name,
+          contact_organization: formData.organization,
           contact_address: formData.address,
           contact_phone: formData.phone,
           contact_email: formData.email,
@@ -395,53 +402,139 @@ export default function RentHivePage() {
                     Jo flere kuber du har på samme lokasjon, jo mer honning produseres, og jo mer kan du tjene på videresalg. 
                     Du velger selv om du vil ha honningen i bøtter for egen tapping, eller ferdig på glass med etikett (mot et tillegg).
                   </p>
-                </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-amber-100 overflow-hidden mb-8">
-                  <div className="grid grid-cols-1 md:grid-cols-3 bg-amber-100/50 text-sm font-bold text-gray-700 border-b border-amber-100">
-                    <div className="p-4">Antall kuber</div>
-                    <div className="p-4">Månedspris</div>
-                    <div className="p-4">Hvorfor velge dette?</div>
-                  </div>
-                  
-                  <div className="divide-y divide-gray-100 text-sm">
-                    <div className="grid grid-cols-1 md:grid-cols-3 hover:bg-gray-50 transition-colors">
-                      <div className="p-4 font-medium text-gray-900">1 kube</div>
-                      <div className="p-4 text-gray-600">350 kr</div>
-                      <div className="p-4 text-gray-500">Startkostnad for tilsyn alene</div>
-                    </div>
+                  {/* Premium Honey & Profit Potential Section */}
+                  <div className="my-8 space-y-8">
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 bg-green-50/50 hover:bg-green-50 transition-colors">
-                      <div className="p-4 font-bold text-gray-900 flex items-center gap-2">
-                        2 kuber <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">Populært</span>
+                    {/* Premium vs Standard Explanation */}
+                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                      <h3 className="text-lg font-bold text-gray-900 mb-4">Hvorfor er prisen høyere på 1 kube og premiumhonning?</h3>
+                      <div className="space-y-4 text-sm text-gray-700">
+                        <p>
+                          <span className="font-bold block text-gray-900 mb-1">Logistikk:</span>
+                          Birøkteren må kjøre ut til én adresse uansett. Honning som må slynges separat kan ikke kombineres med annen type – det krever egen prosess og egen utrykning. Dette er ærlige driftskostnader, ikke overprising.
+                        </p>
+                        <p>
+                          <span className="font-bold block text-gray-900 mb-1">Premium honning (Lyng, Skog, etc):</span>
+                          Må høstes og slynges separat. Kan ikke blandes. Derfor er innkjøpsprisen høyere (400 kr/kg), men videresalgsverdien er også dobbel (800+ kr/kg).
+                        </p>
                       </div>
-                      <div className="p-4 font-bold text-green-700">299 kr</div>
-                      <div className="p-4 text-green-800 font-medium">No-brainer – billigere enn 1!</div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 hover:bg-honey-50 transition-colors border-l-4 border-honey-400">
-                      <div className="p-4 font-bold text-gray-900 flex items-center gap-2">
-                        4 kuber <span className="bg-honey-100 text-honey-800 text-xs px-2 py-0.5 rounded-full">Anbefalt start</span>
+                    {/* Profit Scenarios Table */}
+                    <div className="overflow-hidden rounded-xl border border-green-200">
+                      <div className="bg-green-50 p-4 border-b border-green-200">
+                        <h3 className="font-bold text-green-900">Hva kan du tjene med kuber i hagen?</h3>
+                        <p className="text-xs text-green-700">Eksempler med realistisk prispsykologi og faktisk mulig utfall</p>
                       </div>
-                      <div className="p-4 font-bold text-honey-700">499 kr</div>
-                      <div className="p-4 text-gray-700">Nå begynner det å bli lønnsomt i drift</div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 hover:bg-gray-50 transition-colors">
-                      <div className="p-4 font-medium text-gray-900">6 kuber</div>
-                      <div className="p-4 text-gray-600">699 kr</div>
-                      <div className="p-4 text-gray-600">Optimal balanse for læring og inntjening</div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 hover:bg-gray-50 transition-colors">
-                      <div className="p-4 font-medium text-gray-900">10+ kuber</div>
-                      <div className="p-4 text-gray-600">Kontakt oss</div>
-                      <div className="p-4 text-gray-600">Honning-hage-investor</div>
+                      <table className="w-full text-sm text-left bg-white">
+                        <thead className="bg-green-50/50 text-gray-700 font-bold border-b border-green-100">
+                          <tr>
+                            <th className="p-3">Salgstype</th>
+                            <th className="p-3">Du betaler</th>
+                            <th className="p-3">Du kan få igjen</th>
+                            <th className="p-3 font-extrabold text-green-700">Fortjeneste</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          <tr>
+                            <td className="p-3">
+                              <span className="font-medium block text-gray-900">20 kg sommerhonning</span>
+                              <span className="text-xs text-gray-500">Standard, smart start</span>
+                            </td>
+                            <td className="p-3 text-gray-600">kr 4 000</td>
+                            <td className="p-3 text-gray-900 font-medium">kr 8 000</td>
+                            <td className="p-3 text-green-700 font-bold">+ 4 000 kr</td>
+                          </tr>
+                          <tr className="bg-amber-50/30">
+                            <td className="p-3">
+                              <span className="font-medium block text-gray-900">20 kg premiumhonning</span>
+                              <span className="text-xs text-gray-500">Separat høsting (lyng/skog)</span>
+                            </td>
+                            <td className="p-3 text-gray-600">kr 8 000</td>
+                            <td className="p-3 text-gray-900 font-medium">kr 16 000</td>
+                            <td className="p-3 text-green-700 font-bold">+ 8 000 kr</td>
+                          </tr>
+                          <tr>
+                            <td className="p-3">
+                              <span className="font-medium block text-gray-900">20 kg premium i småglass</span>
+                              <span className="text-xs text-gray-500">Selges på julemarked (krever innsats)</span>
+                            </td>
+                            <td className="p-3 text-gray-600">kr 8 000</td>
+                            <td className="p-3 text-gray-900 font-medium">20–30 000 kr</td>
+                            <td className="p-3 text-green-700 font-bold">12–22 000+ kr</td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 </div>
 
-                {/* 4-6+ Hives Incentive Block */}
+              {/* Upsell Model Table */}
+              <div className="bg-white rounded-xl shadow-sm border border-honey-200 overflow-hidden mb-8">
+                <div className="p-4 bg-honey-50 border-b border-honey-100">
+                  <h3 className="font-bold text-lg text-honey-900">LEK-kube-leie – effektiv drift på lokasjon</h3>
+                  <p className="text-sm text-honey-700">Startprisen er per lokasjon, ikke per kube. Flere kuber samlet = mindre jobb per kube = mer honning og bedre pris.</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-honey-100/50 text-gray-700 font-bold border-b border-honey-100">
+                      <tr>
+                        <th className="p-3">Antall kuber</th>
+                        <th className="p-3">Pris/mnd</th>
+                        <th className="p-3 hidden sm:table-cell">Pris/år</th>
+                        <th className="p-3">Honningfortrinn inkludert</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      <tr>
+                        <td className="p-3 font-medium">1 kube</td>
+                        <td className="p-3 text-gray-600">350 kr</td>
+                        <td className="p-3 text-gray-400 hidden sm:table-cell">4 200 kr</td>
+                        <td className="p-3 text-gray-500">Ingen fortrinn</td>
+                      </tr>
+                      <tr className="bg-green-50/50">
+                        <td className="p-3 font-bold text-gray-900">2 kuber <span className="bg-green-100 text-green-800 text-xs px-1.5 py-0.5 rounded ml-1">Start</span></td>
+                        <td className="p-3 font-bold text-green-700">299 kr</td>
+                        <td className="p-3 text-green-700 font-medium hidden sm:table-cell">3 588 kr</td>
+                        <td className="p-3 text-gray-700">Begrenset uttak</td>
+                      </tr>
+                      <tr>
+                        <td className="p-3 font-medium">3 kuber</td>
+                        <td className="p-3 text-gray-600">399 kr</td>
+                        <td className="p-3 text-gray-400 hidden sm:table-cell">4 788 kr</td>
+                        <td className="p-3 text-gray-500">-</td>
+                      </tr>
+                      <tr className="bg-honey-50/50 border-l-4 border-honey-400">
+                        <td className="p-3 font-bold text-gray-900">4 kuber <span className="bg-honey-100 text-honey-800 text-xs px-1.5 py-0.5 rounded ml-1">Anbefalt</span></td>
+                        <td className="p-3 font-bold text-honey-700">499 kr</td>
+                        <td className="p-3 text-honey-700 font-medium hidden sm:table-cell">5 988 kr</td>
+                        <td className="p-3 text-gray-900 font-medium">Nok honning til verdikjede + fortrinn på 80 kg/år</td>
+                      </tr>
+                      <tr>
+                        <td className="p-3 font-medium">5 kuber</td>
+                        <td className="p-3 text-gray-600">599 kr</td>
+                        <td className="p-3 text-gray-400 hidden sm:table-cell">7 188 kr</td>
+                        <td className="p-3 text-gray-500">-</td>
+                      </tr>
+                      <tr className="bg-amber-50/50">
+                        <td className="p-3 font-bold text-gray-900">6 kuber <span className="bg-amber-100 text-amber-800 text-xs px-1.5 py-0.5 rounded ml-1">Optimal</span></td>
+                        <td className="p-3 font-bold text-amber-700">699 kr</td>
+                        <td className="p-3 text-amber-700 font-medium hidden sm:table-cell">8 388 kr</td>
+                        <td className="p-3 text-gray-900 font-medium">Optimal drift + fortrinn på 120 kg/år</td>
+                      </tr>
+                      <tr>
+                        <td className="p-3 font-medium">10-20+ kuber</td>
+                        <td className="p-3 text-gray-600">Skalerer</td>
+                        <td className="p-3 text-gray-400 hidden sm:table-cell">Kontakt oss</td>
+                        <td className="p-3 text-gray-900 font-bold">Stor bulk-rett på honning (Hage-investor)</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* 4-6+ Hives Incentive Block */}
                 <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border border-honey-200">
                   <h3 className="text-lg font-bold text-honey-800 mb-3 flex items-center gap-2">
                     <Box className="w-5 h-5" />
@@ -701,6 +794,17 @@ export default function RentHivePage() {
                   placeholder="Ola Nordmann"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Representerer (Valgfritt)</label>
+                <input 
+                  type="text" 
+                  value={formData.organization}
+                  onChange={e => setFormData({...formData, organization: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-honey-500"
+                  placeholder="Familien Hansen / 7. Klasse Halden Skole / IL Idrett"
+                />
+              </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Adresse for utplassering</label>
@@ -765,6 +869,9 @@ export default function RentHivePage() {
                 .replace('[ANTALL]', hiveCount.toString())
                 .replace('[DAGENS DATO]', new Date().toLocaleDateString('no-NO'))
                 .replace('[SESONG SLUTT]', 'Oktober ' + new Date().getFullYear())
+                .replace('Representerer (klasse/lag/familie osv.): [LEIETAKER_NAVN] (Privat)', `Representerer: ${formData.organization || formData.name + ' (Privat)'}`)
+                .replace('[PRIS_MND]', monthlyPrice.toString())
+                .replace('[PRIS_TOTAL]', (monthlyPrice * 12).toString())
               }
             </div>
 
