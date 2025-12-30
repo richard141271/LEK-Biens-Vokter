@@ -7,18 +7,36 @@ import {
   ArrowLeft, 
   Box, 
   CheckCircle, 
-  Calendar, 
   Heart, 
   Shield, 
   Leaf, 
   AlertCircle,
   ChevronRight,
   FileText,
-  PenTool
+  PenTool,
+  Coins
 } from 'lucide-react';
 
 // --- CONTRACT TEXT CONSTANT ---
 const CONTRACT_TEXT = `
+LEIEAVTALE – LEK-HONNING™️ / LEIE AV BIKUBE
+
+Denne avtalen inngås mellom:
+
+Utleier:
+AI Innovate AS® / LEK-Honning™️
+Org.nr: 935 460 387
+Adresse: Rascheprangen 1, 1767 Halden
+Daglig leder AI-identitet: Aurora
+Representert av: Jørn Thoresen
+
+Leietaker (bruker/gruppe):
+Navn: [LEIETAKER_NAVN]
+Representerer (klasse/lag/familie osv.): [LEIETAKER_NAVN] (Privat)
+Adresse: [LEIETAKER_ADRESSE]
+Telefon: [LEIETAKER_TLF]
+E-post: [LEIETAKER_EPOST]
+
 1. Avtalens formål
 Leietaker får disponere [ANTALL] stk LEK-sertifisert bikube med bifolk for læring, observasjon og eventuelle sesongoppgaver, i et trygt og strukturert LEK-opplegg.
 
@@ -27,36 +45,57 @@ Startdato: [DAGENS DATO]
 Sluttdato: [SESONG SLUTT]
 (Leieavtalen fornyes automatisk om den ikke sies opp. Den må sies opp minimum 3 mnd før innvintring. Innvintring skjer normalt i midten av Oktober. Man binder seg til minimum en sesong av gangen, grunnet kompleksiteten i å flytte en bikube som er i drift)
 
-3. Inkludert i leien
-- Full kube med bifolk + tavler
-- Oppstartsfôr 2–3 kg
-- Deltakelse i honningslynging
-- Honning-tapping og etikett-opplæring
-- Salg på Honningbørsen med rapport
-- LEK-sertifisering etter fullført sesong (kun for barn)
-- Forsikring inkludert i perioden
+3. Inkludert i leien (kryss av)
+[x] Full kube med bifolk + tavler
+[x] Oppstartsfôr 2–3 kg
+[x] Deltakelse i honningslynging
+[x] Honning-tapping og etikett-opplæring
+[x] Salg på Honningbørsen med rapport
+[x] LEK-sertifisering etter fullført sesong (kun for barn)
+[x] Forsikring inkludert i perioden
 
 4. Ansvar og sikkerhet
-- Utleier har ansvar for at kuben er sertifisert, trygg og sykdomskontrollert ved utlevering.
-- Leietaker har ansvar for forsvarlig bruk og å følge sikkerhetsinstrukser.
-- Barn/medlemmer skal ikke åpne kube uten tilsyn av godkjent, Sertifisert LEK-birøkter.
-- Ved skade på utstyr som skyldes uforsvarlig bruk, kan erstatning kreves.
-- Ved sykdomstegn skal dette rapporteres umiddelbart i LEK-appen.
+- Utleier har ansvar for at kuben er sertifisert, trygg og sykdomskontrollert ved utlevering
+- Leietaker har ansvar for forsvarlig bruk og å følge sikkerhetsinstrukser
+- Barn/medlemmer skal ikke åpne kube uten tilsyn av godkjent, Sertifisert LEK-birøkter
+- Ved skade på utstyr som skyldes uforsvarlig bruk, kan erstatning kreves
+- Ved sykdomstegn skal dette rapporteres umiddelbart i LEK-appen
 
 5. Honning og inntektsfordeling
 Hvis honningproduksjon og salg er del av leien, fordeles inntekten slik:
 Leietaker betaler en fast lav pris for kjøp av honning fra leide kuber, og har forkjøpsrett til ALL honning i de leide kubene. Honningprisen blir beregnet hvert år ved sesongens slutt, og offentliggjøres på LEK-Honning™️ sine nettsider, og i appen.
-Alle salg skal dokumenteres og gjennomføres i appen.
+Alle salg skal dokumenteres og gjennomføres i appen
 
 6. Allergi og helse
-Leietaker bekrefter at gruppen har sjekket allergier. Utleier anbefaler at Epipen eller førstehjelpsplan finnes i gruppen, men det er ikke krav fra utleier.
+Leietaker bekrefter at gruppen har sjekket allergier:
+[x] Ingen kjent allergi (bekreftet ved signering)
+Utleier anbefaler at Epipen eller førstehjelpsplan finnes i gruppen, men det er ikke krav fra utleier
 
 7. Databruk og innhold i app
-Leietaker godkjenner at observasjonsbilder og kubelogger kan brukes i anonymisert form i LEK-systemet. Ingen persondata publiseres uten samtykke.
+Leietaker godkjenner at:
+Observasjonsbilder og kubelogger kan brukes i anonymisert form i LEK-systemet
+Ingen persondata publiseres uten samtykke
+[x] Godkjent
+
+Tilleggsnotat:
+"AI Innovate er ikke bare et selskap – det er et kunstverk i seg selv." – Dette er et verdibasert LEK-opplæringsprogram, ikke økonomisk rådgivning.
 
 Angrerett og Avbestilling:
-Da det er levende dyr, som klargjøres spesielt til hver enkelt leietaker, er det INGEN angrefrist på bestilling av bikube. Skulle man angre seg, vil det bli krevd et ekstra gebyr på kr 3000 for den ekstra kostnaden birøkteren får ved å måtte enten drifte kuben selv, eller sette jobben bort.
+Da det er levende dyr, som klargjøres spesielt til hver enkelt leietaker, er det INGEN angrefrist på bestilling av bikube. Skulle man angre seg, vil det derimot bli krevd et ekstra gebyr på ca. 3000 for den ekstra kostnaden birøkteren får, ved å måtte enten drifte kuben selv, eller sette jobben bort til andre som kan ta seg av dem.
 `;
+
+const OWNERSHIP_COSTS = [
+  { item: 'Startpakke halvkasser', price: 3500 },
+  { item: 'Bifolk', price: 4500 },
+  { item: 'Byggevoks', price: 1000 },
+  { item: 'Ekstra rammer & voks', price: 1500 },
+  { item: 'Birøkterkurs', price: 4500 },
+  { item: 'Diverse småutstyr', price: 1000 },
+  { item: 'Beskyttelsesutstyr', price: 2000 },
+  { item: 'Røykpuster + utstyr', price: 800 },
+  { item: 'Kubeverktøy', price: 800 },
+  { item: 'Håndslynge (minstekrav)', price: 6900 },
+];
 
 export default function RentHivePage() {
   const router = useRouter();
@@ -67,6 +106,7 @@ export default function RentHivePage() {
   const [hiveCount, setHiveCount] = useState(2);
   const [step, setStep] = useState<'info' | 'details' | 'contract' | 'success'>('info');
   const [loading, setLoading] = useState(false);
+  const [showCostComparison, setShowCostComparison] = useState(false);
   
   // Form State
   const [formData, setFormData] = useState({
@@ -90,15 +130,16 @@ export default function RentHivePage() {
     getUser();
   }, [supabase]);
 
-  // Pricing Logic
-  const calculatePrice = (count: number) => {
-    if (count === 1) return 15000;
-    if (count === 2) return 20000;
-    const extra = count - 2;
-    return 20000 + (extra * 3000);
+  // Pricing Logic (Monthly)
+  const calculateMonthlyPrice = (count: number) => {
+    if (count === 1) return 350;
+    if (count === 2) return 299; // Total for 2 hives (cheaper than 1!)
+    // 3+ hives: 299 base + 100 per extra hive
+    return 299 + ((count - 2) * 100);
   };
 
-  const currentPrice = calculatePrice(hiveCount);
+  const monthlyPrice = calculateMonthlyPrice(hiveCount);
+  const pricePerHive = Math.round(monthlyPrice / hiveCount);
 
   // Handlers
   const handleStartOrder = () => {
@@ -121,13 +162,14 @@ export default function RentHivePage() {
 
     try {
       // 1. Create Rental Record
+      // We store the monthly price as 'total_price' for now, but added a note about billing frequency
       const { error } = await supabase
         .from('rentals')
         .insert({
           user_id: user.id,
           hive_count: hiveCount,
-          total_price: currentPrice,
-          status: 'active', // Simulating instant approval/payment
+          total_price: monthlyPrice, // Storing monthly price
+          status: 'active', 
           contact_name: formData.name,
           contact_address: formData.address,
           contact_phone: formData.phone,
@@ -135,7 +177,7 @@ export default function RentHivePage() {
           contract_signed: true,
           contract_signed_at: new Date().toISOString(),
           signature_text: formData.signature,
-          notes: 'Bestilt via LEK-app'
+          notes: `Bestilt via LEK-app. Månedspris: ${monthlyPrice} kr.`
         });
 
       if (error) throw error;
@@ -254,7 +296,12 @@ export default function RentHivePage() {
                 <div className="mb-8">
                   <div className="flex justify-between items-end mb-4">
                     <span className="text-gray-600 font-medium">Antall kuber: {hiveCount}</span>
-                    <span className="text-3xl font-bold text-honey-600">{currentPrice.toLocaleString()} kr <span className="text-sm text-gray-400 font-normal">/ sesong</span></span>
+                    <div className="text-right">
+                      <span className="text-3xl font-bold text-honey-600">{monthlyPrice} kr <span className="text-sm text-gray-400 font-normal">/ mnd</span></span>
+                      {hiveCount > 1 && (
+                        <div className="text-xs text-gray-500">({pricePerHive} kr per kube)</div>
+                      )}
+                    </div>
                   </div>
                   <input 
                     type="range" 
@@ -271,22 +318,36 @@ export default function RentHivePage() {
                   </div>
                 </div>
 
-                {/* Price Explanation */}
+                {/* Price Explanation Logic */}
                 {hiveCount === 1 && (
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6 flex gap-3">
-                    <AlertCircle className="w-5 h-5 text-orange-600 shrink-0" />
-                    <p className="text-sm text-orange-800">
-                      <strong>Tips:</strong> Det koster relativt mye å drifte kun én kube (kjøring, utstyr). 
-                      Velger du 2 kuber får du mye mer for pengene (kun 5.000 kr ekstra)!
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+                    <div className="flex gap-3 mb-2">
+                      <AlertCircle className="w-5 h-5 text-orange-600 shrink-0" />
+                      <p className="text-sm font-bold text-orange-800">
+                        Hvorfor koster 1 kube mer?
+                      </p>
+                    </div>
+                    <p className="text-sm text-orange-800 mb-3">
+                      Utrykning, tilsyn og drift krever transport og tid fra nærmeste LEK-birøkter. 
+                      Kostnaden er nesten den samme om det står 1 eller 2 kuber på samme sted.
                     </p>
+                    <div className="bg-white/50 p-2 rounded text-sm text-orange-900 font-medium text-center">
+                      💡 Tips: Velg 2 kuber og spar penger totalt (299,- for begge!)
+                    </div>
                   </div>
                 )}
                 
                 {hiveCount >= 2 && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 flex gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                    <div className="flex gap-3 mb-2">
+                      <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
+                      <p className="text-sm font-bold text-green-800">
+                        Godt valg! Mest for pengene.
+                      </p>
+                    </div>
                     <p className="text-sm text-green-800">
-                      <strong>Godt valg!</strong> Med {hiveCount} kuber får dere et robust opplegg og best utbytte av sesongen.
+                      Flere kuber på samme lokasjon gir mindre arbeid per kube og bedre biforvaltning.
+                      Derfor får du en svært gunstig pris per enhet.
                     </p>
                   </div>
                 )}
@@ -301,6 +362,49 @@ export default function RentHivePage() {
                 <p className="text-center text-xs text-gray-500 mt-4">
                   Ingen betaling i dag. Du signerer avtale digitalt i neste steg.
                 </p>
+              </div>
+
+              {/* Cost Comparison Toggle */}
+              <div className="border-t border-gray-100 p-4 bg-gray-50">
+                <button 
+                  onClick={() => setShowCostComparison(!showCostComparison)}
+                  className="w-full flex items-center justify-between text-gray-600 hover:text-gray-900 text-sm font-medium py-2"
+                >
+                  <span className="flex items-center gap-2">
+                    <Coins className="w-4 h-4" />
+                    Hva koster det å eie selv vs. leie?
+                  </span>
+                  <ChevronRight className={`w-4 h-4 transition-transform ${showCostComparison ? 'rotate-90' : ''}`} />
+                </button>
+                
+                {showCostComparison && (
+                  <div className="mt-4 animate-in slide-in-from-top-2">
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                      <div className="bg-gray-900 text-white p-4 text-center">
+                        <h4 className="font-bold">Realistisk kostnad første år (Eie selv)</h4>
+                        <p className="text-xs text-gray-400">Basert på markedspriser 2025</p>
+                      </div>
+                      <div className="p-4 space-y-2 text-sm">
+                        {OWNERSHIP_COSTS.map((cost, idx) => (
+                          <div key={idx} className="flex justify-between border-b border-gray-50 last:border-0 py-1">
+                            <span className="text-gray-600">{cost.item}</span>
+                            <span className="font-medium">{cost.price.toLocaleString()} kr</span>
+                          </div>
+                        ))}
+                        <div className="pt-3 flex justify-between font-bold text-lg border-t border-gray-200 mt-2">
+                          <span>TOTALT</span>
+                          <span className="text-red-600">≈ 26 500 kr</span>
+                        </div>
+                      </div>
+                      <div className="bg-green-50 p-4 text-center border-t border-green-100">
+                        <p className="text-sm text-green-800 font-medium">
+                          Med LEK-leie betaler du kun <span className="font-bold">{monthlyPrice} kr/mnd</span>
+                          <br/>og slipper investering, risiko og alt grovarbeidet!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -377,13 +481,11 @@ export default function RentHivePage() {
             </div>
 
             <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 h-96 overflow-y-auto mb-8 text-sm leading-relaxed whitespace-pre-line font-mono">
-              <h3 className="font-bold text-lg mb-4 text-center">LEIEAVTALE – LEK-HONNING™️</h3>
-              <p className="mb-4 text-center italic">
-                Utleier: AI Innovate AS® / LEK-Honning™️<br/>
-                Leietaker: {formData.name} ({formData.address})
-              </p>
-              <hr className="my-4 border-gray-300"/>
               {CONTRACT_TEXT
+                .replace(/\[LEIETAKER_NAVN\]/g, formData.name || '___________')
+                .replace('[LEIETAKER_ADRESSE]', formData.address || '___________')
+                .replace('[LEIETAKER_TLF]', formData.phone || '___________')
+                .replace('[LEIETAKER_EPOST]', formData.email || '___________')
                 .replace('[ANTALL]', hiveCount.toString())
                 .replace('[DAGENS DATO]', new Date().toLocaleDateString('no-NO'))
                 .replace('[SESONG SLUTT]', 'Oktober ' + new Date().getFullYear())
@@ -418,8 +520,8 @@ export default function RentHivePage() {
 
               <div className="flex justify-between items-center pt-4 border-t">
                 <div className="text-right">
-                  <p className="text-sm text-gray-500">Å betale nå:</p>
-                  <p className="text-2xl font-bold text-gray-900">{currentPrice.toLocaleString()} kr</p>
+                  <p className="text-sm text-gray-500">Månedspris:</p>
+                  <p className="text-2xl font-bold text-gray-900">{monthlyPrice} kr</p>
                 </div>
                 <button 
                   onClick={handleSignAndPay}
@@ -428,7 +530,7 @@ export default function RentHivePage() {
                     ${(!formData.signature || loading) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-700 hover:scale-105'}
                   `}
                 >
-                  {loading ? 'Behandler...' : 'Signer & Betal'}
+                  {loading ? 'Behandler...' : 'Signer & Bestill'}
                 </button>
               </div>
             </div>

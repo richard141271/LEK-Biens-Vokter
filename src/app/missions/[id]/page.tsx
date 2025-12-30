@@ -37,20 +37,34 @@ export default function MissionDetailsPage({ params }: { params: { id: string } 
   };
 
   const PACKING_LIST = [
-    { id: 'hives', label: 'Bikuber (Bunnbrett, Yngelrom, Skattekasse, Tak)', count: (mission?.hive_count || 0) },
-    { id: 'bees', label: 'Bifolk (Rammer med bier og dronning)', count: (mission?.hive_count || 0) },
-    { id: 'food', label: 'Startfôr (2-3 kg)', count: (mission?.hive_count || 0) },
-    { id: 'stand', label: 'Kubekrakker / Underlag', count: (mission?.hive_count || 0) },
-    { id: 'suit', label: 'Birøkterdress (hvis bestilt)', count: 'Sjekk ordre' },
+    { id: 'hive_complete', label: 'Bikube komplett (ramme, bunnbrett, tak, magasiner)', count: (mission?.hive_count || 0) },
+    { id: 'frames_brood', label: '10–12 ferdig oppspente tavler i yngelrom', count: 'Per kube' },
+    { id: 'frames_honey', label: '8–10 tavler i skattekasse (magasin)', count: 'Per kube' },
+    { id: 'colony', label: 'Bifolk (dronning + arbeidere + yngel)', count: (mission?.hive_count || 0) },
+    { id: 'feeder', label: 'Fôringskar eller fôringspose', count: (mission?.hive_count || 0) },
+    { id: 'food', label: '2–3 kg oppstartsfôr (sukkerlake/fondant)', count: (mission?.hive_count || 0) },
+    { id: 'varroa_board', label: 'Varroabrett (diagnosebrett)', count: (mission?.hive_count || 0) },
+    { id: 'drone_trap', label: 'Dronefelle/varroafelle (hvis del av modul)', count: 'Etter avtale' },
+    { id: 'tool', label: 'Kubeverktøy', count: 1 },
+    { id: 'smoker', label: 'Røykpuster + røykmateriale', count: 1 },
+    { id: 'brush', label: 'Børste eller fjær til håndtering av bier', count: 1 },
+    { id: 'queen_cage', label: 'Dronningbur (til sikker transport/merking)', count: 1 },
+    { id: 'protection', label: 'Beskyttelsesutstyr (3 hatter + hansker)', count: '1 sett' },
+    { id: 'qr_tag', label: 'Registrerings-kort/QR-brikke til kuben (LEK-ID)', count: (mission?.hive_count || 0) },
+    { id: 'safety_info', label: 'Forsikringsinfo + sikkerhetsinstruks', count: 1 },
+    { id: 'guide', label: 'LEK-Birøkter Start-Guide (1 side introduksjon)', count: 1 },
   ];
 
   const DELIVERY_CHECKLIST = [
-    { id: 'location_check', label: 'Lokasjon sjekket (le, solforhold, trygg avstand)' },
-    { id: 'setup', label: 'Kuber plassert i vater på stabilt underlag' },
-    { id: 'flight_path', label: 'Flyåpning vender riktig vei (ikke mot gangvei/uteplass)' },
-    { id: 'bees_active', label: 'Flyhull åpnet og bier i aktivitet' },
-    { id: 'info_given', label: 'Sikkerhetsinstruks gitt til leietaker' },
-    { id: 'contact_exchanged', label: 'Kontaktinfo utvekslet med leietaker' },
+    { id: 'cleaned', label: 'Kube rengjort og uten propolis-klumper' },
+    { id: 'frames_intact', label: 'Alle rammer/tavler intakt' },
+    { id: 'varroa_returned', label: 'Varroabrett tilbake' },
+    { id: 'feeder_cleaned', label: 'Fôringsutstyr rengjort' },
+    { id: 'honey_delivered', label: 'Honning levert (hvis avtalt del av leie)' },
+    { id: 'log_completed', label: 'Logg levert i appen (observasjoner + bilder)' },
+    { id: 'queen_status', label: 'Dronningstatus rapportert i logg' },
+    { id: 'disease_check', label: 'Ingen tegn til sykdom (rapportert i logg)' },
+    { id: 'sales_report', label: 'Etiketter/salgstall (hvis salg ble gjort)' },
   ];
 
   const handleCheck = (id: string) => {
