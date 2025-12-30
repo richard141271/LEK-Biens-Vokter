@@ -196,14 +196,9 @@ export default function ApiariesPage() {
                 size: A4 portrait;
                 margin: 0;
               }
-              body {
-                width: 210mm;
-                height: 297mm;
+              html, body {
                 margin: 0 !important;
                 padding: 0 !important;
-                overflow: hidden;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
                 visibility: hidden;
               }
               
@@ -216,8 +211,9 @@ export default function ApiariesPage() {
                 position: absolute;
                 left: 0;
                 top: 0;
-                width: 210mm;
-                height: 297mm;
+                width: 100%;
+                margin: 0;
+                padding: 0;
               }
             }
           `}</style>

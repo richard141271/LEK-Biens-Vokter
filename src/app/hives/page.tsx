@@ -87,12 +87,20 @@ export default function AllHivesPage() {
     const type = (hive.type || 'produksjon').toLowerCase();
     const name = hive.name?.toLowerCase() || ''; // Added name search
 
-    return hiveNum.includes(term) || 
+    if (hiveNum.includes(term) || 
            apiaryName.includes(term) || 
            apiaryLoc.includes(term) || 
            status.includes(term) ||
            type.includes(term) ||
-           name.includes(term); // Include name in search
+           name.includes(term)) return true;
+
+    // Numeric loose match (e.g. "002" matches "2")
+    const cleanTerm = term.replace(/\D/g, '').replace(/^0+/, '');
+    const cleanNum = hiveNum.replace(/\D/g, '').replace(/^0+/, '');
+    
+    if (cleanTerm && cleanNum && cleanTerm === cleanNum) return true;
+
+    return false;
   });
 
   const toggleSelection = (id: string) => {
@@ -686,18 +694,75 @@ export default function AllHivesPage() {
             <div className="bg-white rounded-xl p-6 w-full max-w-sm">
                 <h3 className="text-xl font-bold mb-4">Utskriftsvalg</h3>
                 <div className="space-y-3 mb-6">
-                    <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                        <input 
-                            type="checkbox"
-                            checked={printOptions.includeHistory}
-                            onChange={e => setPrintOptions({...printOptions, includeHistory: e.target.checked})}
-                            className="w-5 h-5 text-honey-600 rounded"
-                        />
-                        <div className="flex-1">
-                            <div className="font-bold">Inspeksjonshistorikk</div>
-                            <div className="text-xs text-gray-500">Siste 5 inspeksjoner</div>
-                        </div>
-                    </label>
+                    <div className="border rounded-lg overflow-hidden">
+                        <label className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer">
+                            <input 
+                                type="checkbox"
+                                checked={printOptions.includeHistory}
+                                onChange={e => setPrintOptions({...printOptions, includeHistory: e.target.checked})}
+                                className="w-5 h-5 text-honey-600 rounded"
+                            />
+                            <div className="flex-1">
+                                <div className="font-bold">Inspeksjonshistorikk</div>
+                            </div>
+                        </label>
+                        
+                        {printOptions.includeHistory && (
+                            <div className="p-3 bg-gray-50 border-t space-y-2">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input 
+                                        type="radio" 
+                                        name="inspectionLimit"
+                                        value="last5"
+                                        checked={printOptions.inspectionLimit === 'last5'}
+                                        onChange={() => setPrintOptions({...printOptions, inspectionLimit: 'last5'})}
+                                        className="text-honey-600 focus:ring-honey-500"
+                                    />
+                                    <span className="text-sm">Siste 5 inspeksjoner</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input 
+                                        type="radio" 
+                                        name="inspectionLimit"
+                                        value="all"
+                                        checked={printOptions.inspectionLimit === 'all'}
+                                        onChange={() => setPrintOptions({...printOptions, inspectionLimit: 'all'})}
+                                        className="text-honey-600 focus:ring-honey-500"
+                                    />
+                                    <span className="text-sm">Alle inspeksjoner</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input 
+                                        type="radio" 
+                                        name="inspectionLimit"
+                                        value="dateRange"
+                                        checked={printOptions.inspectionLimit === 'dateRange'}
+                                        onChange={() => setPrintOptions({...printOptions, inspectionLimit: 'dateRange'})}
+                                        className="text-honey-600 focus:ring-honey-500"
+                                    />
+                                    <span className="text-sm">Velg periode</span>
+                                </label>
+
+                                {printOptions.inspectionLimit === 'dateRange' && (
+                                    <div className="flex gap-2 mt-2">
+                                        <input 
+                                            type="date" 
+                                            value={printOptions.dateRange.start}
+                                            onChange={e => setPrintOptions({...printOptions, dateRange: {...printOptions.dateRange, start: e.target.value}})}
+                                            className="w-full p-1 text-sm border rounded"
+                                        />
+                                        <span className="self-center">-</span>
+                                        <input 
+                                            type="date" 
+                                            value={printOptions.dateRange.end}
+                                            onChange={e => setPrintOptions({...printOptions, dateRange: {...printOptions.dateRange, end: e.target.value}})}
+                                            className="w-full p-1 text-sm border rounded"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
 
                     <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
                         <input 

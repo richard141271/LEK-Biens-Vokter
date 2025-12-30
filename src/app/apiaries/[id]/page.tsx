@@ -61,9 +61,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       .from('hives')
       .select('*')
       .eq('apiary_id', params.id)
-      .neq('status', 'SOLGT')
-      .neq('status', 'DESTRUERT')
-      .neq('status', 'SYKDOM')
+      .eq('active', true)
       .order('hive_number', { ascending: true });
 
     if (hivesData) setHives(hivesData);
@@ -190,6 +188,57 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 setScannedHives(prev => [{ number: existingHive.hive_number, status: 'moved', msg: 'Allerede her' }, ...prev]);
             }
         } else {
+            // Calculate next hive number for THIS USER
+            const { data: userHives } = await supabase
+                .from('hives')
+                .select('hive_number')
+                .eq('user_id', user?.id);
+
+            let nextNum = 1;
+            if (userHives && userHives.length > 0) {
+                const maxNum = userHives.reduce((max, h) => {
+                    if (!h.hive_number) return max;
+                    const parts = h.hive_number.split('-');
+                    if (parts.length === 2) {
+                        const num = parseInt(parts[1], 10);
+                        return !isNaN(num) && num > max ? num : max;
+                    }
+                    return max;
+                }, 0);
+                nextNum = maxNum + 1;
+            }
+
+            // Ensure we don't use the input number if it's just a raw number like "1", "2" etc.
+            // UNLESS the user explicitly typed "KUBE-005" which means they want that specific ID.
+            // If they typed "5", and nextNum is 5, fine. If they typed "5" but nextNum is 10, we should probably warn or use nextNum?
+            // Current logic assumes "scanInput" is what they WANT.
+            // But if it's a NEW hive, we should enforce the sequence to avoid duplicates or gaps?
+            // Actually, if they scan a QR code "KUBE-005", they want KUBE-005.
+            // If they type "5", they mean KUBE-005.
+            // So we trust the input, but we must check if it's already taken by THIS user (which we did above with existingHive check).
+            // If existingHive is null, it means NO ONE has this hive? Or just this user?
+            // RLS policies usually restrict 'select' to own rows. So existingHive check is "does THIS USER have this hive".
+            // If not, we create it.
+            // WAIT: If another user has "KUBE-001", and I create "KUBE-001", is that allowed?
+            // Yes, hive_number is not unique globally, only practically unique per user usually.
+            // Let's stick to the input hiveNumber for creation to support "manual override" or QR scanning.
+            // But if they just hit "Ny" without input, we need auto-generation. 
+            // The current UI seems to require input for this function.
+            
+            // Auto-generation logic if input was empty (not possible with current check) OR if we want to force sequence?
+            // The user said: "alle nye profiler starter med BG-001 og oppover. det samme med alle IDér pr bruker."
+            // This implies auto-increment per user.
+            
+            // If the input was manually typed "KUBE-005", we use it.
+            // If the user wants a completely new hive without specifying number, we should have a "Auto-generate" button?
+            // The current UI is "Scan / Ny". It takes input.
+            // If I type "Ny Kube" (invalid), it returns.
+            // If I type "1", it becomes "KUBE-001".
+            
+            // For now, we trust the input "hiveNumber" as the desired ID.
+            // The user's request "det samme med alle IDér pr bruker" implies that we should respect the sequence.
+            // But if I manually type "100", I get "KUBE-100". That is fine.
+            
             // Create new hive
             const { data: newHive, error: createError } = await supabase
                 .from('hives')

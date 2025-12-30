@@ -20,13 +20,12 @@ export default function ArchivePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Fetch ONLY archived hives (Sold, Destroyed, Disease)
-    // We filter by status being one of the archive statuses
+    // Fetch archived hives (inactive OR specific statuses)
     const { data, error } = await supabase
       .from('hives')
       .select('*, apiaries(name)')
       .eq('user_id', user.id)
-      .in('status', ['SOLGT', 'DESTRUERT', 'SYKDOM'])
+      .or('active.eq.false,status.in.(SOLGT,DESTRUERT,SYKDOM,DØD)')
       .order('updated_at', { ascending: false });
 
     if (error) {
@@ -37,11 +36,24 @@ export default function ArchivePage() {
     setLoading(false);
   };
 
-  const filteredHives = hives.filter(hive => 
-    (hive.name && hive.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (hive.hive_number && hive.hive_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (hive.status && hive.status.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredHives = hives.filter(hive => {
+    const term = searchTerm.toLowerCase();
+    const name = hive.name?.toLowerCase() || '';
+    const number = hive.hive_number?.toLowerCase() || '';
+    const status = hive.status?.toLowerCase() || '';
+    
+    // Standard text search
+    if (name.includes(term) || number.includes(term) || status.includes(term)) return true;
+    
+    // Numeric loose match (e.g. "002" matches "2", "2" matches "002")
+    // Remove leading zeros and non-digit characters for comparison
+    const cleanTerm = term.replace(/\D/g, '').replace(/^0+/, '');
+    const cleanNum = number.replace(/\D/g, '').replace(/^0+/, '');
+    
+    if (cleanTerm && cleanNum && cleanTerm === cleanNum) return true;
+    
+    return false;
+  });
 
   const getStatusBadge = (status: string, reason: string) => {
     if (status === 'SOLGT') {
