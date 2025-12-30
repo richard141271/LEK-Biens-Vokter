@@ -291,6 +291,75 @@ export default function RentHivePage() {
               </div>
             </div>
 
+            {/* Honey Profit / Volume Incentive Section */}
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-8 border border-amber-100 shadow-lg relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-24 bg-honey-400/10 rounded-full blur-3xl transform translate-x-1/3 -translate-y-1/3"></div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="bg-white p-3 rounded-xl shadow-sm">
+                    <Coins className="w-6 h-6 text-honey-600" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900">Slik tjener du på å ha biene i hagen</h2>
+                </div>
+
+                <div className="prose prose-honey max-w-none mb-8">
+                  <p className="text-lg text-gray-700 leading-relaxed">
+                    Når du leier kuber, får du <strong className="text-honey-700">førsterett på å kjøpe honning fra egne kuber</strong> – til sterkt redusert pris (kun 200 kr/kg). 
+                    Markedspris for ferdig tappet honning er gjerne 260–300+ kr/kg.
+                  </p>
+                  <p className="text-gray-600">
+                    Jo flere kuber du har på samme lokasjon, jo mer honning produseres, og jo mer kan du tjene på videresalg. 
+                    Du velger selv om du vil ha honningen i bøtter for egen tapping, eller ferdig på glass med etikett (mot et tillegg).
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-xl shadow-sm border border-amber-100 overflow-hidden">
+                  <div className="grid grid-cols-1 md:grid-cols-3 bg-amber-100/50 text-sm font-bold text-gray-700 border-b border-amber-100">
+                    <div className="p-4">Antall kuber</div>
+                    <div className="p-4">Månedspris</div>
+                    <div className="p-4">Hvorfor velge dette?</div>
+                  </div>
+                  
+                  <div className="divide-y divide-gray-100 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-3 hover:bg-gray-50 transition-colors">
+                      <div className="p-4 font-medium text-gray-900">1 kube</div>
+                      <div className="p-4 text-gray-600">350 kr</div>
+                      <div className="p-4 text-gray-500">Startkostnad for tilsyn alene</div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 bg-green-50/50 hover:bg-green-50 transition-colors">
+                      <div className="p-4 font-bold text-gray-900 flex items-center gap-2">
+                        2 kuber <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full">Populært</span>
+                      </div>
+                      <div className="p-4 font-bold text-green-700">299 kr</div>
+                      <div className="p-4 text-green-800 font-medium">No-brainer – billigere enn 1!</div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 hover:bg-honey-50 transition-colors border-l-4 border-honey-400">
+                      <div className="p-4 font-bold text-gray-900 flex items-center gap-2">
+                        4 kuber <span className="bg-honey-100 text-honey-800 text-xs px-2 py-0.5 rounded-full">Anbefalt start</span>
+                      </div>
+                      <div className="p-4 font-bold text-honey-700">499 kr</div>
+                      <div className="p-4 text-gray-700">Nå begynner det å bli lønnsomt i drift</div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 hover:bg-gray-50 transition-colors">
+                      <div className="p-4 font-medium text-gray-900">6 kuber</div>
+                      <div className="p-4 text-gray-600">699 kr</div>
+                      <div className="p-4 text-gray-600">Optimal balanse for læring og inntjening</div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 hover:bg-gray-50 transition-colors">
+                      <div className="p-4 font-medium text-gray-900">10+ kuber</div>
+                      <div className="p-4 text-gray-600">Kontakt oss</div>
+                      <div className="p-4 text-gray-600">Honning-hage-investor</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Pricing & Ordering */}
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
               <div className="p-8 bg-gray-900 text-white">
@@ -330,15 +399,16 @@ export default function RentHivePage() {
                     <div className="flex gap-3 mb-2">
                       <AlertCircle className="w-5 h-5 text-orange-600 shrink-0" />
                       <p className="text-sm font-bold text-orange-800">
-                        Hvorfor koster 1 kube mer?
+                        Hvorfor koster 1 kube mer enn 2?
                       </p>
                     </div>
-                    <p className="text-sm text-orange-800 mb-3">
-                      Utrykning, tilsyn og drift krever transport og tid fra nærmeste LEK-birøkter. 
-                      Kostnaden er nesten den samme om det står 1 eller 2 kuber på samme sted.
+                    <p className="text-sm text-orange-800 mb-3 leading-relaxed">
+                      En birøkter må kjøre ut til én lokasjon uansett om det er 1 eller 2 kuber. 
+                      Kostnaden ligger i tid og transport – ikke i selve kuben. 
+                      Derfor er 2-kube-leie det mest lokasjons-effektive, tryggeste og mest økonomiske valget for deg som vil starte med bier hjemme.
                     </p>
                     <div className="bg-white/50 p-2 rounded text-sm text-orange-900 font-medium text-center">
-                      💡 Tips: Velg 2 kuber og spar penger totalt (299,- for begge!)
+                      💰 Tips: Velg 2 kuber – billigere enn 1!
                     </div>
                   </div>
                 )}
@@ -348,22 +418,26 @@ export default function RentHivePage() {
                     <div className="flex gap-3 mb-2">
                       <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
                       <p className="text-sm font-bold text-green-800">
-                        Godt valg! Mest for pengene.
+                        Hva sparer du med LEK-leie?
                       </p>
                     </div>
-                    <p className="text-sm text-green-800">
-                      Flere kuber på samme lokasjon gir mindre arbeid per kube og bedre biforvaltning.
-                      Derfor får du en svært gunstig pris per enhet.
+                    <p className="text-sm text-green-800 leading-relaxed">
+                      Du får tilgang til kuber, bifolk, sesong-flyt, veiledning og oppfølging til en pris som gjør at du kan ha flere kuber i mange år for samme sum som én kube koster å kjøpe alene.
                     </p>
                   </div>
                 )}
 
                 <button 
                   onClick={handleStartOrder}
-                  className="w-full bg-honey-500 hover:bg-honey-600 text-white font-bold py-4 rounded-xl shadow-lg transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2"
+                  className="w-full bg-honey-500 hover:bg-honey-600 text-white font-bold py-4 rounded-xl shadow-lg transition-all transform hover:scale-[1.02] flex flex-col items-center justify-center gap-1"
                 >
-                  Bestill {hiveCount} kuber nå
-                  <ChevronRight className="w-5 h-5" />
+                  <span className="flex items-center gap-2 text-lg">
+                    {hiveCount === 1 ? 'Gå for 2 kuber (Anbefalt)' : `Bestill ${hiveCount} kuber – Signer digitalt`}
+                    <ChevronRight className="w-5 h-5" />
+                  </span>
+                  <span className="text-xs font-normal opacity-90">
+                    Vi matcher deg med nærmeste LEK-birøkter
+                  </span>
                 </button>
                 <p className="text-center text-xs text-gray-500 mt-4">
                   Ingen betaling i dag. Du signerer avtale digitalt i neste steg.
@@ -437,16 +511,29 @@ export default function RentHivePage() {
                               <p className="text-xs text-gray-400">1 kube i 1 år</p>
                             </div>
                             <div>
-                              <p className="text-gray-500 text-xs">Kostnad første 12 mnd (Leie 2 stk)</p>
-                              <p className="font-bold text-green-600 text-lg">3 588 kr</p>
-                              <p className="text-xs text-gray-400">2 kuber i 1 år</p>
+                              <p className="text-gray-500 text-xs">Hva koster LEK-kube-leie?</p>
+                              <p className="font-bold text-green-600 text-lg">3 588 kr / år</p>
+                              <p className="text-xs text-gray-400">299 kr/mnd for 2 kuber</p>
                             </div>
                           </div>
                           
                           <div className="flex items-start gap-3 bg-green-50 p-3 rounded-lg">
                             <Leaf className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
-                            <p className="text-sm text-green-800">
-                              <span className="font-bold">👉 Konklusjon:</span> Du kan leie 2 kuber i ca. 7 år for omtrent det det koster å starte med én kube selv.
+                            <div className="text-sm text-green-800">
+                              <p className="font-bold mb-1">Direkte verdi-sammenligning</p>
+                              <p className="leading-relaxed">
+                                For samme sum som det koster å starte med 1 kube selv i 1 år, kan du leie 2 LEK-kuber i ca. 7 år.
+                              </p>
+                              <p className="mt-2 text-xs opacity-80 font-medium">
+                                Inkludert struktur, sesong-flyt, lokal oppfølging og digital LEK-kubelogging.
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-4 p-3 border-l-4 border-honey-400 bg-honey-50 text-sm text-honey-900">
+                            <p className="font-bold">🎯 Konklusjon:</p>
+                            <p className="leading-relaxed opacity-90">
+                              Du starter rimeligere, lærer tryggere, og får mer ut av verdikjeden med 2 kuber fra dag én – uten å gå på nybegynner-smellen med manglende utstyr eller glemt voks-buffer ved høsting.
                             </p>
                           </div>
                         </div>
