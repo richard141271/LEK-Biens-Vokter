@@ -98,8 +98,8 @@ export default function NewApiaryPage() {
                 apiary_number: apiaryNumber,
                 type: 'utleie', // New type
                 location: rental.contact_address,
-                latitude: rental.latitude,
-                longitude: rental.longitude
+                // latitude: rental.latitude, // Removed to avoid schema error
+                // longitude: rental.longitude // Removed to avoid schema error
             })
             .select()
             .single();
