@@ -52,7 +52,9 @@ export default function ApiariesPage() {
       .select('*')
       .eq('user_id', user.id)
       .is('apiary_id', null)
-      .eq('status', 'active');
+      .neq('status', 'cancelled');
+      // Removed .eq('status', 'active') to show all pending/active rentals
+
 
     // Combine: Map rentals to temporary apiary objects
     const pendingApiaries = (rentalData || []).map(rental => ({
@@ -61,7 +63,8 @@ export default function ApiariesPage() {
       location: rental.contact_address || 'Adresse kommer',
       type: 'rental_pending',
       hives: Array(rental.hive_count).fill({ active: true }), // Placeholder hives
-      is_pending: true
+      is_pending: true,
+      status: rental.status // Pass status through
     }));
 
     if (apiaryData) setApiaries([...pendingApiaries, ...apiaryData]);
@@ -157,12 +160,18 @@ export default function ApiariesPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start gap-2">
                         <h3 className="font-bold text-gray-900 truncate">{apiary.name}</h3>
-                        <span className="text-xs font-bold bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
-                          Under opprettelse
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                          apiary.status === 'active' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {apiary.status === 'active' ? 'Under opprettelse' : 'Venter på behandling'}
                         </span>
                       </div>
                       <p className="text-sm text-gray-500 truncate">{apiary.location}</p>
-                      <p className="text-xs text-honey-600 mt-1">Venter på godkjenning fra birøkter</p>
+                      <p className="text-xs text-honey-600 mt-1">
+                        {apiary.status === 'active' 
+                          ? 'Venter på godkjenning fra birøkter' 
+                          : 'Bestillingen er mottatt'}
+                      </p>
                     </div>
                   </div>
                 </div>
