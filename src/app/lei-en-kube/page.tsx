@@ -274,14 +274,14 @@ export default function RentHivePage() {
         total_price: monthlyPrice,
         status: 'active', 
         contact_name: formData.name,
-        contact_organization: formData.organization,
+        // contact_organization: formData.organization, // Temporarily removed to prevent schema error if migration not run
         contact_address: formData.address,
         contact_phone: formData.phone,
         contact_email: formData.email,
         contract_signed: true,
         contract_signed_at: new Date().toISOString(),
         signature_text: formData.signature,
-        notes: `Bestilt via LEK-app. Månedspris: ${monthlyPrice} kr.`,
+        notes: `Bestilt via LEK-app. Månedspris: ${monthlyPrice} kr. Org: ${formData.organization || 'Ingen'}`, // Added org here instead
         assigned_beekeeper_id: nearestBeekeeperId || null, // Ensure explicit null if undefined
         distance_to_beekeeper: (minDistance === Infinity || minDistance === undefined) ? null : minDistance
       };
