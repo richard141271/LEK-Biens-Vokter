@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient } from '@/utils/supabase/client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera } from 'lucide-react';
@@ -41,6 +41,8 @@ export default function DashboardPage() {
     description: ''
   });
   const [sicknessImage, setSicknessImage] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [nearbyAlerts, setNearbyAlerts] = useState<any[]>([]); // New State for Alerts
   
   // Data State
@@ -686,10 +688,39 @@ export default function DashboardPage() {
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Last opp bilde (Påkrevd)</label>
-                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 cursor-pointer transition-colors">
-                            <Camera className="w-6 h-6 mb-1 text-gray-400" />
-                            <span className="text-xs font-medium">Trykk for å ta bilde eller laste opp</span>
-                            <input type="file" className="hidden" />
+                        <div 
+                            onClick={() => fileInputRef.current?.click()}
+                            className="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 cursor-pointer transition-colors relative overflow-hidden"
+                        >
+                            {sicknessImage ? (
+                                <div className="text-center w-full">
+                                    <div className="relative w-full h-32 mb-2 rounded-lg overflow-hidden bg-gray-100">
+                                        <img 
+                                            src={URL.createObjectURL(sicknessImage)} 
+                                            alt="Preview" 
+                                            className="w-full h-full object-contain" 
+                                        />
+                                    </div>
+                                    <span className="text-xs font-medium text-green-600 block truncate px-4">{sicknessImage.name}</span>
+                                    <span className="text-xs text-gray-400">Klikk for å endre</span>
+                                </div>
+                            ) : (
+                                <>
+                                    <Camera className="w-6 h-6 mb-1 text-gray-400" />
+                                    <span className="text-xs font-medium">Trykk for å ta bilde eller laste opp</span>
+                                </>
+                            )}
+                            <input 
+                                ref={fileInputRef}
+                                type="file" 
+                                accept="image/*"
+                                className="hidden" 
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        setSicknessImage(e.target.files[0]);
+                                    }
+                                }}
+                            />
                         </div>
                     </div>
 
@@ -701,7 +732,32 @@ export default function DashboardPage() {
                     <button 
                         onClick={async () => {
                             try {
-                                const details = `Sykdom: ${sicknessData.diseaseType}, Atferd: ${sicknessData.behavior}, Død: ${sicknessData.mortality}, Varroa: ${sicknessData.varroaCount}. Beskrivelse: ${sicknessData.description}`;
+                                setUploading(true);
+                                let imageUrl = '';
+
+                                if (sicknessImage) {
+                                    const fileExt = sicknessImage.name.split('.').pop();
+                                    const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+                                    const filePath = `${fileName}`;
+
+                                    const { error: uploadError } = await supabase.storage
+                                        .from('sickness-images')
+                                        .upload(filePath, sicknessImage);
+
+                                    if (uploadError) {
+                                        console.error('Upload error:', uploadError);
+                                        // Continue anyway, maybe alert user?
+                                        // throw uploadError; 
+                                    } else {
+                                        const { data: { publicUrl } } = supabase.storage
+                                            .from('sickness-images')
+                                            .getPublicUrl(filePath);
+                                        
+                                        imageUrl = publicUrl;
+                                    }
+                                }
+
+                                const details = `Sykdom: ${sicknessData.diseaseType}, Atferd: ${sicknessData.behavior}, Død: ${sicknessData.mortality}, Varroa: ${sicknessData.varroaCount}. Beskrivelse: ${sicknessData.description} ${imageUrl ? `\nBilde: ${imageUrl}` : ''}`;
                                 
                                 // Insert into hive_logs if hive selected
                                 if (sicknessData.hiveId) {
@@ -718,14 +774,26 @@ export default function DashboardPage() {
 
                                 alert("Melding sendt til Mattilsynet (Pilot) og Birøkter! 🚨\n\nNabovarsel er sendt til 4 birøktere i radius på 3 km.");
                                 setIsSicknessModalOpen(false);
+                                setSicknessImage(null); // Reset image
+                                setSicknessData({ // Reset form
+                                    hiveId: '',
+                                    varroaCount: '',
+                                    behavior: 'Normal',
+                                    diseaseType: 'Annet / Vet ikke',
+                                    mortality: 'Lav',
+                                    description: ''
+                                });
                             } catch (e) {
                                 console.error(e);
                                 alert("Kunne ikke sende rapport.");
+                            } finally {
+                                setUploading(false);
                             }
                         }}
-                        className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 shadow-lg"
+                        disabled={uploading}
+                        className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        Send Rapport
+                        {uploading ? 'Sender rapport...' : 'Send Rapport'}
                     </button>
                 </div>
             </div>
