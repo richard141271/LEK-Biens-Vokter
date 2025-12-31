@@ -282,8 +282,8 @@ export default function ApiariesPage() {
         </div>
       )}
 
-      {/* Floating Action Button (Hide in selection mode) */}
-      {!isSelectionMode && (
+      {/* Floating Action Button (Hide in selection mode and for tenants) */}
+      {!isSelectionMode && profile?.role !== 'tenant' && (
         <Link 
           href="/apiaries/new"
           className="fixed bottom-24 right-6 w-14 h-14 bg-honey-500 hover:bg-honey-600 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95 z-20 print:hidden"

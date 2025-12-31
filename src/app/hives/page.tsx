@@ -9,6 +9,8 @@ import { QRCodeSVG } from 'qrcode.react';
 
 export default function AllHivesPage() {
   const [hives, setHives] = useState<any[]>([]);
+  const [profile, setProfile] = useState<any>(null);
+  const [rentalsMap, setRentalsMap] = useState<Map<string, any>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -64,6 +66,15 @@ export default function AllHivesPage() {
       return;
     }
 
+    // Fetch Profile
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    
+    setProfile(profileData);
+
     // Fetch all hives with apiary info
     const { data, error } = await supabase
       .from('hives')
@@ -86,13 +97,20 @@ export default function AllHivesPage() {
     const status = (hive.active === false ? 'inaktiv' : (hive.status || 'aktiv')).toLowerCase();
     const type = (hive.type || 'produksjon').toLowerCase();
     const name = hive.name?.toLowerCase() || ''; // Added name search
+    
+    // Check if it's a rental hive
+    const rental = rentalsMap.get(hive.apiary_id);
+    const isRental = !!rental;
+    const rentalName = rental ? rental.contact_name.toLowerCase() : '';
 
     if (hiveNum.includes(term) || 
            apiaryName.includes(term) || 
            apiaryLoc.includes(term) || 
            status.includes(term) ||
            type.includes(term) ||
-           name.includes(term)) return true;
+           name.includes(term) ||
+           (isRental && 'utleie'.includes(term)) ||
+           rentalName.includes(term)) return true;
 
     // Numeric loose match (e.g. "002" matches "2")
     const cleanTerm = term.replace(/\D/g, '').replace(/^0+/, '');
@@ -581,6 +599,7 @@ export default function AllHivesPage() {
                     </button>
                 </>
             ) : (
+                profile?.role !== 'tenant' && (
                 <button 
                     onClick={() => setIsSelectionMode(true)}
                     className="bg-honey-100 text-honey-700 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1 w-full justify-center"
@@ -588,6 +607,7 @@ export default function AllHivesPage() {
                     <Printer className="w-4 h-4" />
                     Velg / Skriv ut
                 </button>
+                )
             )}
         </div>
       </div>

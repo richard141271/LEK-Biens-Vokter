@@ -125,8 +125,8 @@ export default function DashboardPage() {
             if (apiariesData.length > 0) setSelectedApiaryId(apiariesData[0].id);
         }
 
-        // Trigger Wizard if no apiaries
-        if ((apiaryCount || 0) === 0) {
+        // Trigger Wizard if no apiaries (Only for Beekeepers)
+        if ((apiaryCount || 0) === 0 && profileData?.role !== 'tenant') {
             setIsWizardOpen(true);
         }
     } catch (e) {
@@ -357,6 +357,7 @@ export default function DashboardPage() {
 
           {/* Quick Actions - Compact Grid */}
           <div className="grid grid-cols-2 gap-2">
+              {profile?.role !== 'tenant' && (
               <button
                 onClick={() => setIsCreateModalOpen(true)}
                 className="bg-honey-500 hover:bg-honey-600 text-white p-2 rounded-xl shadow-md flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20"
@@ -364,6 +365,7 @@ export default function DashboardPage() {
                 <Plus className="w-5 h-5" />
                 <span className="font-bold text-[10px] text-center leading-tight">NY KUBE</span>
               </button>
+              )}
 
               <Link
                 href="/scan"
@@ -387,7 +389,8 @@ export default function DashboardPage() {
               </Link>
           </div>
 
-          {/* Mattilsynet Admin Link (Pilot: Visible to all for demo, or protect via Role) */}
+          {/* Mattilsynet Admin Link (Only for Admin) */}
+          {profile?.role === 'admin' && (
           <Link href="/dashboard/admin" className="block mt-2">
             <div className="bg-gray-800 rounded-xl p-3 text-white shadow-lg flex items-center justify-between">
                 <div>
@@ -402,6 +405,7 @@ export default function DashboardPage() {
                 </div>
             </div>
           </Link>
+          )}
 
           {/* Birøkter Checklist Promo */}
           <Link href="/dashboard/beekeeper/checklist" className="block mt-2">
@@ -724,10 +728,12 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
+                    {profile?.role !== 'beekeeper' && (
                     <div className="bg-blue-50 p-3 rounded-lg flex gap-2 text-xs text-blue-800">
                         <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
                         <p>Din birøkter vil vurdere bildet for å se om det krever utrykning eller er "falsk alarm". Du hører fra oss!</p>
                     </div>
+                    )}
 
                     <button 
                         onClick={async () => {
@@ -772,7 +778,11 @@ export default function DashboardPage() {
                                     console.log("General sickness report:", details);
                                 }
 
-                                alert("Melding sendt til Mattilsynet (Pilot) og Birøkter! 🚨\n\nNabovarsel er sendt til 4 birøktere i radius på 3 km.");
+                                const successMsg = profile?.role === 'beekeeper' 
+                                    ? "Rapport sendt til Mattilsynet. 🚨" 
+                                    : "Melding sendt til Mattilsynet (Pilot) og Birøkter! 🚨\n\nNabovarsel er sendt til 4 birøktere i radius på 3 km.";
+                                
+                                alert(successMsg);
                                 setIsSicknessModalOpen(false);
                                 setSicknessImage(null); // Reset image
                                 setSicknessData({ // Reset form
