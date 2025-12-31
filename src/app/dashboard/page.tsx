@@ -357,7 +357,7 @@ export default function DashboardPage() {
 
           {/* Quick Actions - Compact Grid */}
           <div className="grid grid-cols-2 gap-2">
-              {profile?.role !== 'tenant' && (
+              {profile?.role !== 'tenant' && profile?.role !== 'mattilsynet' && (
               <button
                 onClick={() => setIsCreateModalOpen(true)}
                 className="bg-honey-500 hover:bg-honey-600 text-white p-2 rounded-xl shadow-md flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20"
@@ -389,8 +389,8 @@ export default function DashboardPage() {
               </Link>
           </div>
 
-          {/* Mattilsynet Admin Link (Only for Admin) */}
-          {profile?.role === 'admin' && (
+          {/* Mattilsynet Admin Link (Only for Admin and Mattilsynet) */}
+          {(profile?.role === 'admin' || profile?.role === 'mattilsynet') && (
           <Link href="/dashboard/admin" className="block mt-2">
             <div className="bg-gray-800 rounded-xl p-3 text-white shadow-lg flex items-center justify-between">
                 <div>
@@ -408,7 +408,7 @@ export default function DashboardPage() {
           )}
 
           {/* Birøkter Checklist Promo */}
-          {profile?.role !== 'tenant' && (
+          {profile?.role !== 'tenant' && profile?.role !== 'mattilsynet' && (
           <Link href="/dashboard/beekeeper/checklist" className="block mt-2">
             <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-xl p-4 text-white shadow-lg flex items-center justify-between">
                 <div>

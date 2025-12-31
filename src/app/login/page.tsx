@@ -82,7 +82,7 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6 text-center border-t pt-6">
-          <p className="text-gray-600 mb-2">Ny birøkter?</p>
+          <p className="text-gray-600 mb-2">Ny birøkter eller vil du leie kube?</p>
           <Link
             href="/register"
             className="text-honey-600 hover:text-honey-700 font-bold hover:underline"

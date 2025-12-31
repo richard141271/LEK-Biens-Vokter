@@ -36,7 +36,8 @@ export default function SettingsPage() {
     company_email: '',
     company_phone: '',
     private_bank_account: '',
-    wants_to_be_beekeeper: false
+    wants_to_be_beekeeper: false,
+    role: 'beekeeper' // Default
   });
   
   const supabase = createClient();
@@ -107,7 +108,7 @@ export default function SettingsPage() {
     setLoading(false);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev: any) => ({ ...prev, [name]: value }));
   };
@@ -599,6 +600,22 @@ export default function SettingsPage() {
                 )}
               </div>
               
+              {/* Role Selector (Pilot/Dev Only) */}
+              <div className="pt-4 border-t">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Rolle (Pilot/Dev)</label>
+                  <select
+                      name="role"
+                      value={formData.role || 'beekeeper'}
+                      onChange={handleChange}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none bg-white"
+                  >
+                      <option value="beekeeper">Birøkter</option>
+                      <option value="mattilsynet">Mattilsynet (Inspektør)</option>
+                      <option value="admin">Admin</option>
+                  </select>
+                  <p className="text-[10px] text-gray-500 mt-1">Endre rolle for å teste ulike visninger.</p>
+              </div>
+
               {/* Password Change Section */}
               <div className="pt-6 border-t border-gray-200">
                 <h3 className="text-sm font-bold text-gray-900 mb-4">Endre Passord (Valgfritt)</h3>
