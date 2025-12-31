@@ -47,6 +47,7 @@ export default function DashboardPage() {
   
   // Rental & Mission State
   const [activeRental, setActiveRental] = useState<any>(null);
+  const [latestHiveLog, setLatestHiveLog] = useState<any>(null); // New State for Tenant Log
   const [pendingMissionsCount, setPendingMissionsCount] = useState(0);
 
   // Data State
@@ -148,7 +149,32 @@ export default function DashboardPage() {
                 .limit(1)
                 .single();
             
-            if (rental) setActiveRental(rental);
+            if (rental) {
+                setActiveRental(rental);
+
+                // Fetch latest hive log if apiary is assigned
+                if (rental.apiary_id) {
+                     // Get hive IDs for this apiary first (safer approach)
+                     const { data: hives } = await supabase
+                        .from('hives')
+                        .select('id')
+                        .eq('apiary_id', rental.apiary_id);
+                     
+                     if (hives && hives.length > 0) {
+                         const hiveIds = hives.map(h => h.id);
+                         const { data: log } = await supabase
+                            .from('hive_logs')
+                            .select('*')
+                            .in('hive_id', hiveIds)
+                            .eq('action', 'INSPEKSJON')
+                            .order('created_at', { ascending: false })
+                            .limit(1)
+                            .single();
+                        
+                        if (log) setLatestHiveLog(log);
+                     }
+                }
+            }
         }
 
         // Fetch Pending Missions (For Beekeepers)
@@ -333,7 +359,8 @@ export default function DashboardPage() {
               </div>
           </div>
 
-          {/* Honningstatus */}
+          {/* Honningstatus (Only for Beekeepers) */}
+          {profile?.role !== 'tenant' && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
               <div className="flex justify-between items-center mb-2">
                   <div className="flex items-center gap-1.5">
@@ -361,6 +388,30 @@ export default function DashboardPage() {
                   </button>
               </div>
           </div>
+          )}
+
+          {/* Tenant Hive Updates */}
+          {profile?.role === 'tenant' && activeRental?.apiary_id && (
+             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
+                 <div className="flex items-center gap-1.5 mb-3">
+                      <Activity className="w-3.5 h-3.5 text-honey-500" />
+                      <h3 className="font-bold text-gray-900 text-xs">Siste nytt fra bikuben</h3>
+                  </div>
+                  
+                  {latestHiveLog ? (
+                      <div className="space-y-2">
+                          <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                              <p className="font-bold mb-1 text-gray-900">
+                                  {new Date(latestHiveLog.created_at).toLocaleDateString('no-NO')} - Inspeksjon
+                              </p>
+                              <p className="italic">"{latestHiveLog.details}"</p>
+                          </div>
+                      </div>
+                  ) : (
+                      <p className="text-xs text-gray-500 italic">Ingen inspeksjoner registrert enda.</p>
+                  )}
+             </div>
+          )}
 
           {/* ALERTS SECTION (Pilot Firewall) */}
           {nearbyAlerts.length > 0 && (
