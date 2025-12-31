@@ -32,7 +32,7 @@ export default function BottomNav() {
         </Link>
 
         <Link 
-          href="/hives" // TODO: Ensure this page exists or link to apiaries list if not
+          href="/hives"
           className={`flex flex-col items-center justify-center w-full h-full ${isActive('/hives') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
           <Box className="w-6 h-6 mb-1" />

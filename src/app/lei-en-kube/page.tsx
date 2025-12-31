@@ -109,6 +109,8 @@ const OWNERSHIP_COSTS = [
   { item: 'Ekstra magasin, dronningbur, tavler, småutstyr', price: 2000 },
 ];
 
+const TOTAL_OWNERSHIP_COST = OWNERSHIP_COSTS.reduce((sum, item) => sum + item.price, 0);
+
 const HIDDEN_COSTS: { item: string; price: number }[] = [];
 
 export default function RentHivePage() {
@@ -435,7 +437,7 @@ export default function RentHivePage() {
                     ))}
                     <tr className="bg-gray-50 font-bold text-gray-900 border-t-2 border-gray-200">
                       <td className="p-3">Total første år</td>
-                      <td className="p-3 text-right">≈ 36 000 kr</td>
+                      <td className="p-3 text-right">≈ {TOTAL_OWNERSHIP_COST.toLocaleString()} kr</td>
                     </tr>
                   </tbody>
                 </table>
@@ -602,7 +604,7 @@ export default function RentHivePage() {
                         <tbody className="divide-y divide-gray-800">
                             <tr>
                                 <td className="p-4 font-medium text-white">Investering år 1</td>
-                                <td className="p-4 text-red-300">≈ 30 600 kr (høy risiko)</td>
+                                <td className="p-4 text-red-300">≈ {TOTAL_OWNERSHIP_COST.toLocaleString()} kr (høy risiko)</td>
                                 <td className="p-4 text-green-400">0 kr (kun leie)</td>
                             </tr>
                              <tr>
@@ -759,7 +761,7 @@ export default function RentHivePage() {
 
                         <div className="pt-4 flex justify-between font-bold text-lg border-t-2 border-gray-900 mt-4">
                           <span>TOTALT FØRSTE ÅR</span>
-                          <span className="text-red-600">≈ 30 600 kr</span>
+                          <span className="text-red-600">≈ {TOTAL_OWNERSHIP_COST.toLocaleString()} kr</span>
                         </div>
                         <p className="text-xs text-center text-gray-500 mt-2">
                           🔎 Mange blir overrasket. Bier er rimelig i drift – men dyrt å starte.
@@ -777,7 +779,7 @@ export default function RentHivePage() {
                           <div className="grid grid-cols-2 gap-4 text-sm mb-4 border-b border-gray-100 pb-4">
                             <div>
                               <p className="text-gray-500 text-xs">Kostnad første 12 mnd (Eie)</p>
-                              <p className="font-bold text-red-600 text-lg">30 600 kr</p>
+                              <p className="font-bold text-red-600 text-lg">{TOTAL_OWNERSHIP_COST.toLocaleString()} kr</p>
                               <p className="text-xs text-gray-400">1 kube i 1 år</p>
                             </div>
                             <div>
