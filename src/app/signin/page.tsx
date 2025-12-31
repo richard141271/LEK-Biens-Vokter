@@ -1,15 +1,20 @@
 'use client';
 
 import { createClient } from '@/utils/supabase/client';
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
-export default function SignInPage() {
+function SignInContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const supabase = createClient();
+  
+  const searchParams = useSearchParams();
+  const next = searchParams.get('next');
+  const isRentalFlow = next?.includes('lei-en-kube');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,7 +29,13 @@ export default function SignInPage() {
       if (error) throw error;
       
       // Force hard reload to clear any potential client-side state issues
-      window.location.href = '/dashboard';
+      // If there is a next param, the middleware or auth callback should handle it, 
+      // but explicitly redirecting there is safer if we control the flow.
+      if (next) {
+        window.location.href = next;
+      } else {
+        window.location.href = '/dashboard';
+      }
     } catch (error: any) {
       setMessage('Kunne ikke logge inn: ' + error.message);
       setLoading(false);
@@ -39,8 +50,13 @@ export default function SignInPage() {
             ← Tilbake
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">
-            Logg inn
+            {isRentalFlow ? 'Logg inn for å bestille' : 'Logg inn'}
           </h1>
+          {isRentalFlow && (
+            <p className="text-sm text-gray-600 mt-2">
+              Du må ha en bruker for å signere leieavtalen digitalt.
+            </p>
+          )}
         </div>
         
         <form onSubmit={handleLogin} className="space-y-4">
@@ -80,7 +96,7 @@ export default function SignInPage() {
         <div className="mt-6 text-center border-t pt-6">
           <p className="text-gray-600 mb-2">Ny bruker?</p>
           <Link
-            href="/register"
+            href={isRentalFlow ? `/register?next=${next}` : "/register"}
             className="text-orange-600 hover:text-orange-700 font-bold hover:underline"
           >
             Registrer deg her
@@ -94,5 +110,13 @@ export default function SignInPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Laster...</div>}>
+      <SignInContent />
+    </Suspense>
   );
 }

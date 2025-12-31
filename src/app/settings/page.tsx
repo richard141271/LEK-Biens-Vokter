@@ -473,6 +473,7 @@ export default function SettingsPage() {
                         <label className="font-medium text-gray-900">Medlem av LEK-Honning™</label>
                     </div>
 
+                    {profile?.role !== 'tenant' && (
                     <div className="flex items-center gap-3 bg-green-50 p-3 rounded-lg border border-green-100">
                         <input
                         type="checkbox"
@@ -486,6 +487,7 @@ export default function SettingsPage() {
                           <p className="text-xs text-gray-600">Motta oppdrag om drift av utleiekuber i ditt nærområde mot betaling.</p>
                         </div>
                     </div>
+                    )}
                  </div>
               </div>
 
@@ -606,6 +608,7 @@ export default function SettingsPage() {
                         <input
                         type="password"
                         name="newPassword"
+                        autoComplete="new-password"
                         value={passwordData.newPassword}
                         onChange={handlePasswordChange}
                         placeholder="La stå tomt for å beholde dagens"

@@ -408,6 +408,7 @@ export default function DashboardPage() {
           )}
 
           {/* Birøkter Checklist Promo */}
+          {profile?.role !== 'tenant' && (
           <Link href="/dashboard/beekeeper/checklist" className="block mt-2">
             <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-xl p-4 text-white shadow-lg flex items-center justify-between">
                 <div>
@@ -422,6 +423,7 @@ export default function DashboardPage() {
                 </div>
             </div>
           </Link>
+          )}
 
           {/* External Links (Moved Up) */}
           <div className="space-y-1 pt-1">
