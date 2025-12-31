@@ -21,15 +21,22 @@ export default function BeekeeperRentalsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Now we fetch rentals even if they have apiary_id (since they are created immediately)
+      // But we only want those that are NOT yet assigned to this beekeeper (or unassigned)
       const { data, error } = await supabase
         .from('rentals')
-        .select('*')
+        .select('*, apiaries(*)')
         .eq('status', 'active')
-        .is('apiary_id', null)
+        //.is('apiary_id', null) // Removed check since apiary is now created immediately
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setRentals(data || []);
+      
+      // Filter client side to find "Actionable" rentals (Unassigned or assigned to me but not acknowledged?)
+      // For now: Show all rentals that need "Acceptance" (which now means taking responsibility)
+      const actionableRentals = (data || []).filter(r => !r.assigned_beekeeper_id || r.assigned_beekeeper_id === user.id);
+      
+      setRentals(actionableRentals);
     } catch (error) {
       console.error('Error fetching rentals:', error);
     } finally {
@@ -40,58 +47,31 @@ export default function BeekeeperRentalsPage() {
   const handleAcceptRental = async (rental: any) => {
     setProcessingId(rental.id);
     try {
-      // 1. Create Apiary (Bigård)
-      const { data: apiary, error: apiaryError } = await supabase
-        .from('apiaries')
-        .insert({
-          name: `${rental.contact_name} sin hage`,
-          location: rental.contact_address,
-          description: `Bigård opprettet fra leieavtale for ${rental.contact_name}`,
-          type: 'rental',
-          status: 'active'
-        })
-        .select()
-        .single();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      if (apiaryError) throw apiaryError;
-
-      // 2. Create Hives (Bikuber)
-      const hivesToCreate = Array.from({ length: rental.hive_count }).map((_, index) => ({
-        apiary_id: apiary.id,
-        hive_number: `LEK-${apiary.id.slice(0, 4)}-0${index + 1}`.toUpperCase(),
-        active: true,
-        queen_color: 'Hvit', // Default
-        condition: 'good',
-        honey_type: 'sommer',
-        installation_date: new Date().toISOString()
-      }));
-
-      const { error: hivesError } = await supabase
-        .from('hives')
-        .insert(hivesToCreate);
-
-      if (hivesError) throw hivesError;
-
-      // 3. Link Rental to Apiary
+      // 1. Update Rental Assignment
       const { error: updateError } = await supabase
         .from('rentals')
         .update({ 
-          apiary_id: apiary.id,
-          status: 'active' // Keep active, now it's linked
+          assigned_beekeeper_id: user.id,
+          distance_to_beekeeper: 0 // Or calculate real distance
         })
         .eq('id', rental.id);
 
       if (updateError) throw updateError;
 
-      // 4. Create Notification / Log
-      await supabase.from('logs').insert({
-        action: 'APIARY_CREATED',
-        details: `Opprettet bigård og ${rental.hive_count} kuber for ${rental.contact_name}`,
-        apiary_id: apiary.id
-      });
+      // 2. Log Action
+      if (rental.apiary_id) {
+         await supabase.from('logs').insert({
+            action: 'BEEKEEPER_ASSIGNED',
+            details: `Birøkter har tatt oppdraget for bigård ID: ${rental.apiary_id}`,
+            apiary_id: rental.apiary_id
+         });
+      }
 
-      alert('Oppdrag godtatt! Bigård og kuber er opprettet.');
-      router.push('/dashboard'); // Go back to dashboard to see new stats
+      alert('Oppdrag godtatt! Du er nå ansvarlig birøkter.');
+      router.push('/dashboard'); 
 
     } catch (error: any) {
       console.error('Error processing rental:', error);

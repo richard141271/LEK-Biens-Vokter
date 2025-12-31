@@ -266,23 +266,59 @@ export default function RentHivePage() {
         minDistance = 0; // Unknown
       }
 
-      // 3. Create Rental Record
-      // Ensure we handle the case where no beekeeper is found
+      // 3. Create Apiary & Hives Directly (Synchronous Creation)
+      // Create Apiary
+      const { data: apiary, error: apiaryError } = await supabase
+        .from('apiaries')
+        .insert({
+          user_id: user.id,
+          name: `${formData.name} sin hage`,
+          location: formData.address,
+          description: `Bigård opprettet via leieavtale`,
+          type: 'rental',
+          status: 'active', // Should ideally be 'pending' but keeping active for visibility
+          apiary_number: `LEIE-${Math.floor(Math.random() * 1000)}`
+        })
+        .select()
+        .single();
+
+      if (apiaryError) throw apiaryError;
+
+      // Create Hives
+      const hivesToCreate = Array.from({ length: hiveCount }).map((_, index) => ({
+        apiary_id: apiary.id,
+        user_id: user.id, // Ensure user ownership
+        hive_number: `LEK-${apiary.id.slice(0, 4)}-0${index + 1}`.toUpperCase(),
+        active: true,
+        queen_color: 'Ukjent',
+        condition: 'good',
+        honey_type: 'sommer',
+        installation_date: new Date().toISOString()
+      }));
+
+      const { error: hivesError } = await supabase
+        .from('hives')
+        .insert(hivesToCreate);
+
+      if (hivesError) console.error('Error creating hives:', hivesError); // Don't block flow if hives fail
+
+      // 4. Create Rental Record (Linked to Apiary)
       const rentalData = {
         user_id: user.id,
+        apiary_id: apiary.id, // LINKED!
         hive_count: hiveCount,
         total_price: monthlyPrice,
         status: 'active', 
         contact_name: formData.name,
-        // contact_organization: formData.organization, // Temporarily removed to prevent schema error if migration not run
+        // contact_organization: formData.organization, // Keep commented out for safety
         contact_address: formData.address,
         contact_phone: formData.phone,
         contact_email: formData.email,
         contract_signed: true,
         contract_signed_at: new Date().toISOString(),
         signature_text: formData.signature,
-        notes: `Bestilt via LEK-app. Månedspris: ${monthlyPrice} kr. Org: ${formData.organization || 'Ingen'}`, // Added org here instead
-        assigned_beekeeper_id: nearestBeekeeperId || null, // Ensure explicit null if undefined
+        notes: `Bestilt via LEK-app. Månedspris: ${monthlyPrice} kr. Org: ${formData.organization || 'Ingen'}`,
+        assigned_beekeeper_id: nearestBeekeeperId || null, 
         distance_to_beekeeper: (minDistance === Infinity || minDistance === undefined) ? null : minDistance
       };
 
