@@ -21,6 +21,7 @@ export default function SettingsPage() {
     address: '',
     postal_code: '',
     city: '',
+    region: '', // Added region
     phone_number: '',
     email: '',
     is_norges_birokterlag_member: false,
@@ -202,7 +203,7 @@ export default function SettingsPage() {
               <h2 className="text-lg font-bold text-gray-900 mb-1">Min Profil</h2>
               <h3 className="text-xl font-bold text-gray-900">{profile?.full_name}</h3>
               <p className="text-gray-500 mb-2">
-                {profile?.address}, {profile?.postal_code} {profile?.city}
+                {profile?.address}, {profile?.postal_code} {profile?.city} {profile?.region && `(${profile.region})`}
               </p>
               <p className="text-gray-500 text-sm mb-6">
                 {profile?.phone_number} • {formData.email}
@@ -402,6 +403,17 @@ export default function SettingsPage() {
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Region / Fylke</label>
+                <input
+                  name="region"
+                  value={formData.region || ''}
+                  onChange={handleChange}
+                  placeholder="F.eks. Viken, Innlandet"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none"
+                />
               </div>
 
               <div>

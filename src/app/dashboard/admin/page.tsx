@@ -79,7 +79,7 @@ export default function AdminDashboard() {
     });
 
     // Identify Outbreaks
-    const activeOutbreaks = reports.filter(r => !r.details.includes('[VURDERT]'));
+    const activeOutbreaks = reports.filter(r => r.admin_status !== 'resolved');
     
     // Map Outbreaks to Apiaries
     const outbreakApiaries = activeOutbreaks.map(r => {
@@ -169,7 +169,7 @@ export default function AdminDashboard() {
         setReports(sicknessLogs);
         
         // Initial stats
-        const active = sicknessLogs.filter(r => !r.details.includes('[VURDERT]')).length;
+        const active = sicknessLogs.filter(r => r.admin_status !== 'resolved').length;
         const reviewed = sicknessLogs.length - active;
         
         setStats(prev => ({
@@ -186,19 +186,18 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleMarkReviewed = async (logId: string, currentDetails: string) => {
+  const handleMarkReviewed = async (logId: string) => {
     try {
-      const newDetails = currentDetails + ' [VURDERT]';
       const { error } = await supabase
         .from('hive_logs')
-        .update({ details: newDetails })
+        .update({ admin_status: 'resolved' })
         .eq('id', logId);
 
       if (error) throw error;
       
       // Refresh local state
       setReports(prev => prev.map(r => 
-        r.id === logId ? { ...r, details: newDetails } : r
+        r.id === logId ? { ...r, admin_status: 'resolved' } : r
       ));
       setStats(prev => ({
         ...prev,
@@ -332,7 +331,7 @@ export default function AdminDashboard() {
               <div className="p-8 text-center text-gray-500">Ingen sykdomsrapporter funnet.</div>
             ) : (
               reports.map((report) => {
-                const isReviewed = report.details.includes('[VURDERT]');
+                const isReviewed = report.admin_status === 'resolved';
                 return (
                   <div key={report.id} className={`p-4 hover:bg-gray-50 transition-colors ${isReviewed ? 'opacity-60' : ''}`}>
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -343,7 +342,7 @@ export default function AdminDashboard() {
                           <span className={`px-2 py-0.5 text-xs font-bold rounded uppercase ${
                             isReviewed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                           }`}>
-                            {isReviewed ? 'Vurdert' : 'Ny sak'}
+                            {isReviewed ? 'Ferdigbehandlet' : 'Ny sak'}
                           </span>
                           <span className="text-xs text-gray-500 flex items-center gap-1">
                             <Clock className="w-3 h-3" />
@@ -359,8 +358,18 @@ export default function AdminDashboard() {
                         </h3>
                         
                         <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-100 mb-2">
-                          {report.details.replace(' [VURDERT]', '')}
+                          {report.details}
                         </p>
+
+                        {report.ai_analysis_result && (
+                            <div className="mb-2 bg-purple-50 p-2 rounded border border-purple-100 flex items-center gap-2 text-xs text-purple-800">
+                                <span className="text-lg">🤖</span>
+                                <div>
+                                    <span className="font-bold block">AI-Analyse (PoC):</span>
+                                    Gjenkjente {report.ai_analysis_result.detected} ({report.ai_analysis_result.confidence}% sikkerhet)
+                                </div>
+                            </div>
+                        )}
 
                         <div className="flex items-center gap-4 text-xs text-gray-500">
                           <span className="flex items-center gap-1">
@@ -378,10 +387,10 @@ export default function AdminDashboard() {
                       <div className="flex items-center gap-3">
                         {!isReviewed && (
                           <button 
-                            onClick={() => handleMarkReviewed(report.id, report.details)}
+                            onClick={() => handleMarkReviewed(report.id)}
                             className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700 shadow-sm whitespace-nowrap"
                           >
-                            Marker som vurdert
+                            Marker som ferdig
                           </button>
                         )}
                         <button className="text-gray-400 hover:text-gray-600 p-2">

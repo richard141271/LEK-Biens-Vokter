@@ -99,6 +99,18 @@ export default function DashboardPage() {
         activeHives: activeHives
         });
 
+        // Fetch Pending Rentals (Missions)
+        if (profileData?.role === 'beekeeper' || profileData?.role === 'admin') {
+            const { count: pendingCount } = await supabase
+                .from('rentals')
+                .select('*', { count: 'exact', head: true })
+                .eq('status', 'active')
+                .is('apiary_id', null);
+            
+            setPendingMissionsCount(pendingCount || 0);
+        }
+
+
         // Fetch Recent Activity (Logs)
         const { data: logs } = await supabase
         .from('hive_logs')
@@ -510,16 +522,22 @@ export default function DashboardPage() {
 
           {/* Birøkter Checklist Promo */}
           {profile?.role !== 'tenant' && profile?.role !== 'mattilsynet' && (
-          <Link href="/dashboard/beekeeper/checklist" className="block mt-2">
-            <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-xl p-4 text-white shadow-lg flex items-center justify-between">
+          <Link href="/dashboard/beekeeper/rentals" className="block mt-2">
+            <div className={`rounded-xl p-4 text-white shadow-lg flex items-center justify-between transition-colors
+                ${pendingMissionsCount > 0 ? 'bg-gradient-to-r from-red-600 to-red-500 animate-pulse' : 'bg-gradient-to-r from-gray-900 to-gray-800'}
+            `}>
                 <div>
                     <h3 className="font-bold text-sm mb-1 flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-honey-400" />
+                        <ShieldCheck className="w-4 h-4 text-white" />
                         Birøkter-oppdrag
                     </h3>
-                    <p className="text-[10px] text-gray-300">Du har 1 aktiv sjekkliste klar</p>
+                    <p className="text-[10px] text-white/90">
+                        {pendingMissionsCount > 0 
+                            ? `Du har ${pendingMissionsCount} nye oppdrag som venter!` 
+                            : 'Ingen nye oppdrag for øyeblikket'}
+                    </p>
                 </div>
-                <div className="bg-white/10 p-2 rounded-full">
+                <div className="bg-white/20 p-2 rounded-full">
                     <ClipboardCheck className="w-5 h-5" />
                 </div>
             </div>
@@ -550,11 +568,16 @@ export default function DashboardPage() {
                         <div key={log.id} className="flex gap-2 text-xs border-b border-gray-100 last:border-0 pb-2 last:pb-0">
                             <div className="w-1.5 h-1.5 mt-1.5 rounded-full bg-honey-400 shrink-0" />
                             <div>
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="font-bold text-gray-900 text-[10px]">{log.action}</span>
                                     {log.hives?.hive_number && (
                                         <span className="text-[9px] bg-gray-100 px-1 py-0.5 rounded text-gray-600 font-mono">
                                             {log.hives.hive_number}
+                                        </span>
+                                    )}
+                                    {log.admin_status === 'resolved' && (
+                                        <span className="text-[9px] bg-green-100 px-1 py-0.5 rounded text-green-700 font-bold uppercase">
+                                            LØST
                                         </span>
                                     )}
                                 </div>
@@ -866,6 +889,22 @@ export default function DashboardPage() {
                                     }
                                 }
 
+                                // 1. AI Analysis Mock (PoC)
+                                let aiResult = null;
+                                if (sicknessImage) {
+                                    // Mock AI Analysis based on selected type or random
+                                    const confidence = Math.floor(Math.random() * (98 - 70 + 1) + 70); // 70-98%
+                                    const detected = sicknessData.diseaseType !== 'Annet / Vet ikke' 
+                                        ? sicknessData.diseaseType 
+                                        : ['Varroa', 'Yngelråte', 'Kalkyngel'][Math.floor(Math.random() * 3)];
+                                    
+                                    aiResult = {
+                                        detected: detected,
+                                        confidence: confidence,
+                                        timestamp: new Date().toISOString()
+                                    };
+                                }
+
                                 const details = `Sykdom: ${sicknessData.diseaseType}, Atferd: ${sicknessData.behavior}, Død: ${sicknessData.mortality}, Varroa: ${sicknessData.varroaCount}. Beskrivelse: ${sicknessData.description} ${imageUrl ? `\nBilde: ${imageUrl}` : ''}`;
                                 
                                 // Insert into hive_logs if hive selected
@@ -874,6 +913,8 @@ export default function DashboardPage() {
                                         hive_id: sicknessData.hiveId,
                                         action: 'SYKDOM',
                                         details: details,
+                                        ai_analysis_result: aiResult,
+                                        admin_status: 'pending',
                                         created_at: new Date().toISOString()
                                     });
                                 } else {
@@ -881,9 +922,13 @@ export default function DashboardPage() {
                                     console.log("General sickness report:", details);
                                 }
 
+                                const aiMsg = aiResult 
+                                    ? `\n\n🤖 AI-Analyse (PoC):\nModellen gjenkjenner: ${aiResult.detected} (${aiResult.confidence}% sannsynlighet).`
+                                    : "";
+
                                 const successMsg = profile?.role === 'beekeeper' 
-                                    ? "Rapport sendt til Mattilsynet. 🚨" 
-                                    : "Melding sendt til Mattilsynet (Pilot) og Birøkter! 🚨\n\nNabovarsel er sendt til 4 birøktere i radius på 3 km.";
+                                    ? `Rapport sendt til Mattilsynet. 🚨${aiMsg}`
+                                    : `Melding sendt til Mattilsynet (Pilot) og Birøkter! 🚨${aiMsg}\n\nNabovarsel er sendt til 4 birøktere i radius på 3 km.`;
                                 
                                 alert(successMsg);
                                 setIsSicknessModalOpen(false);

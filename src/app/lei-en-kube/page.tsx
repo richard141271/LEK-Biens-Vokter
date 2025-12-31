@@ -18,7 +18,9 @@ import {
   CreditCard,
   Lock,
   X,
-  Info
+  Info,
+  LogOut,
+  User as UserIcon
 } from 'lucide-react';
 import { getDistanceFromLatLonInM } from '@/utils/geo';
 
@@ -119,6 +121,7 @@ export default function RentHivePage() {
   
   // State
   const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null); // Store actual profile separately
   const [hiveCount, setHiveCount] = useState(2);
   const [step, setStep] = useState<'info' | 'details' | 'contract' | 'payment' | 'success'>('info');
   const [loading, setLoading] = useState(false);
@@ -144,25 +147,26 @@ export default function RentHivePage() {
       if (user) {
         try {
           // Fetch profile data
-          const { data: profile } = await supabase
+          const { data: profileData } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', user.id)
             .single();
 
-          if (profile) {
+          if (profileData) {
+            setProfile(profileData); // Save persistent profile data
             const fullAddress = [
-              profile.address,
-              profile.postal_code,
-              profile.city
+              profileData.address,
+              profileData.postal_code,
+              profileData.city
             ].filter(Boolean).join(', ');
 
             setFormData(prev => ({
               ...prev,
               email: user.email || '',
-              name: profile.full_name || prev.name,
+              name: profileData.full_name || prev.name,
               address: fullAddress || prev.address,
-              phone: profile.phone_number || prev.phone,
+              phone: profileData.phone_number || prev.phone,
               organization: prev.organization // Keep existing if any
             }));
           } else {
@@ -280,8 +284,8 @@ export default function RentHivePage() {
         notes: `Bestilt via LEK-app. Månedspris: ${monthlyPrice} kr.`,
         // latitude: userCoords.lat, // Removed as column missing in DB
         // longitude: userCoords.lng, // Removed as column missing in DB
-        // assigned_beekeeper_id: nearestBeekeeperId, // TODO: Enable when migration is applied
-        // distance_to_beekeeper: minDistance === Infinity ? null : minDistance
+        assigned_beekeeper_id: nearestBeekeeperId, 
+        distance_to_beekeeper: minDistance === Infinity ? null : minDistance
       };
 
       const { error } = await supabase
@@ -309,6 +313,28 @@ export default function RentHivePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
+      {/* User Indicator to prevent session confusion */}
+      {user && (
+        <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50">
+          <div className="max-w-4xl mx-auto px-4 py-2 flex justify-between items-center">
+            <div className="flex items-center gap-2 text-xs text-gray-600">
+               <UserIcon className="w-3 h-3" />
+               <span>Logget inn som: <strong className="text-gray-900">{profile?.full_name || user.email}</strong> ({user.email})</span>
+            </div>
+            <button 
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.href = '/login';
+              }}
+              className="text-[10px] text-red-600 hover:text-red-700 flex items-center gap-1 font-bold uppercase tracking-wider bg-red-50 px-2 py-1 rounded-lg hover:bg-red-100 transition-colors"
+            >
+              <LogOut className="w-3 h-3" />
+              Logg ut
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-honey-500 text-white pt-8 pb-16 px-4 relative overflow-hidden">
         <div className="absolute top-0 right-0 p-32 bg-white/10 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
@@ -1137,7 +1163,14 @@ export default function RentHivePage() {
               </button>
 
               <button 
-                onClick={() => router.push('/dashboard')}
+                onClick={async () => {
+                  const { data: { user: currentUser } } = await supabase.auth.getUser();
+                  if (currentUser && currentUser.id === user?.id) {
+                     window.location.href = '/dashboard';
+                  } else {
+                     router.push('/login?next=/dashboard');
+                  }
+                }}
                 className="bg-honey-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-honey-600 transition-colors shadow-lg"
               >
                 Gå til Min Side

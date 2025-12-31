@@ -33,8 +33,19 @@ export default function BeekeeperChecklistPage() {
   const isChecked = (id: string) => !!checkedItems[id];
 
   const calculateProgress = () => {
-    const total = Object.keys(checklistData).reduce((acc, section) => acc + checklistData[section as keyof typeof checklistData].items.length, 0);
+    const total = Object.keys(checklistData).reduce((acc, sectionKey) => {
+      const section = checklistData[sectionKey as keyof typeof checklistData];
+      let count = section.items.length;
+      // Include premiumItems in count if they exist
+      if ('premiumItems' in section && section.premiumItems) {
+        count += section.premiumItems.length;
+      }
+      return acc + count;
+    }, 0);
+    
     const completed = Object.keys(checkedItems).filter(k => checkedItems[k]).length;
+    
+    if (total === 0) return 0;
     return Math.round((completed / total) * 100);
   };
 
