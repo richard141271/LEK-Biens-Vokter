@@ -289,9 +289,10 @@ export default function RentHivePage() {
               <Box className="w-10 h-10 text-white" />
             </div>
             <div>
-              <h1 className="text-4xl font-bold mb-2">LEI EN KUBE</h1>
-              <p className="text-honey-100 text-lg">
-                Ditt eget bidrag til naturen – vi gjør jobben!
+              <h1 className="text-4xl font-bold mb-2">LEI EN BIKUBE</h1>
+              <p className="text-honey-100 text-lg max-w-xl">
+                Har du hørt at det er kult å ha egne bier? Det stemmer! <br/>
+                Få din egen, kortreiste honning og bidra til naturen – vi tar oss av alt arbeidet.
               </p>
             </div>
           </div>

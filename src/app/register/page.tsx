@@ -21,6 +21,7 @@ function RegisterForm() {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [role, setRole] = useState<'beekeeper' | 'tenant'>('beekeeper');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -152,6 +153,7 @@ function RegisterForm() {
           .from('profiles')
           .insert({
             id: authData.user.id,
+            role: role,
             full_name: formData.fullName,
             address: formData.address,
             postal_code: formData.postalCode,
@@ -194,13 +196,39 @@ function RegisterForm() {
           <Link href="/" className="inline-flex items-center text-honey-600 hover:text-honey-700 mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" /> Tilbake til forsiden
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Registrer deg som Birøkter</h1>
-          <p className="mt-2 text-gray-600">Bli med i revolusjonen og få full oversikt over bigården din</p>
+          <h1 className="text-3xl font-bold text-gray-900">Registrer deg</h1>
+          <p className="mt-2 text-gray-600">Opprett din brukerprofil for å komme i gang</p>
         </div>
 
         <div className="bg-white shadow-xl rounded-2xl overflow-hidden border border-honey-100">
           <form onSubmit={handleSubmit} className="p-8 space-y-8">
             
+            {/* Account Type Toggle */}
+            <div className="flex bg-gray-100 p-1 rounded-xl mb-8">
+              <button
+                type="button"
+                onClick={() => setRole('beekeeper')}
+                className={`flex-1 py-3 rounded-lg font-bold transition-all ${
+                  role === 'beekeeper' 
+                    ? 'bg-white text-orange-600 shadow-sm' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Jeg er Birøkter
+              </button>
+              <button
+                type="button"
+                onClick={() => setRole('tenant')}
+                className={`flex-1 py-3 rounded-lg font-bold transition-all ${
+                  role === 'tenant' 
+                    ? 'bg-white text-green-600 shadow-sm' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Jeg vil Leie Kube
+              </button>
+            </div>
+
             {/* Error Message */}
             {error && (
               <div className="bg-red-50 text-red-600 p-4 rounded-lg flex items-center gap-2">
@@ -331,163 +359,167 @@ function RegisterForm() {
               </div>
             </div>
 
-            {/* Section 2: Membership & Interests (Optional) */}
-            <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">2. Medlemskap & Interesser (Frivillig)</h2>
-              
-              <div className="space-y-4">
-                <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                  <input
-                    type="checkbox"
-                    id="nbk"
-                    name="isNorgesBirokterlagMember"
-                    checked={formData.isNorgesBirokterlagMember}
-                    onChange={handleCheckboxChange}
-                    className="mt-1 w-5 h-5 text-honey-600 rounded focus:ring-honey-500 border-gray-300"
-                  />
-                  <div className="flex-1">
-                    <label htmlFor="nbk" className="font-medium text-gray-900 block">Medlem i Norges Birøkterlag</label>
-                    {formData.isNorgesBirokterlagMember && (
-                      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
-                        <input
-                          name="memberNumber"
-                          value={formData.memberNumber}
-                          onChange={handleChange}
-                          placeholder="Medlemsnummer"
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
-                        />
-                        <input
-                          name="localAssociation"
-                          value={formData.localAssociation}
-                          onChange={handleChange}
-                          placeholder="Lokallag"
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
-                        />
+            {role === 'beekeeper' && (
+              <>
+                {/* Section 2: Membership & Interests (Optional) */}
+                <div className="space-y-6">
+                  <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">2. Medlemskap & Interesser (Frivillig)</h2>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+                      <input
+                        type="checkbox"
+                        id="nbk"
+                        name="isNorgesBirokterlagMember"
+                        checked={formData.isNorgesBirokterlagMember}
+                        onChange={handleCheckboxChange}
+                        className="mt-1 w-5 h-5 text-honey-600 rounded focus:ring-honey-500 border-gray-300"
+                      />
+                      <div className="flex-1">
+                        <label htmlFor="nbk" className="font-medium text-gray-900 block">Medlem i Norges Birøkterlag</label>
+                        {formData.isNorgesBirokterlagMember && (
+                          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                            <input
+                              name="memberNumber"
+                              value={formData.memberNumber}
+                              onChange={handleChange}
+                              placeholder="Medlemsnummer"
+                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
+                            />
+                            <input
+                              name="localAssociation"
+                              value={formData.localAssociation}
+                              onChange={handleChange}
+                              placeholder="Lokallag"
+                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                      <input
+                        type="checkbox"
+                        id="lek"
+                        name="isLekHonningMember"
+                        checked={formData.isLekHonningMember}
+                        onChange={handleCheckboxChange}
+                        className="w-5 h-5 text-honey-600 rounded focus:ring-honey-500 border-gray-300"
+                      />
+                      <label htmlFor="lek" className="font-medium text-gray-900">Medlem i LEK Honning</label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Hva er du interessert i?</label>
+                    <div className="flex flex-wrap gap-3">
+                      {['Salg', 'Rekruttering', 'Kurs', 'Samarbeid'].map((interest) => (
+                        <button
+                          key={interest}
+                          type="button"
+                          onClick={() => handleInterestChange(interest)}
+                          className={`px-4 py-2 rounded-full border transition-all ${
+                            formData.interests.includes(interest)
+                              ? 'bg-honey-100 border-honey-500 text-honey-700 font-medium'
+                              : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          {interest} {formData.interests.includes(interest) && '✓'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: Economy & Business (Optional) */}
+                <div className="space-y-6">
+                  <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">3. Økonomi & Driftstype (Frivillig)</h2>
+                  
+                  <div className="flex gap-6 mb-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="beekeepingType"
+                        value="hobby"
+                        checked={formData.beekeepingType === 'hobby'}
+                        onChange={handleChange}
+                        className="w-5 h-5 text-honey-600 focus:ring-honey-500 border-gray-300"
+                      />
+                      <span className="font-medium text-gray-900">Hobbybirøkt</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="beekeepingType"
+                        value="business"
+                        checked={formData.beekeepingType === 'business'}
+                        onChange={handleChange}
+                        className="w-5 h-5 text-honey-600 focus:ring-honey-500 border-gray-300"
+                      />
+                      <span className="font-medium text-gray-900">Næringsbirøkt</span>
+                    </label>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Privat Kontonummer (For utbetalinger)</label>
+                      <input
+                        name="privateBankAccount"
+                        value={formData.privateBankAccount}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none"
+                        placeholder="1234.56.78903"
+                      />
+                    </div>
+
+                    {formData.beekeepingType === 'business' && (
+                      <div className="bg-honey-50 p-6 rounded-xl border border-honey-100 space-y-4 animate-in fade-in">
+                        <h3 className="font-medium text-honey-900">Firmaopplysninger</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Firmanavn</label>
+                            <input
+                              name="companyName"
+                              value={formData.companyName}
+                              onChange={handleChange}
+                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Organisasjonsnummer</label>
+                            <input
+                              name="orgNumber"
+                              value={formData.orgNumber}
+                              onChange={handleChange}
+                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Firma Kontonummer</label>
+                            <input
+                              name="companyBankAccount"
+                              value={formData.companyBankAccount}
+                              onChange={handleChange}
+                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Firmaadresse</label>
+                            <input
+                              name="companyAddress"
+                              value={formData.companyAddress}
+                              onChange={handleChange}
+                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
+                            />
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
-
-                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                  <input
-                    type="checkbox"
-                    id="lek"
-                    name="isLekHonningMember"
-                    checked={formData.isLekHonningMember}
-                    onChange={handleCheckboxChange}
-                    className="w-5 h-5 text-honey-600 rounded focus:ring-honey-500 border-gray-300"
-                  />
-                  <label htmlFor="lek" className="font-medium text-gray-900">Medlem i LEK Honning</label>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Hva er du interessert i?</label>
-                <div className="flex flex-wrap gap-3">
-                  {['Salg', 'Rekruttering', 'Kurs', 'Samarbeid'].map((interest) => (
-                    <button
-                      key={interest}
-                      type="button"
-                      onClick={() => handleInterestChange(interest)}
-                      className={`px-4 py-2 rounded-full border transition-all ${
-                        formData.interests.includes(interest)
-                          ? 'bg-honey-100 border-honey-500 text-honey-700 font-medium'
-                          : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
-                      {interest} {formData.interests.includes(interest) && '✓'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Section 3: Economy & Business (Optional) */}
-            <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">3. Økonomi & Driftstype (Frivillig)</h2>
-              
-              <div className="flex gap-6 mb-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="beekeepingType"
-                    value="hobby"
-                    checked={formData.beekeepingType === 'hobby'}
-                    onChange={handleChange}
-                    className="w-5 h-5 text-honey-600 focus:ring-honey-500 border-gray-300"
-                  />
-                  <span className="font-medium text-gray-900">Hobbybirøkt</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="beekeepingType"
-                    value="business"
-                    checked={formData.beekeepingType === 'business'}
-                    onChange={handleChange}
-                    className="w-5 h-5 text-honey-600 focus:ring-honey-500 border-gray-300"
-                  />
-                  <span className="font-medium text-gray-900">Næringsbirøkt</span>
-                </label>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Privat Kontonummer (For utbetalinger)</label>
-                  <input
-                    name="privateBankAccount"
-                    value={formData.privateBankAccount}
-                    onChange={handleChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none"
-                    placeholder="1234.56.78903"
-                  />
-                </div>
-
-                {formData.beekeepingType === 'business' && (
-                  <div className="bg-honey-50 p-6 rounded-xl border border-honey-100 space-y-4 animate-in fade-in">
-                    <h3 className="font-medium text-honey-900">Firmaopplysninger</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Firmanavn</label>
-                        <input
-                          name="companyName"
-                          value={formData.companyName}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Organisasjonsnummer</label>
-                        <input
-                          name="orgNumber"
-                          value={formData.orgNumber}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Firma Kontonummer</label>
-                        <input
-                          name="companyBankAccount"
-                          value={formData.companyBankAccount}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Firmaadresse</label>
-                        <input
-                          name="companyAddress"
-                          value={formData.companyAddress}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+              </>
+            )}
 
             <div className="pt-6">
               <button

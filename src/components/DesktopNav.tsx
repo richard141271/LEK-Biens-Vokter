@@ -12,7 +12,7 @@ export default function DesktopNav() {
   const supabase = createClient();
 
   // Hide on login/register/about pages
-  if (pathname === '/login' || pathname === '/register' || pathname === '/' || pathname === '/about') return null;
+  if (pathname === '/login' || pathname === '/register' || pathname === '/' || pathname === '/about' || pathname === '/signin' || pathname === '/lei-en-kube' || pathname.startsWith('/info/')) return null;
 
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
 

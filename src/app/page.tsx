@@ -1,7 +1,7 @@
 'use client';
 
 import Link from "next/link";
-import { ArrowRight, Zap, ShieldCheck, CheckCircle } from "lucide-react";
+import { ArrowRight, Zap, ShieldCheck, CheckCircle, Heart, Users, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 
@@ -18,7 +18,7 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="min-h-screen flex flex-col relative">
+    <main className="min-h-screen flex flex-col relative bg-white">
       {/* Navbar */}
       <nav className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center max-w-6xl mx-auto z-10">
         <div className="font-bold text-xl text-gray-900 flex items-center gap-2">
@@ -30,7 +30,7 @@ export default function Home() {
             href="/dashboard"
             className="text-gray-900 font-medium hover:text-orange-600 transition-colors"
           >
-            Oversikt
+            Gå til Min Side
           </Link>
         ) : (
           <Link 
@@ -43,139 +43,156 @@ export default function Home() {
       </nav>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-b from-honey-100 to-white pt-20 pb-16 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-5xl font-bold text-gray-900 mb-6">
-            Birøkter-revolusjonen
+      <section className="bg-gradient-to-b from-honey-100 to-white pt-32 pb-20 px-4 text-center">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+            Bier, Honning og Teknologi <br/>
+            <span className="text-orange-600">- for Alle</span>
           </h1>
-          <p className="text-xl text-gray-700 mb-8 max-w-2xl mx-auto">
-            Fremtidens plattform for norske birøktere. Handsfree inspeksjon, 
-            AI-drevet innsikt og full kontroll over bigården.
+          <p className="text-xl text-gray-700 mb-12 max-w-2xl mx-auto leading-relaxed">
+            Enten du vil leie din egen bikube, drive profesjonelt birøkt, 
+            eller jobber med mattrygghet - vi har løsningen for deg.
           </p>
-          <div className="flex justify-center gap-4">
-            {user ? (
+        </div>
+      </section>
+
+      {/* Segmentation Section - The 3 Cards */}
+      <section className="pb-24 px-4 -mt-10">
+        <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-8">
+          
+          {/* Card 1: Leietaker */}
+          <div className="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 group">
+            <div className="h-48 bg-green-50 flex items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1587049352846-4a222e784d38?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80')] bg-cover bg-center opacity-20 group-hover:scale-105 transition-transform duration-500"></div>
+                <Heart className="w-16 h-16 text-green-600 relative z-10" />
+            </div>
+            <div className="p-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">Vil du leie en bikube?</h2>
+              <p className="text-gray-600 mb-6 min-h-[80px]">
+                Støtt biene og få din egen, eksklusive honning. 
+                Vi kobler deg med sertifiserte, lokale birøktere. 
+                Perfekt for familier og bedrifter.
+              </p>
               <Link 
-                href="/dashboard"
-                className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-full flex items-center gap-2 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                href="/lei-en-kube"
+                className="w-full block text-center bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-colors"
               >
-                Gå til oversikt
-                <ArrowRight className="w-5 h-5" />
+                Les mer om leie
               </Link>
-            ) : (
+            </div>
+          </div>
+
+          {/* Card 2: Birøkter */}
+          <div className="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 group relative transform md:-translate-y-8">
+            <div className="absolute top-0 right-0 bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg z-20">
+              POPULÆRT
+            </div>
+            <div className="h-48 bg-orange-50 flex items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1621260768407-5b72225301a2?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80')] bg-cover bg-center opacity-20 group-hover:scale-105 transition-transform duration-500"></div>
+                <Zap className="w-16 h-16 text-orange-600 relative z-10" />
+            </div>
+            <div className="p-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">Er du birøkter?</h2>
+              <p className="text-gray-600 mb-6 min-h-[80px]">
+                Effektiviser driften med stemmestyrt inspeksjon og AI-innsikt. 
+                Full kontroll over bigårdene dine, rett fra lomma.
+              </p>
+              <div className="flex gap-3">
+                <Link 
+                  href="/signin"
+                  className="flex-1 text-center bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-xl transition-colors"
+                >
+                  Logg inn
+                </Link>
+                <Link 
+                  href="/register"
+                  className="flex-1 text-center bg-white border-2 border-orange-500 text-orange-600 hover:bg-orange-50 font-bold py-3 px-4 rounded-xl transition-colors"
+                >
+                  Registrer
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Mattilsynet */}
+          <div className="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 group">
+            <div className="h-48 bg-blue-50 flex items-center justify-center relative overflow-hidden">
+                <div className="absolute inset-0 bg-blue-900/5 group-hover:scale-105 transition-transform duration-500"></div>
+                <ShieldCheck className="w-16 h-16 text-blue-600 relative z-10" />
+            </div>
+            <div className="p-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">Mattilsynet</h2>
+              <p className="text-gray-600 mb-6 min-h-[80px]">
+                Sanntidsovervåkning av sykdom og bikubehelse. 
+                Effektivt verktøy for forvaltning og smittesporing.
+              </p>
               <Link 
                 href="/signin"
-                className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-full flex items-center gap-2 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                className="w-full block text-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors"
               >
-                Logg inn
-                <ArrowRight className="w-5 h-5" />
+                Logg inn for forvaltning
               </Link>
-            )}
-            
-            <Link 
-              href="/about" 
-              className="bg-white hover:bg-gray-50 text-gray-900 font-semibold py-3 px-8 rounded-full border border-gray-200 transition-colors"
-            >
-              Lær mer
-            </Link>
+            </div>
           </div>
+
         </div>
       </section>
 
-      {/* Vision Section */}
-      <section className="py-16 px-4 bg-white">
+      {/* Feature Highlight Section */}
+      <section className="py-20 px-4 bg-gray-50">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">Vår Visjon</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="p-6 bg-honey-50 rounded-xl border border-honey-100">
-              <div className="w-12 h-12 bg-honey-100 rounded-full flex items-center justify-center mb-4 text-honey-600">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Hvorfor velge Biens Vokter?</h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              Vi kobler teknologi med tradisjon for å sikre bienes fremtid.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="bg-white p-6 rounded-xl shadow-sm">
+              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4 text-orange-600">
                 <Zap className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold mb-3 text-gray-900">Handsfree Inspeksjon</h3>
-              <p className="text-gray-600">
-                Stemme-styrt registrering så du kan holde hendene på kuben. 
-                Ingen klissete telefoner.
-              </p>
+              <h3 className="font-bold text-lg mb-2">Handsfree</h3>
+              <p className="text-sm text-gray-600">Stemmestyrt registrering gjør at du kan jobbe uten å ta av hanskene.</p>
             </div>
-            
-            <div className="p-6 bg-honey-50 rounded-xl border border-honey-100">
-              <div className="w-12 h-12 bg-honey-100 rounded-full flex items-center justify-center mb-4 text-honey-600">
-                <ShieldCheck className="w-6 h-6" />
+            <div className="bg-white p-6 rounded-xl shadow-sm">
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4 text-green-600">
+                <Heart className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold mb-3 text-gray-900">Kontekst-basert</h3>
-              <p className="text-gray-600">
-                Appen vet hvilken bigård du står i og hvilken kube du inspiserer 
-                ved hjelp av GPS og QR-koder.
-              </p>
+              <h3 className="font-bold text-lg mb-2">Dyrevelferd</h3>
+              <p className="text-sm text-gray-600">Bedre oversikt gir friskere bier og raskere oppdagelse av sykdom.</p>
             </div>
-
-            <div className="p-6 bg-honey-50 rounded-xl border border-honey-100">
-              <div className="w-12 h-12 bg-honey-100 rounded-full flex items-center justify-center mb-4 text-honey-600">
-                <CheckCircle className="w-6 h-6" />
+            <div className="bg-white p-6 rounded-xl shadow-sm">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4 text-blue-600">
+                <Search className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-bold mb-3 text-gray-900">Alltid tilgjengelig</h3>
-              <p className="text-gray-600">
-                Fungerer offline og synkroniserer når du er tilbake i dekning.
-                Aldri mist data igjen.
-              </p>
+              <h3 className="font-bold text-lg mb-2">Sporbarhet</h3>
+              <p className="text-sm text-gray-600">Full historikk på hver enkelt kube, fra dronning til honning.</p>
+            </div>
+            <div className="bg-white p-6 rounded-xl shadow-sm">
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4 text-purple-600">
+                <Users className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-lg mb-2">Fellesskap</h3>
+              <p className="text-sm text-gray-600">Koble deg til lokale birøktere og lær av hverandre.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 3-Step Plan Section */}
-      <section className="py-16 px-4 bg-gray-50 border-t border-gray-200">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">Vår Plan mot 100% Autonomi</h2>
-          <div className="space-y-8">
-            
-            {/* Step 1 - Active */}
-            <div className="relative flex gap-6 p-6 bg-white rounded-2xl shadow-lg border-2 border-honey-500 transform scale-105">
-              <div className="absolute -top-3 -right-3 bg-honey-500 text-white px-4 py-1 rounded-full text-sm font-bold shadow-md">
-                VI ER HER
-              </div>
-              <div className="flex-shrink-0 w-16 h-16 bg-honey-100 rounded-full flex items-center justify-center text-2xl font-bold text-honey-600 border-4 border-honey-200">
-                1
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Digitalisering & Kontroll</h3>
-                <p className="text-gray-600">
-                  Full digital oversikt over bigårder og kuber. QR-sporing, masseregistrering og 
-                  handsfree inspeksjon. Vi bygger fundamentet for datadrevet birøkt.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 2 */}
-            <div className="flex gap-6 p-6 bg-white/50 rounded-2xl border border-gray-200 opacity-75">
-              <div className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-2xl font-bold text-gray-400">
-                2
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Sensorikk & Varsling</h3>
-                <p className="text-gray-600">
-                  Integrasjon av smarte vekter og fuktsensorer. AI Aurora begynner å lære 
-                  av kubenes adferd og gir prediktive varsler om sverm og trekk.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div className="flex gap-6 p-6 bg-white/50 rounded-2xl border border-gray-200 opacity-75">
-              <div className="flex-shrink-0 w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-2xl font-bold text-gray-400">
-                3
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Total Autonomi</h3>
-                <p className="text-gray-600">
-                  Selvstyrende kuber med robotisert høsting og logistikk. 
-                  Bikubene bestiller selv tømming. Birøkteren blir prosessoperatør.
-                </p>
-              </div>
-            </div>
-
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white py-12 px-4">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+          <div className="flex items-center gap-3">
+            <img src="/icon.png" alt="Logo" className="w-10 h-10 rounded-full border-2 border-white/20" />
+            <span className="font-bold text-xl">Biens Vokter</span>
+          </div>
+          <div className="text-gray-400 text-sm">
+            © {new Date().getFullYear()} AI Innovate AS. Alle rettigheter reservert.
           </div>
         </div>
-      </section>
+      </footer>
     </main>
   );
 }
