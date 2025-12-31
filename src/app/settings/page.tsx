@@ -35,7 +35,8 @@ export default function SettingsPage() {
     company_address: '',
     company_email: '',
     company_phone: '',
-    private_bank_account: ''
+    private_bank_account: '',
+    wants_to_be_beekeeper: false
   });
   
   const supabase = createClient();
@@ -269,6 +270,12 @@ export default function SettingsPage() {
                   <User className="w-4 h-4 text-gray-400" />
                   <span className="capitalize">{profile?.beekeeping_type === 'business' ? 'Næringsbirøkter' : 'Hobbybirøkter'}</span>
                 </div>
+                {profile?.wants_to_be_beekeeper && (
+                    <div className="flex items-center gap-2 text-honey-700 bg-honey-50 p-2 rounded-lg border border-honey-100">
+                        <Briefcase className="w-4 h-4" />
+                        <span className="font-bold">Ønsker driftsoppdrag (LEK)</span>
+                    </div>
+                )}
                 {profile?.interests && profile.interests.length > 0 && (
                    <div className="mt-2 pt-2 border-t border-gray-200">
                      <p className="text-xs text-gray-500 font-bold uppercase mb-1">Interesser</p>
@@ -469,8 +476,8 @@ export default function SettingsPage() {
                     <div className="flex items-center gap-3 bg-green-50 p-3 rounded-lg border border-green-100">
                         <input
                         type="checkbox"
-                        name="wants_service_assignments"
-                        checked={formData.wants_service_assignments || false}
+                        name="wants_to_be_beekeeper"
+                        checked={formData.wants_to_be_beekeeper || false}
                         onChange={handleCheckboxChange}
                         className="w-5 h-5 text-honey-600 rounded"
                         />
@@ -611,6 +618,7 @@ export default function SettingsPage() {
                             <input
                             type="password"
                             name="confirmPassword"
+                            autoComplete="new-password"
                             value={passwordData.confirmPassword}
                             onChange={handlePasswordChange}
                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none"

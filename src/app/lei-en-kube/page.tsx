@@ -105,13 +105,10 @@ const OWNERSHIP_COSTS = [
   { item: 'Billigste håndslynge m/sil (varenr 3000)', price: 6900 },
   { item: 'Glass og etiketter til tapping', price: 600 },
   { item: 'Transport/ekstra medisiner/logistikk', price: 1000 },
+  { item: 'Ekstra magasin, dronningbur, tavler, småutstyr', price: 2000 },
 ];
 
-const HIDDEN_COSTS = [
-  { item: 'Ekstra magasin, dronningbur, tavler, småutstyr', price: 2000 },
-  { item: 'Glass og etiketter til tapping', price: 600 },
-  { item: 'Transport/ekstra medisiner/logistikk', price: 1000 },
-];
+const HIDDEN_COSTS: { item: string; price: number }[] = [];
 
 export default function RentHivePage() {
   const router = useRouter();
@@ -549,7 +546,7 @@ export default function RentHivePage() {
                         <tbody className="divide-y divide-gray-800">
                             <tr>
                                 <td className="p-4 font-medium text-white">Investering år 1</td>
-                                <td className="p-4 text-red-300">≈ 36 000 kr (høy risiko)</td>
+                                <td className="p-4 text-red-300">≈ 30 600 kr (høy risiko)</td>
                                 <td className="p-4 text-green-400">0 kr (kun leie)</td>
                             </tr>
                              <tr>
@@ -688,22 +685,25 @@ export default function RentHivePage() {
                           </div>
                         ))}
                         
-                        <div className="mt-4 pt-4 border-t border-dashed border-gray-300">
-                          <p className="font-bold text-gray-800 mb-2 flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4 text-orange-500" />
-                            Tillegg nesten alle kjøper første år:
-                          </p>
-                          {HIDDEN_COSTS.map((cost, idx) => (
-                            <div key={`hidden-${idx}`} className="flex justify-between py-1 text-gray-500 italic">
-                              <span>{cost.item}</span>
-                              <span>{cost.price.toLocaleString()} kr</span>
-                            </div>
-                          ))}
-                        </div>
+                        {/* Hidden Costs Removed - Merged into main list */}
+                        {HIDDEN_COSTS.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-dashed border-gray-300">
+                            <p className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 text-orange-500" />
+                              Tillegg nesten alle kjøper første år:
+                            </p>
+                            {HIDDEN_COSTS.map((cost, idx) => (
+                              <div key={`hidden-${idx}`} className="flex justify-between py-1 text-gray-500 italic">
+                                <span>{cost.item}</span>
+                                <span>{cost.price.toLocaleString()} kr</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
 
                         <div className="pt-4 flex justify-between font-bold text-lg border-t-2 border-gray-900 mt-4">
                           <span>TOTALT FØRSTE ÅR</span>
-                          <span className="text-red-600">≈ 26 500 kr</span>
+                          <span className="text-red-600">≈ 30 600 kr</span>
                         </div>
                         <p className="text-xs text-center text-gray-500 mt-2">
                           🔎 Mange blir overrasket. Bier er rimelig i drift – men dyrt å starte.
@@ -721,7 +721,7 @@ export default function RentHivePage() {
                           <div className="grid grid-cols-2 gap-4 text-sm mb-4 border-b border-gray-100 pb-4">
                             <div>
                               <p className="text-gray-500 text-xs">Kostnad første 12 mnd (Eie)</p>
-                              <p className="font-bold text-red-600 text-lg">26 500 kr</p>
+                              <p className="font-bold text-red-600 text-lg">30 600 kr</p>
                               <p className="text-xs text-gray-400">1 kube i 1 år</p>
                             </div>
                             <div>
@@ -736,7 +736,7 @@ export default function RentHivePage() {
                             <div className="text-sm text-green-800">
                               <p className="font-bold mb-1">Direkte verdi-sammenligning</p>
                               <p className="leading-relaxed">
-                                For samme sum som det koster å starte med 1 kube selv i 1 år, kan du leie 2 LEK-kuber i ca. 7 år.
+                                For samme sum som det koster å starte med 1 kube selv i 1 år, kan du leie 2 LEK-kuber i ca. 8,5 år.
                               </p>
                               <p className="mt-2 text-xs opacity-80 font-medium">
                                 Inkludert struktur, sesong-flyt, lokal oppfølging og digital LEK-kubelogging.
@@ -986,27 +986,52 @@ export default function RentHivePage() {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Betaling gjennomført!</h2>
             <p className="text-gray-500 mb-8">Takk for at du leier kuber hos oss.</p>
 
-            <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 text-left mb-8 font-mono text-sm relative">
-                <div className="flex justify-between mb-2">
-                    <span className="text-gray-500">Dato:</span>
-                    <span className="text-gray-900">{new Date().toLocaleDateString()}</span>
+            <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 text-left mb-8 font-mono text-sm relative shadow-inner">
+                <div className="flex justify-between mb-4 border-b border-gray-200 pb-2">
+                    <span className="font-bold text-gray-900">LEK-HONNING™ KVITTERING</span>
+                    <span className="text-gray-500">#{Math.floor(Math.random() * 100000)}</span>
                 </div>
-                <div className="flex justify-between mb-2">
-                    <span className="text-gray-500">Ref:</span>
-                    <span className="text-gray-900">LEK-{Math.floor(Math.random() * 100000)}</span>
+                
+                <div className="space-y-2 mb-4">
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Dato:</span>
+                        <span className="text-gray-900">{new Date().toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Kunde:</span>
+                        <span className="text-gray-900">{formData.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Adresse:</span>
+                        <span className="text-gray-900 truncate max-w-[200px]">{formData.address}</span>
+                    </div>
                 </div>
+
                 <div className="border-t border-dashed border-gray-300 my-4"></div>
-                <div className="flex justify-between mb-1">
-                    <span className="text-gray-900">Leie av {hiveCount} kuber</span>
-                    <span className="text-gray-900">{monthlyPrice} kr</span>
+                
+                <div className="space-y-2 mb-4">
+                    <div className="flex justify-between font-bold text-gray-700 border-b border-gray-200 pb-1">
+                        <span>Beskrivelse</span>
+                        <span>Beløp</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-900">Leie av {hiveCount} kuber (Mnd)</span>
+                        <span className="text-gray-900">{Math.round(monthlyPrice * 0.8)} kr</span>
+                    </div>
+                    <div className="flex justify-between text-gray-500 text-xs">
+                        <span>MVA (25%)</span>
+                        <span>{Math.round(monthlyPrice * 0.2)} kr</span>
+                    </div>
                 </div>
-                <div className="flex justify-between text-xs text-gray-500 mb-4">
-                    <span>Månedlig trekk</span>
-                </div>
-                <div className="border-t border-gray-300 my-4"></div>
+
+                <div className="border-t border-gray-900 my-4"></div>
+                
                 <div className="flex justify-between font-bold text-lg">
-                    <span>TOTALT</span>
+                    <span>TOTALT BELASTET</span>
                     <span>{monthlyPrice} kr</span>
+                </div>
+                <div className="mt-2 text-center text-xs text-gray-400">
+                    Betalt med kort **** **** **** 4242
                 </div>
             </div>
             
@@ -1015,7 +1040,15 @@ export default function RentHivePage() {
               Du finner kopi av avtalen på Min Side.
             </p>
             
-            <div className="flex justify-center gap-4">
+            <div className="flex justify-center gap-4 flex-wrap">
+              <button 
+                onClick={() => alert('PDF lastes ned... (Kommer i produksjon)')}
+                className="bg-white text-gray-700 border border-gray-300 px-6 py-3 rounded-xl font-bold hover:bg-gray-50 transition-colors flex items-center gap-2"
+              >
+                <FileText className="w-5 h-5" />
+                Last ned Kvittering
+              </button>
+
               <button 
                 onClick={() => router.push('/dashboard')}
                 className="bg-honey-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-honey-600 transition-colors shadow-lg"
@@ -1077,17 +1110,36 @@ export default function RentHivePage() {
                     <p className="text-sm text-amber-900 font-bold mb-1">
                         Hvorfor 4 kuber er "Anbefalt"?
                     </p>
-                    <p className="text-xs text-amber-800 leading-relaxed">
-                        Med 4 kuber produserer du nok honning til at vi kan kjøre en egen "Premium-batch" for deg (separat slynging). 
-                        Da får du din egen unike honning som du kan selge dyrt, i stedet for "blandings-honning" som er standard ved færre kuber.
+                    <p className="text-xs text-amber-800 leading-relaxed mb-3">
+                        Med 4 kuber får du nok volum til at vi kan slynge din honning separat. 
+                        Du får da DIN EGEN unike "Single Estate" honning med ditt navn på, som kan selges som eksklusiv vare. 
+                        Mindre volum må ofte blandes med andre (Standard).
                     </p>
+                    
+                    <div className="bg-white/60 rounded-lg p-3 text-xs border border-amber-100">
+                        <p className="font-bold text-amber-900 mb-1">💰 Din merverdi (Eksempel ved 20 kg salg):</p>
+                        <div className="flex justify-between mb-1">
+                            <span>Sommerhonning (Standard):</span>
+                            <span className="font-mono">4.000 kr</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-green-700 border-t border-amber-200 pt-1">
+                            <span>Din Premium Honning:</span>
+                            <span className="font-mono">8.000 kr</span>
+                        </div>
+                        <p className="text-right text-[10px] text-green-600 mt-1 italic">
+                            + 100% verdiøkning med eget navn!
+                        </p>
+                    </div>
                 </div>
 
                 <button 
-                  onClick={() => setIsPremiumModalOpen(false)}
-                  className="w-full bg-gray-900 text-white font-bold py-3 rounded-xl hover:bg-black transition-colors"
+                  onClick={() => {
+                    setIsPremiumModalOpen(false);
+                    scrollToOrder(4);
+                  }}
+                  className="w-full bg-honey-600 text-white font-bold py-3 rounded-xl hover:bg-honey-700 transition-colors shadow-lg transform hover:scale-[1.02]"
                 >
-                  Jeg skjønner!
+                  Jeg går for 4 kuber! 🍯
                 </button>
              </div>
           </div>

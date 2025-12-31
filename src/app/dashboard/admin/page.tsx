@@ -25,6 +25,8 @@ export default function AdminDashboard() {
     totalWarnings: 0
   });
   
+  const [riskyApiaries, setRiskyApiaries] = useState<any[]>([]);
+
   const supabase = createClient();
   const router = useRouter();
 
@@ -40,18 +42,15 @@ export default function AdminDashboard() {
         return;
       }
 
-      // Check if user is admin (In a real app, use RLS/Claims. Here we check profile role or email for pilot)
-      // For pilot simplicity: We'll assume the user is admin if they accessed this page, 
-      // or we could check a specific email like 'mattilsynet@lek.no'
-      
-      // Fetch Sickness Reports (Logs with action='SYKDOM')
-      const { data: sicknessLogs, error } = await supabase
+      // 1. Fetch Sickness Reports
+      const { data: sicknessLogs, error: logsError } = await supabase
         .from('hive_logs')
         .select(`
           *,
           hives (
             hive_number,
             apiaries (
+              id,
               name,
               location,
               user_id
@@ -61,19 +60,37 @@ export default function AdminDashboard() {
         .eq('action', 'SYKDOM')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (logsError) throw logsError;
 
-      if (sicknessLogs) {
+      // 2. Fetch All Apiaries for Contagion Tracing
+      const { data: allApiaries, error: apiaryError } = await supabase
+        .from('apiaries')
+        .select('*');
+      
+      if (apiaryError) throw apiaryError;
+
+      if (sicknessLogs && allApiaries) {
         setReports(sicknessLogs);
         
+        // Advanced Logic: Identify Risky Zones & Neighbors
+        const activeOutbreaks = sicknessLogs.filter(r => !r.details.includes('[VURDERT]'));
+        const outbreakLocations = Array.from(new Set(activeOutbreaks.map(r => r.hives?.apiaries?.location).filter(Boolean)));
+        
+        // Find apiaries in outbreak locations (excluding the infected ones)
+        const neighbors = allApiaries.filter(a => 
+            outbreakLocations.includes(a.location) && 
+            !activeOutbreaks.some(o => o.hives?.apiaries?.id === a.id)
+        );
+
+        setRiskyApiaries(neighbors);
+
         // Calculate stats
-        const active = sicknessLogs.filter(r => !r.details.includes('[VURDERT]')).length;
-        const reviewed = sicknessLogs.length - active;
+        const reviewed = sicknessLogs.length - activeOutbreaks.length;
         
         setStats({
-          activeCases: active,
+          activeCases: activeOutbreaks.length,
           reviewedCases: reviewed,
-          totalWarnings: sicknessLogs.length * 4 // Simulated 4 neighbors warned per case
+          totalWarnings: neighbors.length // Real count of neighbors warned
         });
       }
 
@@ -262,6 +279,39 @@ export default function AdminDashboard() {
             )}
           </div>
         </div>
+
+        {/* Risky Apiaries Section */}
+        {riskyApiaries.length > 0 && (
+          <div className="mt-8 bg-amber-50 rounded-xl shadow-sm border border-amber-200 overflow-hidden">
+            <div className="p-4 border-b border-amber-200 bg-amber-100 flex justify-between items-center">
+              <h2 className="font-bold text-amber-900 flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-amber-700" />
+                Utsatte Bigårder (Smittevern)
+              </h2>
+              <span className="text-xs text-amber-800 bg-amber-200 px-2 py-1 rounded-full">
+                {riskyApiaries.length} i faresonen
+              </span>
+            </div>
+            <div className="p-4">
+              <p className="text-sm text-amber-800 mb-3">
+                Disse bigårdene befinner seg i samme område som bekreftet smitte og bør følges opp ekstra nøye.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {riskyApiaries.map((apiary) => (
+                  <div key={apiary.id} className="bg-white p-3 rounded-lg border border-amber-200 text-sm flex justify-between items-center">
+                    <div>
+                      <p className="font-bold text-gray-900">{apiary.name}</p>
+                      <p className="text-xs text-gray-500">{apiary.location}</p>
+                    </div>
+                    <button className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded hover:bg-amber-200">
+                      Varsle eier
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Warning Log (Pilot Static) */}
         <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6 opacity-75">
