@@ -11,6 +11,9 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [apiary, setApiary] = useState<any>(null);
   const [hives, setHives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rental, setRental] = useState<any>(null);
+  const [inspections, setInspections] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   
   // Selection State
   const [selectedHiveIds, setSelectedHiveIds] = useState<Set<string>>(new Set());
@@ -28,6 +31,11 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [scannedHives, setScannedHives] = useState<{ number: string, status: 'created' | 'moved' | 'error', msg: string }[]>([]);
   const [isProcessingScan, setIsProcessingScan] = useState(false);
 
+  // RSVP State
+  const [rsvpInspectionId, setRsvpInspectionId] = useState<string | null>(null);
+  const [rsvpCount, setRsvpCount] = useState(1);
+  const [rsvpSizes, setRsvpSizes] = useState('');
+
   const supabase = createClient();
   const router = useRouter();
 
@@ -42,6 +50,10 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   }, [isMoveModalOpen]);
 
   const fetchData = async () => {
+    // 0. Fetch User
+    const { data: { user } } = await supabase.auth.getUser();
+    setCurrentUser(user);
+
     // 1. Fetch Apiary
     const { data: apiaryData, error: apiaryError } = await supabase
       .from('apiaries')
@@ -55,6 +67,24 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       return;
     }
     setApiary(apiaryData);
+
+    // 1.1 Fetch Rental Info (if rental type)
+    if (apiaryData.type === 'rental') {
+        const { data: rentalData } = await supabase
+            .from('rentals')
+            .select('*')
+            .eq('apiary_id', params.id)
+            .maybeSingle(); // Use maybeSingle as it might not be linked yet if manually created
+        if (rentalData) setRental(rentalData);
+
+        // 1.2 Fetch Inspections
+        const { data: inspectionsData } = await supabase
+            .from('inspections')
+            .select('*, beekeeper:profiles(full_name)')
+            .eq('apiary_id', params.id)
+            .order('planned_date', { ascending: true });
+        if (inspectionsData) setInspections(inspectionsData);
+    }
 
     // 2. Fetch Hives
     const { data: hivesData } = await supabase
@@ -279,6 +309,59 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     }
   };
 
+  // --- RENTAL MANAGEMENT LOGIC ---
+  const handleUpdateDeliveryDate = async (date: string) => {
+    if (!rental) return;
+    
+    const { error } = await supabase
+        .from('rentals')
+        .update({ estimated_delivery_date: date })
+        .eq('id', rental.id);
+
+    if (error) {
+        alert('Kunne ikke oppdatere leveringsdato: ' + error.message);
+    } else {
+        fetchData();
+    }
+  };
+
+  const handleCreateInspection = async (date: string) => {
+    if (!date) return;
+    
+    const { error } = await supabase
+        .from('inspections')
+        .insert({
+            apiary_id: params.id,
+            rental_id: rental?.id,
+            beekeeper_id: currentUser?.id,
+            planned_date: date,
+            status: 'planned'
+        });
+
+    if (error) {
+        alert('Kunne ikke opprette inspeksjon: ' + error.message);
+    } else {
+        fetchData();
+    }
+  };
+
+  const handleRSVP = async (inspectionId: string, status: string, count: number = 0, sizes: string[] = []) => {
+    const { error } = await supabase
+        .from('inspections')
+        .update({
+            tenant_rsvp_status: status,
+            attendees_count: count,
+            suit_sizes: sizes
+        })
+        .eq('id', inspectionId);
+
+    if (error) {
+        alert('Kunne ikke oppdatere RSVP: ' + error.message);
+    } else {
+        fetchData();
+    }
+  };
+
   // --- DELETE APIARY LOGIC ---
   const handleDeleteApiary = async () => {
     if (hives.length > 0) {
@@ -385,7 +468,155 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
            </div>
         </div>
 
-        {/* Bulk Actions Toolbar (visible when selecting) */}
+        {/* Rental Management Section */}
+        {(apiary.type === 'rental' && (apiary.managed_by === currentUser?.id || apiary.user_id === currentUser?.id)) && (
+          <div className="bg-white rounded-xl border border-honey-200 shadow-sm overflow-hidden">
+            <div className="bg-honey-50 px-4 py-3 border-b border-honey-100 flex justify-between items-center">
+               <h2 className="font-bold text-honey-900 flex items-center gap-2">
+                 <Truck className="w-5 h-5" />
+                 Leieavtale & Levering
+               </h2>
+               <span className="text-xs font-bold uppercase bg-white px-2 py-1 rounded text-honey-800 border border-honey-200">
+                 {rental?.status || 'PENDING'}
+               </span>
+            </div>
+            
+            <div className="p-4 space-y-4">
+               {/* Delivery Date */}
+               <div className="flex justify-between items-center">
+                 <div>
+                   <label className="text-xs text-gray-500 font-bold uppercase block mb-1">Planlagt Levering</label>
+                   {apiary.managed_by === currentUser?.id ? (
+                      <input 
+                        type="date" 
+                        className="border border-gray-300 rounded px-2 py-1 text-sm"
+                        value={rental?.estimated_delivery_date ? new Date(rental.estimated_delivery_date).toISOString().split('T')[0] : ''}
+                        onChange={(e) => handleUpdateDeliveryDate(e.target.value)}
+                      />
+                   ) : (
+                      <div className="font-medium text-gray-900">
+                        {rental?.estimated_delivery_date 
+                           ? new Date(rental.estimated_delivery_date).toLocaleDateString() 
+                           : 'Ikke satt enda'}
+                      </div>
+                   )}
+                 </div>
+                 
+                 {apiary.managed_by === currentUser?.id && (
+                    <button className="text-sm bg-honey-500 text-white px-3 py-1.5 rounded hover:bg-honey-600">
+                       Oppdater Status
+                    </button>
+                 )}
+               </div>
+
+               {/* Inspections List */}
+               <div className="border-t border-gray-100 pt-4">
+                  <div className="flex justify-between items-center mb-3">
+                     <h3 className="font-bold text-gray-900 text-sm">Inspeksjoner</h3>
+                     {apiary.managed_by === currentUser?.id && (
+                        <button 
+                            onClick={() => {
+                                const date = prompt('Dato for inspeksjon (YYYY-MM-DD):');
+                                if (date) handleCreateInspection(date);
+                            }}
+                            className="text-xs bg-gray-900 text-white px-2 py-1 rounded hover:bg-gray-800"
+                        >
+                            + Ny Inspeksjon
+                        </button>
+                     )}
+                  </div>
+                  
+                  {inspections.length === 0 ? (
+                      <p className="text-sm text-gray-500 italic">Ingen planlagte inspeksjoner.</p>
+                  ) : (
+                      <div className="space-y-2">
+                         {inspections.map(insp => (
+                            <div key={insp.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex justify-between items-start">
+                               <div>
+                                  <div className="font-bold text-gray-900">
+                                     {new Date(insp.planned_date).toLocaleDateString()}
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                     Ansvarlig: {insp.beekeeper?.full_name || 'Birøkter'}
+                                  </div>
+                                  {insp.tenant_rsvp_status !== 'pending' && (
+                                     <div className="mt-1 text-xs">
+                                        <span className={`font-bold ${insp.tenant_rsvp_status === 'attending' ? 'text-green-600' : 'text-red-500'}`}>
+                                           {insp.tenant_rsvp_status === 'attending' ? `Kommer (${insp.attendees_count} pers)` : 'Kan ikke'}
+                                        </span>
+                                        {insp.suit_sizes && (
+                                            <div className="text-gray-500">Str: {Array.isArray(insp.suit_sizes) ? insp.suit_sizes.join(', ') : JSON.stringify(insp.suit_sizes)}</div>
+                                        )}
+                                     </div>
+                                  )}
+                               </div>
+                               
+                               {/* RSVP Action for Tenant */}
+                               {apiary.user_id === currentUser?.id && insp.status === 'planned' && (
+                                   <div className="flex flex-col gap-1">
+                                      {rsvpInspectionId === insp.id ? (
+                                         <div className="bg-white p-2 rounded shadow-sm border border-gray-200 text-right">
+                                             <div className="mb-2 text-left bg-blue-50 p-2 rounded text-[10px] text-blue-800">
+                                                <p className="font-bold">Betaling:</p>
+                                                <p>Inspeksjon/Leie av drakt betales via Vipps.</p>
+                                             </div>
+                                             <input 
+                                                 type="number" min="1" 
+                                                 className="border p-1 w-16 text-sm mb-1" 
+                                                 placeholder="Antall"
+                                                 value={rsvpCount}
+                                                 onChange={e => setRsvpCount(parseInt(e.target.value))}
+                                             />
+                                             <input 
+                                                 type="text" 
+                                                 className="border p-1 w-24 text-sm mb-1" 
+                                                 placeholder="Str (S,M,L)"
+                                                 value={rsvpSizes}
+                                                 onChange={e => setRsvpSizes(e.target.value)}
+                                             />
+                                             <div className="flex gap-1 justify-end mt-1">
+                                                <button onClick={() => setRsvpInspectionId(null)} className="text-xs text-gray-500">Avbryt</button>
+                                                <button 
+                                                    onClick={() => {
+                                                        const sizes = rsvpSizes.split(',').map(s => s.trim());
+                                                        // Simulate Vipps payment flow here
+                                                        if (confirm(`Betal ${rsvpCount * 150} kr med Vipps og bekreft?`)) {
+                                                            handleRSVP(insp.id, 'attending', rsvpCount, sizes);
+                                                            setRsvpInspectionId(null);
+                                                        }
+                                                    }}
+                                                    className="text-xs bg-[#ff5b24] text-white px-2 py-1 rounded font-bold flex items-center gap-1"
+                                                >
+                                                    <span>Vipps & Bekreft</span>
+                                                </button>
+                                             </div>
+                                          </div>
+                                      ) : (
+                                        <>
+                                          <button 
+                                            onClick={() => setRsvpInspectionId(insp.id)}
+                                            className="text-xs bg-honey-100 text-honey-800 px-2 py-1 rounded font-medium hover:bg-honey-200"
+                                          >
+                                            Bli med 👋
+                                          </button>
+                                          <button 
+                                            onClick={() => handleRSVP(insp.id, 'not_attending')}
+                                            className="text-xs text-gray-400 hover:text-gray-600 underline"
+                                          >
+                                            Kan ikke
+                                          </button>
+                                        </>
+                                      )}
+                                   </div>
+                               )}
+                            </div>
+                         ))}
+                      </div>
+                  )}
+               </div>
+            </div>
+          </div>
+        )}
         {isSelectionMode && (
           <div className="fixed bottom-20 left-4 right-4 bg-gray-900 text-white p-4 rounded-xl shadow-xl flex justify-between items-center z-20 animate-in slide-in-from-bottom-10">
             <div className="flex items-center gap-3">

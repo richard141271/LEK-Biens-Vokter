@@ -45,6 +45,10 @@ export default function DashboardPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [nearbyAlerts, setNearbyAlerts] = useState<any[]>([]); // New State for Alerts
   
+  // Rental & Mission State
+  const [activeRental, setActiveRental] = useState<any>(null);
+  const [pendingMissionsCount, setPendingMissionsCount] = useState(0);
+
   // Data State
   const [allHives, setAllHives] = useState<any[]>([]);
 
@@ -113,6 +117,37 @@ export default function DashboardPage() {
         .limit(3);
 
         if (alerts) setNearbyAlerts(alerts);
+
+        // Fetch Rental Status (For Tenants)
+        if (profileData?.role === 'tenant') {
+            const { data: rental } = await supabase
+                .from('rentals')
+                .select(`
+                    *,
+                    assigned_beekeeper:assigned_beekeeper_id (
+                        full_name,
+                        phone_number,
+                        email
+                    )
+                `)
+                .eq('user_id', user.id)
+                .in('status', ['pending', 'assigned', 'active'])
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+            
+            if (rental) setActiveRental(rental);
+        }
+
+        // Fetch Pending Missions (For Beekeepers)
+        if (profileData?.role === 'beekeeper') {
+            const { count } = await supabase
+                .from('rentals')
+                .select('*', { count: 'exact', head: true })
+                .eq('status', 'pending');
+            
+            setPendingMissionsCount(count || 0);
+        }
 
         // Fetch Apiaries for dropdown
         const { data: apiariesData } = await supabase
@@ -331,6 +366,72 @@ export default function DashboardPage() {
                     ))}
                 </div>
             </div>
+          )}
+
+          {/* RENTAL STATUS (For Tenants) */}
+          {activeRental && (
+            <div className="bg-white rounded-xl border border-honey-200 shadow-sm p-4 mb-2">
+                <div className="flex justify-between items-start mb-2">
+                    <div>
+                        <h3 className="font-bold text-gray-900 text-sm">Min Leieavtale</h3>
+                        <p className="text-xs text-gray-500">{activeRental.hive_count} Bikuber</p>
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                        activeRental.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        activeRental.status === 'assigned' ? 'bg-blue-100 text-blue-800' :
+                        'bg-green-100 text-green-800'
+                    }`}>
+                        {activeRental.status === 'pending' ? 'Søker birøkter...' :
+                         activeRental.status === 'assigned' ? 'Birøkter tildelt' : 'Aktiv'}
+                    </span>
+                </div>
+
+                {activeRental.status === 'pending' && (
+                    <div className="text-xs text-gray-600 bg-yellow-50 p-2 rounded-lg">
+                        <p>Vi sender forespørselen din til nærmeste ledige birøktere. Du får beskjed så snart noen tar oppdraget!</p>
+                    </div>
+                )}
+
+                {(activeRental.status === 'assigned' || activeRental.status === 'active') && activeRental.assigned_beekeeper && (
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs text-gray-700 bg-gray-50 p-2 rounded-lg">
+                            <User className="w-4 h-4 text-gray-400" />
+                            <div>
+                                <p className="font-bold">Din Birøkter:</p>
+                                <p>{activeRental.assigned_beekeeper.full_name}</p>
+                            </div>
+                        </div>
+
+                        <div className="text-xs">
+                            <p className="font-bold text-gray-900 mb-1">Status:</p>
+                            <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${activeRental.delivery_status === 'pending' ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`} />
+                                <p className="text-gray-600">
+                                    {activeRental.delivery_status === 'pending' || !activeRental.delivery_status ? 'Kubene er under produksjon/klargjøring' :
+                                     activeRental.delivery_status === 'assigned' ? 'Klargjøres for levering' :
+                                     activeRental.delivery_status === 'delivered' ? 'Levert og installert!' : activeRental.delivery_status}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+          )}
+
+          {/* MISSIONS ALERT (For Beekeepers) */}
+          {pendingMissionsCount > 0 && profile?.role === 'beekeeper' && (
+              <Link href="/dashboard/missions" className="block mb-2">
+                <div className="bg-honey-500 text-white rounded-xl p-4 shadow-lg flex items-center justify-between animate-pulse">
+                    <div>
+                        <h3 className="font-bold text-sm flex items-center gap-2">
+                            <ShieldCheck className="w-4 h-4" />
+                            Nye Oppdrag Tilgjengelig!
+                        </h3>
+                        <p className="text-xs text-honey-100 mt-1">{pendingMissionsCount} leietakere i ditt område venter på hjelp.</p>
+                    </div>
+                    <ChevronDown className="w-5 h-5 -rotate-90" />
+                </div>
+              </Link>
           )}
 
           {/* Navigation Cards (formerly Stats) */}
