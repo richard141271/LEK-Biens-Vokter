@@ -232,38 +232,45 @@ export default function RentHivePage() {
       }
 
       // 3. Create Rental Record
+      // Ensure we handle the case where no beekeeper is found
+      const rentalData = {
+        user_id: user.id,
+        hive_count: hiveCount,
+        total_price: monthlyPrice,
+        status: 'active', 
+        contact_name: formData.name,
+        contact_organization: formData.organization,
+        contact_address: formData.address,
+        contact_phone: formData.phone,
+        contact_email: formData.email,
+        contract_signed: true,
+        contract_signed_at: new Date().toISOString(),
+        signature_text: formData.signature,
+        notes: `Bestilt via LEK-app. Månedspris: ${monthlyPrice} kr.`,
+        latitude: userCoords.lat,
+        longitude: userCoords.lng,
+        assigned_beekeeper_id: nearestBeekeeperId, // Can be null
+        distance_to_beekeeper: minDistance === Infinity ? null : minDistance
+      };
+
       const { error } = await supabase
         .from('rentals')
-        .insert({
-          user_id: user.id,
-          hive_count: hiveCount,
-          total_price: monthlyPrice,
-          status: 'active', 
-          contact_name: formData.name,
-          contact_organization: formData.organization,
-          contact_address: formData.address,
-          contact_phone: formData.phone,
-          contact_email: formData.email,
-          contract_signed: true,
-          contract_signed_at: new Date().toISOString(),
-          signature_text: formData.signature,
-          notes: `Bestilt via LEK-app. Månedspris: ${monthlyPrice} kr.`,
-          latitude: userCoords.lat,
-          longitude: userCoords.lng,
-          assigned_beekeeper_id: nearestBeekeeperId,
-          distance_to_beekeeper: minDistance === Infinity ? null : minDistance
-        });
+        .insert(rentalData);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase rental insert error:', error);
+        throw new Error(error.message || 'Kunne ikke opprette leieavtale');
+      }
 
       // Simulate payment processing time
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // 4. Success
       setStep('success');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error creating rental:', err);
-      alert('Noe gikk galt. Prøv igjen.');
+      // Show specific error message if available, otherwise generic
+      alert(`Noe gikk galt: ${err.message || 'Prøv igjen.'}`);
     } finally {
       setLoading(false);
     }
