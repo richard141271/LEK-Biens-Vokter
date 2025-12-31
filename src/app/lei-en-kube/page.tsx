@@ -282,10 +282,8 @@ export default function RentHivePage() {
         contract_signed_at: new Date().toISOString(),
         signature_text: formData.signature,
         notes: `Bestilt via LEK-app. Månedspris: ${monthlyPrice} kr.`,
-        // latitude: userCoords.lat, // Removed as column missing in DB
-        // longitude: userCoords.lng, // Removed as column missing in DB
-        assigned_beekeeper_id: nearestBeekeeperId, 
-        distance_to_beekeeper: minDistance === Infinity ? null : minDistance
+        assigned_beekeeper_id: nearestBeekeeperId || null, // Ensure explicit null if undefined
+        distance_to_beekeeper: (minDistance === Infinity || minDistance === undefined) ? null : minDistance
       };
 
       const { error } = await supabase

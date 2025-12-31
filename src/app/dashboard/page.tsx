@@ -178,11 +178,12 @@ export default function DashboardPage() {
         }
 
         // Fetch Pending Missions (For Beekeepers)
-        if (profileData?.role === 'beekeeper') {
+        if (profileData?.role === 'beekeeper' || profileData?.role === 'admin') {
             const { count } = await supabase
                 .from('rentals')
                 .select('*', { count: 'exact', head: true })
-                .eq('status', 'pending');
+                .eq('status', 'active')
+                .is('apiary_id', null);
             
             setPendingMissionsCount(count || 0);
         }
@@ -483,14 +484,14 @@ export default function DashboardPage() {
 
           {/* MISSIONS ALERT (For Beekeepers) */}
           {pendingMissionsCount > 0 && profile?.role === 'beekeeper' && (
-              <Link href="/dashboard/missions" className="block mb-2">
-                <div className="bg-honey-500 text-white rounded-xl p-4 shadow-lg flex items-center justify-between animate-pulse">
+              <Link href="/dashboard/beekeeper/rentals" className="block mb-2">
+                <div className="bg-red-500 text-white rounded-xl p-4 shadow-lg flex items-center justify-between animate-pulse">
                     <div>
                         <h3 className="font-bold text-sm flex items-center gap-2">
                             <ShieldCheck className="w-4 h-4" />
                             Nye Oppdrag Tilgjengelig!
                         </h3>
-                        <p className="text-xs text-honey-100 mt-1">{pendingMissionsCount} leietakere i ditt område venter på hjelp.</p>
+                        <p className="text-xs text-red-100 mt-1">{pendingMissionsCount} leietakere i ditt område venter på hjelp.</p>
                     </div>
                     <ChevronDown className="w-5 h-5 -rotate-90" />
                 </div>
