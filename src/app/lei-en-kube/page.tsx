@@ -135,14 +135,43 @@ export default function RentHivePage() {
     signature: ''
   });
 
-  // Fetch User
+  // Fetch User & Profile
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+      
       if (user) {
-        // Pre-fill email if available
-        setFormData(prev => ({...prev, email: user.email || ''}));
+        try {
+          // Fetch profile data
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
+          if (profile) {
+            const fullAddress = [
+              profile.address,
+              profile.postal_code,
+              profile.city
+            ].filter(Boolean).join(', ');
+
+            setFormData(prev => ({
+              ...prev,
+              email: user.email || '',
+              name: profile.full_name || prev.name,
+              address: fullAddress || prev.address,
+              phone: profile.phone_number || prev.phone,
+              organization: prev.organization // Keep existing if any
+            }));
+          } else {
+             setFormData(prev => ({...prev, email: user.email || ''}));
+          }
+        } catch (error) {
+          console.error('Error fetching profile:', error);
+          setFormData(prev => ({...prev, email: user.email || ''}));
+        }
       }
     };
     getUser();
@@ -251,8 +280,8 @@ export default function RentHivePage() {
         notes: `Bestilt via LEK-app. Månedspris: ${monthlyPrice} kr.`,
         latitude: userCoords.lat,
         longitude: userCoords.lng,
-        assigned_beekeeper_id: nearestBeekeeperId, // Can be null
-        distance_to_beekeeper: minDistance === Infinity ? null : minDistance
+        // assigned_beekeeper_id: nearestBeekeeperId, // TODO: Enable when migration is applied
+        // distance_to_beekeeper: minDistance === Infinity ? null : minDistance
       };
 
       const { error } = await supabase
