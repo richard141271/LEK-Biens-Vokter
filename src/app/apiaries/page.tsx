@@ -41,17 +41,36 @@ export default function ApiariesPage() {
     setProfile(profileData);
 
     // Fetch Apiaries
-    const { data, error } = await supabase
+    const { data: apiaryData } = await supabase
       .from('apiaries')
       .select('*, hives(id, active)')
       .order('created_at', { ascending: false });
 
-    if (data) setApiaries(data);
+    // Fetch Pending Rentals (Apiaries under construction)
+    const { data: rentalData } = await supabase
+      .from('rentals')
+      .select('*')
+      .eq('user_id', user.id)
+      .is('apiary_id', null)
+      .eq('status', 'active');
+
+    // Combine: Map rentals to temporary apiary objects
+    const pendingApiaries = (rentalData || []).map(rental => ({
+      id: `pending-${rental.id}`,
+      name: rental.contact_name ? `${rental.contact_name} sin hage` : 'Ny bigård (leie)',
+      location: rental.contact_address || 'Adresse kommer',
+      type: 'rental_pending',
+      hives: Array(rental.hive_count).fill({ active: true }), // Placeholder hives
+      is_pending: true
+    }));
+
+    if (apiaryData) setApiaries([...pendingApiaries, ...apiaryData]);
     setLoading(false);
   };
 
   const getIcon = (type: string) => {
     switch (type) {
+      case 'rental_pending': return Store; // Or a specific icon for pending
       case 'lager': return Warehouse;
       case 'bil': return Truck;
       case 'oppstart': return Store;
@@ -127,6 +146,28 @@ export default function ApiariesPage() {
             const Icon = getIcon(apiary.type);
             const activeHiveCount = apiary.hives?.filter((h: any) => h.active).length || 0;
             const isSelected = selectedApiaries.includes(apiary.id);
+
+            if (apiary.is_pending) {
+              return (
+                <div key={apiary.id} className="relative group opacity-75">
+                  <div className="bg-white p-4 rounded-xl border border-dashed border-honey-300 shadow-sm flex items-center gap-4">
+                    <div className="w-12 h-12 bg-honey-50 rounded-full flex items-center justify-center text-honey-600 shrink-0 animate-pulse">
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start gap-2">
+                        <h3 className="font-bold text-gray-900 truncate">{apiary.name}</h3>
+                        <span className="text-xs font-bold bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                          Under opprettelse
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-500 truncate">{apiary.location}</p>
+                      <p className="text-xs text-honey-600 mt-1">Venter på godkjenning fra birøkter</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <div key={apiary.id} className="relative group">
