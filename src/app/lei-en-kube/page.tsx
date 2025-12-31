@@ -20,6 +20,7 @@ import {
   X,
   Info
 } from 'lucide-react';
+import { getDistanceFromLatLonInM } from '@/utils/geo';
 
 // --- CONTRACT TEXT CONSTANT ---
 const CONTRACT_TEXT = `
@@ -186,14 +187,57 @@ export default function RentHivePage() {
     setLoading(true);
 
     try {
-      // 1. Create Rental Record
-      // We store the monthly price as 'total_price' for now, but added a note about billing frequency
+      // 1. Geocode User Address (Pilot Simulation)
+      let userCoords = { lat: 59.91, lng: 10.75 }; // Default Oslo
+      const addr = formData.address.toLowerCase();
+      
+      if (addr.includes('halden')) userCoords = { lat: 59.12, lng: 11.38 };
+      else if (addr.includes('sarpsborg')) userCoords = { lat: 59.28, lng: 11.11 };
+      else if (addr.includes('fredrikstad')) userCoords = { lat: 59.21, lng: 10.93 };
+      else if (addr.includes('moss')) userCoords = { lat: 59.43, lng: 10.66 };
+
+      // 2. Find Nearest Beekeeper
+      // Fetch all profiles that want to be beekeepers
+      const { data: potentialBeekeepers } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('wants_to_be_beekeeper', true);
+
+      let nearestBeekeeperId = null;
+      let minDistance = Infinity;
+
+      if (potentialBeekeepers && potentialBeekeepers.length > 0) {
+        potentialBeekeepers.forEach(bk => {
+          // If beekeeper has no coords, skip (or mock)
+          if (!bk.latitude || !bk.longitude) return;
+
+          const dist = getDistanceFromLatLonInM(
+            userCoords.lat, 
+            userCoords.lng, 
+            bk.latitude, 
+            bk.longitude
+          );
+
+          if (dist < minDistance) {
+            minDistance = dist;
+            nearestBeekeeperId = bk.id;
+          }
+        });
+      }
+
+      // If no beekeeper found with coords, maybe pick the first one just for pilot flow?
+      if (!nearestBeekeeperId && potentialBeekeepers && potentialBeekeepers.length > 0) {
+        nearestBeekeeperId = potentialBeekeepers[0].id; // Fallback
+        minDistance = 0; // Unknown
+      }
+
+      // 3. Create Rental Record
       const { error } = await supabase
         .from('rentals')
         .insert({
           user_id: user.id,
           hive_count: hiveCount,
-          total_price: monthlyPrice, // Storing monthly price
+          total_price: monthlyPrice,
           status: 'active', 
           contact_name: formData.name,
           contact_organization: formData.organization,
@@ -203,7 +247,11 @@ export default function RentHivePage() {
           contract_signed: true,
           contract_signed_at: new Date().toISOString(),
           signature_text: formData.signature,
-          notes: `Bestilt via LEK-app. Månedspris: ${monthlyPrice} kr.`
+          notes: `Bestilt via LEK-app. Månedspris: ${monthlyPrice} kr.`,
+          latitude: userCoords.lat,
+          longitude: userCoords.lng,
+          assigned_beekeeper_id: nearestBeekeeperId,
+          distance_to_beekeeper: minDistance === Infinity ? null : minDistance
         });
 
       if (error) throw error;
@@ -211,7 +259,7 @@ export default function RentHivePage() {
       // Simulate payment processing time
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // 2. Success
+      // 4. Success
       setStep('success');
     } catch (err) {
       console.error('Error creating rental:', err);

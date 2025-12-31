@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+import { getDistanceFromLatLonInM } from '@/utils/geo';
 import { 
   ShieldAlert, 
   Map, 
@@ -13,12 +15,20 @@ import {
   ChevronRight,
   AlertTriangle,
   Search,
-  Activity
+  Activity,
+  Settings
 } from 'lucide-react';
+
+const MapComponent = dynamic(() => import('@/components/Map'), { 
+  ssr: false,
+  loading: () => <div className="h-96 w-full bg-gray-100 animate-pulse rounded-xl flex items-center justify-center text-gray-400">Laster kart...</div>
+});
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [reports, setReports] = useState<any[]>([]);
+  const [showMap, setShowMap] = useState(false);
+  const [radius, setRadius] = useState(3000); // Default 3km
   const [stats, setStats] = useState({
     activeCases: 0,
     reviewedCases: 0,
@@ -26,6 +36,8 @@ export default function AdminDashboard() {
   });
   
   const [riskyApiaries, setRiskyApiaries] = useState<any[]>([]);
+  const [mapMarkers, setMapMarkers] = useState<any[]>([]);
+  const [dangerZones, setDangerZones] = useState<any[]>([]);
 
   const supabase = createClient();
   const router = useRouter();
@@ -33,6 +45,97 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchAdminData();
   }, []);
+
+  useEffect(() => {
+    if (reports.length > 0) {
+      calculateRisk();
+    }
+  }, [reports, radius]);
+
+  // Mock coordinates for pilot testing
+  const getMockCoordinates = (location: string, id: string) => {
+    // Deterministic pseudo-random based on ID char codes
+    const seed = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const randomOffset = (seed % 100) / 10000; // Small offset
+
+    if (location?.toLowerCase().includes('halden')) return { lat: 59.12 + randomOffset, lng: 11.38 + randomOffset };
+    if (location?.toLowerCase().includes('sarpsborg')) return { lat: 59.28 + randomOffset, lng: 11.11 + randomOffset };
+    if (location?.toLowerCase().includes('fredrikstad')) return { lat: 59.21 + randomOffset, lng: 10.93 + randomOffset };
+    
+    // Default fallback (Oslo area)
+    return { lat: 59.91 + randomOffset, lng: 10.75 + randomOffset };
+  };
+
+  const calculateRisk = async () => {
+    const { data: allApiaries } = await supabase.from('apiaries').select('*');
+    if (!allApiaries) return;
+
+    // Enhance apiaries with coordinates (use DB or Mock)
+    const enhancedApiaries = allApiaries.map(a => {
+        const coords = a.latitude && a.longitude 
+            ? { lat: a.latitude, lng: a.longitude } 
+            : getMockCoordinates(a.location, a.id);
+        return { ...a, ...coords };
+    });
+
+    // Identify Outbreaks
+    const activeOutbreaks = reports.filter(r => !r.details.includes('[VURDERT]'));
+    
+    // Map Outbreaks to Apiaries
+    const outbreakApiaries = activeOutbreaks.map(r => {
+        const apiary = enhancedApiaries.find(a => a.id === r.hives?.apiaries?.id);
+        return apiary ? { ...apiary, logId: r.id } : null;
+    }).filter(Boolean);
+
+    // Find Neighbors within Radius
+    let neighbors: any[] = [];
+    const zones: any[] = [];
+
+    outbreakApiaries.forEach(source => {
+        if (!source) return;
+
+        zones.push({
+            center: [source.lat, source.lng],
+            radius: radius,
+            color: 'red'
+        });
+
+        const localNeighbors = enhancedApiaries.filter(target => {
+            if (target.id === source.id) return false; // Skip self
+            const dist = getDistanceFromLatLonInM(source.lat, source.lng, target.lat, target.lng);
+            return dist <= radius;
+        });
+        neighbors = [...neighbors, ...localNeighbors];
+    });
+
+    // Deduplicate
+    neighbors = [...new Set(neighbors.map(n => n.id))].map(id => enhancedApiaries.find(a => a.id === id));
+
+    setRiskyApiaries(neighbors);
+    setDangerZones(zones);
+
+    // Prepare Map Markers
+    const markers = enhancedApiaries.map(a => {
+        const isInfected = outbreakApiaries.some(o => o.id === a.id);
+        const isRisky = neighbors.some(n => n.id === a.id);
+        
+        return {
+            id: a.id,
+            position: [a.lat, a.lng],
+            title: a.name,
+            type: isInfected ? 'infected' : (isRisky ? 'risky' : 'healthy'),
+            description: isInfected ? 'Aktivt utbrudd!' : (isRisky ? `Innenfor ${radius}m sone` : 'Ingen anmerkninger')
+        };
+    });
+
+    setMapMarkers(markers);
+
+    // Update Stats
+    setStats(prev => ({
+        ...prev,
+        totalWarnings: neighbors.length
+    }));
+  };
 
   const fetchAdminData = async () => {
     try {
@@ -62,36 +165,18 @@ export default function AdminDashboard() {
 
       if (logsError) throw logsError;
 
-      // 2. Fetch All Apiaries for Contagion Tracing
-      const { data: allApiaries, error: apiaryError } = await supabase
-        .from('apiaries')
-        .select('*');
-      
-      if (apiaryError) throw apiaryError;
-
-      if (sicknessLogs && allApiaries) {
+      if (sicknessLogs) {
         setReports(sicknessLogs);
         
-        // Advanced Logic: Identify Risky Zones & Neighbors
-        const activeOutbreaks = sicknessLogs.filter(r => !r.details.includes('[VURDERT]'));
-        const outbreakLocations = Array.from(new Set(activeOutbreaks.map(r => r.hives?.apiaries?.location).filter(Boolean)));
+        // Initial stats
+        const active = sicknessLogs.filter(r => !r.details.includes('[VURDERT]')).length;
+        const reviewed = sicknessLogs.length - active;
         
-        // Find apiaries in outbreak locations (excluding the infected ones)
-        const neighbors = allApiaries.filter(a => 
-            outbreakLocations.includes(a.location) && 
-            !activeOutbreaks.some(o => o.hives?.apiaries?.id === a.id)
-        );
-
-        setRiskyApiaries(neighbors);
-
-        // Calculate stats
-        const reviewed = sicknessLogs.length - activeOutbreaks.length;
-        
-        setStats({
-          activeCases: activeOutbreaks.length,
-          reviewedCases: reviewed,
-          totalWarnings: neighbors.length // Real count of neighbors warned
-        });
+        setStats(prev => ({
+          ...prev,
+          activeCases: active,
+          reviewedCases: reviewed
+        }));
       }
 
     } catch (e) {
@@ -182,8 +267,8 @@ export default function AdminDashboard() {
         </div>
 
         {/* Filters & Search */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <div className="flex-1 relative">
+        <div className="flex flex-col md:flex-row gap-4 mb-6 items-end">
+          <div className="flex-1 relative w-full">
             <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
             <input 
               type="text" 
@@ -191,15 +276,46 @@ export default function AdminDashboard() {
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
             />
           </div>
-          <button className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-xl border border-gray-200 font-medium text-gray-700 hover:bg-gray-50">
-            <Filter className="w-5 h-5" />
-            Filtrer
-          </button>
-          <button className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-xl border border-gray-200 font-medium text-gray-700 hover:bg-gray-50">
+          
+          {/* Radius Slider */}
+          <div className="bg-white px-4 py-2 rounded-xl border border-gray-200 flex flex-col w-full md:w-64">
+             <label className="text-xs font-bold text-gray-500 mb-1 flex justify-between">
+                <span>Simuleringsradius</span>
+                <span className="text-blue-600">{radius} m</span>
+             </label>
+             <input 
+                type="range" 
+                min="50" 
+                max="5000" 
+                step="50"
+                value={radius}
+                onChange={(e) => setRadius(Number(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+             />
+          </div>
+
+          <button 
+            onClick={() => setShowMap(!showMap)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border font-medium transition-colors ${
+                showMap ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+            }`}
+          >
             <Map className="w-5 h-5" />
-            Kartvisning
+            {showMap ? 'Skjul Kart' : 'Vis Kart'}
           </button>
         </div>
+
+        {/* Map Visualization */}
+        {showMap && (
+            <div className="mb-8 h-[500px] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative z-0">
+                <MapComponent 
+                    center={[59.20, 11.05]} // Default center (Ostfold)
+                    zoom={10}
+                    markers={mapMarkers}
+                    circles={dangerZones}
+                />
+            </div>
+        )}
 
         {/* Main List: Disease Reports */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
