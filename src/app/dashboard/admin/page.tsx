@@ -109,7 +109,7 @@ export default function AdminDashboard() {
     });
 
     // Deduplicate
-    neighbors = [...new Set(neighbors.map(n => n.id))].map(id => enhancedApiaries.find(a => a.id === id));
+    neighbors = Array.from(new Set(neighbors.map(n => n.id))).map(id => enhancedApiaries.find(a => a.id === id));
 
     setRiskyApiaries(neighbors);
     setDangerZones(zones);
