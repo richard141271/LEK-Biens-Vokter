@@ -284,8 +284,8 @@ export default function RentHivePage() {
         notes: `Bestilt via LEK-app. Månedspris: ${monthlyPrice} kr.`,
         // latitude: userCoords.lat, // Removed as column missing in DB
         // longitude: userCoords.lng, // Removed as column missing in DB
-        // assigned_beekeeper_id: nearestBeekeeperId, 
-        // distance_to_beekeeper: minDistance === Infinity ? null : minDistance
+        assigned_beekeeper_id: nearestBeekeeperId, 
+        distance_to_beekeeper: minDistance === Infinity ? null : minDistance
       };
 
       const { error } = await supabase
