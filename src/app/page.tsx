@@ -24,22 +24,31 @@ export default function Home() {
         <div className="font-bold text-xl text-gray-900 flex items-center gap-2">
           <img src="/icon.png" alt="Logo" className="w-8 h-8 rounded-full" /> Biens Vokter
         </div>
+
+        <div className="flex items-center gap-6">
+            <Link 
+              href="/shop"
+              className="text-gray-900 font-medium hover:text-orange-600 transition-colors"
+            >
+              Nettbutikk
+            </Link>
         
-        {user ? (
-          <Link 
-            href="/dashboard"
-            className="text-gray-900 font-medium hover:text-orange-600 transition-colors"
-          >
-            Gå til Min Side
-          </Link>
-        ) : (
-          <Link 
-            href="/signin"
-            className="text-gray-900 font-medium hover:text-orange-600 transition-colors"
-          >
-            Logg inn
-          </Link>
-        )}
+            {user ? (
+              <Link 
+                href="/dashboard"
+                className="text-gray-900 font-medium hover:text-orange-600 transition-colors"
+              >
+                Gå til Min Side
+              </Link>
+            ) : (
+              <Link 
+                href="/signin"
+                className="text-gray-900 font-medium hover:text-orange-600 transition-colors"
+              >
+                Logg inn
+              </Link>
+            )}
+        </div>
       </nav>
 
       {/* Hero Section */}

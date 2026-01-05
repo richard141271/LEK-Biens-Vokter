@@ -50,27 +50,78 @@ export default function BeekeeperRentalsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 1. Update Rental Assignment
+      // 1. Calculate Next BG Number for THIS Beekeeper
+      const { data: existingApiaries } = await supabase
+        .from('apiaries')
+        .select('apiary_number')
+        .eq('user_id', user.id);
+
+      let nextNum = 1;
+      if (existingApiaries && existingApiaries.length > 0) {
+        const numbers = existingApiaries
+          .map(a => parseInt(a.apiary_number.replace(/\D/g, ''), 10))
+          .filter(n => !isNaN(n));
+        if (numbers.length > 0) {
+          nextNum = Math.max(...numbers) + 1;
+        }
+      }
+      const newApiaryNumber = `BG-${nextNum.toString().padStart(3, '0')}`;
+
+      // 2. Create Apiary
+      const { data: newApiary, error: apiaryError } = await supabase
+        .from('apiaries')
+        .insert({
+          user_id: user.id, // Beekeeper owns the apiary entry
+          name: `${rental.contact_name} sin hage`,
+          location: rental.contact_address,
+          // description: `Bigård opprettet fra leieavtale (Ref: ${rental.id})`, // Commented out until schema migration is verified
+          type: 'rental',
+          status: 'active',
+          apiary_number: newApiaryNumber
+        })
+        .select()
+        .single();
+
+      if (apiaryError) throw apiaryError;
+
+      // 3. Create Hives
+      const hivesToCreate = Array.from({ length: rental.hive_count }).map((_, index) => ({
+        apiary_id: newApiary.id,
+        user_id: user.id, // Beekeeper manages the hives
+        hive_number: `LEK-${newApiary.id.slice(0, 4)}-0${index + 1}`.toUpperCase(),
+        active: true,
+        queen_color: 'Ukjent',
+        condition: 'good',
+        honey_type: 'sommer',
+        installation_date: new Date().toISOString()
+      }));
+
+      const { error: hivesError } = await supabase
+        .from('hives')
+        .insert(hivesToCreate);
+
+      if (hivesError) console.error('Error creating hives:', hivesError);
+
+      // 4. Update Rental Assignment & Link Apiary
       const { error: updateError } = await supabase
         .from('rentals')
         .update({ 
           assigned_beekeeper_id: user.id,
+          apiary_id: newApiary.id,
           distance_to_beekeeper: 0 // Or calculate real distance
         })
         .eq('id', rental.id);
 
       if (updateError) throw updateError;
 
-      // 2. Log Action
-      if (rental.apiary_id) {
-         await supabase.from('logs').insert({
-            action: 'BEEKEEPER_ASSIGNED',
-            details: `Birøkter har tatt oppdraget for bigård ID: ${rental.apiary_id}`,
-            apiary_id: rental.apiary_id
-         });
-      }
+      // 5. Log Action
+      await supabase.from('logs').insert({
+         action: 'BEEKEEPER_ASSIGNED',
+         details: `Birøkter ${user.email} opprettet bigård ${newApiaryNumber} for oppdrag ${rental.id}`,
+         apiary_id: newApiary.id
+      });
 
-      alert('Oppdrag godtatt! Du er nå ansvarlig birøkter.');
+      alert(`Oppdrag godtatt! Bigård ${newApiaryNumber} er opprettet.`);
       router.push('/dashboard'); 
 
     } catch (error: any) {

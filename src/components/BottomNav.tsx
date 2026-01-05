@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Map, Box, Settings, Archive } from 'lucide-react';
+import { Home, Map, Box, Settings, Archive, ShoppingBag } from 'lucide-react';
 
 export default function BottomNav() {
   const pathname = usePathname();
@@ -23,6 +23,14 @@ export default function BottomNav() {
           <span className="text-[10px] font-medium">Oversikt</span>
         </Link>
         
+        <Link 
+          href="/shop" 
+          className={`flex flex-col items-center justify-center w-full h-full ${isActive('/shop') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}
+        >
+          <ShoppingBag className="w-6 h-6 mb-1" />
+          <span className="text-[10px] font-medium">Butikk</span>
+        </Link>
+
         <Link 
           href="/apiaries" 
           className={`flex flex-col items-center justify-center w-full h-full ${isActive('/apiaries') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}

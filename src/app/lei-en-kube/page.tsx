@@ -266,46 +266,10 @@ export default function RentHivePage() {
         minDistance = 0; // Unknown
       }
 
-      // 3. Create Apiary & Hives Directly (Synchronous Creation)
-      // Create Apiary
-      const { data: apiary, error: apiaryError } = await supabase
-        .from('apiaries')
-        .insert({
-          user_id: user.id,
-          name: `${formData.name} sin hage`,
-          location: formData.address,
-          description: `Bigård opprettet via leieavtale`,
-          type: 'rental',
-          status: 'active', // Should ideally be 'pending' but keeping active for visibility
-          apiary_number: `LEIE-${Math.floor(Math.random() * 1000)}`
-        })
-        .select()
-        .single();
-
-      if (apiaryError) throw apiaryError;
-
-      // Create Hives
-      const hivesToCreate = Array.from({ length: hiveCount }).map((_, index) => ({
-        apiary_id: apiary.id,
-        user_id: user.id, // Ensure user ownership
-        hive_number: `LEK-${apiary.id.slice(0, 4)}-0${index + 1}`.toUpperCase(),
-        active: true,
-        queen_color: 'Ukjent',
-        condition: 'good',
-        honey_type: 'sommer',
-        installation_date: new Date().toISOString()
-      }));
-
-      const { error: hivesError } = await supabase
-        .from('hives')
-        .insert(hivesToCreate);
-
-      if (hivesError) console.error('Error creating hives:', hivesError); // Don't block flow if hives fail
-
-      // 4. Create Rental Record (Linked to Apiary)
+      // 3. Create Rental Record (Linked to Apiary will happen later)
       const rentalData = {
         user_id: user.id,
-        apiary_id: apiary.id, // LINKED!
+        apiary_id: null, // Will be created by Beekeeper upon acceptance
         hive_count: hiveCount,
         total_price: monthlyPrice,
         status: 'active', 
