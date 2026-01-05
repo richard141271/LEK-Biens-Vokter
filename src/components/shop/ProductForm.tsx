@@ -98,8 +98,19 @@ export default function ProductForm({ initialData, isEdit = false }: ProductForm
             <>
               <img 
                 src={formData.image_url} 
-                alt="Preview" 
-                className="w-full h-full object-cover"
+                alt="Produktbilde" 
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    // Show upload placeholder instead
+                    const parent = e.currentTarget.parentElement;
+                    if (parent) {
+                        const icon = document.createElement('div');
+                        icon.innerHTML = '<span>Bilde feilet</span>';
+                        icon.className = 'text-red-500';
+                        parent.appendChild(icon);
+                    }
+                }}
               />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <button

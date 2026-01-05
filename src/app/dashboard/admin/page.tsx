@@ -16,8 +16,10 @@ import {
   AlertTriangle,
   Search,
   Activity,
-  Settings
+  Settings,
+  ShoppingBag
 } from 'lucide-react';
+import Link from 'next/link';
 
 const MapComponent = dynamic(() => import('@/components/Map'), { 
   ssr: false,

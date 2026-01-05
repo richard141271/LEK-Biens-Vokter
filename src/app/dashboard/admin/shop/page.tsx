@@ -121,6 +121,11 @@ export default function AdminShopPage() {
                             <img
                               src={product.image_url}
                               alt={product.name}
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.parentElement?.classList.add('flex', 'items-center', 'justify-center', 'text-gray-400', 'text-xs');
+                                if (e.currentTarget.parentElement) e.currentTarget.parentElement.innerText = 'Feil';
+                              }}
                               className="w-full h-full object-cover"
                             />
                           ) : (
