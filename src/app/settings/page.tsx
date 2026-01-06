@@ -339,6 +339,20 @@ export default function SettingsPage() {
               </button>
             </div>
 
+            {/* Admin Shop Link */}
+            {profile?.role === 'admin' && (
+              <div className="bg-white rounded-xl shadow-sm p-6 mt-4 border border-gray-200">
+                <h2 className="text-lg font-bold text-gray-900 mb-4">Administrasjon</h2>
+                <button
+                  onClick={() => router.push('/dashboard/admin/shop')}
+                  className="w-full bg-orange-600 text-white font-bold py-3 rounded-xl hover:bg-orange-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Briefcase className="w-5 h-5" />
+                  Administrer Butikk
+                </button>
+              </div>
+            )}
+
             <button 
                 onClick={handleSignOut}
                 className="w-full mt-8 bg-gray-100 text-gray-600 font-bold py-3 rounded-xl hover:bg-gray-200 flex items-center justify-center gap-2"

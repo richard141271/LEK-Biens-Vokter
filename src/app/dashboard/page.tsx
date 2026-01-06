@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, ShoppingBag, ChevronRight } from 'lucide-react';
 import WeatherWidget from '@/components/WeatherWidget';
 
 export default function DashboardPage() {
@@ -556,20 +556,39 @@ export default function DashboardPage() {
 
           {/* Mattilsynet Admin Link (Only for Admin and Mattilsynet) */}
           {(profile?.role === 'admin' || profile?.role === 'mattilsynet') && (
-          <Link href="/dashboard/admin" className="block mt-2">
-            <div className="bg-gray-800 rounded-xl p-3 text-white shadow-lg flex items-center justify-between">
-                <div>
-                    <h3 className="font-bold text-xs mb-0.5 flex items-center gap-2">
-                        <ShieldCheck className="w-3 h-3 text-gray-400" />
-                        Mattilsynet Admin
-                    </h3>
-                    <p className="text-[9px] text-gray-400">Kun for autorisert personell (Pilot)</p>
-                </div>
-                <div className="bg-white/10 p-1.5 rounded-full">
-                    <ExternalLink className="w-4 h-4" />
-                </div>
+            <div className="space-y-2 mt-2">
+                <Link href="/dashboard/admin">
+                    <div className="bg-gray-800 rounded-xl p-3 text-white shadow-lg flex items-center justify-between">
+                        <div>
+                            <h3 className="font-bold text-xs mb-0.5 flex items-center gap-2">
+                                <ShieldCheck className="w-3 h-3 text-gray-400" />
+                                Mattilsynet Admin
+                            </h3>
+                            <p className="text-[9px] text-gray-400">Kun for autorisert personell (Pilot)</p>
+                        </div>
+                        <div className="bg-white/10 p-1.5 rounded-full">
+                            <ExternalLink className="w-4 h-4" />
+                        </div>
+                    </div>
+                </Link>
+
+                {profile?.role === 'admin' && (
+                    <Link href="/dashboard/admin/shop">
+                        <div className="bg-orange-600 rounded-xl p-3 text-white shadow-lg flex items-center justify-between">
+                            <div>
+                                <h3 className="font-bold text-xs mb-0.5 flex items-center gap-2">
+                                    <ShoppingBag className="w-3 h-3 text-white/80" />
+                                    Administrer Nettbutikk
+                                </h3>
+                                <p className="text-[9px] text-orange-100">Legg til varer, endre priser og lager</p>
+                            </div>
+                            <div className="bg-white/10 p-1.5 rounded-full">
+                                <ChevronRight className="w-4 h-4" />
+                            </div>
+                        </div>
+                    </Link>
+                )}
             </div>
-          </Link>
           )}
 
           {/* Birøkter Checklist Promo */}

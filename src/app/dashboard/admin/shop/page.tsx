@@ -49,6 +49,77 @@ export default function AdminShopPage() {
     }
   };
 
+  const handleAddStandardProducts = async () => {
+    setLoading(true);
+    const standardProducts = [
+      {
+        name: 'Sommerhonning',
+        price: 149,
+        category: 'Honning',
+        image_url: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
+        description: 'Deilig, lys sommerhonning fra lokale bigårder. Mild og fin smak.',
+        stock: 10,
+        is_active: true
+      },
+      {
+        name: 'Lynghonning',
+        price: 189,
+        category: 'Honning',
+        image_url: 'https://images.unsplash.com/photo-1587049352851-8d4e8918d119?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
+        description: 'Kraftig og aromatisk lynghonning. Perfekt til ostefatet.',
+        stock: 5,
+        is_active: true
+      },
+      {
+        name: 'Håndlaget Bivoks-såpe',
+        price: 89,
+        category: 'Såpe',
+        image_url: 'https://images.unsplash.com/photo-1600857544200-b2f666a9a2ec?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
+        description: 'Naturlig såpe laget med bivoks og honning. Skånsom for huden.',
+        stock: 20,
+        is_active: true
+      },
+      {
+        name: 'Ren Bivoks (200g)',
+        price: 129,
+        category: 'Bivoks',
+        image_url: 'https://images.unsplash.com/photo-1605651202724-1306bf1dc80c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
+        description: '100% ren bivoks. Perfekt til lysstøping eller egen hudpleie.',
+        stock: 15,
+        is_active: true
+      },
+      {
+        name: 'Tavlehonning',
+        price: 249,
+        category: 'Tavlehonning',
+        image_url: 'https://images.unsplash.com/photo-1555447405-bd6145d279cf?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
+        description: 'Hele stykker av vokstavle fylt med honning. En eksklusiv delikatesse.',
+        stock: 3,
+        is_active: true
+      },
+      {
+        name: 'Gavepakke "Biens Beste"',
+        price: 499,
+        category: 'Gavepakker',
+        image_url: 'https://images.unsplash.com/photo-1541530777-50580a6c6d7d?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
+        description: 'En flott gaveeske med honning, såpe og et bivokslys.',
+        stock: 8,
+        is_active: true
+      }
+    ];
+
+    const { error } = await supabase
+      .from('products')
+      .insert(standardProducts);
+
+    if (error) {
+      console.error('Error adding standard products:', error);
+      alert('Kunne ikke legge til standardvarer.');
+    } else {
+      fetchProducts();
+    }
+  };
+
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -108,7 +179,15 @@ export default function AdminShopPage() {
               ) : filteredProducts.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                    Ingen produkter funnet.
+                    <p className="mb-4">Ingen produkter funnet.</p>
+                    {products.length === 0 && (
+                      <button
+                        onClick={handleAddStandardProducts}
+                        className="text-green-600 hover:underline font-medium"
+                      >
+                        Legg til standardvarer (Demo)
+                      </button>
+                    )}
                   </td>
                 </tr>
               ) : (
