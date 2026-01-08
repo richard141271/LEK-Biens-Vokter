@@ -267,9 +267,11 @@ export default function RentHivePage() {
       }
 
       // 3. Create Rental Record (Linked to Apiary will happen later)
+      // Note: We omit apiary_id here. It will be NULL in the database, 
+      // and omitting it prevents errors if the column is missing in the schema cache.
       const rentalData = {
         user_id: user.id,
-        apiary_id: null, // Will be created by Beekeeper upon acceptance
+        // apiary_id: null, // Removed to avoid "column not found" error if migration hasn't run
         hive_count: hiveCount,
         total_price: monthlyPrice,
         status: 'active', 
