@@ -23,7 +23,7 @@ export default function DesktopNav() {
 
   const navItems = [
     { href: '/dashboard', label: 'Oversikt', icon: Home },
-    { href: '/scan', label: 'Smittevern', icon: ScanLine },
+    { href: '/shop', label: 'Nettbutikk', icon: ShoppingBag },
     { href: '/apiaries', label: 'Bigårder', icon: Map },
     { href: '/hives', label: 'Bikuber', icon: Box },
     { href: '/archive', label: 'Arkiv', icon: Archive },
