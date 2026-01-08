@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Map, Box, Settings, Archive, ShoppingBag } from 'lucide-react';
+import { Home, Map, Box, Settings, Archive, ShoppingBag, ScanLine } from 'lucide-react';
 
 export default function BottomNav() {
   const pathname = usePathname();
@@ -24,11 +24,11 @@ export default function BottomNav() {
         </Link>
         
         <Link 
-          href="/shop" 
-          className={`flex flex-col items-center justify-center w-full h-full ${isActive('/shop') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}
+          href="/scan" 
+          className={`flex flex-col items-center justify-center w-full h-full ${isActive('/scan') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <ShoppingBag className="w-6 h-6 mb-1" />
-          <span className="text-[10px] font-medium">Butikk</span>
+          <ScanLine className="w-6 h-6 mb-1" />
+          <span className="text-[10px] font-medium">Smittevern</span>
         </Link>
 
         <Link 

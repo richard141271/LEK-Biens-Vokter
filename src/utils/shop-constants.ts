@@ -1,9 +1,9 @@
 export const PRODUCT_IMAGES = {
     HONEY_SUMMER: 'https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=800&q=80',
-    HONEY_HEATHER: 'https://images.unsplash.com/photo-1587049352851-8d4e8918dcb1?w=800&q=80',
-    SOAP: 'https://images.unsplash.com/photo-1600857062241-98e5dba7f214?w=800&q=80',
+    HONEY_HEATHER: 'https://images.unsplash.com/photo-1589739900266-4399f579d5bf?w=800&q=80',
+    SOAP: 'https://images.unsplash.com/photo-1600857544200-b2f666a9a2ec?w=800&q=80',
     BEESWAX: 'https://images.unsplash.com/photo-1626202378964-340944f3e68e?w=800&q=80',
-    COMB: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&q=80',
+    COMB: 'https://images.unsplash.com/photo-1555447405-bd6145d279cf?w=800&q=80',
     GIFT: 'https://images.unsplash.com/photo-1596450524472-888a7d2e032f?w=800&q=80',
     FALLBACK: 'https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=800&q=80', // Summer honey as safe fallback
 };
