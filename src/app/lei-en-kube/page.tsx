@@ -708,11 +708,16 @@ export default function RentHivePage() {
                 <div className="mb-8">
                   <div className="flex justify-between items-end mb-4">
                     <span className="text-gray-600 font-medium">Antall kuber: {hiveCount}</span>
-                    <div className="text-right">
-                      <span className="text-3xl font-bold text-honey-600">{annualPrice} kr <span className="text-sm text-gray-400 font-normal">/ år (sesong)</span></span>
+                    <div className="text-right flex flex-col items-end">
+                      <span className="text-4xl font-bold text-honey-600">
+                        {Math.round(annualPrice / 12)},- 
+                        <span className="text-base text-gray-500 font-normal ml-1">pr mnd</span>
+                      </span>
+                      <span className="text-xs text-gray-400 font-medium">faktureres årlig</span>
                       {hiveCount > 1 && (
-                        <div className="text-xs text-gray-500">({pricePerHive} kr per kube / år)</div>
+                        <div className="text-xs text-gray-500 mt-1">({pricePerHive} kr per kube / år)</div>
                       )}
+                      <div className="text-xs text-gray-500 mt-0.5">Totalt pr år: {annualPrice},-</div>
                     </div>
                   </div>
                   <input 
