@@ -181,17 +181,30 @@ export default function RentHivePage() {
     getUser();
   }, [supabase]);
 
-  // Pricing Logic (Monthly)
-  const calculateMonthlyPrice = (count: number) => {
-    if (count === 1) return 350;
-    if (count === 2) return 299; 
+  // Pricing Logic (Annual)
+  const calculateAnnualPrice = (count: number) => {
+    let monthly = 0;
+    if (count === 1) monthly = 350;
+    else if (count === 2) monthly = 299; 
     // 3+ hives: 299 base + 100 per extra hive above 2
-    // 3: 399, 4: 499, 5: 599, 6: 699, 7: 799
-    return 299 + ((count - 2) * 100);
+    else monthly = 299 + ((count - 2) * 100);
+    
+    return monthly * 12;
   };
 
-  const monthlyPrice = calculateMonthlyPrice(hiveCount);
-  const pricePerHive = Math.round(monthlyPrice / hiveCount);
+  const annualPrice = calculateAnnualPrice(hiveCount);
+  const pricePerHive = Math.round(annualPrice / hiveCount);
+
+  // Helper for Season End Date
+  const getSeasonEndDate = () => {
+    const now = new Date();
+    const currentMonth = now.getMonth(); // 0-11 (July is 6)
+    // If we are in July (6) or later, the season extends to next year
+    if (currentMonth >= 6) { 
+       return `Oktober ${now.getFullYear() + 1}`;
+    }
+    return `Oktober ${now.getFullYear()}`;
+  };
 
   // Handlers
   const scrollToOrder = (count: number) => {
@@ -273,7 +286,7 @@ export default function RentHivePage() {
         user_id: user.id,
         // apiary_id: null, // Removed to avoid "column not found" error if migration hasn't run
         hive_count: hiveCount,
-        total_price: monthlyPrice,
+        total_price: annualPrice,
         status: 'active', 
         contact_name: formData.name,
         // contact_organization: formData.organization, // Keep commented out for safety
@@ -283,7 +296,7 @@ export default function RentHivePage() {
         contract_signed: true,
         contract_signed_at: new Date().toISOString(),
         signature_text: formData.signature,
-        notes: `Bestilt via LEK-app. Månedspris: ${monthlyPrice} kr. Org: ${formData.organization || 'Ingen'}`,
+        notes: `Bestilt via LEK-app. Årspris: ${annualPrice} kr. Org: ${formData.organization || 'Ingen'}`,
         assigned_beekeeper_id: nearestBeekeeperId || null, 
         distance_to_beekeeper: (minDistance === Infinity || minDistance === undefined) ? null : minDistance
       };
@@ -696,9 +709,9 @@ export default function RentHivePage() {
                   <div className="flex justify-between items-end mb-4">
                     <span className="text-gray-600 font-medium">Antall kuber: {hiveCount}</span>
                     <div className="text-right">
-                      <span className="text-3xl font-bold text-honey-600">{monthlyPrice} kr <span className="text-sm text-gray-400 font-normal">/ mnd</span></span>
+                      <span className="text-3xl font-bold text-honey-600">{annualPrice} kr <span className="text-sm text-gray-400 font-normal">/ år (sesong)</span></span>
                       {hiveCount > 1 && (
-                        <div className="text-xs text-gray-500">({pricePerHive} kr per kube)</div>
+                        <div className="text-xs text-gray-500">({pricePerHive} kr per kube / år)</div>
                       )}
                     </div>
                   </div>
@@ -980,10 +993,10 @@ export default function RentHivePage() {
                 .replace('[LEIETAKER_EPOST]', formData.email || '___________')
                 .replace('[ANTALL]', hiveCount.toString())
                 .replace('[DAGENS DATO]', new Date().toLocaleDateString('no-NO'))
-                .replace('[SESONG SLUTT]', 'Oktober ' + new Date().getFullYear())
+                .replace('[SESONG SLUTT]', getSeasonEndDate())
                 .replace('Representerer (klasse/lag/familie osv.): [LEIETAKER_NAVN] (Privat)', `Representerer: ${formData.organization || formData.name + ' (Privat)'}`)
-                .replace('[PRIS_MND]', monthlyPrice.toString())
-                .replace('[PRIS_TOTAL]', (monthlyPrice * 12).toString())
+                .replace('[PRIS_MND]', Math.round(annualPrice / 12).toString())
+                .replace('[PRIS_TOTAL]', annualPrice.toString())
               }
             </div>
 
@@ -1015,8 +1028,8 @@ export default function RentHivePage() {
 
               <div className="flex justify-between items-center pt-4 border-t">
                 <div className="text-right">
-                  <p className="text-sm text-gray-500">Månedspris:</p>
-                  <p className="text-2xl font-bold text-gray-900">{monthlyPrice} kr</p>
+                  <p className="text-sm text-gray-500">Årspris (Sesong):</p>
+                  <p className="text-2xl font-bold text-gray-900">{annualPrice} kr</p>
                 </div>
                 <button 
                   onClick={handleSignAndPay}
@@ -1046,11 +1059,11 @@ export default function RentHivePage() {
               </div>
               <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
                 <span className="text-gray-600">Periode</span>
-                <span className="font-medium text-gray-900">Per måned</span>
+                <span className="font-medium text-gray-900">Per år (Sesong)</span>
               </div>
               <div className="flex justify-between items-center text-lg font-bold">
                 <span className="text-gray-900">Å betale nå</span>
-                <span className="text-honey-600">{monthlyPrice} kr</span>
+                <span className="text-honey-600">{annualPrice} kr</span>
               </div>
             </div>
 
@@ -1128,12 +1141,12 @@ export default function RentHivePage() {
                         <span>Beløp</span>
                     </div>
                     <div className="flex justify-between">
-                        <span className="text-gray-900">Leie av {hiveCount} kuber (Mnd)</span>
-                        <span className="text-gray-900">{Math.round(monthlyPrice * 0.8)} kr</span>
+                        <span className="text-gray-900">Leie av {hiveCount} kuber (År)</span>
+                        <span className="text-gray-900">{Math.round(annualPrice * 0.8)} kr</span>
                     </div>
                     <div className="flex justify-between text-gray-500 text-xs">
                         <span>MVA (25%)</span>
-                        <span>{Math.round(monthlyPrice * 0.2)} kr</span>
+                        <span>{Math.round(annualPrice * 0.2)} kr</span>
                     </div>
                 </div>
 
@@ -1141,7 +1154,7 @@ export default function RentHivePage() {
                 
                 <div className="flex justify-between font-bold text-lg">
                     <span>TOTALT BELASTET</span>
-                    <span>{monthlyPrice} kr</span>
+                    <span>{annualPrice} kr</span>
                 </div>
                 <div className="mt-2 text-center text-xs text-gray-400">
                     Betalt med kort **** **** **** 4242
