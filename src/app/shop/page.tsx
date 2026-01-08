@@ -5,86 +5,13 @@ import Link from 'next/link';
 import { ShoppingBag, ArrowLeft, Star, Search, Loader2 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { Product } from '@/types/shop';
-
-// Mock Data for fallback
-const MOCK_PRODUCTS = [
-  {
-    id: '1',
-    name: 'Sommerhonning',
-    price: 149,
-    category: 'Honning',
-    image_url: 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-    description: 'Deilig, lys sommerhonning fra lokale bigårder. Mild og fin smak.',
-    rating: 4.8,
-    stock: 10,
-    is_active: true,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: '2',
-    name: 'Lynghonning',
-    price: 189,
-    category: 'Honning',
-    image_url: 'https://images.unsplash.com/photo-1587049352851-8d4e8918d119?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-    description: 'Kraftig og aromatisk lynghonning. Perfekt til ostefatet.',
-    rating: 5.0,
-    stock: 5,
-    is_active: true,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: '3',
-    name: 'Håndlaget Bivoks-såpe',
-    price: 89,
-    category: 'Såpe',
-    image_url: 'https://images.unsplash.com/photo-1600857544200-b2f666a9a2ec?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-    description: 'Naturlig såpe laget med bivoks og honning. Skånsom for huden.',
-    rating: 4.7,
-    stock: 20,
-    is_active: true,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: '4',
-    name: 'Ren Bivoks (200g)',
-    price: 129,
-    category: 'Bivoks',
-    image_url: 'https://images.unsplash.com/photo-1605651202724-1306bf1dc80c?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-    description: '100% ren bivoks. Perfekt til lysstøping eller egen hudpleie.',
-    rating: 4.9,
-    stock: 15,
-    is_active: true,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: '5',
-    name: 'Tavlehonning',
-    price: 249,
-    category: 'Tavlehonning',
-    image_url: 'https://images.unsplash.com/photo-1555447405-bd6145d279cf?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-    description: 'Hele stykker av vokstavle fylt med honning. En eksklusiv delikatesse.',
-    rating: 4.9,
-    stock: 3,
-    is_active: true,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: '6',
-    name: 'Gavepakke "Biens Beste"',
-    price: 499,
-    category: 'Gavepakker',
-    image_url: 'https://images.unsplash.com/photo-1541530777-50580a6c6d7d?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80',
-    description: 'En flott gaveeske med honning, såpe og et bivokslys.',
-    rating: 5.0,
-    stock: 8,
-    is_active: true,
-    created_at: new Date().toISOString()
-  },
-];
+import { MOCK_PRODUCTS, PRODUCT_IMAGES } from '@/utils/shop-constants';
+import { useCart } from '@/context/CartContext';
 
 const CATEGORIES = ['Alle', 'Honning', 'Såpe', 'Bivoks', 'Tavlehonning', 'Gavepakker'];
 
 export default function ShopPage() {
+  const { addItem, totalItems, setIsOpen } = useCart();
   const [selectedCategory, setSelectedCategory] = useState('Alle');
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -140,9 +67,16 @@ export default function ShopPage() {
           
           <div className="flex items-center gap-4">
              {/* Simple cart placeholder */}
-             <button className="p-2 relative hover:bg-gray-100 rounded-full transition-colors">
+             <button 
+                onClick={() => setIsOpen(true)}
+                className="p-2 relative hover:bg-gray-100 rounded-full transition-colors"
+             >
                 <ShoppingBag className="w-6 h-6 text-gray-600" />
-                <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">0</span>
+                {count > 0 && (
+                    <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                        {count}
+                    </span>
+                )}
              </button>
           </div>
         </div>
@@ -205,10 +139,10 @@ export default function ShopPage() {
                 <div key={product.id} className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100 flex flex-col group">
                     <div className="h-48 relative overflow-hidden bg-gray-100">
                         <img 
-                            src={product.image_url || 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80'} 
+                            src={product.image_url || PRODUCT_IMAGES.FALLBACK} 
                             alt={product.name}
                             onError={(e) => {
-                                e.currentTarget.src = 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80';
+                                e.currentTarget.src = PRODUCT_IMAGES.FALLBACK;
                             }}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                         />
@@ -235,7 +169,7 @@ export default function ShopPage() {
                             <span className="font-bold text-xl text-gray-900">{product.price},-</span>
                             <button 
                                 disabled={product.stock === 0}
-                                onClick={() => alert(`La til ${product.name} i handlekurven!`)}
+                                onClick={() => addItem(product)}
                                 className="bg-orange-100 hover:bg-orange-200 text-orange-700 p-2.5 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed group-hover:bg-orange-500 group-hover:text-white"
                             >
                                 <ShoppingBag className="w-5 h-5" />

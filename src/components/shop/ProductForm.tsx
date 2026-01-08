@@ -52,9 +52,9 @@ export default function ProductForm({ initialData, isEdit = false }: ProductForm
       const { data } = supabase.storage.from('product-images').getPublicUrl(filePath);
       
       setFormData(prev => ({ ...prev, image_url: data.publicUrl }));
-    } catch (error) {
-      alert('Feil ved opplasting av bilde!');
-      console.error(error);
+    } catch (error: any) {
+      alert(`Feil ved opplasting av bilde! \nFeilmelding: ${error.message || 'Ukjent feil'}`);
+      console.error('Upload error details:', error);
     } finally {
       setUploading(false);
     }

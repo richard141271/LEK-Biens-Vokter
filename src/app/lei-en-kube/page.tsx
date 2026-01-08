@@ -291,8 +291,8 @@ export default function RentHivePage() {
         .insert(rentalData);
 
       if (error) {
-        console.error('Supabase rental insert error:', error);
-        throw new Error(error.message || 'Kunne ikke opprette leieavtale');
+        console.error('Supabase rental insert error details:', error);
+        throw new Error(error.message || 'Kunne ikke opprette leieavtale i databasen');
       }
 
       // Simulate payment processing time
@@ -303,7 +303,7 @@ export default function RentHivePage() {
     } catch (err: any) {
       console.error('Error creating rental:', err);
       // Show specific error message if available, otherwise generic
-      alert(`Noe gikk galt: ${err.message || 'Prøv igjen.'}`);
+      alert(`Beklager, noe gikk galt under bestillingen. Feilmelding: ${err.message || 'Ukjent feil'}. Prøv igjen eller ta kontakt.`);
     } finally {
       setLoading(false);
     }

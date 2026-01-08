@@ -72,7 +72,7 @@ export default function Home() {
           {/* Card 1: Leietaker */}
           <div className="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 group">
             <div className="h-48 bg-green-50 flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1587049352846-4a222e784d38?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80')] bg-cover bg-center opacity-20 group-hover:scale-105 transition-transform duration-500"></div>
+                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1523349283733-14972e399589?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80')] bg-cover bg-center opacity-20 group-hover:scale-105 transition-transform duration-500"></div>
                 <Heart className="w-16 h-16 text-green-600 relative z-10" />
             </div>
             <div className="p-8">
@@ -97,8 +97,7 @@ export default function Home() {
               POPULÆRT
             </div>
             <div className="h-48 bg-orange-50 flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1621260768407-5b72225301a2?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80')] bg-cover bg-center opacity-20 group-hover:scale-105 transition-transform duration-500"></div>
-                <Zap className="w-16 h-16 text-orange-600 relative z-10" />
+                <div className="absolute inset-0 bg-[url('/icon.png')] bg-contain bg-center bg-no-repeat opacity-90 group-hover:scale-105 transition-transform duration-500"></div>
             </div>
             <div className="p-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-3">Er du birøkter?</h2>
