@@ -72,8 +72,9 @@ export default function Home() {
           {/* Card 1: Leietaker */}
           <div className="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 group">
             <div className="h-48 bg-green-50 flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1523349283733-14972e399589?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80')] bg-cover bg-center opacity-20 group-hover:scale-105 transition-transform duration-500"></div>
-                <Heart className="w-16 h-16 text-green-600 relative z-10" />
+                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1523349283733-14972e399589?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80')] bg-cover bg-center opacity-90 group-hover:scale-105 transition-transform duration-500"></div>
+                <div className="absolute inset-0 bg-black/20"></div>
+                <h3 className="relative z-10 text-white font-bold text-2xl shadow-black drop-shadow-md">Lei en bikube</h3>
             </div>
             <div className="p-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-3">Vil du leie en bikube?</h2>
@@ -96,8 +97,8 @@ export default function Home() {
             <div className="absolute top-0 right-0 bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg z-20">
               POPULÆRT
             </div>
-            <div className="h-48 bg-orange-50 flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-[url('/icon.png')] bg-contain bg-center bg-no-repeat opacity-90 group-hover:scale-105 transition-transform duration-500"></div>
+            <div className="h-48 bg-orange-50 flex items-center justify-center relative overflow-hidden p-4">
+                <img src="/icon.png" alt="Biens Vokter Våpenskjold" className="h-full object-contain drop-shadow-lg group-hover:scale-110 transition-transform duration-500" />
             </div>
             <div className="p-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-3">Er du birøkter?</h2>
@@ -124,9 +125,12 @@ export default function Home() {
 
           {/* Card 3: Mattilsynet */}
           <div className="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 group">
-            <div className="h-48 bg-blue-50 flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-blue-900/5 group-hover:scale-105 transition-transform duration-500"></div>
-                <ShieldCheck className="w-16 h-16 text-blue-600 relative z-10" />
+            <div className="h-48 bg-white flex items-center justify-center relative overflow-hidden p-8">
+                <img 
+                  src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Mattilsynet_logo.svg/1200px-Mattilsynet_logo.svg.png" 
+                  alt="Mattilsynet Logo" 
+                  className="w-full h-full object-contain relative z-10"
+                />
             </div>
             <div className="p-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-3">Mattilsynet</h2>

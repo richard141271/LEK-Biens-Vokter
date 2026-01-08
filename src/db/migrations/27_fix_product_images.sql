@@ -1,30 +1,27 @@
--- Update existing products with correct images based on their category or name
--- Summer Honey
-UPDATE products 
-SET image_url = 'https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=800&q=80'
-WHERE name ILIKE '%sommerhonning%' OR name ILIKE '%summer%';
+-- Update product images to be more specific based on category or name
 
--- Heather Honey
+-- Beeswax (Bivoks)
 UPDATE products 
-SET image_url = 'https://images.unsplash.com/photo-1471943311424-646960669fbc?w=800&q=80'
-WHERE name ILIKE '%lynghonning%' OR name ILIKE '%heather%';
+SET image_url = 'https://images.unsplash.com/photo-1626202378964-340944f3e68e?w=800&q=80'
+WHERE category = 'Bivoks' OR name ILIKE '%voks%';
 
--- Soap (already correct, but ensuring consistency)
+-- Soap (Såpe)
 UPDATE products 
-SET image_url = 'https://images.unsplash.com/photo-1600857544200-b2f666a9a2ec?w=800&q=80'
-WHERE category ILIKE '%såpe%' OR name ILIKE '%såpe%';
-
--- Beeswax
-UPDATE products 
-SET image_url = 'https://images.unsplash.com/photo-1605651202724-1306bf1dc80c?w=800&q=80'
-WHERE category ILIKE '%bivoks%' OR name ILIKE '%bivoks%';
+SET image_url = 'https://images.unsplash.com/photo-1600857062241-98e5dba7f214?w=800&q=80'
+WHERE category = 'Såpe' OR name ILIKE '%såpe%';
 
 -- Comb Honey (Tavlehonning)
 UPDATE products 
-SET image_url = 'https://images.unsplash.com/photo-1555447405-bd6145d279cf?w=800&q=80'
-WHERE category ILIKE '%tavle%' OR name ILIKE '%tavle%';
+SET image_url = 'https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&q=80'
+WHERE category = 'Tavlehonning' OR name ILIKE '%tavle%';
 
--- Gift Packs
+-- Gift Packs (Gavepakker)
 UPDATE products 
-SET image_url = 'https://images.unsplash.com/photo-1541530777-50580a6c6d7d?w=800&q=80'
-WHERE category ILIKE '%gave%' OR name ILIKE '%gave%';
+SET image_url = 'https://images.unsplash.com/photo-1596450524472-888a7d2e032f?w=800&q=80'
+WHERE category = 'Gavepakker' OR name ILIKE '%gave%';
+
+-- Standard Honey (Honning) - Default fallback for 'Honning' category if not already specific
+-- Only update if it's the melon image or generic placeholder
+UPDATE products
+SET image_url = 'https://images.unsplash.com/photo-1587049352851-8d4e8918dcb1?w=800&q=80'
+WHERE category = 'Honning' AND (image_url ILIKE '%melon%' OR image_url IS NULL);

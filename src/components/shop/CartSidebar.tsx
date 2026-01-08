@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 import { X, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -108,12 +109,13 @@ export default function CartSidebar() {
                 <span>Totalt</span>
                 <span>{total},-</span>
               </div>
-              <button 
-                onClick={() => alert('Går til kassen... (Demo)')}
-                className="w-full bg-orange-600 text-white font-bold py-4 rounded-xl hover:bg-orange-700 transition-colors shadow-lg shadow-orange-200"
+              <Link 
+                href="/shop/checkout"
+                onClick={() => setIsOpen(false)}
+                className="block w-full text-center bg-orange-600 text-white font-bold py-4 rounded-xl hover:bg-orange-700 transition-colors shadow-lg shadow-orange-200"
               >
                 Gå til Kassen
-              </button>
+              </Link>
               <button 
                 onClick={clearCart}
                 className="w-full text-xs text-gray-500 hover:text-red-600 transition-colors"
