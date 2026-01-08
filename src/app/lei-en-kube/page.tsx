@@ -1059,7 +1059,7 @@ export default function RentHivePage() {
               </div>
               <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
                 <span className="text-gray-600">Periode</span>
-                <span className="font-medium text-gray-900">Per år (Sesong)</span>
+                <span className="font-medium text-gray-900">Per år (Sesong til {getSeasonEndDate()})</span>
               </div>
               <div className="flex justify-between items-center text-lg font-bold">
                 <span className="text-gray-900">Å betale nå</span>
