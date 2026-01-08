@@ -11,7 +11,7 @@ import { useCart } from '@/context/CartContext';
 const CATEGORIES = ['Alle', 'Honning', 'Såpe', 'Bivoks', 'Tavlehonning', 'Gavepakker'];
 
 export default function ShopPage() {
-  const { addItem, totalItems, setIsOpen } = useCart();
+  const { addItem, count, setIsOpen } = useCart();
   const [selectedCategory, setSelectedCategory] = useState('Alle');
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
