@@ -10,9 +10,11 @@ import {
   Check, 
   X,
   Loader2,
-  ArrowLeft
+  ArrowLeft,
+  Trash2
 } from 'lucide-react';
 import Link from 'next/link';
+import { deleteUser } from '@/app/actions/user-management';
 
 export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
@@ -77,6 +79,30 @@ export default function AdminUsersPage() {
       setMessage({ text: 'Kunne ikke oppdatere bruker: ' + error.message, type: 'error' });
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('Er du sikker på at du vil slette denne brukeren? Dette kan ikke angres.')) return;
+
+    try {
+        setUpdatingId(userId);
+        setMessage(null);
+        
+        const result = await deleteUser(userId);
+        
+        if (result.error) {
+            setMessage({ text: 'Feil ved sletting: ' + result.error, type: 'error' });
+        } else {
+            setMessage({ text: 'Bruker slettet', type: 'success' });
+            setUsers(users.filter(u => u.id !== userId));
+            setFilteredUsers(filteredUsers.filter(u => u.id !== userId));
+        }
+    } catch (e: any) {
+        console.error(e);
+        setMessage({ text: 'Noe gikk galt under sletting: ' + e.message, type: 'error' });
+    } finally {
+        setUpdatingId(null);
     }
   };
 
@@ -187,6 +213,16 @@ export default function AdminUsersPage() {
                           </select>
                           {updatingId === user.id && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <button 
+                            onClick={() => handleDeleteUser(user.id)}
+                            disabled={updatingId === user.id}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                            title="Slett bruker"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
                       </td>
                     </tr>
                   ))
