@@ -96,10 +96,10 @@ export default function Header() {
         <div className="bg-[#F79009] text-black px-4 py-3 flex items-center justify-between shadow-sm relative z-50 h-[72px]">
           {/* Left: Logo */}
           <div className="flex-shrink-0">
-             <img src="/icon.png" alt="Logo" className="w-12 h-12 rounded-full border-2 border-black/10" />
+             <img src="/icon.png" alt="Logo" className="w-12 h-12 object-contain" />
           </div>
-
-          {/* Center: Title & Name */}
+          
+          {/* Center: Title */}
           <div className="flex-1 text-center mx-2 flex flex-col justify-center">
              <h1 className="font-bold text-xl leading-tight tracking-tight">Birøkter Registeret</h1>
              <p className="text-sm font-medium opacity-80 mt-0.5">{profile?.full_name || 'Laster...'}</p>
