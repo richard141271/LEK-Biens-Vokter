@@ -47,8 +47,18 @@ export default function Header() {
     }
   }, [mounted]);
 
-  // Hide on auth pages
-  if (pathname === '/login' || pathname === '/register' || pathname === '/' || pathname === '/about' || pathname === '/signin' || pathname === '/lei-en-kube' || pathname.startsWith('/info/')) return null;
+  // Hide header on auth pages, landing page, and dedicated portals
+  if (pathname === '/login' || 
+      pathname === '/register' || 
+      pathname === '/' || 
+      pathname === '/about' || 
+      pathname === '/signin' || 
+      pathname === '/lei-en-kube' || 
+      pathname.startsWith('/info/') ||
+      pathname.startsWith('/admin') ||
+      pathname.startsWith('/mattilsynet') ||
+      pathname.startsWith('/dashboard/admin') ||
+      pathname.startsWith('/dashboard/mattilsynet')) return null;
 
   if (!mounted) return null;
 

@@ -11,8 +11,18 @@ export default function DesktopNav() {
   const router = useRouter();
   const supabase = createClient();
 
-  // Hide on login/register/about pages
-  if (pathname === '/login' || pathname === '/register' || pathname === '/' || pathname === '/about' || pathname === '/signin' || pathname === '/lei-en-kube' || pathname.startsWith('/info/')) return null;
+  // Hide on login/register/about pages, and dedicated portals (admin/mattilsynet)
+  if (pathname === '/login' || 
+      pathname === '/register' || 
+      pathname === '/' || 
+      pathname === '/about' || 
+      pathname === '/signin' || 
+      pathname === '/lei-en-kube' || 
+      pathname.startsWith('/info/') ||
+      pathname.startsWith('/admin') ||
+      pathname.startsWith('/mattilsynet') ||
+      pathname.startsWith('/dashboard/admin') ||
+      pathname.startsWith('/dashboard/mattilsynet')) return null;
 
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
 
