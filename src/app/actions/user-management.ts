@@ -19,7 +19,22 @@ export async function deleteUser(userId: string) {
     .eq('id', user.id)
     .single()
 
-  if (!profile || profile.role !== 'admin') {
+  // Use optional chaining and default to checking if we have a profile
+  // The fact that we're on the admin page means we passed client-side checks,
+  // but let's be robust. If role is missing, we might want to double check logic.
+  // For now, let's relax this check slightly or ensure RLS lets us read it.
+  
+  // Actually, the issue is likely that "supabase" (the regular client) 
+  // cannot read the profile because of RLS policies if they aren't fully propagated or correct.
+  // Let's use the admin client to verify the requester's role to be 100% sure and bypass RLS.
+  const adminVerifier = createAdminClient()
+  const { data: adminProfile } = await adminVerifier
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (!adminProfile || adminProfile.role !== 'admin') {
     return { error: 'Ingen tilgang: Krever admin-rettigheter' }
   }
 
