@@ -11,7 +11,8 @@ import {
   LogOut,
   ChevronRight,
   Activity,
-  UserCheck
+  UserCheck,
+  ShoppingBag
 } from 'lucide-react';
 import Link from 'next/link';
 

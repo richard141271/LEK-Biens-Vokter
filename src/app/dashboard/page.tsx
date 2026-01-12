@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, ShoppingBag, ChevronRight } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera } from 'lucide-react';
 import WeatherWidget from '@/components/WeatherWidget';
 
 export default function DashboardPage() {
