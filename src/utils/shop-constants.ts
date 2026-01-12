@@ -5,6 +5,7 @@ export const PRODUCT_IMAGES = {
     BEESWAX: 'https://images.unsplash.com/photo-1626202378964-340944f3e68e?w=800&q=80',
     COMB: 'https://images.unsplash.com/photo-1555447405-bd6145d279cf?w=800&q=80',
     HONEYCOMB: '/BILDER/612A0805-7459-41E4-A37F-24672786BC0D.png',
+    HONEYCOMB_FRAME: '/BILDER/D6B86142-B83B-4592-8B1C-73396E595DE2.png',
     GIFT_BROWN: '/BILDER/F540572D-6909-4756-8C9E-E7C8FC465DF8.png',
     GIFT_BLACK_LARGE: '/BILDER/449D79D6-A20B-4B22-B328-D9BB5544BD3A.png',
     GIFT_WHITE_STACK: '/BILDER/0DF4E1BA-71EA-41F8-8C7E-9FF8E1A8A947.png',
@@ -87,6 +88,18 @@ export const MOCK_PRODUCTS = [
   },
   {
     id: '7',
+    name: 'Tavlehonning (Hel tavle)',
+    price: 480,
+    category: 'Honning',
+    image_url: PRODUCT_IMAGES.HONEYCOMB_FRAME,
+    description: 'Hel tavle med honning. Pris er basert på ca 1 kg (450,-/kg) + ramme (30,-). Endelig pris justeres etter vekt.',
+    rating: 5.0,
+    stock: 5,
+    is_active: true,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: '8',
     name: 'Håndlaget Bivoks-såpe',
     price: 89,
     category: 'Såpe',
