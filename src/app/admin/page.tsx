@@ -18,11 +18,25 @@ export default function AdminLoginPage() {
     setMessage('');
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data: { user }, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      if (error) throw error;
+      
+      if (signInError) throw signInError;
+      if (!user) throw new Error('Ingen bruker funnet');
+
+      // Check role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.role !== 'admin') {
+        await supabase.auth.signOut();
+        throw new Error('Denne brukeren har ikke administrator-tilgang.');
+      }
       
       // Redirect to admin dashboard
       window.location.href = '/dashboard/admin';

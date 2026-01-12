@@ -19,14 +19,28 @@ export default function MattilsynetPage() {
     setMessage('');
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data: { user }, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      if (error) throw error;
+
+      if (signInError) throw signInError;
+      if (!user) throw new Error('Ingen bruker funnet');
+
+      // Check role
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.role !== 'mattilsynet') {
+        await supabase.auth.signOut();
+        throw new Error('Denne brukeren har ikke tilgang til Mattilsynet-portalen.');
+      }
       
-      // Redirect to standard dashboard (role handling will take care of the rest)
-      window.location.href = '/dashboard';
+      // Redirect to mattilsynet dashboard
+      window.location.href = '/dashboard/mattilsynet';
     } catch (error: any) {
       setMessage('Kunne ikke logge inn: ' + error.message);
       setLoading(false);
