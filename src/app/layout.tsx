@@ -26,6 +26,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import MainLayout from "@/components/MainLayout";
 import { CartProvider } from "@/context/CartContext";
 import CartSidebar from "@/components/shop/CartSidebar";
+import InstallPrompt from "@/components/InstallPrompt";
 
 export default function RootLayout({
   children,
