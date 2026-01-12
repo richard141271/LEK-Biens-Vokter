@@ -1,9 +1,38 @@
 'use client';
 
 import Link from "next/link";
-import { ShieldCheck, Search, FileText, Map } from "lucide-react";
+import { ShieldCheck, Search, Map } from "lucide-react";
+import { useState } from 'react';
+import { createClient } from '@/utils/supabase/client';
 
 export default function MattilsynetPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [showLogin, setShowLogin] = useState(false);
+  const supabase = createClient();
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+      
+      // Redirect to standard dashboard (role handling will take care of the rest)
+      window.location.href = '/dashboard';
+    } catch (error: any) {
+      setMessage('Kunne ikke logge inn: ' + error.message);
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       {/* Header */}
@@ -15,17 +44,59 @@ export default function MattilsynetPage() {
           >
             ← Tilbake til forsiden
           </Link>
-          <div className="flex items-center gap-4 mb-6">
-            <ShieldCheck className="w-12 h-12 text-green-400" />
-            <h1 className="text-4xl font-bold">Mattilsynet Portal</h1>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+            <div>
+              <div className="flex items-center gap-4 mb-6">
+                <ShieldCheck className="w-12 h-12 text-green-400" />
+                <h1 className="text-4xl font-bold">Mattilsynet Portal</h1>
+              </div>
+              <p className="text-xl text-slate-300 max-w-2xl">
+                Effektivt tilsyn, full sporbarhet og sanntidsoversikt over bigårder og sykdomsstatus.
+              </p>
+            </div>
+            
+            {/* Quick Login Box in Header */}
+            <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20 w-full md:w-96">
+              <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5" />
+                Innlogging for ansatte
+              </h2>
+              <form onSubmit={handleLogin} className="space-y-3">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="E-post (mattilsynet.no)"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-green-400 outline-none"
+                  required
+                />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Passord"
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:ring-2 focus:ring-green-400 outline-none"
+                  required
+                />
+                {message && (
+                  <div className="text-red-300 text-sm bg-red-900/50 p-2 rounded">
+                    {message}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-lg transition-colors"
+                >
+                  {loading ? 'Logger inn...' : 'Logg inn'}
+                </button>
+              </form>
+            </div>
           </div>
-          <p className="text-xl text-slate-300 max-w-2xl">
-            Effektivt tilsyn, full sporbarhet og sanntidsoversikt over bigårder og sykdomsstatus.
-          </p>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 -mt-10">
+      <div className="max-w-4xl mx-auto px-4 mt-12">
         <div className="grid md:grid-cols-2 gap-6">
           
           {/* Card 1: Inspeksjon */}
@@ -37,9 +108,6 @@ export default function MattilsynetPage() {
             <p className="text-gray-600 mb-6">
               Få tilgang til digitale inspeksjonslogger, avviksmeldinger og historikk for alle registrerte bigårder.
             </p>
-            <button className="text-blue-600 font-bold hover:underline">
-              Logg inn for innsyn →
-            </button>
           </div>
 
           {/* Card 2: Smittevern */}
@@ -51,9 +119,6 @@ export default function MattilsynetPage() {
             <p className="text-gray-600 mb-6">
               Se utbrudd i sanntid, opprett soner og send varsler til birøktere i berørte områder automatisk.
             </p>
-            <button className="text-blue-600 font-bold hover:underline">
-              Se smittekart →
-            </button>
           </div>
 
         </div>

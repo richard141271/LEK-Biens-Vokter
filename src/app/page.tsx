@@ -139,10 +139,10 @@ export default function Home() {
                 Effektivt verktøy for forvaltning og smittesporing.
               </p>
               <Link 
-                href="/signin"
+                href="/mattilsynet"
                 className="w-full block text-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors"
               >
-                Logg inn for forvaltning
+                Gå til Mattilsynet-portalen
               </Link>
             </div>
           </div>
