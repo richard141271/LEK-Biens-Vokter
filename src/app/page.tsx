@@ -72,7 +72,7 @@ export default function Home() {
           {/* Card 1: Leietaker */}
           <div className="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 group">
             <div className="h-48 bg-green-50 flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-[url('/IMG_1432.JPG')] bg-cover bg-center opacity-90 group-hover:scale-105 transition-transform duration-500"></div>
+                <div className="absolute inset-0 bg-[url('/BILDER/Gemini_Generated_Image_mqh04tmqh04tmqh0.png')] bg-cover bg-center opacity-90 group-hover:scale-105 transition-transform duration-500"></div>
                 <div className="absolute inset-0 bg-black/20"></div>
                 <h3 className="relative z-10 text-white font-bold text-2xl shadow-black drop-shadow-md">Lei en bikube</h3>
             </div>
