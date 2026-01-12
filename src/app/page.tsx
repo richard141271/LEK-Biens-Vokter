@@ -127,7 +127,7 @@ export default function Home() {
           <div className="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 group">
             <div className="h-48 bg-white flex items-center justify-center relative overflow-hidden p-8">
                 <img 
-                  src="/mattilsynet.png" 
+                  src="/BILDER/446d4ea1-a638-458b-97f1-109a7177d3da.png" 
                   alt="Mattilsynet Logo" 
                   className="w-full h-full object-contain relative z-10"
                 />
