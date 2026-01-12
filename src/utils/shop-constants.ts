@@ -89,10 +89,10 @@ export const MOCK_PRODUCTS = [
   {
     id: '7',
     name: 'Tavlehonning (Hel tavle)',
-    price: 480,
+    price: 490,
     category: 'Honning',
     image_url: PRODUCT_IMAGES.HONEYCOMB_FRAME,
-    description: 'Hel tavle med honning. Pris er basert på ca 1 kg (450,-/kg) + ramme (30,-). Endelig pris justeres etter vekt.',
+    description: 'Hel tavle med honning. Vekt varierer fra 1,2 til 2,5 kg. Pris er 450,- pr kg + 40,- for rammen. Endelig pris beregnes nøyaktig etter veiing før utsending.',
     rating: 5.0,
     stock: 5,
     is_active: true,
