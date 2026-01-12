@@ -52,6 +52,8 @@ export default function RootLayout({
             <BottomNav />
           </div>
           
+          <InstallPrompt />
+          
           <footer className="py-4 text-center text-xs text-gray-400 pb-20 md:pl-64 print:hidden">
             v0.1.0
           </footer>

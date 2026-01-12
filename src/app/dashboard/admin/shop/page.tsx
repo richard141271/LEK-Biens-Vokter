@@ -102,7 +102,7 @@ export default function AdminShopPage() {
         name: 'Gavepakke "Biens Beste"',
         price: 499,
         category: 'Gavepakker',
-        image_url: PRODUCT_IMAGES.GIFT,
+        image_url: PRODUCT_IMAGES.GIFT_BROWN,
         description: 'En flott gaveeske med honning, såpe og et bivokslys.',
         stock: 8,
         is_active: true
