@@ -1,14 +1,15 @@
 export const PRODUCT_IMAGES = {
-    HONEY_SUMMER: '/BILDER/IMG_0987.JPG',
+    HONEY_SUMMER: '/BILDER/2FF2EF66-C1D5-4309-AFFE-CE447D901FFA.png',
     HONEY_HEATHER: 'https://images.unsplash.com/photo-1589739900266-4399f579d5bf?w=800&q=80',
     SOAP: 'https://images.unsplash.com/photo-1600857544200-b2f666a9a2ec?w=800&q=80',
     BEESWAX: 'https://images.unsplash.com/photo-1626202378964-340944f3e68e?w=800&q=80',
     COMB: 'https://images.unsplash.com/photo-1555447405-bd6145d279cf?w=800&q=80',
+    HONEYCOMB: '/BILDER/612A0805-7459-41E4-A37F-24672786BC0D.png',
     GIFT_BROWN: '/BILDER/F540572D-6909-4756-8C9E-E7C8FC465DF8.png',
     GIFT_BLACK_LARGE: '/BILDER/449D79D6-A20B-4B22-B328-D9BB5544BD3A.png',
     GIFT_WHITE_STACK: '/BILDER/0DF4E1BA-71EA-41F8-8C7E-9FF8E1A8A947.png',
-    GIFT_BLACK_FLAT: '/BILDER/2FF2EF66-C1D5-4309-AFFE-CE447D901FFA.png',
-    FALLBACK: '/BILDER/IMG_0987.JPG',
+    GIFT_BLACK_FLAT: '/BILDER/49E86A27-AA55-4D06-A4CE-D02BE63DBA4F.png',
+    FALLBACK: '/BILDER/2FF2EF66-C1D5-4309-AFFE-CE447D901FFA.png',
 };
 
 export const MOCK_PRODUCTS = [
@@ -74,6 +75,18 @@ export const MOCK_PRODUCTS = [
   },
   {
     id: '6',
+    name: 'Tavlehonning',
+    price: 450,
+    category: 'Honning',
+    image_url: PRODUCT_IMAGES.HONEYCOMB,
+    description: 'Deilig tavlehonning servert i en rustikk trekasse. Ekte vare rett fra bikuben.',
+    rating: 4.9,
+    stock: 5,
+    is_active: true,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: '7',
     name: 'Håndlaget Bivoks-såpe',
     price: 89,
     category: 'Såpe',
