@@ -140,6 +140,26 @@ export default function AdminDashboard() {
             </div>
           </Link>
 
+          {/* Shop Management Card */}
+          <Link href="/dashboard/admin/shop" className="group">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-orange-500 hover:shadow-md transition-all h-full">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-orange-50 text-orange-600 rounded-lg group-hover:bg-orange-600 group-hover:text-white transition-colors">
+                  <ShoppingBag className="w-6 h-6" />
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-orange-500" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Nettbutikk</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Administrer produkter, lagerbeholdning og bestillinger.
+              </p>
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-400 bg-gray-50 px-3 py-2 rounded-lg">
+                <Settings className="w-4 h-4" />
+                <span>Administrasjon</span>
+              </div>
+            </div>
+          </Link>
+
           {/* Database/System Status (Placeholder) */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 opacity-75">
             <div className="flex items-center justify-between mb-4">

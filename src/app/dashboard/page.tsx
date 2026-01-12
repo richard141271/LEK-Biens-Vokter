@@ -554,42 +554,7 @@ export default function DashboardPage() {
               </Link>
           </div>
 
-          {/* Mattilsynet Admin Link (Only for Admin and Mattilsynet) */}
-          {(profile?.role === 'admin' || profile?.role === 'mattilsynet') && (
-            <div className="space-y-2 mt-2">
-                <Link href="/dashboard/admin">
-                    <div className="bg-gray-800 rounded-xl p-3 text-white shadow-lg flex items-center justify-between">
-                        <div>
-                            <h3 className="font-bold text-xs mb-0.5 flex items-center gap-2">
-                                <ShieldCheck className="w-3 h-3 text-gray-400" />
-                                Mattilsynet Admin
-                            </h3>
-                            <p className="text-[9px] text-gray-400">Kun for autorisert personell (Pilot)</p>
-                        </div>
-                        <div className="bg-white/10 p-1.5 rounded-full">
-                            <ExternalLink className="w-4 h-4" />
-                        </div>
-                    </div>
-                </Link>
 
-                {profile?.role === 'admin' && (
-                    <Link href="/dashboard/admin/shop">
-                        <div className="bg-orange-600 rounded-xl p-3 text-white shadow-lg flex items-center justify-between">
-                            <div>
-                                <h3 className="font-bold text-xs mb-0.5 flex items-center gap-2">
-                                    <ShoppingBag className="w-3 h-3 text-white/80" />
-                                    Administrer Nettbutikk
-                                </h3>
-                                <p className="text-[9px] text-orange-100">Legg til varer, endre priser og lager</p>
-                            </div>
-                            <div className="bg-white/10 p-1.5 rounded-full">
-                                <ChevronRight className="w-4 h-4" />
-                            </div>
-                        </div>
-                    </Link>
-                )}
-            </div>
-          )}
 
           {/* Birøkter Checklist Promo */}
           {profile?.role !== 'tenant' && profile?.role !== 'mattilsynet' && (
