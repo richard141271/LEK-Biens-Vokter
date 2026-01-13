@@ -1,10 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Activity, AlertTriangle, Scan, Map, ChevronRight, Info, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
+import SicknessRegistrationModal from '@/components/SicknessRegistrationModal';
+import { createClient } from '@/utils/supabase/client';
 
 export default function SmittevernPage() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [allHives, setAllHives] = useState<any[]>([]);
+  const [profile, setProfile] = useState<any>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    const fetchData = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+        setProfile(profileData);
+
+        const { data: hivesData } = await supabase
+            .from('hives')
+            .select('*, apiaries(name)')
+            .eq('user_id', user.id);
+        
+        if (hivesData) setAllHives(hivesData);
+    };
+    fetchData();
+  }, []);
+
   return (
     <div className="space-y-6">
       <header className="flex justify-between items-center">
@@ -44,7 +73,7 @@ export default function SmittevernPage() {
 
         {/* Manuell Rapportering */}
         <button 
-          onClick={() => alert('Manuell rapportering kommer snart')}
+          onClick={() => setIsModalOpen(true)}
           className="group text-left"
         >
           <div className="bg-white p-6 rounded-xl border border-gray-200 hover:border-red-500 hover:shadow-md transition-all h-full">
@@ -96,12 +125,19 @@ export default function SmittevernPage() {
           <p className="text-gray-500 mb-4">
             Usikker på hva du ser? Slå opp i vår bildebank over bisykdommer.
           </p>
-          <button className="text-blue-600 font-medium hover:underline text-sm">
-            Åpne veileder &rarr;
-          </button>
+          <Link href="/dashboard/smittevern/veileder" className="text-blue-600 font-medium hover:underline text-sm flex items-center gap-1">
+            Åpne veileder <ChevronRight className="w-4 h-4" />
+          </Link>
         </div>
 
       </div>
+
+      <SicknessRegistrationModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        allHives={allHives}
+        profile={profile}
+      />
     </div>
   );
 }

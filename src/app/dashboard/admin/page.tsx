@@ -194,6 +194,26 @@ export default function AdminDashboard() {
             </p>
           </div>
 
+          {/* LEK-Honning™️ Link */}
+          <Link href="/honey-exchange" className="group">
+            <div className="bg-gradient-to-br from-honey-50 to-yellow-50 p-6 rounded-xl shadow-sm border border-honey-200 hover:border-honey-500 hover:shadow-md transition-all h-full">
+                <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-honey-100 text-honey-600 rounded-lg group-hover:bg-honey-600 group-hover:text-white transition-colors">
+                    <ShieldCheck className="w-6 h-6" />
+                </div>
+                <ChevronRight className="w-5 h-5 text-honey-300 group-hover:text-honey-500" />
+                </div>
+                <h3 className="text-lg font-bold text-honey-900 mb-2">LEK-Honning™️</h3>
+                <p className="text-sm text-honey-800 mb-4">
+                Administrer honningbørsen og megler-registreringer.
+                </p>
+                <div className="flex items-center gap-2 text-xs font-medium text-honey-600 bg-white/50 px-3 py-2 rounded-lg">
+                <ArrowRight className="w-4 h-4" />
+                <span>Gå til børsen</span>
+                </div>
+            </div>
+          </Link>
+
         </div>
 
         {/* Stats Overview */}
