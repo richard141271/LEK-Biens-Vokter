@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert } from 'lucide-react';
 import WeatherWidget from '@/components/WeatherWidget';
 
 export default function DashboardPage() {
@@ -630,13 +630,13 @@ export default function DashboardPage() {
                 <span className="font-bold text-[10px] text-center leading-tight">SKANN</span>
               </Link>
 
-              <button
-                onClick={() => setIsSicknessModalOpen(true)}
+              <Link
+                href="/dashboard/smittevern"
                 className="bg-red-50 border border-red-100 hover:bg-red-100 text-red-600 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20"
               >
-                  <Activity className="w-5 h-5" />
-                  <span className="font-bold text-[10px] text-center leading-tight">MELD SYKDOM</span>
-              </button>
+                  <ShieldAlert className="w-5 h-5" />
+                  <span className="font-bold text-[10px] text-center leading-tight">HELSE & AI</span>
+              </Link>
 
               <Link href="/settings" className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20">
                   <Settings className="w-5 h-5 text-gray-400" />
