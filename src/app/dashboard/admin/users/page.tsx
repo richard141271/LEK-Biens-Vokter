@@ -23,12 +23,41 @@ export default function AdminUsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const [userStats, setUserStats] = useState<{ apiaries: number, hives: number } | null>(null);
 
   const supabase = createClient();
 
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  const fetchUserStats = async (userId: string) => {
+    try {
+      const { count: apiariesCount } = await supabase
+        .from('apiaries')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+
+      const { count: hivesCount } = await supabase
+        .from('hives')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+
+      setUserStats({
+        apiaries: apiariesCount || 0,
+        hives: hivesCount || 0
+      });
+    } catch (e) {
+      console.error("Error fetching stats", e);
+    }
+  };
+
+  const openUserDetails = (user: any) => {
+    setSelectedUser(user);
+    setUserStats(null);
+    fetchUserStats(user.id);
+  };
 
   useEffect(() => {
     if (users.length > 0) {
@@ -184,7 +213,7 @@ export default function AdminUsersPage() {
                   </tr>
                 ) : (
                   filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={user.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => openUserDetails(user)}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-10 w-10 flex-shrink-0 rounded-full bg-honey-100 flex items-center justify-center text-honey-600 font-bold">
@@ -199,7 +228,7 @@ export default function AdminUsersPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getRoleBadge(user.role)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
                           <select
                             disabled={updatingId === user.id}
@@ -214,7 +243,7 @@ export default function AdminUsersPage() {
                           {updatingId === user.id && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-6 py-4 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
                         <button 
                             onClick={() => handleDeleteUser(user.id)}
                             disabled={updatingId === user.id}
@@ -232,6 +261,91 @@ export default function AdminUsersPage() {
           </div>
         </div>
       </div>
+
+      {/* User Details Modal */}
+      {selectedUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setSelectedUser(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-gray-100 flex justify-between items-start">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-honey-100 flex items-center justify-center text-honey-600 text-2xl font-bold">
+                  {selectedUser.full_name?.[0]?.toUpperCase() || 'U'}
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">{selectedUser.full_name || 'Ukjent navn'}</h2>
+                  <p className="text-sm text-gray-500">{getRoleBadge(selectedUser.role)}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedUser(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 uppercase">E-post</label>
+                  <p className="text-gray-900 font-medium">{selectedUser.email || 'Ingen e-post registrert'}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 uppercase">Telefon</label>
+                  <p className="text-gray-900 font-medium">{selectedUser.phone_number || 'Ikke registrert'}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 uppercase">Adresse</label>
+                  <p className="text-gray-900 font-medium">{selectedUser.address || 'Ikke registrert'}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 uppercase">Medlemsnummer</label>
+                  <p className="text-gray-900 font-medium">#{selectedUser.member_number || 'N/A'}</p>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4">
+                <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <Briefcase className="w-4 h-4" />
+                  Aktivitet
+                </h3>
+                {userStats ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                      <div className="text-2xl font-bold text-honey-600">{userStats.apiaries}</div>
+                      <div className="text-xs text-gray-500">Bigårder</div>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                      <div className="text-2xl font-bold text-honey-600">{userStats.hives}</div>
+                      <div className="text-xs text-gray-500">Bikuber</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center py-4 text-gray-500 gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm">Henter statistikk...</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end pt-2">
+                 <button 
+                    onClick={() => {
+                        if (confirm('Er du sikker på at du vil slette denne brukeren?')) {
+                            handleDeleteUser(selectedUser.id);
+                            setSelectedUser(null);
+                        }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium text-sm"
+                >
+                    <Trash2 className="w-4 h-4" />
+                    Slett bruker
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
