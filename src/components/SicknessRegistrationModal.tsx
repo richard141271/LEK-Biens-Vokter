@@ -3,7 +3,6 @@
 import { useState, useRef } from 'react';
 import { Activity, X, Camera, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
-import heic2any from 'heic2any';
 
 interface SicknessRegistrationModalProps {
   isOpen: boolean;
@@ -272,6 +271,7 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
                                     if (isHeic) {
                                         (async () => {
                                             try {
+                                                const heic2any = (await import('heic2any')).default;
                                                 const convertedBlob = await heic2any({
                                                     blob: file,
                                                     toType: 'image/jpeg',
