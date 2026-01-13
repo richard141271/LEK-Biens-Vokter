@@ -943,20 +943,22 @@ export default function DashboardPage() {
 
                                 const details = `Sykdom: ${sicknessData.diseaseType}, Atferd: ${sicknessData.behavior}, Død: ${sicknessData.mortality}, Varroa: ${sicknessData.varroaCount}. Beskrivelse: ${sicknessData.description} ${imageUrl ? `\nBilde: ${imageUrl}` : ''}`;
                                 
-                                // Insert into hive_logs if hive selected
-                                if (sicknessData.hiveId) {
-                                    await supabase.from('hive_logs').insert({
-                                        hive_id: sicknessData.hiveId,
-                                        action: 'SYKDOM',
-                                        details: details,
-                                        ai_analysis_result: aiResult,
-                                        admin_status: 'pending',
-                                        created_at: new Date().toISOString()
-                                    });
-                                } else {
-                                    // Log generally (if we had a general logs table, for now just alert)
-                                    console.log("General sickness report:", details);
-                                }
+                                // Insert into hive_logs
+                                const { data: { user } } = await supabase.auth.getUser();
+                                if (!user) throw new Error("Du må være logget inn for å sende rapport");
+                                const userId = user.id;
+
+                                const { error: logError } = await supabase.from('hive_logs').insert({
+                                    hive_id: sicknessData.hiveId || null,
+                                    user_id: userId,
+                                    action: 'SYKDOM',
+                                    details: sicknessData.hiveId ? details : `(Generell Rapport) ${details}`,
+                                    ai_analysis_result: aiResult,
+                                    admin_status: 'pending',
+                                    created_at: new Date().toISOString()
+                                });
+
+                                if (logError) throw logError;
 
                                 const aiMsg = aiResult 
                                     ? `\n\n🤖 AI-Analyse (PoC):\nModellen gjenkjenner: ${aiResult.detected} (${aiResult.confidence}% sannsynlighet).`
