@@ -112,71 +112,104 @@ export default function DiseaseShortPage({ params }: { params: { slug: DiseaseKe
       </div>
 
       <section className={`rounded-xl shadow-sm border ${headerBg} overflow-hidden`}>
-        {d.image && (
-          <div className="relative w-full h-48 sm:h-64 bg-gray-100">
-            <NextImage
-              src={d.image}
-              alt={d.title}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            />
-          </div>
-        )}
-        <div className="p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 text-gray-900">
-            <div className="p-2 rounded-lg bg-white/60">
-              {IconEl}
-            </div>
-            <div>
-              <div className="text-sm">{d.short}</div>
-              <div className="text-xs mt-1">
-                Alvorlighet: <span className="font-bold">{d.severityLabel}</span>
-                {d.meldepliktig && <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-600 text-white text-[11px]">MELDEPLIKTIG <AlertTriangle className="w-3 h-3" /></span>}
+        <div className="md:flex md:flex-row-reverse">
+          {d.image && (
+            <div 
+              className="relative w-full h-48 sm:h-64 md:h-auto md:w-1/2 bg-gray-100 cursor-pointer group"
+              onClick={() => setIsImageModalOpen(true)}
+            >
+              <NextImage
+                src={d.image}
+                alt={d.title}
+                fill
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
+                sizes="(max-width: 768px) 100vw, 50vw"
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                <Maximize2 className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
               </div>
             </div>
-          </div>
-        </div>
-
-        <div className="p-5 space-y-5 bg-white">
-          <div>
-            <h3 className="text-sm font-bold text-gray-700 mb-2">Se etter</h3>
-            <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-              {d.see.map((s) => <li key={s}>{s}</li>)}
-            </ul>
-          </div>
-
-          {d.actions.length > 0 && (
-            <div>
-              <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600" /> Hva gjør jeg nå?
-              </h3>
-              <ul className="list-disc list-inside text-sm text-gray-600 space-y-1 ml-6">
-                {d.actions.map((a) => <li key={a}>{a}</li>)}
-              </ul>
-            </div>
           )}
+          
+          <div className="flex-1 flex flex-col">
+            <div className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3 text-gray-900">
+                <div className="p-2 rounded-lg bg-white/60">
+                  {IconEl}
+                </div>
+                <div>
+                  <div className="text-sm">{d.short}</div>
+                  <div className="text-xs mt-1">
+                    Alvorlighet: <span className="font-bold">{d.severityLabel}</span>
+                    {d.meldepliktig && <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-600 text-white text-[11px]">MELDEPLIKTIG <AlertTriangle className="w-3 h-3" /></span>}
+                  </div>
+                </div>
+              </div>
+            </div>
 
-          {key === 'lukket-yngelrate' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-5 space-y-5 bg-white flex-1">
               <div>
-                <h4 className="text-sm font-bold text-red-700 mb-2 flex items-center gap-2">
-                  <XCircle className="w-4 h-4" /> Ikke gjør
-                </h4>
-                <ul className="list-disc list-inside text-sm text-gray-600 space-y-1 ml-6">
-                  <li>Flytt rammer</li>
-                  <li>Del kuber</li>
-                  <li>Forsøk egen “behandling”</li>
+                <h3 className="text-sm font-bold text-gray-700 mb-2">Se etter</h3>
+                <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                  {d.see.map((s) => <li key={s}>{s}</li>)}
                 </ul>
               </div>
+
+              {d.actions.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-600" /> Hva gjør jeg nå?
+                  </h3>
+                  <ul className="list-disc list-inside text-sm text-gray-600 space-y-1 ml-6">
+                    {d.actions.map((a) => <li key={a}>{a}</li>)}
+                  </ul>
+                </div>
+              )}
+
+              {key === 'lukket-yngelrate' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-red-700 mb-2 flex items-center gap-2">
+                      <XCircle className="w-4 h-4" /> Ikke gjør
+                    </h4>
+                    <ul className="list-disc list-inside text-sm text-gray-600 space-y-1 ml-6">
+                      <li>Flytt rammer</li>
+                      <li>Del kuber</li>
+                      <li>Forsøk egen “behandling”</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </section>
 
       <div className="text-sm text-gray-500">
         <Link href="/dashboard/smittevern/ai-diagnose" className="text-blue-600 hover:underline">Bruk AI-diagnose</Link> eller <Link href="/dashboard/smittevern/veileder" className="text-blue-600 hover:underline">tilbake til Sykdomsveileder</Link>.
       </div>
+
+      {/* Image Modal */}
+      {isImageModalOpen && d.image && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4" onClick={() => setIsImageModalOpen(false)}>
+          <button 
+            onClick={() => setIsImageModalOpen(false)}
+            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-50"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <div className="relative w-full h-full max-w-5xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            <NextImage
+              src={d.image}
+              alt={d.title}
+              fill
+              className="object-contain"
+              sizes="100vw"
+              priority
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
