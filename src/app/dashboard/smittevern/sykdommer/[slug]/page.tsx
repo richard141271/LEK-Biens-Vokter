@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import NextImage from 'next/image';
 import { ArrowLeft, AlertTriangle, Bug, ShieldCheck, CheckCircle, XCircle } from 'lucide-react';
 
 type DiseaseKey = 'varroa' | 'lukket-yngelrate' | 'apen-yngelrate' | 'kalkyngel' | 'nosema' | 'frisk-kube';
@@ -14,6 +15,7 @@ const DISEASES: Record<DiseaseKey, {
   see: string[];
   actions: string[];
   meldepliktig?: boolean;
+  image?: string;
 }> = {
   varroa: {
     title: 'Varroa (midd)',
@@ -22,7 +24,8 @@ const DISEASES: Record<DiseaseKey, {
     icon: 'bug',
     short: 'Varroa er en parasitt som svekker biene og sprer virus.',
     see: ['Små rødbrune midd', 'Deformerte vinger', 'Svakt bifolk'],
-    actions: ['Utfør varroakontroll', 'Start godkjent behandling']
+    actions: ['Utfør varroakontroll', 'Start godkjent behandling'],
+    image: '/images/sykdommer/varroa.jpg'
   },
   'lukket-yngelrate': {
     title: 'Lukket yngelråte (Amerikansk)',
@@ -32,7 +35,8 @@ const DISEASES: Record<DiseaseKey, {
     short: 'Alvorlig bakteriesykdom i yngel.',
     see: ['Ujevnt yngelbilde', 'Brun, seig masse i celler', 'Sterk lukt'],
     actions: ['Isoler kuben', 'Meld til Mattilsynet'],
-    meldepliktig: true
+    meldepliktig: true,
+    image: '/images/sykdommer/lukket_yngelrate.jpg'
   },
   'apen-yngelrate': {
     title: 'Åpen yngelråte (Europeisk)',
@@ -41,7 +45,8 @@ const DISEASES: Record<DiseaseKey, {
     icon: 'alert',
     short: 'Bakteriesykdom som rammer åpen yngel.',
     see: ['Død yngel i åpne celler', 'Gulgrå masse', 'Sur lukt'],
-    actions: ['Følg med', 'Forbedre forhold i kuben']
+    actions: ['Følg med', 'Forbedre forhold i kuben'],
+    image: '/images/sykdommer/apen_yngelrate.jpg'
   },
   kalkyngel: {
     title: 'Kalkyngel',
@@ -50,7 +55,8 @@ const DISEASES: Record<DiseaseKey, {
     icon: 'bug',
     short: 'Soppinfeksjon som gir mumifisert yngel.',
     see: ['Hvite/grå klumper', 'Død yngel på bunnbrett'],
-    actions: ['Bedre ventilasjon', 'Bytt dronning ved behov']
+    actions: ['Bedre ventilasjon', 'Bytt dronning ved behov'],
+    image: '/images/sykdommer/kalkyngel.jpg'
   },
   nosema: {
     title: 'Nosema',
@@ -59,7 +65,8 @@ const DISEASES: Record<DiseaseKey, {
     icon: 'bug',
     short: 'Tarmsykdom som svekker biene.',
     see: ['Diaré', 'Slappe bier', 'Dårlig vårutvikling'],
-    actions: ['God hygiene', 'Forny gamle rammer']
+    actions: ['God hygiene', 'Forny gamle rammer'],
+    image: '/images/sykdommer/nosema.jpg'
   },
   'frisk-kube': {
     title: 'Frisk kube (referanse)',
@@ -68,7 +75,8 @@ const DISEASES: Record<DiseaseKey, {
     icon: 'shield',
     short: 'Referanse for frisk kube.',
     see: ['Jevnt yngelbilde', 'Rolige bier', 'God aktivitet'],
-    actions: []
+    actions: [],
+    image: '/images/sykdommer/frisk_kube.jpg'
   }
 };
 
@@ -103,7 +111,18 @@ export default function DiseaseShortPage({ params }: { params: { slug: DiseaseKe
         <h1 className="text-xl font-bold text-gray-900">{d.title}</h1>
       </div>
 
-      <section className={`rounded-xl shadow-sm border ${headerBg}`}>
+      <section className={`rounded-xl shadow-sm border ${headerBg} overflow-hidden`}>
+        {d.image && (
+          <div className="relative w-full h-48 sm:h-64 bg-gray-100">
+            <NextImage
+              src={d.image}
+              alt={d.title}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            />
+          </div>
+        )}
         <div className="p-4 flex items-center justify-between">
           <div className="flex items-center gap-3 text-gray-900">
             <div className="p-2 rounded-lg bg-white/60">
