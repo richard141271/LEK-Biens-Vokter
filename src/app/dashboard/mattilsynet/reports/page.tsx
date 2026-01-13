@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, FileText, BarChart3, AlertTriangle, CheckCircle, Users } from 'lucide-react';
+import { ArrowLeft, FileText, BarChart3, AlertTriangle, CheckCircle, Users, Box as BoxIcon } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ReportsPage() {
@@ -25,26 +25,44 @@ export default function ReportsPage() {
     try {
       setLoading(true);
 
-      const { count: beekeeperCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'beekeeper');
-      const { count: apiaryCount } = await supabase.from('apiaries').select('*', { count: 'exact', head: true });
-      const { count: hiveCount } = await supabase.from('hives').select('*', { count: 'exact', head: true });
+      // Use RPC function for accurate stats bypassing RLS
+      const { data, error } = await supabase.rpc('get_mattilsynet_stats');
       
-      const { count: activeSick } = await supabase.from('hive_logs').select('*', { count: 'exact', head: true }).eq('action', 'SYKDOM').eq('admin_status', 'pending');
-      const { count: resolvedSick } = await supabase.from('hive_logs').select('*', { count: 'exact', head: true }).eq('action', 'SYKDOM').eq('admin_status', 'resolved');
-      
-      const { count: inspections } = await supabase.from('hive_logs').select('*', { count: 'exact', head: true }).eq('action', 'INSPEKSJON');
+      if (error) throw error;
 
-      setStats({
-        totalBeekeepers: beekeeperCount || 0,
-        totalApiaries: apiaryCount || 0,
-        totalHives: hiveCount || 0,
-        activeSickness: activeSick || 0,
-        resolvedSickness: resolvedSick || 0,
-        totalInspections: inspections || 0
-      });
+      if (data && data[0]) {
+        setStats({
+          totalBeekeepers: parseInt(data[0].total_beekeepers),
+          totalApiaries: parseInt(data[0].total_apiaries),
+          totalHives: parseInt(data[0].total_hives),
+          activeSickness: parseInt(data[0].active_sickness),
+          resolvedSickness: parseInt(data[0].resolved_sickness),
+          totalInspections: parseInt(data[0].total_inspections)
+        });
+      }
 
     } catch (e) {
       console.error(e);
+      // Fallback to manual counts if RPC fails
+      try {
+        const { count: beekeeperCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'beekeeper');
+        const { count: apiaryCount } = await supabase.from('apiaries').select('*', { count: 'exact', head: true });
+        const { count: hiveCount } = await supabase.from('hives').select('*', { count: 'exact', head: true });
+        const { count: activeSick } = await supabase.from('hive_logs').select('*', { count: 'exact', head: true }).eq('action', 'SYKDOM').eq('admin_status', 'pending');
+        const { count: resolvedSick } = await supabase.from('hive_logs').select('*', { count: 'exact', head: true }).eq('action', 'SYKDOM').eq('admin_status', 'resolved');
+        const { count: inspections } = await supabase.from('hive_logs').select('*', { count: 'exact', head: true }).eq('action', 'INSPEKSJON');
+  
+        setStats({
+          totalBeekeepers: beekeeperCount || 0,
+          totalApiaries: apiaryCount || 0,
+          totalHives: hiveCount || 0,
+          activeSickness: activeSick || 0,
+          resolvedSickness: resolvedSick || 0,
+          totalInspections: inspections || 0
+        });
+      } catch (err) {
+        console.error("Fallback stats failed:", err);
+      }
     } finally {
       setLoading(false);
     }

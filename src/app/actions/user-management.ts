@@ -38,7 +38,15 @@ export async function deleteUser(userId: string) {
     return { error: 'Ingen tilgang: Krever admin-rettigheter' }
   }
 
-  // 2. Perform deletion using admin client
+  // 2. Try to delete profile data first via RPC (handles foreign keys if set up, or manual cleanup)
+  // We use the regular 'supabase' client so auth.uid() is preserved for the RPC security check
+  const { error: rpcError } = await supabase.rpc('delete_user_by_admin', { target_user_id: userId })
+  
+  if (rpcError) {
+      console.warn('RPC deletion failed (might be harmless if profile missing):', rpcError)
+  }
+
+  // 3. Perform Auth deletion using admin client
   const adminClient = createAdminClient()
   const { error } = await adminClient.auth.admin.deleteUser(userId)
 
@@ -47,7 +55,7 @@ export async function deleteUser(userId: string) {
     return { error: error.message }
   }
 
-  // 3. Revalidate cache
+  // 4. Revalidate cache
   revalidatePath('/dashboard/admin/users')
   return { success: true }
 }
