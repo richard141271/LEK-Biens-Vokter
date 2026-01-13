@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Bug, AlertTriangle, ShieldCheck, XCircle, CheckCircle, Info } from 'lucide-react';
+import { ArrowLeft, Bug, AlertTriangle, ShieldCheck, XCircle, CheckCircle, Info, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -88,11 +88,9 @@ export default function SykdomsveilederPage() {
                         <li>Følg behandlingsplan nøye</li>
                     </ul>
                 </div>
-                <div className="mt-4">
-                  <Link href="/dashboard/smittevern/sykdommer/varroa" className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm">
-                    Åpne kortversjon
-                  </Link>
-                </div>
+                <Link href="/dashboard/smittevern/sykdommer/varroa" className="w-full flex items-center justify-center gap-2 p-3 bg-white border border-gray-200 rounded-xl text-gray-900 font-bold hover:bg-gray-50 hover:border-gray-300 transition-all mt-4 group">
+                    Se bilder og detaljer <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                </Link>
             </div>
         </section>
 
@@ -148,11 +146,9 @@ export default function SykdomsveilederPage() {
                         </ul>
                     </div>
                 </div>
-                <div className="mt-4">
-                  <Link href="/dashboard/smittevern/sykdommer/lukket-yngelrate" className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm">
-                    Åpne kortversjon
-                  </Link>
-                </div>
+                <Link href="/dashboard/smittevern/sykdommer/lukket-yngelrate" className="w-full flex items-center justify-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl text-red-900 font-bold hover:bg-red-100 hover:border-red-300 transition-all mt-4 group">
+                    Se bilder og detaljer <ChevronRight className="w-4 h-4 text-red-400 group-hover:text-red-600" />
+                </Link>
             </div>
         </section>
 
@@ -229,11 +225,9 @@ export default function SykdomsveilederPage() {
                         <li>Fjern angrepne rammer</li>
                     </ul>
                 </div>
-                <div className="mt-4">
-                  <Link href="/dashboard/smittevern/sykdommer/kalkyngel" className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm">
-                    Åpne kortversjon
-                  </Link>
-                </div>
+                <Link href="/dashboard/smittevern/sykdommer/kalkyngel" className="w-full flex items-center justify-center gap-2 p-3 bg-white border border-gray-200 rounded-xl text-gray-900 font-bold hover:bg-gray-50 hover:border-gray-300 transition-all mt-4 group">
+                    Se bilder og detaljer <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                </Link>
             </div>
         </section>
 
@@ -278,13 +272,14 @@ export default function SykdomsveilederPage() {
         </section>
 
          {/* 6. Frisk kube */}
-        <section className="bg-white rounded-xl shadow-sm border border-green-100 overflow-hidden">
-             <div className="bg-green-50 p-4 border-b border-green-100 flex items-center gap-3">
+        <section className="bg-white rounded-xl shadow-sm border border-green-100 overflow-hidden transition-all hover:shadow-md">
+             <Link href="/dashboard/smittevern/sykdommer/frisk-kube" className="bg-green-50 p-4 border-b border-green-100 flex items-center gap-3 hover:bg-green-100/50 transition-colors">
                 <div className="bg-green-100 p-2 rounded-lg">
                     <ShieldCheck className="w-6 h-6 text-green-600" />
                 </div>
-                <h2 className="text-lg font-bold text-gray-900">6. Frisk kube (referanse)</h2>
-            </div>
+                <h2 className="text-lg font-bold text-gray-900 flex-1">6. Frisk kube (referanse)</h2>
+                <ChevronRight className="w-5 h-5 text-green-300" />
+            </Link>
              <div className="p-5 space-y-4">
                 <div>
                     <h3 className="text-sm font-bold text-gray-700 mb-2">Kjennetegn</h3>
