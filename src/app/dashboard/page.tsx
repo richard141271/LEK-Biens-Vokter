@@ -590,11 +590,11 @@ export default function DashboardPage() {
           <div className="space-y-1 pt-1">
               <h3 className="text-[10px] font-bold text-gray-500 uppercase px-1">Nyttige lenker</h3>
               <div className="grid grid-cols-3 gap-1.5">
-                  <ExternalLinkButton href="https://richard141271.github.io/" label="LEK-HONNING" />
-                  <ExternalLinkButton href="https://honning.no/" label="HC" />
-                  <ExternalLinkButton href="https://norges-birokterlag.no" label="BIRØKTERLAG" />
-                  <ExternalLinkButton href="https://honninglandet.no/nyheter/nm-i-honning-2025/" label="NM HONNING" />
-                  <ExternalLinkButton href="https://mattilsynet.no" label="MATTILSYNET" />
+                  <ExternalLinkButton href="https://richard141271.github.io/" label="LEK-HONNING" imageSrc="/images/logos/lek_honning.png" />
+                  <ExternalLinkButton href="https://honning.no/" label="HC" imageSrc="/images/logos/hc.png" />
+                  <ExternalLinkButton href="https://norges-birokterlag.no" label="BIRØKTERLAG" imageSrc="/images/logos/norbi.svg" />
+                  <ExternalLinkButton href="https://honninglandet.no/nyheter/nm-i-honning-2025/" label="NM HONNING" imageSrc="/images/logos/honninglandet.png" />
+                  <ExternalLinkButton href="https://mattilsynet.no" label="MATTILSYNET" imageSrc="/images/logos/mattilsynet.png" />
               </div>
           </div>
 
