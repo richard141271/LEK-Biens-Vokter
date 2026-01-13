@@ -306,18 +306,6 @@ export default function SettingsPage() {
               </button>
             </div>
 
-            {/* Data Handling */}
-            <div className="bg-white rounded-xl shadow-sm p-6 mt-4">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Datahåndtering</h2>
-              <button
-                onClick={() => alert('Masse-import fra Excel/CSV kommer snart! Her vil du kunne laste opp lister med kuber.')}
-                className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2"
-              >
-                <Database className="w-5 h-5" />
-                Importer data (CSV)
-              </button>
-            </div>
-
             {/* LEK-Honning™️ Link */}
             <div className="bg-gradient-to-br from-honey-50 to-yellow-50 rounded-xl shadow-sm p-6 mt-4 border border-honey-200">
               <div className="flex items-center gap-3 mb-2">
@@ -626,22 +614,6 @@ export default function SettingsPage() {
                 )}
               </div>
               
-              {/* Role Selector (Pilot/Dev Only) */}
-              <div className="pt-4 border-t">
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Rolle (Pilot/Dev)</label>
-                  <select
-                      name="role"
-                      value={formData.role || 'beekeeper'}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none bg-white"
-                  >
-                      <option value="beekeeper">Birøkter</option>
-                      <option value="mattilsynet">Mattilsynet (Inspektør)</option>
-                      <option value="admin">Admin</option>
-                  </select>
-                  <p className="text-[10px] text-gray-500 mt-1">Endre rolle for å teste ulike visninger.</p>
-              </div>
-
               {/* Password Change Section */}
               <div className="pt-6 border-t border-gray-200">
                 <h3 className="text-sm font-bold text-gray-900 mb-4">Endre Passord (Valgfritt)</h3>

@@ -161,17 +161,24 @@ export default function AdminDashboard() {
             </div>
           </Link>
 
-          {/* Database/System Status (Placeholder) */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 opacity-75">
+          {/* Data Management Card */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition-all h-full">
             <div className="flex items-center justify-between mb-4">
               <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
                 <Database className="w-6 h-6" />
               </div>
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Systemstatus</h3>
-            <p className="text-sm text-gray-500">
-              Overvåk database, lagring og API-ytelse. (Kommer snart)
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Datahåndtering</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Masse-import av data og systemvedlikehold.
             </p>
+            <button 
+                onClick={() => alert('Masse-import fra Excel/CSV kommer snart! Her vil du kunne laste opp lister med kuber.')}
+                className="w-full bg-blue-50 text-blue-700 font-bold py-2 rounded-lg hover:bg-blue-100 transition-colors text-xs flex items-center justify-center gap-2"
+            >
+                <Database className="w-4 h-4" />
+                Importer data (CSV)
+            </button>
           </div>
 
           {/* Settings (Placeholder) */}

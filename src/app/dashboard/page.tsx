@@ -100,11 +100,13 @@ export default function DashboardPage() {
         // Fetch Stats
         const { count: apiaryCount } = await supabase
         .from('apiaries')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
 
         const { data: hivesData } = await supabase
         .from('hives')
-        .select('id, hive_number, active');
+        .select('id, hive_number, active')
+        .eq('user_id', user.id);
 
         const totalHives = hivesData?.length || 0;
         const activeHives = hivesData?.filter(h => h.active).length || 0;
@@ -209,6 +211,7 @@ export default function DashboardPage() {
         const { data: apiariesData } = await supabase
         .from('apiaries')
         .select('id, name, type')
+        .eq('user_id', user.id)
         .order('name');
         
         if (apiariesData) {
