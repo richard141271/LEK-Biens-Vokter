@@ -25,7 +25,7 @@ const DISEASES: Record<DiseaseKey, {
     short: 'Varroa er en parasitt som svekker biene og sprer virus.',
     see: ['Små rødbrune midd', 'Deformerte vinger', 'Svakt bifolk'],
     actions: ['Utfør varroakontroll', 'Start godkjent behandling'],
-    image: '/images/sykdommer/varroa.jpg'
+    image: '/images/sykdommer/varroa.png'
   },
   'lukket-yngelrate': {
     title: 'Lukket yngelråte (Amerikansk)',
@@ -36,7 +36,7 @@ const DISEASES: Record<DiseaseKey, {
     see: ['Ujevnt yngelbilde', 'Brun, seig masse i celler', 'Sterk lukt'],
     actions: ['Isoler kuben', 'Meld til Mattilsynet'],
     meldepliktig: true,
-    image: '/images/sykdommer/lukket_yngelrate.jpg'
+    image: '/images/sykdommer/lukket_yngelrate.png'
   },
   'apen-yngelrate': {
     title: 'Åpen yngelråte (Europeisk)',
@@ -46,7 +46,7 @@ const DISEASES: Record<DiseaseKey, {
     short: 'Bakteriesykdom som rammer åpen yngel.',
     see: ['Død yngel i åpne celler', 'Gulgrå masse', 'Sur lukt'],
     actions: ['Følg med', 'Forbedre forhold i kuben'],
-    image: '/images/sykdommer/apen_yngelrate.jpg'
+    image: '/images/sykdommer/apen_yngelrate.png'
   },
   kalkyngel: {
     title: 'Kalkyngel',
@@ -56,7 +56,7 @@ const DISEASES: Record<DiseaseKey, {
     short: 'Soppinfeksjon som gir mumifisert yngel.',
     see: ['Hvite/grå klumper', 'Død yngel på bunnbrett'],
     actions: ['Bedre ventilasjon', 'Bytt dronning ved behov'],
-    image: '/images/sykdommer/kalkyngel.jpg'
+    image: '/images/sykdommer/kalkyngel.png'
   },
   nosema: {
     title: 'Nosema',
@@ -66,7 +66,7 @@ const DISEASES: Record<DiseaseKey, {
     short: 'Tarmsykdom som svekker biene.',
     see: ['Diaré', 'Slappe bier', 'Dårlig vårutvikling'],
     actions: ['God hygiene', 'Forny gamle rammer'],
-    image: '/images/sykdommer/nosema.jpg'
+    image: '/images/sykdommer/nosema.png'
   },
   'frisk-kube': {
     title: 'Frisk kube (referanse)',
