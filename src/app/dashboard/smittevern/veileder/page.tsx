@@ -74,6 +74,11 @@ export default function SykdomsveilederPage() {
                         <li>Følg behandlingsplan nøye</li>
                     </ul>
                 </div>
+                <div className="mt-4">
+                  <Link href="/dashboard/smittevern/sykdommer/varroa" className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm">
+                    Åpne kortversjon
+                  </Link>
+                </div>
             </div>
         </section>
 
@@ -129,6 +134,11 @@ export default function SykdomsveilederPage() {
                         </ul>
                     </div>
                 </div>
+                <div className="mt-4">
+                  <Link href="/dashboard/smittevern/sykdommer/lukket-yngelrate" className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm">
+                    Åpne kortversjon
+                  </Link>
+                </div>
             </div>
         </section>
 
@@ -165,6 +175,11 @@ export default function SykdomsveilederPage() {
                         <li>Følg med – kan utvikle seg</li>
                     </ul>
                 </div>
+                <div className="mt-4">
+                  <Link href="/dashboard/smittevern/sykdommer/apen-yngelrate" className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm">
+                    Åpne kortversjon
+                  </Link>
+                </div>
             </div>
         </section>
 
@@ -199,6 +214,11 @@ export default function SykdomsveilederPage() {
                         <li>Bytt dronning</li>
                         <li>Fjern angrepne rammer</li>
                     </ul>
+                </div>
+                <div className="mt-4">
+                  <Link href="/dashboard/smittevern/sykdommer/kalkyngel" className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm">
+                    Åpne kortversjon
+                  </Link>
                 </div>
             </div>
         </section>
@@ -235,6 +255,11 @@ export default function SykdomsveilederPage() {
                         <li>Sørg for god overvintring</li>
                     </ul>
                 </div>
+                <div className="mt-4">
+                  <Link href="/dashboard/smittevern/sykdommer/nosema" className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm">
+                    Åpne kortversjon
+                  </Link>
+                </div>
             </div>
         </section>
 
@@ -258,6 +283,11 @@ export default function SykdomsveilederPage() {
                 </div>
                 
                 <p className="text-sm text-green-700 italic">👉 Bruk denne som sammenligningsgrunnlag i bildebanken.</p>
+                <div className="mt-4">
+                  <Link href="/dashboard/smittevern/sykdommer/frisk-kube" className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm">
+                    Åpne kortversjon
+                  </Link>
+                </div>
             </div>
         </section>
 

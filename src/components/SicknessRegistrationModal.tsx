@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { Activity, X, Camera, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import heic2any from 'heic2any';
 
 interface SicknessRegistrationModalProps {
   isOpen: boolean;
@@ -26,6 +27,8 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
     sharedWithMattilsynet: false
   });
   const [sicknessImage, setSicknessImage] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
   if (!isOpen) return null;
@@ -101,6 +104,8 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
         alert(successMsg);
         onClose();
         setSicknessImage(null); // Reset image
+        setPreviewUrl(null);
+        setPreviewError(null);
         setSicknessData({ // Reset form
             hiveId: '',
             varroaCount: '',
@@ -113,7 +118,8 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
         if (onSuccess) onSuccess();
     } catch (e) {
         console.error(e);
-        alert("Kunne ikke sende rapport.");
+        const msg = e instanceof Error ? e.message : 'Ukjent feil';
+        alert(`Kunne ikke sende rapport.\n\nDetaljer: ${msg}`);
     } finally {
         setUploading(false);
     }
@@ -230,11 +236,17 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
                         {sicknessImage ? (
                             <div className="text-center w-full">
                                 <div className="relative w-full h-32 mb-2 rounded-lg overflow-hidden bg-gray-100">
-                                    <img 
-                                        src={URL.createObjectURL(sicknessImage)} 
-                                        alt="Preview" 
-                                        className="w-full h-full object-contain" 
-                                    />
+                                    {previewUrl ? (
+                                        <img 
+                                            src={previewUrl} 
+                                            alt="Preview" 
+                                            className="w-full h-full object-contain" 
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-xs text-gray-600 px-3 text-center">
+                                            {previewError ? previewError : 'Forhåndsvisning genereres...'}
+                                        </div>
+                                    )}
                                 </div>
                                 <span className="text-xs font-medium text-green-600 block truncate px-4">{sicknessImage.name}</span>
                                 <span className="text-xs text-gray-400">Klikk for å endre</span>
@@ -252,7 +264,35 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
                             className="hidden" 
                             onChange={(e) => {
                                 if (e.target.files && e.target.files[0]) {
-                                    setSicknessImage(e.target.files[0]);
+                                    const file = e.target.files[0];
+                                    setPreviewError(null);
+                                    setPreviewUrl(null);
+                                    // Handle HEIC conversion to JPEG for browser preview
+                                    const isHeic = /\.heic$/i.test(file.name) || file.type === 'image/heic' || file.type === 'image/heif';
+                                    if (isHeic) {
+                                        (async () => {
+                                            try {
+                                                const convertedBlob = await heic2any({
+                                                    blob: file,
+                                                    toType: 'image/jpeg',
+                                                    quality: 0.85
+                                                }) as Blob;
+                                                const convertedFile = new File([convertedBlob], file.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' });
+                                                setSicknessImage(convertedFile);
+                                                const url = URL.createObjectURL(convertedBlob);
+                                                setPreviewUrl(url);
+                                            } catch (err) {
+                                                console.error('HEIC conversion failed:', err);
+                                                setPreviewError('Kan ikke vise HEIC-bilde. Bildet blir likevel sendt.');
+                                                // Fallback: upload original file but no preview
+                                                setSicknessImage(file);
+                                            }
+                                        })();
+                                    } else {
+                                        setSicknessImage(file);
+                                        const url = URL.createObjectURL(file);
+                                        setPreviewUrl(url);
+                                    }
                                 }
                             }}
                         />
