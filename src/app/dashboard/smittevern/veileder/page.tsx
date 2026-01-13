@@ -2,6 +2,7 @@
 
 import { ArrowLeft, Bug, AlertTriangle, ShieldCheck, XCircle, CheckCircle, Info } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function SykdomsveilederPage() {
   return (
@@ -18,6 +19,19 @@ export default function SykdomsveilederPage() {
           <p className="text-sm text-gray-500">Kjenn igjen vanlige bisykdommer og handle riktig.</p>
         </div>
       </header>
+
+      <div className="relative w-full h-48 sm:h-64 rounded-xl overflow-hidden shadow-sm">
+        <Image
+          src="/images/sykdommer/sykdommer.png"
+          alt="Oversikt over bisykdommer"
+          fill
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
+          <p className="text-white text-sm font-medium">Samleoversikt: Typiske tegn på sykdom i bikuben</p>
+        </div>
+      </div>
 
       <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3">
         <Info className="w-6 h-6 text-blue-600 shrink-0" />
