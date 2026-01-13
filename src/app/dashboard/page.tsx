@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert } from 'lucide-react';
 import WeatherWidget from '@/components/WeatherWidget';
 import SicknessRegistrationModal from '@/components/SicknessRegistrationModal';
+import InspectionModal from '@/components/InspectionModal';
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -38,20 +39,6 @@ export default function DashboardPage() {
 
   // Inspection Modal
   const [isInspectionModalOpen, setIsInspectionModalOpen] = useState(false);
-  const [inspectionUploading, setInspectionUploading] = useState(false);
-  const [inspectionData, setInspectionData] = useState({
-    hiveId: '',
-    queenSeen: false,
-    eggsSeen: false,
-    larvaeSeen: false,
-    pupaSeen: false,
-    honeyFrames: '',
-    pollenFrames: '',
-    temperament: 'Rolig',
-    notes: '',
-    sharedWithMattilsynet: false // Added state for sharing
-  });
-  const [inspectionImage, setInspectionImage] = useState<File | null>(null);
   
   // Rental & Mission State
   const [activeRental, setActiveRental] = useState<any>(null);
@@ -321,76 +308,6 @@ export default function DashboardPage() {
       alert('Feil ved opprettelse: ' + error.message);
     } finally {
       setIsCreating(false);
-    }
-  };
-
-  const handleInspectionSubmit = async () => {
-    if (!inspectionData.hiveId) {
-      alert('Velg bikube');
-      return;
-    }
-
-    setInspectionUploading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Ikke logget inn');
-
-      let imageUrl = null;
-      if (inspectionImage) {
-        const fileExt = inspectionImage.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
-          .from('hive-images')
-          .upload(fileName, inspectionImage);
-
-        if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage
-          .from('hive-images')
-          .getPublicUrl(fileName);
-        imageUrl = publicUrl;
-      }
-
-      const { error } = await supabase.from('hive_logs').insert({
-        user_id: user.id,
-        hive_id: inspectionData.hiveId,
-        action: 'INSPEKSJON',
-        details: `Inspeksjon: ${inspectionData.temperament} gemytt. ${inspectionData.notes}`,
-        image_url: imageUrl,
-        shared_with_mattilsynet: inspectionData.sharedWithMattilsynet,
-        data: {
-            queen_seen: inspectionData.queenSeen,
-            eggs_seen: inspectionData.eggsSeen,
-            larvae_seen: inspectionData.larvaeSeen,
-            pupa_seen: inspectionData.pupaSeen,
-            honey_frames: parseInt(inspectionData.honeyFrames) || 0,
-            pollen_frames: parseInt(inspectionData.pollenFrames) || 0,
-            temperament: inspectionData.temperament
-        }
-      });
-
-      if (error) throw error;
-
-      setInspectionData({
-        hiveId: '',
-        queenSeen: false,
-        eggsSeen: false,
-        larvaeSeen: false,
-        pupaSeen: false,
-        honeyFrames: '',
-        pollenFrames: '',
-        temperament: 'Rolig',
-        notes: '',
-        sharedWithMattilsynet: false
-      });
-      setInspectionImage(null);
-      setIsInspectionModalOpen(false);
-      alert('Inspeksjon loggført!');
-      fetchData();
-
-    } catch (e: any) {
-        alert('Feil ved lagring: ' + e.message);
-    } finally {
-        setInspectionUploading(false);
     }
   };
 
@@ -840,199 +757,15 @@ export default function DashboardPage() {
       )}
       
       {/* INSPECTION MODAL */}
-      {isInspectionModalOpen && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-[70]">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto">
-                <button 
-                    onClick={() => setIsInspectionModalOpen(false)}
-                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-                >
-                    <X className="w-6 h-6" />
-                </button>
-                
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="bg-honey-100 p-3 rounded-full text-honey-600">
-                        <Check className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-gray-900">Registrer Inspeksjon</h2>
-                        <p className="text-xs text-gray-500">Loggfør status for bikuben</p>
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                    {/* Hive Selector */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Hvilken kube?</label>
-                        <select
-                            value={inspectionData.hiveId}
-                            onChange={(e) => setInspectionData({...inspectionData, hiveId: e.target.value})}
-                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-honey-500"
-                        >
-                            <option value="">Velg kube</option>
-                            {allHives.map(h => (
-                                <option key={h.id} value={h.id}>{h.hive_number}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <label className="flex items-center gap-2 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50">
-                            <input 
-                                type="checkbox" 
-                                checked={inspectionData.queenSeen}
-                                onChange={(e) => setInspectionData({...inspectionData, queenSeen: e.target.checked})}
-                                className="w-5 h-5 text-honey-500 rounded focus:ring-honey-500"
-                            />
-                            <span className="text-sm font-medium">Dronning sett</span>
-                        </label>
-                        <label className="flex items-center gap-2 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50">
-                            <input 
-                                type="checkbox" 
-                                checked={inspectionData.eggsSeen}
-                                onChange={(e) => setInspectionData({...inspectionData, eggsSeen: e.target.checked})}
-                                className="w-5 h-5 text-honey-500 rounded focus:ring-honey-500"
-                            />
-                            <span className="text-sm font-medium">Egg sett</span>
-                        </label>
-                        <label className="flex items-center gap-2 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50">
-                            <input 
-                                type="checkbox" 
-                                checked={inspectionData.larvaeSeen}
-                                onChange={(e) => setInspectionData({...inspectionData, larvaeSeen: e.target.checked})}
-                                className="w-5 h-5 text-honey-500 rounded focus:ring-honey-500"
-                            />
-                            <span className="text-sm font-medium">Larver sett</span>
-                        </label>
-                        <label className="flex items-center gap-2 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50">
-                            <input 
-                                type="checkbox" 
-                                checked={inspectionData.pupaSeen}
-                                onChange={(e) => setInspectionData({...inspectionData, pupaSeen: e.target.checked})}
-                                className="w-5 h-5 text-honey-500 rounded focus:ring-honey-500"
-                            />
-                            <span className="text-sm font-medium">Forseglet yngel</span>
-                        </label>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Honningtavler</label>
-                            <input 
-                                type="number" 
-                                placeholder="0"
-                                value={inspectionData.honeyFrames}
-                                onChange={(e) => setInspectionData({...inspectionData, honeyFrames: e.target.value})}
-                                className="w-full p-3 border border-gray-200 rounded-xl"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Pollentavler</label>
-                            <input 
-                                type="number" 
-                                placeholder="0"
-                                value={inspectionData.pollenFrames}
-                                onChange={(e) => setInspectionData({...inspectionData, pollenFrames: e.target.value})}
-                                className="w-full p-3 border border-gray-200 rounded-xl"
-                            />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Gemytt</label>
-                        <select
-                            value={inspectionData.temperament}
-                            onChange={(e) => setInspectionData({...inspectionData, temperament: e.target.value})}
-                            className="w-full p-3 border border-gray-200 rounded-xl bg-white"
-                        >
-                            <option value="Rolig">Rolig</option>
-                            <option value="Urolig">Urolig</option>
-                            <option value="Aggressiv">Aggressiv</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Notater</label>
-                        <textarea 
-                            value={inspectionData.notes}
-                            onChange={(e) => setInspectionData({...inspectionData, notes: e.target.value})}
-                            placeholder="Egne notater..."
-                            className="w-full p-3 border border-gray-200 rounded-xl min-h-[80px] text-sm focus:ring-2 focus:ring-honey-500 outline-none"
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Last opp bilde (Valgfritt)</label>
-                        <div 
-                            onClick={() => {
-                                // We need a ref for inspection image input similar to sickness
-                                // Assuming we can use a new ref or reuse if not conflicting
-                                document.getElementById('inspection-file-input')?.click();
-                            }}
-                            className="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 cursor-pointer transition-colors relative overflow-hidden"
-                        >
-                            {inspectionImage ? (
-                                <div className="text-center w-full">
-                                    <div className="relative w-full h-32 mb-2 rounded-lg overflow-hidden bg-gray-100">
-                                        <img 
-                                            src={URL.createObjectURL(inspectionImage)} 
-                                            alt="Preview" 
-                                            className="w-full h-full object-contain" 
-                                        />
-                                    </div>
-                                    <span className="text-xs font-medium text-green-600 block truncate px-4">{inspectionImage.name}</span>
-                                    <span className="text-xs text-gray-400">Klikk for å endre</span>
-                                </div>
-                            ) : (
-                                <>
-                                    <Camera className="w-6 h-6 mb-1 text-gray-400" />
-                                    <span className="text-xs font-medium">Trykk for å ta bilde eller laste opp</span>
-                                </>
-                            )}
-                            <input 
-                                id="inspection-file-input"
-                                type="file" 
-                                accept="image/*"
-                                className="hidden" 
-                                onChange={(e) => {
-                                    if (e.target.files && e.target.files[0]) {
-                                        setInspectionImage(e.target.files[0]);
-                                    }
-                                }}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Mattilsynet Share Checkbox */}
-                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mb-6">
-                        <label className="flex items-start gap-3 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            className="mt-1 w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                            checked={inspectionData.sharedWithMattilsynet}
-                            onChange={(e) => setInspectionData({...inspectionData, sharedWithMattilsynet: e.target.checked})}
-                        />
-                        <div>
-                            <span className="block text-sm font-bold text-gray-900">Del denne inspeksjonen med Mattilsynet</span>
-                            <span className="block text-xs text-gray-600 mt-0.5">
-                            Huk av her hvis du ønsker at Mattilsynet skal få innsyn i denne spesifikke inspeksjonen. 
-                            Standard er at inspeksjoner er private.
-                            </span>
-                        </div>
-                        </label>
-                    </div>
-
-                    <button 
-                        onClick={handleInspectionSubmit}
-                        disabled={inspectionUploading}
-                        className="w-full bg-honey-500 text-white font-bold py-3 rounded-xl hover:bg-honey-600 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {inspectionUploading ? 'Lagrer...' : 'Lagre Inspeksjon'}
-                    </button>
-                </div>
-            </div>
-        </div>
-      )}
+      <InspectionModal 
+        isOpen={isInspectionModalOpen} 
+        onClose={() => setIsInspectionModalOpen(false)}
+        allHives={allHives}
+        onSuccess={() => {
+            fetchData();
+            setIsInspectionModalOpen(false);
+        }}
+      />
 
       {/* SICKNESS REPORT MODAL */}
       <SicknessRegistrationModal 

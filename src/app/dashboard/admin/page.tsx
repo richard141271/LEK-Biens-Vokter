@@ -12,7 +12,9 @@ import {
   ChevronRight,
   Activity,
   UserCheck,
-  ShoppingBag
+  ShoppingBag,
+  ShieldCheck,
+  ArrowRight
 } from 'lucide-react';
 import Link from 'next/link';
 
