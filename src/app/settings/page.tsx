@@ -153,8 +153,8 @@ export default function SettingsPage() {
         if (passwordError) throw passwordError;
       }
 
-      // Remove email from update payload as it's not in profiles table
-      const { email, ...updateData } = formData;
+      // Remove email and region from update payload as they are not in profiles table
+      const { email, region, ...updateData } = formData;
       
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Ingen bruker funnet');

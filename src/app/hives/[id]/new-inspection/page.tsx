@@ -344,7 +344,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                       value={temperature}
                       onChange={(e) => setTemperature(e.target.value)}
                       placeholder="0"
-                      className="bg-transparent border-none p-0 text-blue-900 font-bold w-12 focus:ring-0"
+                      className="bg-transparent border-none p-0 text-blue-900 font-bold w-24 focus:ring-0"
                     />
                   )}
                 </div>

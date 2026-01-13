@@ -185,11 +185,9 @@ export default function SykdomsveilederPage() {
                         <li>Følg med – kan utvikle seg</li>
                     </ul>
                 </div>
-                <div className="mt-4">
-                  <Link href="/dashboard/smittevern/sykdommer/apen-yngelrate" className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm">
-                    Åpne kortversjon
-                  </Link>
-                </div>
+                <Link href="/dashboard/smittevern/sykdommer/apen-yngelrate" className="w-full flex items-center justify-center gap-2 p-3 bg-white border border-gray-200 rounded-xl text-gray-900 font-bold hover:bg-gray-50 hover:border-gray-300 transition-all mt-4 group">
+                    Se bilder og detaljer <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                </Link>
             </div>
         </section>
 
@@ -263,23 +261,20 @@ export default function SykdomsveilederPage() {
                         <li>Sørg for god overvintring</li>
                     </ul>
                 </div>
-                <div className="mt-4">
-                  <Link href="/dashboard/smittevern/sykdommer/nosema" className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm">
-                    Åpne kortversjon
-                  </Link>
-                </div>
+                <Link href="/dashboard/smittevern/sykdommer/nosema" className="w-full flex items-center justify-center gap-2 p-3 bg-white border border-gray-200 rounded-xl text-gray-900 font-bold hover:bg-gray-50 hover:border-gray-300 transition-all mt-4 group">
+                    Se bilder og detaljer <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                </Link>
             </div>
         </section>
 
          {/* 6. Frisk kube */}
-        <section className="bg-white rounded-xl shadow-sm border border-green-100 overflow-hidden transition-all hover:shadow-md">
-             <Link href="/dashboard/smittevern/sykdommer/frisk-kube" className="bg-green-50 p-4 border-b border-green-100 flex items-center gap-3 hover:bg-green-100/50 transition-colors">
+        <section className="bg-white rounded-xl shadow-sm border border-green-100 overflow-hidden">
+             <div className="bg-green-50 p-4 border-b border-green-100 flex items-center gap-3">
                 <div className="bg-green-100 p-2 rounded-lg">
                     <ShieldCheck className="w-6 h-6 text-green-600" />
                 </div>
-                <h2 className="text-lg font-bold text-gray-900 flex-1">6. Frisk kube (referanse)</h2>
-                <ChevronRight className="w-5 h-5 text-green-300" />
-            </Link>
+                <h2 className="text-lg font-bold text-gray-900">6. Frisk kube (referanse)</h2>
+            </div>
              <div className="p-5 space-y-4">
                 <div>
                     <h3 className="text-sm font-bold text-gray-700 mb-2">Kjennetegn</h3>
@@ -292,11 +287,9 @@ export default function SykdomsveilederPage() {
                 </div>
                 
                 <p className="text-sm text-green-700 italic">👉 Bruk denne som sammenligningsgrunnlag i bildebanken.</p>
-                <div className="mt-4">
-                  <Link href="/dashboard/smittevern/sykdommer/frisk-kube" className="inline-flex items-center gap-2 text-blue-600 hover:underline text-sm">
-                    Åpne kortversjon
-                  </Link>
-                </div>
+                <Link href="/dashboard/smittevern/sykdommer/frisk-kube" className="w-full flex items-center justify-center gap-2 p-3 bg-white border border-gray-200 rounded-xl text-gray-900 font-bold hover:bg-gray-50 hover:border-gray-300 transition-all mt-4 group">
+                    Se bilder og detaljer <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+                </Link>
             </div>
         </section>
 

@@ -175,7 +175,7 @@ export default function DiseaseShortPage({ params }: { params: { slug: DiseaseKe
       </section>
 
       <div className="text-sm text-gray-500">
-        <Link href="/dashboard/smittevern/ai-diagnose" className="text-blue-600 hover:underline">Bruk AI-diagnose</Link> eller <Link href="/dashboard/smittevern" className="text-blue-600 hover:underline">tilbake til Smittevern</Link>.
+        <Link href="/dashboard/smittevern/ai-diagnose" className="text-blue-600 hover:underline">Bruk AI-diagnose</Link> eller <Link href="/dashboard/smittevern/veileder" className="text-blue-600 hover:underline">tilbake til Sykdomsveileder</Link>.
       </div>
     </div>
   );
