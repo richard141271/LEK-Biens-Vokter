@@ -207,49 +207,44 @@ export default function DashboardPage() {
 
         if (alerts) setNearbyAlerts(alerts);
 
-        // Fetch Rental Status (For Tenants)
-        if (profileData?.role === 'tenant') {
-            const { data: rental } = await supabase
-                .from('rentals')
-                .select(`
-                    *,
-                    assigned_beekeeper:assigned_beekeeper_id (
-                        full_name,
-                        phone_number,
-                        email
-                    )
-                `)
-                .eq('user_id', user.id)
-                .in('status', ['pending', 'assigned', 'active'])
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
-            
-            if (rental) {
-                setActiveRental(rental);
+        const { data: rental } = await supabase
+            .from('rentals')
+            .select(`
+                *,
+                assigned_beekeeper:assigned_beekeeper_id (
+                    full_name,
+                    phone_number,
+                    email
+                )
+            `)
+            .eq('user_id', user.id)
+            .in('status', ['pending', 'assigned', 'active'])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+        
+        if (rental) {
+            setActiveRental(rental);
 
-                // Fetch latest hive log if apiary is assigned
-                if (rental.apiary_id) {
-                     // Get hive IDs for this apiary first (safer approach)
-                     const { data: hives } = await supabase
-                        .from('hives')
-                        .select('id')
-                        .eq('apiary_id', rental.apiary_id);
-                     
-                     if (hives && hives.length > 0) {
-                         const hiveIds = hives.map(h => h.id);
-                         const { data: log } = await supabase
-                            .from('hive_logs')
-                            .select('*')
-                            .in('hive_id', hiveIds)
-                            .eq('action', 'INSPEKSJON')
-                            .order('created_at', { ascending: false })
-                            .limit(1)
-                            .single();
-                        
-                        if (log) setLatestHiveLog(log);
-                     }
-                }
+            if (rental.apiary_id) {
+                 const { data: hives } = await supabase
+                    .from('hives')
+                    .select('id')
+                    .eq('apiary_id', rental.apiary_id);
+                 
+                 if (hives && hives.length > 0) {
+                     const hiveIds = hives.map(h => h.id);
+                     const { data: log } = await supabase
+                        .from('hive_logs')
+                        .select('*')
+                        .in('hive_id', hiveIds)
+                        .eq('action', 'INSPEKSJON')
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .single();
+                    
+                    if (log) setLatestHiveLog(log);
+                 }
             }
         }
 
@@ -509,8 +504,51 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* RENTAL STATUS (For Tenants) */}
-          {activeRental && (
+          {/* RENTAL STATUS */}
+          <div className="bg-white rounded-xl border border-honey-200 shadow-sm p-4 mb-2">
+            <div className="flex justify-between items-start mb-2">
+              <div>
+                <h3 className="font-bold text-gray-900 text-sm">Min Leieavtale</h3>
+                {activeRental ? (
+                  <p className="text-xs text-gray-500">{activeRental.hive_count} Bikuber</p>
+                ) : (
+                  <p className="text-xs text-gray-500">Ingen leieavtale registrert på denne brukeren.</p>
+                )}
+              </div>
+              {activeRental && (
+                <span
+                  className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
+                    activeRental.status === "pending"
+                      ? "bg-yellow-100 text-yellow-800"
+                      : activeRental.status === "assigned"
+                      ? "bg-blue-100 text-blue-800"
+                      : "bg-green-100 text-green-800"
+                  }`}
+                >
+                  {activeRental.status === "pending"
+                    ? "Søker birøkter..."
+                    : activeRental.status === "assigned"
+                    ? "Birøkter tildelt"
+                    : "Aktiv"}
+                </span>
+              )}
+            </div>
+
+            {!activeRental && (
+              <div className="mt-1 flex justify-between items-center">
+                <p className="text-[11px] text-gray-600">
+                  For å opprette en leieavtale går du via «Lei en kube».
+                </p>
+                <button
+                  onClick={() => router.push("/lei-en-kube")}
+                  className="text-[11px] px-3 py-1.5 rounded-lg border border-honey-300 text-honey-700 font-bold hover:bg-honey-50"
+                >
+                  Lei en kube
+                </button>
+              </div>
+            )}
+
+            {activeRental && (
             <div className="bg-white rounded-xl border border-honey-200 shadow-sm p-4 mb-2">
                 <div className="flex justify-between items-start mb-2">
                     <div>
@@ -591,10 +629,11 @@ export default function DashboardPage() {
                     className="text-[11px] px-3 py-1.5 rounded-lg border border-honey-300 text-honey-700 font-bold hover:bg-honey-50"
                   >
                     Last ned avtale (PDF)
-                  </button>
+                    </button>
                 </div>
             </div>
-          )}
+            )}
+          </div>
 
           {/* MISSIONS ALERT (For Beekeepers) */}
           {pendingMissionsCount > 0 && profile?.role === 'beekeeper' && (
