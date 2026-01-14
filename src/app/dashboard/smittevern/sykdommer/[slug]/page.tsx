@@ -1,8 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import NextImage from 'next/image';
-import { ArrowLeft, AlertTriangle, Bug, ShieldCheck, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Bug, ShieldCheck, CheckCircle, XCircle, Maximize2, X } from 'lucide-react';
 
 type DiseaseKey = 'varroa' | 'lukket-yngelrate' | 'apen-yngelrate' | 'kalkyngel' | 'nosema' | 'frisk-kube';
 
@@ -81,6 +82,7 @@ const DISEASES: Record<DiseaseKey, {
 };
 
 export default function DiseaseShortPage({ params }: { params: { slug: DiseaseKey } }) {
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const key = params.slug;
   const d = DISEASES[key];
 
