@@ -38,7 +38,7 @@ export async function deleteUser(userId: string) {
     return { error: 'Ingen tilgang: Krever admin-rettigheter' }
   }
 
-  // 2. Try to delete profile data first via RPC (handles foreign keys if set up, or manual cleanup)
+  // 2. Try to delete profile data first via RPC
   // We use the regular 'supabase' client so auth.uid() is preserved for the RPC security check
   const { error: rpcError } = await supabase.rpc('delete_user_by_admin', { target_user_id: userId })
   
@@ -58,4 +58,85 @@ export async function deleteUser(userId: string) {
   // 4. Revalidate cache
   revalidatePath('/dashboard/admin/users')
   return { success: true }
+}
+
+export async function updateUserRole(userId: string, newRole: string) {
+  const supabase = createClient()
+  
+  // 1. Check if current user is admin OR is the specific VIP user
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { error: 'Ikke logget inn' }
+  }
+
+  const adminVerifier = createAdminClient()
+  const { data: adminProfile } = await adminVerifier
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isVip = user.email === 'richard141271@gmail.com';
+  const isAdmin = adminProfile?.role === 'admin';
+
+  if (!isAdmin && !isVip) {
+    return { error: 'Ingen tilgang: Krever admin-rettigheter' }
+  }
+
+  // 2. Update role using admin client (bypasses RLS)
+  const adminClient = createAdminClient()
+  const { error } = await adminClient
+    .from('profiles')
+    .update({ role: newRole })
+    .eq('id', userId)
+
+  if (error) {
+    console.error('Error updating user role:', error)
+    return { error: error.message }
+  }
+
+  // 3. Revalidate cache
+  revalidatePath('/dashboard/admin/users')
+  return { success: true }
+}
+
+export async function getUsers() {
+  const supabase = createClient()
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { error: 'Ikke logget inn', users: [] }
+  }
+
+  const adminVerifier = createAdminClient()
+  const { data: adminProfile } = await adminVerifier
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isVip = user.email === 'richard141271@gmail.com';
+  const isAdmin = adminProfile?.role === 'admin';
+
+  if (!isAdmin && !isVip) {
+    // If not admin/VIP, only return self (or rely on RLS if we used regular client, but here we manually restrict)
+    // Actually, let's just return error or only self.
+    // For consistency with client-side RLS, let's just use regular client if not admin.
+    const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    return { users: data || [] };
+  }
+
+  // If Admin or VIP, use admin client to fetch ALL users
+  const adminClient = createAdminClient()
+  const { data, error } = await adminClient
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching users:', error)
+    return { error: error.message, users: [] }
+  }
+
+  return { users: data || [] }
 }

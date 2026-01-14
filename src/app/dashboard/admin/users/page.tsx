@@ -14,7 +14,7 @@ import {
   Trash2
 } from 'lucide-react';
 import Link from 'next/link';
-import { deleteUser } from '@/app/actions/user-management';
+import { deleteUser, updateUserRole as updateUserRoleAction, getUsers } from '@/app/actions/user-management';
 
 export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
@@ -72,14 +72,12 @@ export default function AdminUsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { users, error } = await getUsers();
 
-      if (error) throw error;
-      setUsers(data || []);
-      setFilteredUsers(data || []);
+      if (error) throw new Error(error);
+      
+      setUsers(users || []);
+      setFilteredUsers(users || []);
     } catch (error: any) {
       console.error('Error fetching users:', error);
       setMessage({ text: 'Kunne ikke laste brukere: ' + error.message, type: 'error' });
@@ -93,12 +91,11 @@ export default function AdminUsersPage() {
       setUpdatingId(userId);
       setMessage(null);
 
-      const { error } = await supabase
-        .from('profiles')
-        .update({ role: newRole })
-        .eq('id', userId);
+      const result = await updateUserRoleAction(userId, newRole);
 
-      if (error) throw error;
+      if (result.error) {
+        throw new Error(result.error);
+      }
 
       // Update local state
       setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
