@@ -47,11 +47,17 @@ function RegisterForm() {
     privateBankAccount: ''
   });
 
-  // Check for referral code in URL
+  // Check for referral code and role in URL
   useEffect(() => {
     const ref = searchParams.get('ref');
+    const roleParam = searchParams.get('role');
+    
     if (ref) {
       setFormData(prev => ({ ...prev, referralCode: ref }));
+    }
+    
+    if (roleParam === 'beekeeper' || roleParam === 'tenant') {
+      setRole(roleParam);
     }
   }, [searchParams]);
 
@@ -60,7 +66,8 @@ function RegisterForm() {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        router.push('/dashboard');
+        const next = searchParams.get('next');
+        router.push(next || '/dashboard');
       }
     };
     checkUser();
@@ -180,7 +187,8 @@ function RegisterForm() {
         }
 
         // Use hard navigation to ensure clean state
-        window.location.href = '/dashboard';
+        const next = searchParams.get('next');
+        window.location.href = next || '/dashboard';
       }
     } catch (err: any) {
       setError(err.message);

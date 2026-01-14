@@ -1,17 +1,26 @@
 'use client';
 
 import { createClient } from '@/utils/supabase/client';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import InstallPrompt from '@/components/InstallPrompt';
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Laster innlogging...</div>}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -26,9 +35,10 @@ export default function LoginPage() {
       });
       if (error) throw error;
       
-      // Suksess! Send til dashboard
+      // Suksess! Send til dashboard eller next url
+      const next = searchParams.get('next');
       // Bruker window.location for å sikre en hard reload og unngå client-side state feil ved innlogging
-      window.location.href = '/dashboard';
+      window.location.href = next || '/dashboard';
     } catch (error: any) {
       setMessage('Kunne ikke logge inn: ' + error.message);
     } finally {
