@@ -676,7 +676,7 @@ export default function DashboardPage() {
 
           {/* Quick Actions - Compact Grid */}
           <div className="grid grid-cols-2 gap-2">
-              {profile?.role !== 'tenant' && profile?.role !== 'mattilsynet' && (
+              {profile?.role !== 'mattilsynet' && (
               <button
                 onClick={() => setIsCreateModalOpen(true)}
                 className="bg-honey-500 hover:bg-honey-600 text-white p-2 rounded-xl shadow-md flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20"

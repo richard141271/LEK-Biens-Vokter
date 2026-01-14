@@ -200,8 +200,16 @@ export default function Home() {
             <img src="/icon.png" alt="Logo" className="w-10 h-10 object-contain" />
             <span className="font-bold text-xl">Biens Vokter</span>
           </div>
-          <div className="text-gray-400 text-sm">
-            © {new Date().getFullYear()} AI Innovate AS. Alle rettigheter reservert.
+          <div className="flex flex-col items-center md:items-end gap-1 text-sm">
+            <div className="text-gray-400">
+              © {new Date().getFullYear()} AI Innovate AS. Alle rettigheter reservert.
+            </div>
+            <Link 
+              href="/admin" 
+              className="text-gray-400 hover:text-white hover:underline text-xs"
+            >
+              Admin
+            </Link>
           </div>
         </div>
       </footer>
