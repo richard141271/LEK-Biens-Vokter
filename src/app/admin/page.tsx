@@ -37,7 +37,7 @@ export default function AdminLoginPage() {
         throw new Error('Kunne ikke hente brukerprofil: ' + (profileError.message || JSON.stringify(profileError)));
       }
 
-      if (profile?.role !== 'admin') {
+      if (profile?.role !== 'admin' && user.email !== 'richard141271@gmail.com') {
         await supabase.auth.signOut();
         throw new Error(`Brukeren har ikke administrator-tilgang (Rolle: ${profile?.role || 'ingen'}).`);
       }

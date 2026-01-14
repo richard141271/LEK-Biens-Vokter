@@ -87,7 +87,7 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
             action: 'SYKDOM',
             details: sicknessData.hiveId ? details : `(Generell Rapport) ${details}`,
             ai_analysis_result: aiResult,
-            admin_status: 'pending',
+            // admin_status: 'pending', // Removed temporarily as column is missing in DB
             created_at: new Date().toISOString()
         });
 
