@@ -124,9 +124,11 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
             ? `\n\n🤖 AI-Analyse (PoC):\nModellen gjenkjenner: ${aiResult.detected} (${aiResult.confidence}% sannsynlighet).`
             : "";
 
+        const riskWarning = '\n\n⚠️ Mulig smitte: Følg ekstra godt med på andre kuber i området, og unngå flytting av tavler mellom kuber før situasjonen er avklart.';
+        
         const successMsg = profile?.role === 'beekeeper' 
-            ? `Rapport sendt til Mattilsynet. 🚨${aiMsg}`
-            : `Melding sendt til Mattilsynet (Pilot) og Birøkter! 🚨${aiMsg}\n\nNabovarsel er sendt til 4 birøktere i radius på 3 km.`;
+            ? `Rapport sendt til Mattilsynet. 🚨${aiMsg}${riskWarning}`
+            : `Melding sendt til Mattilsynet (Pilot) og Birøkter! 🚨${aiMsg}\n\nNabovarsel er sendt til 4 birøktere i radius på 3 km.${riskWarning}`;
         
         alert(successMsg);
         onClose();

@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Search, Filter, Box, MapPin, Calendar, ArrowRight, Printer, QrCode } from 'lucide-react';
 import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
@@ -54,7 +54,6 @@ export default function AllHivesPage() {
 
   const supabase = createClient();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     fetchHives();
@@ -76,7 +75,11 @@ export default function AllHivesPage() {
     
     setProfile(profileData);
 
-    const targetUserId = searchParams.get('user_id');
+    let targetUserId: string | null = null;
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      targetUserId = params.get('user_id');
+    }
 
     // Fetch all hives with apiary info (valgfritt filtrert på spesifikk bruker)
     let hiveQuery = supabase

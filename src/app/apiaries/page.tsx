@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { Plus, MapPin, Warehouse, Store, Truck, LogOut, Box, Printer, CheckSquare, Square, X } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function ApiariesPage() {
@@ -19,7 +19,6 @@ export default function ApiariesPage() {
 
   const supabase = createClient();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     fetchData();
@@ -41,7 +40,11 @@ export default function ApiariesPage() {
     
     setProfile(profileData);
 
-    const targetUserId = searchParams.get('user_id');
+    let targetUserId: string | null = null;
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      targetUserId = params.get('user_id');
+    }
 
     // Fetch Apiaries (valgfritt filtrert på spesifikk bruker)
     let apiaryQuery = supabase
