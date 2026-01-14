@@ -91,6 +91,8 @@ export default function LoginPage() {
           </Link>
         </div>
 
+        <InstallPrompt embedded={true} />
+
         {message && (
           <div className="mt-4 p-4 rounded-lg text-sm bg-red-50 text-red-800">
             {message}
