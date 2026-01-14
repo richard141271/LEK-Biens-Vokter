@@ -48,11 +48,7 @@ export default function MattilsynetDashboard() {
 
   async function fetchData() {
     try {
-        // Fetch Active Alerts (Sickness reports)
-        // Try with admin_status filter first
-        let alertsData: any[] = [];
-        
-        const { data: alerts, error: alertsError } = await supabase
+        const { data: alerts, error } = await supabase
             .from('hive_logs')
             .select(`
                 *,
@@ -70,55 +66,30 @@ export default function MattilsynetDashboard() {
                  )
              `)
             .eq('action', 'SYKDOM')
-            .eq('admin_status', 'pending')
             .order('created_at', { ascending: false });
-        
-        if (alertsError) {
-             console.warn("Could not filter by admin_status, fetching all sickness reports instead.", alertsError);
-             // Fallback: fetch all SYKDOM logs if admin_status column is missing
-             const { data: allAlerts } = await supabase
-                .from('hive_logs')
-                .select(`
-                    *,
-                    reporter:user_id (
-                        full_name,
-                        email,
-                        phone_number
-                    ),
-                    hives (
-                         hive_number,
-                         apiaries (
-                             name,
-                             location
-                         )
-                     )
-                 `)
-                .eq('action', 'SYKDOM')
-                .order('created_at', { ascending: false });
-            
-            alertsData = allAlerts || [];
+
+        if (error) {
+            console.error("Error fetching sickness alerts:", error);
+            setActiveAlerts([]);
         } else {
-            alertsData = alerts || [];
+            const activeOnly = (alerts || []).filter(a => a.admin_status !== 'resolved');
+            setActiveAlerts(activeOnly);
+
+            const { count: apiaryCount } = await supabase
+                .from('apiaries')
+                .select('*', { count: 'exact', head: true });
+
+            const { count: inspectionCount } = await supabase
+                .from('hive_logs')
+                .select('*', { count: 'exact', head: true })
+                .eq('action', 'INSPEKSJON');
+
+            setStats({
+                alerts: activeOnly.length,
+                inspections: inspectionCount || 0,
+                apiaries: apiaryCount || 0
+            });
         }
-        
-        setActiveAlerts(alertsData);
-
-        // Fetch Stats
-        const { count: apiaryCount } = await supabase
-            .from('apiaries')
-            .select('*', { count: 'exact', head: true });
-
-        const { count: inspectionCount } = await supabase
-            .from('hive_logs')
-            .select('*', { count: 'exact', head: true })
-            .eq('action', 'INSPEKSJON');
-
-        setStats({
-            alerts: alertsData.length,
-            inspections: inspectionCount || 0,
-            apiaries: apiaryCount || 0
-        });
-
     } catch (e) {
         console.error("Error fetching mattilsynet data:", e);
     }
