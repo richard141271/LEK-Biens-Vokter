@@ -11,6 +11,7 @@ export default function BeekeeperRentalsPage() {
   const [rentals, setRentals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
     fetchRentals();
@@ -20,6 +21,14 @@ export default function BeekeeperRentalsPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profileData) setProfile(profileData);
 
       // Now we fetch rentals even if they have apiary_id (since they are created immediately)
       // But we only want those that are NOT yet assigned to this beekeeper (or unassigned)
@@ -32,11 +41,7 @@ export default function BeekeeperRentalsPage() {
 
       if (error) throw error;
       
-      // Filter client side to find "Actionable" rentals (Unassigned or assigned to me but not acknowledged?)
-      // For now: Show all rentals that need "Acceptance" (which now means taking responsibility)
-      const actionableRentals = (data || []).filter(r => !r.assigned_beekeeper_id || r.assigned_beekeeper_id === user.id);
-      
-      setRentals(actionableRentals);
+      setRentals(data || []);
     } catch (error) {
       console.error('Error fetching rentals:', error);
     } finally {
@@ -163,6 +168,12 @@ export default function BeekeeperRentalsPage() {
           rentals.map((rental) => (
             <div key={rental.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="p-6 border-b border-gray-100">
+                {rental.assigned_beekeeper_id && profile && rental.assigned_beekeeper_id !== profile.id && (
+                  <div className="mb-3 p-2 rounded-lg bg-yellow-50 border border-yellow-100 flex items-center gap-2 text-xs text-yellow-800">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>Dette oppdraget er allerede reservert til en annen birøkter.</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -208,9 +219,15 @@ export default function BeekeeperRentalsPage() {
               </div>
 
               <div className="p-4 bg-gray-50 flex justify-end gap-3">
+                {!profile?.wants_to_be_beekeeper && (
+                  <div className="mr-auto flex items-center gap-1 text-[11px] text-gray-500">
+                    <AlertCircle className="w-3 h-3 text-gray-400" />
+                    <span>Aktiver «Ønsker å drifte utleiekuber» under Innstillinger for å ta oppdrag.</span>
+                  </div>
+                )}
                 <button 
                   onClick={() => handleAcceptRental(rental)}
-                  disabled={processingId === rental.id}
+                  disabled={processingId === rental.id || !profile?.wants_to_be_beekeeper}
                   className="bg-honey-500 hover:bg-honey-600 text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
                   {processingId === rental.id ? 'Oppretter...' : 'Godta & Opprett Bigård'}

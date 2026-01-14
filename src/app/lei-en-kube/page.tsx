@@ -1204,7 +1204,7 @@ export default function RentHivePage() {
             
             <p className="text-sm text-gray-600 mb-8">
               En LEK-sertifisert birøkter i ditt nærområde vil snart ta kontakt for å avtale levering. 
-              Du finner kopi av avtalen på Min Side.
+              Du finner kopi av avtalen under «Min Leieavtale» på Min Side.
             </p>
             
             <div className="flex justify-center gap-4 flex-wrap">

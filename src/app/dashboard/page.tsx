@@ -4,10 +4,80 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { jsPDF } from 'jspdf';
 import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert } from 'lucide-react';
 import WeatherWidget from '@/components/WeatherWidget';
 import SicknessRegistrationModal from '@/components/SicknessRegistrationModal';
 import InspectionModal from '@/components/InspectionModal';
+
+const RENTAL_CONTRACT_TEXT = `
+LEIEAVTALE – LEK-HONNING™️ / LEIE AV BIKUBE
+
+Denne avtalen inngås mellom:
+
+Utleier:
+AI Innovate AS® / LEK-Honning™️
+Org.nr: 935 460 387
+Adresse: Rascheprangen 1, 1767 Halden
+Daglig leder AI-identitet: Aurora
+Representert av: Jørn Thoresen
+
+Leietaker (bruker/gruppe):
+Navn: [LEIETAKER_NAVN]
+Representerer (klasse/lag/familie osv.): [LEIETAKER_NAVN] (Privat)
+Adresse: [LEIETAKER_ADRESSE]
+Telefon: [LEIETAKER_TLF]
+E-post: [LEIETAKER_EPOST]
+
+1. Avtalens formål
+Leietaker får disponere [ANTALL] stk LEK-sertifisert bikube med bifolk for læring, observasjon og eventuelle sesongoppgaver, i et trygt og strukturert LEK-opplegg.
+
+2. Leieperiode
+Startdato: [DAGENS DATO]
+Sluttdato: [SESONG SLUTT]
+(Leieavtalen fornyes automatisk om den ikke sies opp. Den må sies opp minimum 3 mnd før innvintring. Innvintring skjer normalt i midten av Oktober. Man binder seg til minimum en sesong av gangen, grunnet kompleksiteten i å flytte en bikube som er i drift)
+
+3. Pris og Betaling
+Leiepris: [PRIS_MND] kr per måned (faktureres sesongvis forskudd: [PRIS_TOTAL] kr).
+
+4. Inkludert i leien (kryss av)
+[x] Full kube med bifolk + tavler
+[x] Oppstartsfôr 2–3 kg
+[x] Deltakelse i honningslynging
+[x] Honning-tapping og etikett-opplæring
+[x] Salg på Honningbørsen med rapport
+[x] LEK-sertifisering etter fullført sesong (kun for barn)
+[x] Forsikring inkludert i perioden
+
+5. Ansvar og sikkerhet
+- Utleier har ansvar for at kuben er sertifisert, trygg og sykdomskontrollert ved utlevering
+- Leietaker har ansvar for forsvarlig bruk og å følge sikkerhetsinstrukser
+- Barn/medlemmer skal ikke åpne kube uten tilsyn av godkjent, Sertifisert LEK-birøkter
+- Ved skade på utstyr som skyldes uforsvarlig bruk, kan erstatning kreves
+- Ved sykdomstegn skal dette rapporteres umiddelbart i LEK-appen
+
+6. Honning og inntektsfordeling
+Hvis honningproduksjon og salg er del av leien, fordeles inntekten slik:
+Leietaker betaler en fast lav pris for kjøp av honning fra leide kuber, og har forkjøpsrett til ALL honning i de leide kubene. Honningprisen blir beregnet hvert år ved sesongens slutt, og offentliggjøres på LEK-Honning™️ sine nettsider, og i appen.
+Alle salg skal dokumenteres og gjennomføres i appen
+
+7. Allergi og helse
+Leietaker bekrefter at gruppen har sjekket allergier:
+[x] Ingen kjent allergi (bekreftet ved signering)
+Utleier anbefaler at Epipen eller førstehjelpsplan finnes i gruppen, men det er ikke krav fra utleier
+
+8. Databruk og innhold i app
+Leietaker godkjenner at:
+Observasjonsbilder og kubelogger kan brukes i anonymisert form i LEK-systemet
+Ingen persondata publiseres uten samtykke
+[x] Godkjent
+
+Tilleggsnotat:
+\"AI Innovate er ikke bare et selskap – det er et kunstverk i seg selv.\" – Dette er et verdibasert LEK-opplæringsprogram, ikke økonomisk rådgivning.
+
+Angrerett og Avbestilling:
+Da det er levende dyr, som klargjøres spesielt til hver enkelt leietaker, er det INGEN angrefrist på bestilling av bikube. Skulle man angre seg, vil det derimot bli krevd et ekstra gebyr på ca. 3000 for den ekstra kostnaden birøkteren får, ved å måtte enten drifte kuben selv, eller sette jobben bort til andre som kan ta seg av dem.
+`;
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -50,6 +120,15 @@ export default function DashboardPage() {
 
   const supabase = createClient();
   const router = useRouter();
+
+  const getSeasonEndDate = () => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    if (currentMonth >= 6) {
+      return `Oktober ${now.getFullYear() + 1}`;
+    }
+    return `Oktober ${now.getFullYear()}`;
+  };
 
   useEffect(() => {
     fetchData().catch(e => {
@@ -456,8 +535,8 @@ export default function DashboardPage() {
 
                 {(activeRental.status === 'assigned' || activeRental.status === 'active') && activeRental.assigned_beekeeper && (
                     <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs text-gray-700 bg-gray-50 p-2 rounded-lg">
-                            <User className="w-4 h-4 text-gray-400" />
+                      <div className="flex items-center gap-2 text-xs text-gray-700 bg-gray-50 p-2 rounded-lg">
+                        <User className="w-4 h-4 text-gray-400" />
                             <div>
                                 <p className="font-bold">Din Birøkter:</p>
                                 <p>{activeRental.assigned_beekeeper.full_name}</p>
@@ -477,6 +556,43 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 )}
+
+                <div className="mt-3 flex justify-end">
+                  <button
+                    onClick={() => {
+                      if (!activeRental) return;
+                      const doc = new jsPDF();
+
+                      const monthlyPrice = Math.round((activeRental.total_price || 0) / 12);
+                      const contractDate = activeRental.created_at
+                        ? new Date(activeRental.created_at).toLocaleDateString('no-NO')
+                        : new Date().toLocaleDateString('no-NO');
+
+                      const contractText = RENTAL_CONTRACT_TEXT
+                        .replace(/\[LEIETAKER_NAVN\]/g, activeRental.contact_name || '___________')
+                        .replace('[LEIETAKER_ADRESSE]', activeRental.contact_address || '___________')
+                        .replace('[LEIETAKER_TLF]', activeRental.contact_phone || '___________')
+                        .replace('[LEIETAKER_EPOST]', activeRental.contact_email || '___________')
+                        .replace('[ANTALL]', String(activeRental.hive_count || 1))
+                        .replace('[DAGENS DATO]', contractDate)
+                        .replace('[SESONG SLUTT]', getSeasonEndDate())
+                        .replace(
+                          'Representerer (klasse/lag/familie osv.): [LEIETAKER_NAVN] (Privat)',
+                          `Representerer: ${activeRental.contact_organization || (activeRental.contact_name ? `${activeRental.contact_name} (Privat)` : '___________')}`
+                        )
+                        .replace('[PRIS_MND]', String(monthlyPrice))
+                        .replace('[PRIS_TOTAL]', String(activeRental.total_price || 0));
+
+                      doc.setFontSize(11);
+                      const lines = doc.splitTextToSize(contractText, 180);
+                      doc.text(lines, 15, 20);
+                      doc.save('lek-honning-leieavtale.pdf');
+                    }}
+                    className="text-[11px] px-3 py-1.5 rounded-lg border border-honey-300 text-honey-700 font-bold hover:bg-honey-50"
+                  >
+                    Last ned avtale (PDF)
+                  </button>
+                </div>
             </div>
           )}
 
