@@ -308,14 +308,22 @@ export default function AdminUsersPage() {
                 </h3>
                 {userStats ? (
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => window.open(`/apiaries`, '_blank')}
+                      className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm text-left hover:border-honey-400 hover:shadow-md transition"
+                    >
                       <div className="text-2xl font-bold text-honey-600">{userStats.apiaries}</div>
                       <div className="text-xs text-gray-500">Bigårder</div>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.open(`/hives`, '_blank')}
+                      className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm text-left hover:border-honey-400 hover:shadow-md transition"
+                    >
                       <div className="text-2xl font-bold text-honey-600">{userStats.hives}</div>
                       <div className="text-xs text-gray-500">Bikuber</div>
-                    </div>
+                    </button>
                   </div>
                 ) : (
                   <div className="flex items-center justify-center py-4 text-gray-500 gap-2">

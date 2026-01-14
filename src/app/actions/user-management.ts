@@ -34,7 +34,10 @@ export async function deleteUser(userId: string) {
     .eq('id', user.id)
     .single()
 
-  if (!adminProfile || adminProfile.role !== 'admin') {
+  const isVip = user.email === 'richard141271@gmail.com';
+  const isAdmin = adminProfile?.role === 'admin';
+
+  if (!isAdmin && !isVip) {
     return { error: 'Ingen tilgang: Krever admin-rettigheter' }
   }
 
