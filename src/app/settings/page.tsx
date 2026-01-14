@@ -162,7 +162,7 @@ export default function SettingsPage() {
         doc.rect(x + 1.5, y + 1.5, labelWidth - 3, labelHeight - 3);
         doc.setDrawColor(180, 140, 60);
         doc.line(x + 4, y + 9, x + labelWidth - 4, y + 9);
-        doc.line(x + 4, y + labelHeight - 6, x + labelWidth - 4, y + labelHeight - 6);
+        doc.line(x + 4, y + labelHeight - 3, x + labelWidth - 4, y + labelHeight - 3);
 
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7);
@@ -174,20 +174,20 @@ export default function SettingsPage() {
         if (type === "standard") {
           doc.setFont("times", "italic");
           doc.setFontSize(11);
-          doc.text("Norsk Honning", cx, y + 17, { align: "center" });
+          doc.text("Norsk Honning", cx, y + 16, { align: "center" });
 
           doc.setFont("helvetica", "normal");
           doc.setFontSize(7);
-          doc.text(`Birøkter: ${beekeeperName}`, cx, y + 23, { align: "center" });
+          doc.text(`Birøkter: ${beekeeperName}`, cx, y + 22, { align: "center" });
 
-          doc.text(`Sommer ${year}`, cx, y + 27, { align: "center" });
+          doc.text(`Sommer ${year}`, cx, y + 26, { align: "center" });
 
           if (isLekMember && memberNumber) {
             doc.setFontSize(6);
             doc.text(
               `LEK-sertifisert birøkter  •  Medlem #${memberNumber}`,
               cx,
-              y + 31,
+              y + 30,
               { align: "center" }
             );
           }
@@ -196,7 +196,7 @@ export default function SettingsPage() {
           doc.text(
             "100 % ekte honning  •  Norsk naturprodukt",
             cx,
-            y + 35,
+            y + 33,
             { align: "center" }
           );
         } else {
@@ -218,13 +218,13 @@ export default function SettingsPage() {
 
           doc.setFont("helvetica", "normal");
           doc.setFontSize(7);
-          doc.text(`Sommer ${year}`, cx, y + 27, { align: "center" });
+          doc.text(`Sommer ${year}`, cx, y + 26, { align: "center" });
 
           doc.setFontSize(5.5);
           doc.text(
             "LEK-Honning  •  100 % ekte honning",
             cx,
-            y + 32,
+            y + 30,
             { align: "center" }
           );
         }
