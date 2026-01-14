@@ -27,21 +27,26 @@ export default function AdminLoginPage() {
       if (!user) throw new Error('Ingen bruker funnet');
 
       // Check role
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single();
 
+      if (profileError) {
+        throw new Error('Kunne ikke hente brukerprofil: ' + (profileError.message || JSON.stringify(profileError)));
+      }
+
       if (profile?.role !== 'admin') {
         await supabase.auth.signOut();
-        throw new Error('Denne brukeren har ikke administrator-tilgang.');
+        throw new Error(`Brukeren har ikke administrator-tilgang (Rolle: ${profile?.role || 'ingen'}).`);
       }
       
       // Redirect to admin dashboard
       window.location.href = '/dashboard/admin';
     } catch (error: any) {
-      setMessage('Kunne ikke logge inn: ' + error.message);
+      const msg = error.message || (typeof error === 'object' ? JSON.stringify(error) : String(error));
+      setMessage('Kunne ikke logge inn: ' + msg);
       setLoading(false);
     }
   };

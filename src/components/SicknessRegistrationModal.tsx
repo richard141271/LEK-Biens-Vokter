@@ -48,6 +48,7 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
 
             if (uploadError) {
                 console.error('Upload error:', uploadError);
+                throw new Error('Kunne ikke laste opp bilde: ' + uploadError.message);
             } else {
                 const { data: { publicUrl } } = supabase.storage
                     .from('sickness-images')
@@ -115,9 +116,19 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
             sharedWithMattilsynet: false
         });
         if (onSuccess) onSuccess();
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
-        const msg = e instanceof Error ? e.message : 'Ukjent feil';
+        let msg = 'Ukjent feil';
+        
+        if (e instanceof Error) {
+            msg = e.message;
+        } else if (typeof e === 'object' && e !== null) {
+            // Handle Supabase error objects
+            msg = e.message || e.details || e.hint || JSON.stringify(e);
+        } else if (typeof e === 'string') {
+            msg = e;
+        }
+
         alert(`Kunne ikke sende rapport.\n\nDetaljer: ${msg}`);
     } finally {
         setUploading(false);
