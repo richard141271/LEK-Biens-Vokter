@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, Filter, Box, MapPin, Calendar, ArrowRight, Printer, QrCode } from 'lucide-react';
 import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
@@ -54,6 +54,7 @@ export default function AllHivesPage() {
 
   const supabase = createClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     fetchHives();
@@ -75,14 +76,22 @@ export default function AllHivesPage() {
     
     setProfile(profileData);
 
-    // Fetch all hives with apiary info
-    const { data, error } = await supabase
+    const targetUserId = searchParams.get('user_id');
+
+    // Fetch all hives with apiary info (valgfritt filtrert på spesifikk bruker)
+    let hiveQuery = supabase
       .from('hives')
       .select('*, apiaries(name, location)')
       .neq('status', 'SOLGT')
       .neq('status', 'DESTRUERT')
       .neq('status', 'SYKDOM')
       .order('hive_number', { ascending: true });
+
+    if (targetUserId) {
+      hiveQuery = hiveQuery.eq('user_id', targetUserId);
+    }
+
+    const { data, error } = await hiveQuery;
 
     if (data) setHives(data);
     setLoading(false);

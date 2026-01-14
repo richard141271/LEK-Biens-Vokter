@@ -310,7 +310,7 @@ export default function AdminUsersPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <button
                       type="button"
-                      onClick={() => window.open(`/apiaries`, '_blank')}
+                      onClick={() => window.open(`/apiaries?user_id=${selectedUser.id}`, '_blank')}
                       className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm text-left hover:border-honey-400 hover:shadow-md transition"
                     >
                       <div className="text-2xl font-bold text-honey-600">{userStats.apiaries}</div>
@@ -318,7 +318,7 @@ export default function AdminUsersPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => window.open(`/hives`, '_blank')}
+                      onClick={() => window.open(`/hives?user_id=${selectedUser.id}`, '_blank')}
                       className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm text-left hover:border-honey-400 hover:shadow-md transition"
                     >
                       <div className="text-2xl font-bold text-honey-600">{userStats.hives}</div>

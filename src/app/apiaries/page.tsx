@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { Plus, MapPin, Warehouse, Store, Truck, LogOut, Box, Printer, CheckSquare, Square, X } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function ApiariesPage() {
@@ -19,6 +19,7 @@ export default function ApiariesPage() {
 
   const supabase = createClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     fetchData();
@@ -40,17 +41,25 @@ export default function ApiariesPage() {
     
     setProfile(profileData);
 
-    // Fetch Apiaries
-    const { data: apiaryData } = await supabase
+    const targetUserId = searchParams.get('user_id');
+
+    // Fetch Apiaries (valgfritt filtrert på spesifikk bruker)
+    let apiaryQuery = supabase
       .from('apiaries')
       .select('*, hives(id, active)')
       .order('created_at', { ascending: false });
+
+    if (targetUserId) {
+      apiaryQuery = apiaryQuery.eq('user_id', targetUserId);
+    }
+
+    const { data: apiaryData } = await apiaryQuery;
 
     // Fetch Pending Rentals (Apiaries under construction)
     const { data: rentalData } = await supabase
       .from('rentals')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', targetUserId || user.id)
       .is('apiary_id', null)
       .neq('status', 'cancelled');
       // Removed .eq('status', 'active') to show all pending/active rentals

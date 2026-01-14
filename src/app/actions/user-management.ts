@@ -44,13 +44,70 @@ export async function deleteUser(userId: string) {
   // 2. Try to delete profile data first via RPC
   // We use the regular 'supabase' client so auth.uid() is preserved for the RPC security check
   const { error: rpcError } = await supabase.rpc('delete_user_by_admin', { target_user_id: userId })
-  
+
+  const adminClient = createAdminClient()
+
   if (rpcError) {
-      console.warn('RPC deletion failed (might be harmless if profile missing):', rpcError)
+    console.warn('RPC deletion failed, attempting manual cleanup with admin client:', rpcError)
+    try {
+      // 1) Null out foreign keys that reference the user
+      await adminClient
+        .from('rentals')
+        .update({ assigned_beekeeper_id: null })
+        .eq('assigned_beekeeper_id', userId)
+      
+      await adminClient
+        .from('rentals')
+        .update({ user_id: null })
+        .eq('user_id', userId)
+
+      await adminClient
+        .from('inspections')
+        .update({ beekeeper_id: null })
+        .eq('beekeeper_id', userId)
+
+      // 2) Delete logs linked to this user's hives and direct logs by user
+      const { data: userHives } = await adminClient
+        .from('hives')
+        .select('id')
+        .eq('user_id', userId)
+
+      const hiveIds = (userHives || []).map(h => h.id)
+      if (hiveIds.length > 0) {
+        await adminClient
+          .from('hive_logs')
+          .delete()
+          .in('hive_id', hiveIds)
+      }
+
+      await adminClient
+        .from('hive_logs')
+        .delete()
+        .eq('user_id', userId)
+
+      // 3) Delete hives and apiaries
+      await adminClient
+        .from('hives')
+        .delete()
+        .eq('user_id', userId)
+
+      await adminClient
+        .from('apiaries')
+        .delete()
+        .eq('user_id', userId)
+
+      // 4) Delete profile
+      await adminClient
+        .from('profiles')
+        .delete()
+        .eq('id', userId)
+    } catch (cleanupError: any) {
+      console.error('Manual cleanup failed:', cleanupError)
+      // Continue to attempt auth deletion to avoid partial failure; report error afterwards
+    }
   }
 
   // 3. Perform Auth deletion using admin client
-  const adminClient = createAdminClient()
   const { error } = await adminClient.auth.admin.deleteUser(userId)
 
   if (error) {

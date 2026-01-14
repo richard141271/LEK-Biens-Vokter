@@ -54,7 +54,6 @@ USING (
   )
 );
 
--- 4. Re-verify delete_user_by_admin RPC (fix for database error)
 -- Ensure the function handles the case where profile might not exist or other constraints
 CREATE OR REPLACE FUNCTION delete_user_by_admin(target_user_id UUID)
 RETURNS VOID
@@ -66,21 +65,35 @@ BEGIN
     RAISE EXCEPTION 'Access denied';
   END IF;
 
-  -- Delete profile (should cascade to hives, logs etc if FKs are set to CASCADE)
-  -- If FKs are not CASCADE, we might need to delete dependent rows manually here
-  -- Let's try to delete dependent rows manually to be safe
-  
-  DELETE FROM hive_logs WHERE user_id = target_user_id;
-  DELETE FROM hives WHERE user_id = target_user_id; -- This might fail if apiaries are not linked to user directly but hives are? 
-  -- Actually hives usually link to apiary. Let's check schema. 
-  -- Usually Hives -> Apiaries -> Profiles. 
-  -- If we delete Profile, Apiaries should go.
-  
+  -- 1) Løs opp koblinger som peker på brukeren (for å unngå FK-feil)
+  UPDATE rentals
+  SET assigned_beekeeper_id = NULL
+  WHERE assigned_beekeeper_id = target_user_id;
+
+  UPDATE rentals
+  SET user_id = NULL
+  WHERE user_id = target_user_id;
+
+  UPDATE inspections
+  SET beekeeper_id = NULL
+  WHERE beekeeper_id = target_user_id;
+
+  -- 2) Slett relaterte logger (både direkte og via kuber)
+  DELETE FROM hive_logs
+  USING hives
+  WHERE hive_logs.hive_id = hives.id
+  AND hives.user_id = target_user_id;
+
+  DELETE FROM hive_logs
+  WHERE user_id = target_user_id;
+
+  -- 3) Slett kuber og bigårder
+  DELETE FROM hives WHERE user_id = target_user_id;
   DELETE FROM apiaries WHERE user_id = target_user_id;
-  
-  -- Finally delete profile
+
+  -- 4) Slett profil til slutt
   DELETE FROM profiles WHERE id = target_user_id;
-  
-  -- Note: We cannot delete from auth.users here, that must be done via Supabase Admin API (server action)
+
+  -- Merk: auth.users slettes via Supabase Admin API i server action
 END;
 $$ LANGUAGE plpgsql;
