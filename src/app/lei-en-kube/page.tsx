@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
+import { jsPDF } from 'jspdf';
 import { 
   ArrowLeft, 
   Box, 
@@ -324,6 +325,67 @@ export default function RentHivePage() {
     }
   };
 
+  const generateReceiptPDF = () => {
+    const doc = new jsPDF();
+    const receiptId = Math.floor(Math.random() * 100000);
+    const date = new Date().toLocaleDateString('no-NO');
+    
+    // Header
+    doc.setFontSize(22);
+    doc.text("LEK-HONNING KVITTERING", 20, 30);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(100);
+    doc.text(`Kvittering #${receiptId}`, 150, 30);
+    
+    // Info
+    doc.setTextColor(0);
+    doc.text(`Dato: ${date}`, 20, 50);
+    doc.text(`Kunde: ${formData.name}`, 20, 60);
+    doc.text(`Adresse: ${formData.address}`, 20, 70);
+    doc.text(`E-post: ${formData.email}`, 20, 80);
+
+    // Line
+    doc.setDrawColor(200);
+    doc.line(20, 90, 190, 90);
+
+    // Items
+    doc.setFontSize(14);
+    doc.text("Beskrivelse", 20, 105);
+    doc.text("Beløp", 160, 105);
+    
+    doc.setFontSize(12);
+    doc.text(`Leie av ${hiveCount} kuber (År)`, 20, 120);
+    doc.text(`${Math.round(annualPrice * 0.8)} kr`, 160, 120);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`MVA (25%)`, 20, 130);
+    doc.text(`${Math.round(annualPrice * 0.2)} kr`, 160, 130);
+    
+    // Total
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.5);
+    doc.line(20, 140, 190, 140);
+    
+    doc.setFontSize(16);
+    doc.setTextColor(0);
+    doc.text("TOTALT BELASTET", 20, 155);
+    doc.text(`${annualPrice} kr`, 160, 155);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text("Betalt med kort **** **** **** 4242", 20, 165);
+    
+    // Footer
+    doc.setFontSize(10);
+    doc.setTextColor(150);
+    doc.text("Takk for at du velger LEK-Honning", 105, 280, { align: "center" });
+    doc.text("Org.nr: 935 460 387 | Rascheprangen 1, 1767 Halden", 105, 285, { align: "center" });
+
+    doc.save(`kvittering_lek_honning_${receiptId}.pdf`);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans">
       {/* User Indicator to prevent session confusion */}
@@ -381,88 +443,188 @@ export default function RentHivePage() {
         {step === 'info' && (
           <div className="space-y-8">
 
-             {/* Order Section - Moved to Top */}
-             <div id="bestilling" className="bg-white rounded-2xl shadow-xl overflow-hidden border-2 border-honey-400 transform transition-all hover:scale-[1.01]">
-              <div className="bg-honey-400 p-4 text-center">
-                <h2 className="text-2xl font-bold text-white uppercase tracking-wider">Velg antall kuber</h2>
-                <p className="text-honey-50 text-sm">Alt inkludert – ingen skjulte kostnader</p>
+            {/* Pricing & Ordering - Slider Version */}
+            <div id="bestilling" className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-200">
+              <div className="p-8 bg-gray-900 text-white">
+                <h2 className="text-2xl font-bold mb-2">Velg antall kuber</h2>
+                <p className="text-gray-400">Tilpass etter ditt behov. 2 kuber anbefales for best læring og stabilitet.</p>
               </div>
               
               <div className="p-8">
-                <div className="flex flex-col items-center mb-8">
-                  <div className="flex items-center gap-6 mb-4">
-                    <button 
-                      onClick={() => setHiveCount(Math.max(1, hiveCount - 1))}
-                      className="w-12 h-12 rounded-full bg-gray-100 text-gray-600 hover:bg-honey-100 hover:text-honey-600 flex items-center justify-center transition-colors text-2xl font-bold"
-                    >
-                      -
-                    </button>
-                    <div className="text-center w-32">
-                      <span className="text-5xl font-bold text-gray-900">{hiveCount}</span>
-                      <p className="text-gray-500 font-medium">Bikuber</p>
+                <div className="mb-8">
+                  <div className="flex justify-between items-end mb-4">
+                    <span className="text-gray-600 font-medium">Antall kuber: {hiveCount}</span>
+                    <div className="text-right flex flex-col items-end">
+                      <span className="text-4xl font-bold text-honey-600">
+                        {Math.round(annualPrice / 12)},- 
+                        <span className="text-base text-gray-500 font-normal ml-1">pr mnd</span>
+                      </span>
+                      <span className="text-xs text-gray-400 font-medium">faktureres årlig</span>
+                      {hiveCount > 1 && (
+                        <div className="text-xs text-gray-500 mt-1">({pricePerHive} kr per kube / år)</div>
+                      )}
+                      <div className="text-xs text-gray-500 mt-0.5">Totalt pr år: {annualPrice},-</div>
                     </div>
-                    <button 
-                      onClick={() => setHiveCount(hiveCount + 1)}
-                      className="w-12 h-12 rounded-full bg-gray-100 text-gray-600 hover:bg-honey-100 hover:text-honey-600 flex items-center justify-center transition-colors text-2xl font-bold"
-                    >
-                      +
-                    </button>
                   </div>
-                  
-                  {hiveCount >= 10 && (
-                    <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-4 py-2 rounded-full text-sm font-medium mb-4">
-                      <AlertCircle className="w-4 h-4" />
-                      <span>Større bestilling? Vi kontakter deg for spesialtilbud!</span>
-                    </div>
-                  )}
+                  <input 
+                    type="range" 
+                    min="1" 
+                    max="10" 
+                    value={hiveCount} 
+                    onChange={(e) => setHiveCount(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-honey-500"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 mt-2">
+                    <span>1</span>
+                    <span>5</span>
+                    <span>10</span>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                  <div className="bg-gray-50 p-6 rounded-xl space-y-3">
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-gray-600">Pris per måned</span>
-                      <span className="text-2xl font-bold text-gray-900">{Math.round(annualPrice / 12)} kr</span>
+                {hiveCount === 1 && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+                    <div className="flex gap-3 mb-2">
+                      <AlertCircle className="w-5 h-5 text-orange-600 shrink-0" />
+                      <p className="text-sm font-bold text-orange-800">
+                        Hvorfor koster 1 kube mer enn 2?
+                      </p>
                     </div>
-                    <div className="flex justify-between items-baseline pt-3 border-t border-gray-200">
-                      <span className="text-gray-900 font-medium">Totalt per år</span>
-                      <span className="text-xl font-bold text-honey-600">{annualPrice} kr</span>
+                    <p className="text-sm text-orange-800 mb-3 leading-relaxed">
+                      En birøkter må kjøre ut til én lokasjon uansett om det er 1 eller 2 kuber. 
+                      Kostnaden ligger i tid og transport – ikke i selve kuben. 
+                      Derfor er 2-kube-leie det mest lokasjons-effektive, tryggeste og mest økonomiske valget for deg som vil starte med bier hjemme.
+                    </p>
+                    <div className="bg-white/50 p-2 rounded text-sm text-orange-900 font-medium text-center">
+                      💰 Tips: Velg 2 kuber – billigere enn 1!
                     </div>
-                    <p className="text-xs text-gray-500 pt-2">
-                      * Faktureres sesongvis. Prisjustering ved sesongslutt.
+                  </div>
+                )}
+                
+                {hiveCount >= 2 && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                    <div className="flex gap-3 mb-2">
+                      <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
+                      <p className="text-sm font-bold text-green-800">
+                        Hva sparer du med LEK-leie?
+                      </p>
+                    </div>
+                    <p className="text-sm text-green-800 leading-relaxed">
+                      Du får tilgang til kuber, bifolk, sesong-flyt, veiledning og oppfølging til en pris som gjør at du kan ha flere kuber i mange år for samme sum som én kube koster å kjøpe alene.
                     </p>
                   </div>
+                )}
 
-                  <div className="space-y-4">
-                    <ul className="space-y-3">
-                      <li className="flex items-center gap-3 text-sm text-gray-700">
-                        <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                        <span>Full drift og stell inkludert</span>
-                      </li>
-                      <li className="flex items-center gap-3 text-sm text-gray-700">
-                        <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                        <span>Honning fra egne kuber</span>
-                      </li>
-                      <li className="flex items-center gap-3 text-sm text-gray-700">
-                        <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                        <span>Opplæring og besøk</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-
-                <button
+                <button 
                   onClick={handleStartOrder}
-                  className="w-full bg-honey-500 text-white py-4 rounded-xl font-bold text-xl hover:bg-honey-600 transform transition-all active:scale-[0.98] shadow-lg shadow-honey-500/30 flex items-center justify-center gap-2"
+                  className="w-full bg-honey-500 hover:bg-honey-600 text-white font-bold py-4 rounded-xl shadow-lg transition-all transform hover:scale-[1.02] flex flex-col items-center justify-center gap-1"
                 >
-                  <PenTool className="w-5 h-5" />
-                  Bestill – Signer Digitalt
+                  <span className="flex items-center gap-2 text-lg">
+                    {hiveCount === 1 ? 'Gå for 2 kuber (Anbefalt)' : `Bestill ${hiveCount} kuber – Signer digitalt`}
+                    <ChevronRight className="w-5 h-5" />
+                  </span>
+                  <span className="text-xs font-normal opacity-90">
+                    Vi matcher deg med nærmeste LEK-birøkter
+                  </span>
                 </button>
                 <p className="text-center text-xs text-gray-500 mt-4">
-                  Ved å gå videre godtar du våre vilkår. Ingen betaling i dag.
+                  Ved å gå videre godtar du våre vilkår. Du signerer avtale digitalt i neste steg.
                 </p>
               </div>
+
+              <div className="border-t border-gray-100 p-4 bg-gray-50">
+                <button 
+                  onClick={() => setShowCostComparison(!showCostComparison)}
+                  className="w-full flex items-center justify-between text-gray-600 hover:text-gray-900 text-sm font-medium py-2"
+                >
+                  <span className="flex items-center gap-2">
+                    <Coins className="w-4 h-4" />
+                    Hva koster det å eie selv vs. leie?
+                  </span>
+                  <ChevronRight className={`w-4 h-4 transition-transform ${showCostComparison ? 'rotate-90' : ''}`} />
+                </button>
+                
+                {showCostComparison && (
+                  <div className="mt-4 animate-in slide-in-from-top-2">
+                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                      <div className="bg-gray-900 text-white p-4 text-center">
+                        <h4 className="font-bold">Alternativ 1 – Eie egen bikube</h4>
+                        <p className="text-xs text-gray-400">Realistisk kostnad første år (Markedspriser 2025)</p>
+                      </div>
+                      
+                      <div className="p-4 space-y-2 text-sm">
+                        {OWNERSHIP_COSTS.map((cost, idx) => (
+                          <div key={idx} className="flex justify-between border-b border-gray-50 last:border-0 py-1">
+                            <span className="text-gray-600">{cost.item}</span>
+                            <span className="font-medium">{cost.price.toLocaleString()} kr</span>
+                          </div>
+                        ))}
+                        
+                        {HIDDEN_COSTS.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-dashed border-gray-300">
+                            <p className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4 text-orange-500" />
+                              Tillegg nesten alle kjøper første år:
+                            </p>
+                            {HIDDEN_COSTS.map((cost, idx) => (
+                              <div key={`hidden-${idx}`} className="flex justify-between py-1 text-gray-500 italic">
+                                <span>{cost.item}</span>
+                                <span>{cost.price.toLocaleString()} kr</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="pt-4 flex justify-between font-bold text-lg border-t-2 border-gray-900 mt-4">
+                          <span>TOTALT FØRSTE ÅR</span>
+                          <span className="text-red-600">≈ {TOTAL_OWNERSHIP_COST.toLocaleString()} kr</span>
+                        </div>
+                        <p className="text-xs text-center text-gray-500 mt-2">
+                          🔎 Mange blir overrasket. Bier er rimelig i drift – men dyrt å starte.
+                        </p>
+                      </div>
+
+                      <div className="bg-honey-100 p-4 border-t border-honey-200">
+                        <div className="text-center mb-4">
+                          <h4 className="font-bold text-honey-900">Alternativ 2 – LEK-kube-leie</h4>
+                          <p className="text-xs text-honey-700">Lokasjons-effektivt og Birøkter-fulgt</p>
+                        </div>
+                        
+                        <div className="bg-white rounded-lg p-4 shadow-sm">
+                          <div className="grid grid-cols-2 gap-4 text-sm mb-4 border-b border-gray-100 pb-4">
+                            <div>
+                              <p className="text-gray-500 text-xs">Kostnad første 12 mnd (Eie)</p>
+                              <p className="font-bold text-red-600 text-lg">{TOTAL_OWNERSHIP_COST.toLocaleString()} kr</p>
+                              <p className="text-xs text-gray-400">1 kube i 1 år</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500 text-xs">Hva koster LEK-kube-leie?</p>
+                              <p className="font-bold text-green-600 text-lg">3 588 kr / år</p>
+                              <p className="text-xs text-gray-400">2 kuber, driftet for deg</p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 text-xs text-gray-700">
+                            <p className="flex items-center gap-2">
+                              <CheckCircle className="w-4 h-4 text-green-500" />
+                              Ingen startinvestering i utstyr, slynger, kurs eller lager
+                            </p>
+                            <p className="flex items-center gap-2">
+                              <CheckCircle className="w-4 h-4 text-green-500" />
+                              Du kan skalere opp/ned uten å sitte igjen med utstyr
+                            </p>
+                            <p className="flex items-center gap-2">
+                              <CheckCircle className="w-4 h-4 text-green-500" />
+                              Perfekt for familier, skoler og små investorer som vil teste først
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-            
+
             {/* Intro Card */}
             <div className="bg-white rounded-2xl shadow-xl p-8 border border-honey-100">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">SLIK FUNGERER DET</h2>
@@ -1047,7 +1209,7 @@ export default function RentHivePage() {
             
             <div className="flex justify-center gap-4 flex-wrap">
               <button 
-                onClick={() => alert('PDF lastes ned... (Kommer i produksjon)')}
+                onClick={generateReceiptPDF}
                 className="bg-white text-gray-700 border border-gray-300 px-6 py-3 rounded-xl font-bold hover:bg-gray-50 transition-colors flex items-center gap-2"
               >
                 <FileText className="w-5 h-5" />

@@ -47,6 +47,9 @@ function RegisterForm() {
     privateBankAccount: ''
   });
 
+  const next = searchParams.get('next');
+  const loginHref = next ? `/login?next=${encodeURIComponent(next)}` : '/login';
+
   // Check for referral code and role in URL
   useEffect(() => {
     const ref = searchParams.get('ref');
@@ -540,7 +543,7 @@ function RegisterForm() {
             </div>
             
             <p className="text-center text-sm text-gray-500">
-              Har du allerede bruker? <Link href="/login" className="text-honey-600 font-medium hover:underline">Logg inn her</Link>
+              Har du allerede bruker? <Link href={loginHref} className="text-honey-600 font-medium hover:underline">Logg inn her</Link>
             </p>
           </form>
         </div>

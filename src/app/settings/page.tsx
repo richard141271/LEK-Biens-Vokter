@@ -3,7 +3,8 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight, Archive, Briefcase } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight, Archive, Briefcase, Printer, Link as LinkIcon } from 'lucide-react';
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -132,6 +133,81 @@ export default function SettingsPage() {
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setPasswordData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const [showLabelModal, setShowLabelModal] = useState(false);
+  const [childLabelData, setChildLabelData] = useState({ name: '', age: '' });
+
+  const generateLabelPDF = (type: 'standard' | 'child') => {
+    const doc = new jsPDF();
+    const cols = 3;
+    const rows = 8;
+    const labelWidth = 70;
+    const labelHeight = 37;
+    const startX = 0; // A4 width 210mm / 3 = 70mm exactly.
+    const startY = 0; // Top margin roughly
+
+    // We can add a small margin if needed, but 70x37*8 = 296mm (A4 is 297mm). So it fits almost perfectly vertically.
+    
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            const x = startX + (c * labelWidth);
+            const y = startY + (r * labelHeight); 
+            
+            // Optional: Draw faint outline for cutting if using plain paper
+            doc.setDrawColor(240);
+            doc.rect(x, y, labelWidth, labelHeight); 
+            
+            // Content Center X
+            const cx = x + (labelWidth / 2);
+            
+            // Brand
+            doc.setFontSize(10);
+            doc.setTextColor(255, 165, 0); // Honey Orange
+            doc.setFont("helvetica", "bold");
+            doc.text("LEK-HONNING", cx, y + 8, { align: "center" });
+            
+            doc.setTextColor(0);
+            
+            if (type === 'standard') {
+                doc.setFontSize(7);
+                doc.setFont("helvetica", "normal");
+                doc.text("Produsert av LEK-Sertifisert birøkter:", cx, y + 14, { align: "center" });
+                
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "bold");
+                doc.text(profile?.full_name || formData.full_name || 'Ukjent Birøkter', cx, y + 19, { align: "center" });
+                
+                if (profile?.is_lek_honning_member || formData.is_lek_honning_member) {
+                     doc.setFontSize(7);
+                     doc.setFont("helvetica", "normal");
+                     doc.text(`Medlem #${profile?.member_number || formData.member_number || '000'}`, cx, y + 23, { align: "center" });
+                }
+                
+                doc.setFontSize(6);
+                doc.text("100% Ekte Honning • Norsk Naturprodukt", cx, y + 32, { align: "center" });
+                
+            } else {
+                // Child
+                doc.setFontSize(9);
+                doc.setFont("helvetica", "italic");
+                doc.text("Honning fra min egen hage", cx, y + 15, { align: "center" });
+                
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "bold");
+                const name = childLabelData.name || profile?.full_name || 'Ukjent';
+                const age = childLabelData.age ? `${childLabelData.age} År` : '';
+                doc.text(`Birøkter ${name} ${age}`, cx, y + 22, { align: "center" });
+                
+                doc.setFontSize(7);
+                doc.setFont("helvetica", "normal");
+                doc.text(`Sommer ${new Date().getFullYear()}`, cx, y + 32, { align: "center" });
+            }
+        }
+    }
+    
+    doc.save(`etiketter_${type}.pdf`);
+    setShowLabelModal(false);
   };
 
   const handleSave = async () => {
@@ -290,6 +366,59 @@ export default function SettingsPage() {
                 )}
               </div>
 
+              {/* ETIKETTER & UTSKRIFT */}
+              <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 text-left shadow-sm">
+                  <div className="flex items-center gap-2 mb-3 border-b border-gray-100 pb-2">
+                      <Printer className="w-5 h-5 text-honey-600" />
+                      <h4 className="font-bold text-gray-900">Etiketter & Utskrift</h4>
+                  </div>
+                  
+                  <p className="text-sm text-gray-600 mb-4">
+                    Last ned og skriv ut profesjonelle etiketter til din honning. 
+                    Designet passer til standard etikettark (70x37mm, 24 per ark).
+                  </p>
+                  
+                  <a 
+                    href="https://www.google.com/search?q=etiketter+70x37mm+a4" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-xs text-blue-600 hover:underline mb-6"
+                  >
+                    <LinkIcon className="w-3 h-3" />
+                    Finn etikettpapir (Google Søk)
+                  </a>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Standard Etikett */}
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col justify-between">
+                          <div>
+                            <h5 className="font-bold text-gray-800 text-sm mb-1">Standard LEK-Etikett</h5>
+                            <p className="text-xs text-gray-500 mb-3">Med ditt navn og medlemsinfo.</p>
+                          </div>
+                          <button 
+                            onClick={() => generateLabelPDF('standard')}
+                            className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors"
+                          >
+                            Last ned PDF
+                          </button>
+                      </div>
+
+                      {/* Barne Etikett */}
+                      <div className="bg-honey-50 p-4 rounded-lg border border-honey-100 flex flex-col justify-between">
+                          <div>
+                            <h5 className="font-bold text-honey-800 text-sm mb-1">Barnas Etikett</h5>
+                            <p className="text-xs text-honey-600 mb-3">"Honning fra min egen hage"</p>
+                          </div>
+                          <button 
+                            onClick={() => setShowLabelModal(true)}
+                            className="w-full bg-honey-500 text-white font-bold py-2 rounded-lg text-sm hover:bg-honey-600 transition-colors"
+                          >
+                            Tilpass & Last ned
+                          </button>
+                      </div>
+                  </div>
+              </div>
+
               <button 
                 onClick={() => setIsEditing(true)}
                 className="w-full bg-black text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition-colors"
@@ -306,9 +435,56 @@ export default function SettingsPage() {
               </button>
             </div>
 
-
-
-
+            {/* Child Label Modal */}
+            {showLabelModal && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-2xl">
+                  <h3 className="text-xl font-bold text-honey-600 mb-2">Barnas Etikett</h3>
+                  <p className="text-sm text-gray-500 mb-6">
+                    Lag en personlig etikett for den lille birøkteren.
+                  </p>
+                  
+                  <div className="space-y-4 mb-6">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Barnets Navn</label>
+                      <input 
+                        type="text" 
+                        value={childLabelData.name}
+                        onChange={(e) => setChildLabelData(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="F.eks. Lyng-Anton"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Alder</label>
+                      <input 
+                        type="number" 
+                        value={childLabelData.age}
+                        onChange={(e) => setChildLabelData(prev => ({ ...prev, age: e.target.value }))}
+                        placeholder="F.eks. 6"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => setShowLabelModal(false)}
+                      className="flex-1 py-3 text-gray-600 font-bold bg-gray-100 rounded-lg hover:bg-gray-200"
+                    >
+                      Avbryt
+                    </button>
+                    <button 
+                      onClick={() => generateLabelPDF('child')}
+                      disabled={!childLabelData.name}
+                      className="flex-1 py-3 text-white font-bold bg-honey-500 rounded-lg hover:bg-honey-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Last ned
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <button 
                 onClick={handleSignOut}
