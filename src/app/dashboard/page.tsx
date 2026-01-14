@@ -221,7 +221,7 @@ export default function DashboardPage() {
             .in('status', ['pending', 'assigned', 'active'])
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
         
         if (rental) {
             setActiveRental(rental);
