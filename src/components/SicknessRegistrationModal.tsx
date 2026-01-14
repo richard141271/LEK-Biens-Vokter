@@ -32,6 +32,21 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
 
   if (!isOpen) return null;
 
+  const resetForm = () => {
+    setSicknessImage(null);
+    setPreviewUrl(null);
+    setPreviewError(null);
+    setSicknessData({
+      hiveId: '',
+      varroaCount: '',
+      behavior: 'Normal',
+      diseaseType: 'Annet / Vet ikke',
+      mortality: 'Lav',
+      description: '',
+      sharedWithMattilsynet: false
+    });
+  };
+
   const handleSubmit = async () => {
     try {
         setUploading(true);
@@ -48,7 +63,16 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
 
             if (uploadError) {
                 console.error('Upload error:', uploadError);
-                throw new Error('Kunne ikke laste opp bilde: ' + uploadError.message);
+                const raw = uploadError.message || '';
+                const msg = raw.toLowerCase();
+                if (msg.includes('bucket') && msg.includes('not found')) {
+                    alert('Kunne ikke lagre bildet (lagringsområde mangler). Rapporten sendes uten bilde.');
+                    setSicknessImage(null);
+                    setPreviewUrl(null);
+                    setPreviewError('Bildet ble ikke lagret, men rapporten kan sendes uten.');
+                } else {
+                    throw new Error('Kunne ikke laste opp bilde: ' + raw);
+                }
             } else {
                 const { data: { publicUrl } } = supabase.storage
                     .from('sickness-images')
@@ -90,7 +114,7 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
             user_id: userId,
             action: 'SYKDOM',
             details: sicknessData.hiveId ? details : `(Generell Rapport) ${details}`,
-            // ai_analysis_result: aiResult, // Removed to avoid schema error
+            shared_with_mattilsynet: true,
             created_at: new Date().toISOString()
         });
 
@@ -106,18 +130,7 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
         
         alert(successMsg);
         onClose();
-        setSicknessImage(null); // Reset image
-        setPreviewUrl(null);
-        setPreviewError(null);
-        setSicknessData({ // Reset form
-            hiveId: '',
-            varroaCount: '',
-            behavior: 'Normal',
-            diseaseType: 'Annet / Vet ikke',
-            mortality: 'Lav',
-            description: '',
-            sharedWithMattilsynet: false
-        });
+        resetForm();
         if (onSuccess) onSuccess();
     } catch (e: any) {
         console.error(e);
@@ -262,7 +275,21 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
                                     )}
                                 </div>
                                 <span className="text-xs font-medium text-green-600 block truncate px-4">{sicknessImage.name}</span>
-                                <span className="text-xs text-gray-400">Klikk for å endre</span>
+                                <div className="flex items-center justify-center gap-3 mt-1">
+                                    <span className="text-[11px] text-gray-400">Klikk for å endre</span>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSicknessImage(null);
+                                            setPreviewUrl(null);
+                                            setPreviewError(null);
+                                        }}
+                                        className="text-[11px] text-red-600 underline"
+                                    >
+                                        Fjern bilde
+                                    </button>
+                                </div>
                             </div>
                         ) : (
                             <>
@@ -326,6 +353,14 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
                     className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {uploading ? 'Sender rapport...' : 'Send Rapport'}
+                </button>
+                <button
+                    type="button"
+                    onClick={resetForm}
+                    disabled={uploading}
+                    className="w-full mt-2 text-xs text-gray-500 underline disabled:opacity-50"
+                >
+                    Nullstill skjema
                 </button>
             </div>
         </div>

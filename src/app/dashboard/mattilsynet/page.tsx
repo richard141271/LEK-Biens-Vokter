@@ -18,6 +18,13 @@ export default function MattilsynetDashboard() {
   const supabase = createClient();
   const router = useRouter();
 
+  const getStatusLabel = (status: string | null | undefined) => {
+    if (!status || status === 'pending') return 'VENT';
+    if (status === 'investigating') return 'SMITTE PÅVIST';
+    if (status === 'resolved') return 'AVSLUTTET';
+    return status.toUpperCase();
+  };
+
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -32,7 +39,7 @@ export default function MattilsynetDashboard() {
         .eq('id', user.id)
         .single();
 
-      if (profileData?.role !== 'mattilsynet') {
+      if (profileData?.role !== 'mattilsynet' && profileData?.role !== 'admin') {
         await supabase.auth.signOut();
         router.push('/mattilsynet');
         return;
@@ -95,23 +102,31 @@ export default function MattilsynetDashboard() {
     }
   };
 
-  const handleResolveAlert = async (logId: string) => {
+  const handleUpdateStatus = async (alert: any, newStatus: string, actionLabel: string) => {
+    try {
+      const baseDetails = alert.details || '';
+      const separator = baseDetails && baseDetails.trim().length > 0 ? '\n\n' : '';
+      const actor = profile?.role === 'mattilsynet' ? 'MATTILSYNET' : 'ADMIN';
+      const who = profile ? ` av ${profile.full_name || profile.email}` : '';
+      const note = `[${actor}] ${actionLabel} ${new Date().toLocaleString('no-NO')}${who}`;
+      const updatedDetails = `${baseDetails}${separator}${note}`;
+
       const { error } = await supabase
-          .from('hive_logs')
-          .update({ admin_status: 'resolved' })
-          .eq('id', logId);
-      
-      if (!error) {
-          // Remove from local state
-          setActiveAlerts(prev => prev.filter(a => a.id !== logId));
-          setStats(prev => ({ ...prev, alerts: prev.alerts - 1 }));
-      } else {
-          console.error("Failed to resolve alert:", error);
-          alert('Kunne ikke oppdatere status i databasen (kolonnen mangler kanskje). Fjerner den fra visningen lokalt.');
-          // Optimistic update
-          setActiveAlerts(prev => prev.filter(a => a.id !== logId));
-          setStats(prev => ({ ...prev, alerts: prev.alerts - 1 }));
+        .from('hive_logs')
+        .update({ admin_status: newStatus, details: updatedDetails })
+        .eq('id', alert.id);
+
+      if (error) {
+        console.error('Failed to update alert:', error);
+        alert('Kunne ikke oppdatere varselstatus. Prøv igjen.');
+        return;
       }
+
+      await fetchData();
+    } catch (e) {
+      console.error('Unexpected error updating alert:', e);
+      alert('Uventet feil ved oppdatering av varsel.');
+    }
   };
 
   const handleSignOut = async () => {
@@ -207,6 +222,9 @@ export default function MattilsynetDashboard() {
                                 <div>
                                     <div className="flex items-center gap-2 mb-1">
                                         <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-bold uppercase">Sykdom</span>
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
+                                            {getStatusLabel(alert.admin_status)}
+                                        </span>
                                         <span className="text-sm font-bold text-gray-900">
                                             {new Date(alert.created_at).toLocaleString('no-NO')}
                                         </span>
@@ -236,12 +254,46 @@ export default function MattilsynetDashboard() {
                                         </div>
                                     )}
                                 </div>
-                                <button 
-                                    onClick={() => handleResolveAlert(alert.id)}
-                                    className="px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 rounded-lg text-xs font-bold border border-green-200 transition-colors"
-                                >
-                                    Marker som løst
-                                </button>
+                                <div className="flex flex-col gap-2 items-end">
+                                    {(!alert.admin_status || alert.admin_status === 'pending') && (
+                                      <div className="flex flex-wrap gap-2 justify-end">
+                                        <button
+                                          onClick={() => handleUpdateStatus(alert, 'resolved', 'Markert som falsk alarm')}
+                                          className="px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-[11px] font-bold border border-red-200 transition-colors"
+                                        >
+                                          Falsk alarm
+                                        </button>
+                                        <button
+                                          onClick={() => handleUpdateStatus(alert, 'investigating', 'Eskalert til SMITTE PÅVIST')}
+                                          className="px-3 py-1.5 bg-yellow-50 text-yellow-800 hover:bg-yellow-100 rounded-lg text-[11px] font-bold border border-yellow-200 transition-colors"
+                                        >
+                                          SMITTE PÅVIST
+                                        </button>
+                                      </div>
+                                    )}
+                                    {alert.admin_status === 'investigating' && (
+                                      <div className="flex flex-wrap gap-2 justify-end">
+                                        <button
+                                          onClick={() => handleUpdateStatus(alert, 'pending', 'Satt på vent')}
+                                          className="px-3 py-1.5 bg-gray-50 text-gray-700 hover:bg-gray-100 rounded-lg text-[11px] font-bold border border-gray-200 transition-colors"
+                                        >
+                                          Sett på vent
+                                        </button>
+                                        <button
+                                          onClick={() => handleUpdateStatus(alert, 'resolved', 'Friskmeldt')}
+                                          className="px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 rounded-lg text-[11px] font-bold border border-green-200 transition-colors"
+                                        >
+                                          Friskmeld
+                                        </button>
+                                        <button
+                                          onClick={() => handleUpdateStatus(alert, 'resolved', 'Markert som falsk alarm')}
+                                          className="px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-[11px] font-bold border border-red-200 transition-colors"
+                                        >
+                                          Falsk alarm
+                                        </button>
+                                      </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     ))}

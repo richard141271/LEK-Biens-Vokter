@@ -202,6 +202,7 @@ export default function DashboardPage() {
         .from('hive_logs')
         .select('*, hives(apiaries(location))')
         .eq('action', 'SYKDOM')
+        .neq('admin_status', 'resolved')
         .order('created_at', { ascending: false })
         .limit(3);
 

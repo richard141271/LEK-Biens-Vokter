@@ -27,14 +27,13 @@ export default function MattilsynetPage() {
       if (signInError) throw signInError;
       if (!user) throw new Error('Ingen bruker funnet');
 
-      // Check role
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single();
 
-      if (profile?.role !== 'mattilsynet') {
+      if (profile?.role !== 'mattilsynet' && profile?.role !== 'admin') {
         await supabase.auth.signOut();
         throw new Error('Denne brukeren har ikke tilgang til Mattilsynet-portalen.');
       }
