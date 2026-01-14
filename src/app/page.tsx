@@ -198,7 +198,9 @@ export default function Home() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-3">
             <img src="/icon.png" alt="Logo" className="w-10 h-10 object-contain" />
-            <span className="font-bold text-xl">Biens Vokter</span>
+            <Link href="/admin" className="font-bold text-xl">
+              Biens Vokter
+            </Link>
           </div>
           <div className="text-gray-400 text-sm">
             © {new Date().getFullYear()} AI Innovate AS. Alle rettigheter reservert.
