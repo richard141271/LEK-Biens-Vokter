@@ -6,6 +6,8 @@ import { Product, ProductInput } from '@/types/shop';
 import { useRouter } from 'next/navigation';
 import { Loader2, Upload, X, Image as ImageIcon } from 'lucide-react';
 
+import { createProductBucket } from '@/app/actions/shop';
+
 interface ProductFormProps {
   initialData?: Product;
   isEdit?: boolean;
@@ -53,6 +55,34 @@ export default function ProductForm({ initialData, isEdit = false }: ProductForm
       
       setFormData(prev => ({ ...prev, image_url: data.publicUrl }));
     } catch (error: any) {
+      // If error is "Bucket not found", try to create it and retry upload
+      if (error.message && error.message.includes('Bucket not found')) {
+        try {
+          const result = await createProductBucket();
+          if (result.success) {
+            // Retry upload
+             const file = e.target.files?.[0];
+             if (file) {
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Math.random()}.${fileExt}`;
+                const filePath = `${fileName}`;
+                
+                const { error: retryError } = await supabase.storage
+                  .from('product-images')
+                  .upload(filePath, file);
+
+                if (retryError) throw retryError;
+
+                const { data } = supabase.storage.from('product-images').getPublicUrl(filePath);
+                setFormData(prev => ({ ...prev, image_url: data.publicUrl }));
+                return; // Success after retry
+             }
+          }
+        } catch (retryErr) {
+            console.error('Retry failed:', retryErr);
+        }
+      }
+
       alert(`Feil ved opplasting av bilde! \nFeilmelding: ${error.message || 'Ukjent feil'}`);
       console.error('Upload error details:', error);
     } finally {
@@ -175,8 +205,8 @@ export default function ProductForm({ initialData, isEdit = false }: ProductForm
             type="number"
             required
             min="0"
-            value={formData.price}
-            onChange={(e) => setFormData(prev => ({ ...prev, price: Number(e.target.value) }))}
+            value={formData.price === 0 ? '' : formData.price}
+            onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value === '' ? 0 : Number(e.target.value) }))}
             className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all"
           />
         </div>
@@ -187,8 +217,8 @@ export default function ProductForm({ initialData, isEdit = false }: ProductForm
             type="number"
             required
             min="0"
-            value={formData.stock}
-            onChange={(e) => setFormData(prev => ({ ...prev, stock: Number(e.target.value) }))}
+            value={formData.stock === 0 ? '' : formData.stock}
+            onChange={(e) => setFormData(prev => ({ ...prev, stock: e.target.value === '' ? 0 : Number(e.target.value) }))}
             className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all"
           />
         </div>

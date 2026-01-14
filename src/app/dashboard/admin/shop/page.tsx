@@ -8,6 +8,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { PRODUCT_IMAGES } from '@/utils/shop-constants';
 
+import { addStandardProducts } from '@/app/actions/shop';
+
 export default function AdminShopPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,72 +54,23 @@ export default function AdminShopPage() {
 
   const handleAddStandardProducts = async () => {
     setLoading(true);
-    const standardProducts = [
-      {
-        name: 'Sommerhonning',
-        price: 149,
-        category: 'Honning',
-        image_url: PRODUCT_IMAGES.HONEY_SUMMER,
-        description: 'Deilig, lys sommerhonning fra lokale bigårder. Mild og fin smak.',
-        stock: 10,
-        is_active: true
-      },
-      {
-        name: 'Lynghonning',
-        price: 189,
-        category: 'Honning',
-        image_url: PRODUCT_IMAGES.HONEY_HEATHER,
-        description: 'Kraftig og aromatisk lynghonning. Perfekt til ostefatet.',
-        stock: 5,
-        is_active: true
-      },
-      {
-        name: 'Håndlaget Bivoks-såpe',
-        price: 89,
-        category: 'Såpe',
-        image_url: PRODUCT_IMAGES.SOAP,
-        description: 'Naturlig såpe laget med bivoks og honning. Skånsom for huden.',
-        stock: 20,
-        is_active: true
-      },
-      {
-        name: 'Ren Bivoks (200g)',
-        price: 129,
-        category: 'Bivoks',
-        image_url: PRODUCT_IMAGES.BEESWAX,
-        description: '100% ren bivoks. Perfekt til lysstøping eller egen hudpleie.',
-        stock: 15,
-        is_active: true
-      },
-      {
-        name: 'Tavlehonning',
-        price: 249,
-        category: 'Tavlehonning',
-        image_url: PRODUCT_IMAGES.COMB,
-        description: 'Hele stykker av vokstavle fylt med honning. En eksklusiv delikatesse.',
-        stock: 3,
-        is_active: true
-      },
-      {
-        name: 'Gavepakke "Biens Beste"',
-        price: 499,
-        category: 'Gavepakker',
-        image_url: PRODUCT_IMAGES.GIFT_BROWN,
-        description: 'En flott gaveeske med honning, såpe og et bivokslys.',
-        stock: 8,
-        is_active: true
-      }
-    ];
-
-    const { error } = await supabase
-      .from('products')
-      .insert(standardProducts);
-
-    if (error) {
-      console.error('Error adding standard products:', error);
-      alert('Kunne ikke legge til standardvarer.');
-    } else {
-      fetchProducts();
+    
+    try {
+        const result = await addStandardProducts();
+        
+        if (result.error) {
+            console.error('Error adding standard products:', result.error);
+            alert(`Kunne ikke legge til standardvarer: ${result.error}`);
+        } else {
+            // Re-fetch handled by revalidatePath in server action, but we update local state too
+            fetchProducts();
+            alert('Standardvarer lagt til!');
+        }
+    } catch (e: any) {
+        console.error(e);
+        alert('En uventet feil oppstod: ' + e.message);
+    } finally {
+        setLoading(false);
     }
   };
 
