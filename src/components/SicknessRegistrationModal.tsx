@@ -74,7 +74,11 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
             };
         }
 
-        const details = `Sykdom: ${sicknessData.diseaseType}, Atferd: ${sicknessData.behavior}, Død: ${sicknessData.mortality}, Varroa: ${sicknessData.varroaCount}. Beskrivelse: ${sicknessData.description} ${imageUrl ? `\nBilde: ${imageUrl}` : ''}`;
+        const aiDetails = aiResult 
+            ? `\n\n[AI Analyse]\nFunnet: ${aiResult.detected}\nSikkerhet: ${aiResult.confidence}%`
+            : "";
+
+        const details = `Sykdom: ${sicknessData.diseaseType}, Atferd: ${sicknessData.behavior}, Død: ${sicknessData.mortality}, Varroa: ${sicknessData.varroaCount}. Beskrivelse: ${sicknessData.description} ${imageUrl ? `\nBilde: ${imageUrl}` : ''}${aiDetails}`;
         
         // Insert into hive_logs
         const { data: { user } } = await supabase.auth.getUser();
@@ -86,8 +90,7 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
             user_id: userId,
             action: 'SYKDOM',
             details: sicknessData.hiveId ? details : `(Generell Rapport) ${details}`,
-            ai_analysis_result: aiResult,
-            // admin_status: 'pending', // Removed temporarily as column is missing in DB
+            // ai_analysis_result: aiResult, // Removed to avoid schema error
             created_at: new Date().toISOString()
         });
 

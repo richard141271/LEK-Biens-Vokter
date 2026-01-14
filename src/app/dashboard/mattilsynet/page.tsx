@@ -49,7 +49,10 @@ export default function MattilsynetDashboard() {
   async function fetchData() {
     try {
         // Fetch Active Alerts (Sickness reports)
-        const { data: alerts } = await supabase
+        // Try with admin_status filter first
+        let alertsData: any[] = [];
+        
+        const { data: alerts, error: alertsError } = await supabase
             .from('hive_logs')
             .select(`
                 *,
@@ -70,7 +73,35 @@ export default function MattilsynetDashboard() {
             .eq('admin_status', 'pending')
             .order('created_at', { ascending: false });
         
-        if (alerts) setActiveAlerts(alerts);
+        if (alertsError) {
+             console.warn("Could not filter by admin_status, fetching all sickness reports instead.", alertsError);
+             // Fallback: fetch all SYKDOM logs if admin_status column is missing
+             const { data: allAlerts } = await supabase
+                .from('hive_logs')
+                .select(`
+                    *,
+                    reporter:user_id (
+                        full_name,
+                        email,
+                        phone_number
+                    ),
+                    hives (
+                         hive_number,
+                         apiaries (
+                             name,
+                             location
+                         )
+                     )
+                 `)
+                .eq('action', 'SYKDOM')
+                .order('created_at', { ascending: false });
+            
+            alertsData = allAlerts || [];
+        } else {
+            alertsData = alerts || [];
+        }
+        
+        setActiveAlerts(alertsData);
 
         // Fetch Stats
         const { count: apiaryCount } = await supabase
@@ -83,7 +114,7 @@ export default function MattilsynetDashboard() {
             .eq('action', 'INSPEKSJON');
 
         setStats({
-            alerts: alerts?.length || 0,
+            alerts: alertsData.length,
             inspections: inspectionCount || 0,
             apiaries: apiaryCount || 0
         });
@@ -104,7 +135,11 @@ export default function MattilsynetDashboard() {
           setActiveAlerts(prev => prev.filter(a => a.id !== logId));
           setStats(prev => ({ ...prev, alerts: prev.alerts - 1 }));
       } else {
-          alert('Kunne ikke oppdatere status.');
+          console.error("Failed to resolve alert:", error);
+          alert('Kunne ikke oppdatere status i databasen (kolonnen mangler kanskje). Fjerner den fra visningen lokalt.');
+          // Optimistic update
+          setActiveAlerts(prev => prev.filter(a => a.id !== logId));
+          setStats(prev => ({ ...prev, alerts: prev.alerts - 1 }));
       }
   };
 
@@ -205,7 +240,7 @@ export default function MattilsynetDashboard() {
                                             {new Date(alert.created_at).toLocaleString('no-NO')}
                                         </span>
                                     </div>
-                                    <p className="text-gray-800 font-medium mb-2">{alert.details}</p>
+                                    <p className="text-gray-800 font-medium mb-2 whitespace-pre-wrap">{alert.details}</p>
                                     
                                     <div className="flex flex-wrap gap-4 text-xs text-gray-600 bg-gray-50 p-3 rounded-lg">
                                         <div>
