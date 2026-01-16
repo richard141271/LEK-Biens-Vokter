@@ -83,7 +83,7 @@ export default function InstallPrompt({ embedded = false }: InstallPromptProps) 
               <p>For iPhone:</p>
               <ol className="list-decimal list-inside space-y-1 ml-1 bg-white/50 p-2 rounded">
                 <li>Trykk på <Share className="inline w-3 h-3 mx-1 text-blue-500" /></li>
-                <li>Velg <strong>"Legg til på Hjem-skjerm"</strong></li>
+                <li>Velg <strong>&quot;Legg til på Hjem-skjerm&quot;</strong></li>
               </ol>
             </div>
           ) : (

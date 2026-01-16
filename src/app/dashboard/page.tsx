@@ -478,7 +478,7 @@ export default function DashboardPage() {
                               <p className="font-bold mb-1 text-gray-900">
                                   {new Date(latestHiveLog.created_at).toLocaleDateString('no-NO')} - Inspeksjon
                               </p>
-                              <p className="italic">"{latestHiveLog.details}"</p>
+                              <p className="italic">&quot;{latestHiveLog.details}&quot;</p>
                           </div>
                       </div>
                   ) : (

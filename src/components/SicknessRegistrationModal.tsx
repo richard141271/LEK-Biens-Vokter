@@ -345,7 +345,7 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
                 {profile?.role !== 'beekeeper' && (
                 <div className="bg-blue-50 p-3 rounded-lg flex gap-2 text-xs text-blue-800">
                     <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
-                    <p>Din birøkter vil vurdere bildet for å se om det krever utrykning eller er "falsk alarm". Du hører fra oss!</p>
+                    <p>Din birøkter vil vurdere bildet for å se om det krever utrykning eller er &quot;falsk alarm&quot;. Du hører fra oss!</p>
                 </div>
                 )}
 

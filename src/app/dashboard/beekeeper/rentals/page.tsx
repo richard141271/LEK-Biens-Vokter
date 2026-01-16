@@ -213,7 +213,7 @@ export default function BeekeeperRentalsPage() {
                 
                 {rental.notes && (
                    <div className="mt-4 p-3 bg-gray-50 rounded-lg text-xs text-gray-600 italic border border-gray-100">
-                     "{rental.notes}"
+                     &quot;{rental.notes}&quot;
                    </div>
                 )}
               </div>

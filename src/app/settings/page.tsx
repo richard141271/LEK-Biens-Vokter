@@ -431,8 +431,8 @@ export default function SettingsPage() {
                       {/* Barne Etikett */}
                       <div className="bg-honey-50 p-4 rounded-lg border border-honey-100 flex flex-col justify-between">
                           <div>
-                            <h5 className="font-bold text-honey-800 text-sm mb-1">Barnas Etikett</h5>
-                            <p className="text-xs text-honey-600 mb-3">"Honning fra min egen hage"</p>
+                              <h5 className="font-bold text-honey-800 text-sm mb-1">Barnas Etikett</h5>
+                            <p className="text-xs text-honey-600 mb-3">&quot;Honning fra min egen hage&quot;</p>
                           </div>
                           <button 
                             onClick={() => setShowLabelModal(true)}

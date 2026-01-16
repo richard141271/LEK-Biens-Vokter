@@ -20,7 +20,7 @@ export default function AboutPage() {
       <section className="pt-32 pb-20 px-4 bg-gradient-to-b from-honey-50 to-white">
         <div className="max-w-4xl mx-auto text-center">
           <span className="inline-block py-1 px-3 rounded-full bg-honey-100 text-honey-700 text-sm font-bold mb-6">
-            DREVET AV AI "AURORA"
+            DREVET AV AI &quot;AURORA&quot;
           </span>
           <h1 className="text-5xl md:text-7xl font-bold text-gray-900 mb-8 leading-tight">
             100% Digitalisert.<br/>
@@ -44,7 +44,7 @@ export default function AboutPage() {
             <h2 className="text-4xl font-bold text-gray-900">Fra Spann til Tankbil</h2>
             <p className="text-lg text-gray-600 leading-relaxed">
               Glem tunge løft og klissete slyngerom. I vår visjon kobles bigården direkte til 
-              tankbilen. Når kubene melder at honningen er moden, kommer "melkebilen" og pumper 
+              tankbilen. Når kubene melder at honningen er moden, kommer &quot;melkebilen&quot; og pumper 
               den ferdige varen rett fra samletanken. Effektivt, hygienisk og revolusjonerende.
             </p>
             <ul className="space-y-3">
@@ -114,7 +114,7 @@ export default function AboutPage() {
             </div>
             <h2 className="text-4xl font-bold text-gray-900">Lynghonning-koden er Knekt</h2>
             <p className="text-lg text-gray-600 leading-relaxed">
-              Vanlige "Flow Hives" feiler på lynghonning fordi den er tiksotrop (geleaktig). 
+              Vanlige &quot;Flow Hives&quot; feiler på lynghonning fordi den er tiksotrop (geleaktig). 
               Vi har løst dette med innebygde mikro-vibratorer.
             </p>
             <p className="text-lg text-gray-600 leading-relaxed">
