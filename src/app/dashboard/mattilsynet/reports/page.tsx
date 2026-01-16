@@ -80,6 +80,16 @@ export default function ReportsPage() {
     </div>
   );
 
+  const chartData = [
+    { label: 'Birøktere', value: stats.totalBeekeepers, color: 'bg-blue-500' },
+    { label: 'Bigårder', value: stats.totalApiaries, color: 'bg-green-500' },
+    { label: 'Bikuber', value: stats.totalHives, color: 'bg-orange-500' },
+    { label: 'Aktive utbrudd', value: stats.activeSickness, color: 'bg-red-500' },
+    { label: 'Løste saker', value: stats.resolvedSickness, color: 'bg-emerald-500' }
+  ];
+
+  const maxValue = Math.max(1, ...chartData.map((d) => d.value || 0));
+
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
       <header className="bg-white border-b border-gray-200 p-4">
@@ -139,8 +149,28 @@ export default function ReportsPage() {
             <p className="text-gray-600 mb-4">
                 Denne seksjonen vil inneholde detaljerte grafer og PDF-eksportmuligheter for årsrapportering til Landbruksdirektoratet.
             </p>
-            <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center border border-dashed border-gray-300 text-gray-400">
-                Grafikk kommer her...
+            <div className="h-64 bg-gray-50 rounded-lg border border-dashed border-gray-300 p-4 flex flex-col">
+              <div className="flex-1 flex items-end gap-3">
+                {chartData.map((item) => (
+                  <div key={item.label} className="flex-1 flex flex-col items-center justify-end gap-2">
+                    <div className="w-full max-w-[32px] rounded-md overflow-hidden bg-gray-200 flex items-end">
+                      <div
+                        className={`${item.color} w-full`}
+                        style={{ height: `${(item.value / maxValue) * 100 || 0}%` }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-gray-600 text-center leading-tight">
+                      {item.label}
+                    </span>
+                    <span className="text-xs font-semibold text-gray-900">
+                      {item.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 text-[11px] text-gray-500">
+                Tallene hentes direkte fra systemet og gir et raskt overblikk over situasjonen i 2025.
+              </div>
             </div>
         </div>
       </main>

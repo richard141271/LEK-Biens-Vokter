@@ -55,48 +55,22 @@ export default function MattilsynetDashboard() {
 
   async function fetchData() {
     try {
-        const { data: alerts, error } = await supabase
-            .from('hive_logs')
-            .select(`
-                *,
-                reporter:user_id (
-                    full_name,
-                    email,
-                    phone_number
-                ),
-                hives (
-                     hive_number,
-                     apiaries (
-                         name,
-                         location
-                     )
-                 )
-             `)
-            .eq('action', 'SYKDOM')
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error("Error fetching sickness alerts:", error);
-            setActiveAlerts([]);
-        } else {
-            const activeOnly = (alerts || []).filter(a => a.admin_status !== 'resolved');
-            setActiveAlerts(activeOnly);
-
-            const { count: apiaryCount } = await supabase
-                .from('apiaries')
-                .select('*', { count: 'exact', head: true });
-
-            const { count: inspectionCount } = await supabase
-                .from('hive_logs')
-                .select('*', { count: 'exact', head: true })
-                .eq('action', 'INSPEKSJON');
-
-            setStats({
-                alerts: activeOnly.length,
-                inspections: inspectionCount || 0,
-                apiaries: apiaryCount || 0
-            });
+        const res = await fetch('/api/mattilsynet/alerts');
+        if (!res.ok) {
+            console.error("Error fetching mattilsynet data:", await res.text());
+            return;
         }
+        
+        const data = await res.json();
+        const alerts = data.alerts || [];
+        const activeOnly = alerts.filter((a: any) => a.admin_status !== 'resolved');
+        setActiveAlerts(activeOnly);
+
+        setStats({
+            alerts: activeOnly.length,
+            inspections: data.stats?.inspections || 0,
+            apiaries: data.stats?.apiaries || 0
+        });
     } catch (e) {
         console.error("Error fetching mattilsynet data:", e);
     }

@@ -24,7 +24,8 @@ export default function AdminDashboard() {
     totalUsers: 0,
     admins: 0,
     mattilsynet: 0,
-    beekeepers: 0
+    beekeepers: 0,
+    activeAlerts: 0
   });
   const [profile, setProfile] = useState<any>(null);
 
@@ -60,18 +61,22 @@ export default function AdminDashboard() {
 
   const fetchStats = async () => {
     try {
-      const { data: profiles, error } = await supabase
-        .from('profiles')
-        .select('role');
-
-      if (profiles) {
-        setStats({
-          totalUsers: profiles.length,
-          admins: profiles.filter(p => p.role === 'admin').length,
-          mattilsynet: profiles.filter(p => p.role === 'mattilsynet').length,
-          beekeepers: profiles.filter(p => p.role === 'beekeeper' || !p.role).length
-        });
+      const res = await fetch('/api/admin/stats');
+      if (!res.ok) {
+        console.error('Feil ved henting av admin-stats:', await res.text());
+        setLoading(false);
+        return;
       }
+
+      const data = await res.json();
+
+      setStats({
+        totalUsers: data.totalUsers || 0,
+        admins: data.admins || 0,
+        mattilsynet: data.mattilsynet || 0,
+        beekeepers: data.beekeepers || 0,
+        activeAlerts: data.activeAlerts || 0
+      });
       setLoading(false);
     } catch (e) {
       console.error('Error fetching stats:', e);
@@ -223,7 +228,7 @@ export default function AdminDashboard() {
             <Activity className="w-5 h-5 text-purple-600" />
             Statistikk
         </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="bg-white p-4 rounded-xl border border-gray-200">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Totalt Brukere</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.totalUsers}</p>
@@ -239,6 +244,10 @@ export default function AdminDashboard() {
             <div className="bg-white p-4 rounded-xl border border-gray-200">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Birøktere</p>
                 <p className="text-2xl font-bold text-green-600">{stats.beekeepers}</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-gray-200">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Aktive sykdomsvarsler</p>
+                <p className="text-2xl font-bold text-red-600">{stats.activeAlerts}</p>
             </div>
         </div>
 

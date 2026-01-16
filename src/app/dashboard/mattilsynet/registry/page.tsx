@@ -23,31 +23,21 @@ export default function RegistryPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch Beekeepers (Profiles with role 'beekeeper')
-      const { data: beekeepersData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'beekeeper');
-      
-      if (beekeepersData) setBeekeepers(beekeepersData);
 
-      // Fetch Apiaries
-      const { data: apiariesData } = await supabase
-        .from('apiaries')
-        .select('*, profiles(full_name, email)');
-      
-      if (apiariesData) setApiaries(apiariesData);
+      const res = await fetch('/api/mattilsynet/registry');
+      if (!res.ok) {
+        console.error('Error fetching registry:', await res.text());
+        setLoading(false);
+        return;
+      }
 
-      // Fetch Hives
-      const { data: hivesData } = await supabase
-        .from('hives')
-        .select('*, apiaries(name, location), profiles(full_name)');
-      
-      if (hivesData) setHives(hivesData);
+      const data = await res.json();
 
+      setBeekeepers(data.beekeepers || []);
+      setApiaries(data.apiaries || []);
+      setHives(data.hives || []);
     } catch (e) {
-      console.error("Error fetching registry:", e);
+      console.error('Error fetching registry:', e);
     } finally {
       setLoading(false);
     }

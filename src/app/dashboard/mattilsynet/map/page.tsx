@@ -25,32 +25,37 @@ export default function MapPage() {
     try {
       setLoading(true);
 
-      // 1. Fetch all apiaries
-      const { data: apiariesData } = await supabase
-        .from('apiaries')
-        .select('*, profiles(full_name)');
+      // 1. Fetch all apiaries via Admin API to bypass RLS
+      const res = await fetch('/api/mattilsynet/registry');
+      if (!res.ok) {
+        console.error("Error fetching map data:", await res.text());
+        return;
+      }
+      const data = await res.json();
+      const apiariesData = data.apiaries || [];
       
-      if (!apiariesData) return;
-
-      // 2. Fetch active sickness alerts to mark apiaries
-      const { data: alerts } = await supabase
-        .from('hive_logs')
-        .select('hive_id, hives(apiary_id)')
-        .eq('action', 'SYKDOM')
-        .eq('admin_status', 'pending');
+      // 2. Fetch active sickness alerts to mark apiaries (via alerts API)
+      const alertRes = await fetch('/api/mattilsynet/alerts');
+      let sickApiaryIds = new Set();
       
-      const sickApiaryIds = new Set();
-      if (alerts) {
+      if (alertRes.ok) {
+        const alertData = await alertRes.json();
+        const alerts = alertData.alerts || [];
         alerts.forEach((alert: any) => {
-          const hive = Array.isArray(alert.hives) ? alert.hives[0] : alert.hives;
-          if (hive?.apiary_id) {
-            sickApiaryIds.add(hive.apiary_id);
-          }
+             // Check if alert has hives and apiaries associated
+             if (alert.hives && Array.isArray(alert.hives)) {
+                 alert.hives.forEach((h: any) => {
+                     if (h.apiary_id) sickApiaryIds.add(h.apiary_id);
+                 });
+             } else if (alert.hives && alert.hives.apiary_id) {
+                 sickApiaryIds.add(alert.hives.apiary_id); // Case where hives is single object
+             }
+             // Also check direct hive_id mapping if we have the full hive list (complex, stick to what alerts API returns)
         });
       }
 
       // 3. Process data (Mock coordinates if missing for demo purposes)
-      const processedApiaries = apiariesData.map(apiary => {
+      const processedApiaries = apiariesData.map((apiary: any) => {
         let lat = apiary.latitude;
         let lng = apiary.longitude;
 
