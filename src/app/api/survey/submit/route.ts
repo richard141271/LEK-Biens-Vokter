@@ -34,8 +34,6 @@ export async function POST(request: Request) {
     const adminClient = createAdminClient();
     const body = (await request.json()) as Body;
 
-    const ipAddress = getClientIp(request);
-
     if (body.pilotEmail) {
       const { count: existingEmailCount, error: emailCountError } =
         await adminClient
@@ -61,29 +59,6 @@ export async function POST(request: Request) {
               'Denne e-postadressen har allerede svart på undersøkelsen.',
           },
           { status: 400 }
-        );
-      }
-    }
-
-    if (ipAddress) {
-      const { count: recentCount, error: ipError } = await adminClient
-        .from('survey_responses')
-        .select('*', { count: 'exact', head: true })
-        .eq('ip_address', ipAddress)
-        .gte(
-          'submitted_at',
-          new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-        );
-
-      if (ipError) {
-        console.error('Feil ved IP-rate-limiting', ipError);
-      } else if ((recentCount || 0) >= 3) {
-        return NextResponse.json(
-          {
-            error:
-              'Det er registrert flere svar fra denne tilkoblingen i dag. Prøv igjen i morgen.',
-          },
-          { status: 429 }
         );
       }
     }
@@ -119,7 +94,7 @@ export async function POST(request: Request) {
         is_test: false,
         is_invalid: false,
         submitted_at: new Date().toISOString(),
-        ip_address: ipAddress,
+        ip_address: getClientIp(request),
       });
 
     if (insertError) {

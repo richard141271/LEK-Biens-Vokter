@@ -1,6 +1,5 @@
 'use client';
 
-import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { Loader2, Mail, Calendar } from 'lucide-react';
 
@@ -12,27 +11,35 @@ type PilotInterest = {
 };
 
 export default function PilotInterestPage() {
-  const supabase = createClient();
   const [interests, setInterests] = useState<PilotInterest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchInterests = async () => {
-      const { data, error } = await supabase
-        .from('pilot_interest')
-        .select('*')
-        .order('created_at', { ascending: false });
+      try {
+        const res = await fetch('/api/admin/pilot-interest');
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          const message =
+            data?.error || 'Kunne ikke hente pilot-interesser.';
+          throw new Error(message);
+        }
 
-      if (error) {
-        console.error('Error fetching pilot interests:', error);
-      } else {
-        setInterests(data || []);
+        const data = await res.json();
+        setInterests(data.interests || []);
+      } catch (e: any) {
+        console.error('Feil ved henting av pilot-interesser:', e);
+        setError(
+          e?.message || 'Kunne ikke hente pilot-interesser.'
+        );
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchInterests();
-  }, [supabase]);
+  }, []);
 
   if (loading) {
     return (
@@ -45,7 +52,7 @@ export default function PilotInterestPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Pilot-interesser</h1>
             <p className="text-gray-500">
@@ -56,6 +63,12 @@ export default function PilotInterestPage() {
             Totalt: {interests.length}
           </div>
         </div>
+
+        {error && (
+          <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+            {error}
+          </div>
+        )}
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
