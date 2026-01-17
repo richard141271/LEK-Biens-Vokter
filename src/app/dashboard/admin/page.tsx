@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { 
   Users, 
   Shield, 
-  Database, 
+  Database,
   Settings, 
   LogOut,
   ChevronRight,
@@ -16,7 +16,8 @@ import {
   ShieldCheck,
   ArrowRight,
   BarChart2,
-  FileText
+  FileText,
+  Mail
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -223,6 +224,22 @@ export default function AdminDashboard() {
               <h3 className="text-lg font-bold text-gray-900 mb-2">Referater</h3>
               <p className="text-sm text-gray-500 mb-4">
                 Se alle møtereferater, rediger titler og slett ved behov.
+              </p>
+            </div>
+          </Link>
+
+          {/* Pilot-interesser */}
+          <Link href="/dashboard/admin/pilot-interesser" className="group">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-emerald-500 hover:shadow-md transition-all h-full">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                  <Mail className="w-6 h-6" />
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-emerald-500" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Pilotprogram</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Se e-postene til birøktere som vil teste LEK-Biens Vokter.
               </p>
             </div>
           </Link>

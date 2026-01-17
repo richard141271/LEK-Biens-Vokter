@@ -64,26 +64,30 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
       setNote(typed);
 
       if (typed.audio_url) {
-        console.log('Attempting to create signed URL for:', typed.audio_url);
-        
-        // Debug: List files in the user's folder to check permissions
-        const { data: listData, error: listError } = await supabase.storage
-          .from('meeting-audio')
-          .list(user.id);
-        console.log('Debug - List files in user folder:', listData, listError);
+        try {
+          const res = await fetch('/api/meeting-notes/audio-url', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ id: params.id }),
+          });
 
-        const { data: signed, error } = await supabase.storage
-          .from('meeting-audio')
-          .createSignedUrl(typed.audio_url, 60 * 60);
-
-        if (error) {
-          console.error('Error creating signed URL:', error);
-          setAudioError(error.message);
-        }
-
-        if (!error && signed?.signedUrl) {
-          console.log('Signed URL created:', signed.signedUrl);
-          setAudioUrl(signed.signedUrl);
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            const message = err.error || 'Kunne ikke hente lydfil';
+            setAudioError(message);
+          } else {
+            const json = (await res.json()) as { url?: string };
+            if (json.url) {
+              setAudioUrl(json.url);
+            } else {
+              setAudioError('Mangler URL til lydfil');
+            }
+          }
+        } catch (e) {
+          console.error('Uventet feil ved henting av lyd-URL', e);
+          setAudioError('Uventet feil ved henting av lydfil');
         }
       }
 
