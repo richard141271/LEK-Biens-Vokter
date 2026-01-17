@@ -19,6 +19,7 @@ export default function DesktopNav() {
       pathname === '/signin' || 
       pathname === '/lei-en-kube' || 
       pathname.startsWith('/info/') ||
+      pathname.startsWith('/survey') ||
       pathname.startsWith('/admin') ||
       pathname.startsWith('/mattilsynet') ||
       pathname.startsWith('/dashboard/admin') ||
