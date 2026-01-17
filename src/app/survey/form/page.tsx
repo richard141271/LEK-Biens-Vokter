@@ -141,63 +141,47 @@ export default function SurveyFormPage() {
     setError(null);
 
     try {
-      const experiencedDiseaseBool =
-        form.experiencedDisease === ""
-          ? null
-          : form.experiencedDisease === "ja";
-
-      const { error: insertError } = await supabase
-        .from("survey_responses")
-        .insert({
+      const res = await fetch("/api/survey/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           county: form.county || null,
-          number_of_hives_category: form.numberOfHivesCategory || null,
-          years_experience_category: form.yearsExperienceCategory || null,
-          is_member_norwegian_beekeepers:
-            form.isMember === ""
-              ? null
-              : form.isMember === "ja",
-          experienced_disease: experiencedDiseaseBool,
-          disease_types:
-            form.diseaseTypes.length > 0
-              ? form.diseaseTypes.join(",")
-              : null,
-          current_record_method: form.currentRecordMethod || null,
-          time_spent_documentation: form.timeSpentPerWeek || null,
-          value_warning_system: form.valueWarningSystem,
-          value_nearby_alert: form.valueNearbyAlert,
-          value_reporting: form.valueReporting,
-          value_better_overview: form.valueBetterOverview,
-          would_use_system_choice: form.wouldUseSystemChoice || null,
-          willingness_to_pay: form.pricePerYear || null,
-          biggest_challenge: form.biggestChallenge || null,
-          feature_wishes: form.featureWishes || null,
-        });
+          numberOfHivesCategory: form.numberOfHivesCategory || null,
+          yearsExperienceCategory: form.yearsExperienceCategory || null,
+          isMember: form.isMember,
+          experiencedDisease: form.experiencedDisease,
+          diseaseTypes: form.diseaseTypes,
+          currentRecordMethod: form.currentRecordMethod || null,
+          timeSpentPerWeek: form.timeSpentPerWeek || null,
+          valueWarningSystem: form.valueWarningSystem,
+          valueNearbyAlert: form.valueNearbyAlert,
+          valueReporting: form.valueReporting,
+          valueBetterOverview: form.valueBetterOverview,
+          wouldUseSystemChoice: form.wouldUseSystemChoice || null,
+          pricePerYear: form.pricePerYear || null,
+          biggestChallenge: form.biggestChallenge || null,
+          featureWishes: form.featureWishes || null,
+          pilotAnswer: form.pilotAnswer,
+          pilotEmail: form.pilotEmail || null,
+        }),
+      });
 
-      if (insertError) {
-        throw insertError;
-      }
-
-      if (
-        (form.pilotAnswer === "ja" || form.pilotAnswer === "kanskje") &&
-        form.pilotEmail
-      ) {
-        const { error: pilotError } = await supabase
-          .from("survey_pilot_interest")
-          .insert({
-            email: form.pilotEmail,
-            interested: true,
-          });
-
-        if (pilotError) {
-          console.error("Feil ved lagring av pilot-interesse", pilotError);
-        }
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const message =
+          data?.error ||
+          "Noe gikk galt ved innsending av skjemaet. Vennligst prøv igjen om litt.";
+        throw new Error(message);
       }
 
       router.push("/survey/thanks");
     } catch (err: any) {
       console.error("Feil ved innsending av undersøkelse", err);
       setError(
-        "Noe gikk galt ved innsending av skjemaet. Vennligst prøv igjen om litt."
+        err?.message ||
+          "Noe gikk galt ved innsending av skjemaet. Vennligst prøv igjen om litt."
       );
       setSubmitting(false);
     }
@@ -782,4 +766,3 @@ export default function SurveyFormPage() {
     </main>
   );
 }
-

@@ -14,7 +14,8 @@ import {
   UserCheck,
   ShoppingBag,
   ShieldCheck,
-  ArrowRight
+  ArrowRight,
+  BarChart2
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -125,7 +126,6 @@ export default function AdminDashboard() {
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         
-        {/* Quick Actions Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
           
           {/* User Management Card */}
@@ -187,6 +187,28 @@ export default function AdminDashboard() {
                 Importer data (CSV)
             </button>
           </div>
+
+          {/* Survey Results Card */}
+          <Link href="/dashboard/admin/survey-results" className="group">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-honey-500 hover:shadow-md transition-all h-full">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-honey-50 text-honey-600 rounded-lg group-hover:bg-honey-600 group-hover:text-white transition-colors">
+                  <BarChart2 className="w-6 h-6" />
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-honey-500" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                Behovsanalyse
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Se resultater, generer rapporter og rydde i svarene.
+              </p>
+              <div className="flex items-center gap-2 text-xs font-medium text-honey-700 bg-honey-50 px-3 py-2 rounded-lg">
+                <Activity className="w-4 h-4" />
+                <span>Spørreundersøkelse for LEK-Biens Vokter™️</span>
+              </div>
+            </div>
+          </Link>
 
           {/* Settings (Placeholder) */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 opacity-75">
