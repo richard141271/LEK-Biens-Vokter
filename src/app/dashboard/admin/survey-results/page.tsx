@@ -306,11 +306,11 @@ export default function SurveyResultsAdminPage() {
     lines.push(`- Bedre oversikt over egen bigård: ${stats.avgOverview.toFixed(1)}`);
     lines.push('');
     const totalWouldUse = stats.wouldUse.yes + stats.wouldUse.yesIfEasy + stats.wouldUse.unsure + stats.wouldUse.no;
-    if (totalWouldUse > 0) {
-      const yesPercent = Math.round((stats.wouldUse.yes / totalWouldUse) * 100);
-      const yesEasyPercent = Math.round((stats.wouldUse.yesIfEasy / totalWouldUse) * 100);
-      const unsurePercent = Math.round((stats.wouldUse.unsure / totalWouldUse) * 100);
-      const noPercent = Math.round((stats.wouldUse.no / totalWouldUse) * 100);
+    if (stats.total > 0 && totalWouldUse > 0) {
+      const yesPercent = Math.round((stats.wouldUse.yes / stats.total) * 100);
+      const yesEasyPercent = Math.round((stats.wouldUse.yesIfEasy / stats.total) * 100);
+      const unsurePercent = Math.round((stats.wouldUse.unsure / stats.total) * 100);
+      const noPercent = Math.round((stats.wouldUse.no / stats.total) * 100);
       lines.push('Svar på hovedspørsmål – ville du brukt systemet?');
       lines.push(`- Ja: ${stats.wouldUse.yes} svar (${yesPercent}%)`);
       lines.push(`- Ja, hvis det er enkelt å bruke: ${stats.wouldUse.yesIfEasy} svar (${yesEasyPercent}%)`);
