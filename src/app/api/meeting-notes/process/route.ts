@@ -91,6 +91,22 @@ export async function POST(request: Request) {
       );
     }
 
+    // VERIFY UPLOAD: List files in the folder to confirm existence
+    const { data: listData, error: listError } = await adminClient.storage
+      .from(bucketName)
+      .list(user.id);
+    
+    console.log('Upload verification - list files in user folder:', user.id, listData, listError);
+
+    const uploadedFileExists = listData?.some(f => f.name === fileName);
+    if (!uploadedFileExists) {
+      console.error('File uploaded but not found in listing:', fileName, listData);
+      return NextResponse.json(
+        { error: 'Fil lastet opp, men kunne ikke verifiseres', details: 'File not found in storage listing after upload' },
+        { status: 500 }
+      );
+    }
+
     const { error: ownerError } = await adminClient
       .from('storage.objects')
       .update({ owner: user.id })

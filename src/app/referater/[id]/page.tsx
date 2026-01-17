@@ -279,6 +279,7 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
             <div className="mt-3 p-3 bg-red-50 text-red-700 rounded-md text-xs">
               <p className="font-semibold">Feil ved lasting av lydfil:</p>
               <p>{audioError}</p>
+              <p className="mt-1 font-mono text-[10px] opacity-75 break-all">Path: {note.audio_url}</p>
             </div>
           )}
 
