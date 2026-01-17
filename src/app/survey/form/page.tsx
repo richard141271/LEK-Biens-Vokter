@@ -6,6 +6,80 @@ import { createClient } from "@/utils/supabase/client";
 
 type PilotAnswer = "ja" | "kanskje" | "nei" | "";
 
+const HIVE_OPTIONS = [
+  "1–4 kuber",
+  "5–9 kuber",
+  "10–24 kuber",
+  "25–49 kuber",
+  "50 kuber eller flere",
+];
+
+const YEARS_OPTIONS = [
+  "Mindre enn 1 år",
+  "1–3 år",
+  "4–10 år",
+  "11–20 år",
+  "Mer enn 20 år",
+];
+
+const COUNTIES = [
+  "Agder",
+  "Akershus",
+  "Buskerud",
+  "Finnmark",
+  "Innlandet",
+  "Møre og Romsdal",
+  "Nordland",
+  "Rogaland",
+  "Telemark",
+  "Troms",
+  "Trøndelag",
+  "Vestfold",
+  "Vestland",
+  "Østfold",
+];
+
+const DISEASE_OPTIONS = [
+  "Varroa",
+  "Åpen yngelråte",
+  "Lukket yngelråte",
+  "Nosema",
+  "Kalkyngel",
+  "Stein-yngel",
+  "Trakémidd",
+  "Vingedeformitetsvirus",
+  "Amerikansk yngelråte",
+  "Europeisk yngelråte",
+  "Svertesopp",
+  "Ukjent sykdom",
+  "Ingen sykdom observert",
+];
+
+const RECORD_METHOD_OPTIONS = [
+  "Notatbok/papir",
+  "Excel eller egne lister",
+  "Digital app",
+  "Egen metode",
+  "Ingen systematisk registrering",
+  "Annet",
+];
+
+const TIME_OPTIONS = [
+  "Mindre enn 15 minutter",
+  "15–30 minutter",
+  "30–60 minutter",
+  "1–2 timer",
+  "Mer enn 2 timer",
+];
+
+const PRICE_OPTIONS = [
+  "Inntil 500 kr per år",
+  "Inntil 1000 kr per år",
+  "Inntil 1500 kr per år",
+  "Avhengig av antall kuber",
+  "Gratis",
+];
+
 export default function SurveyFormPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -16,34 +90,43 @@ export default function SurveyFormPage() {
 
   const [form, setForm] = useState({
     county: "",
-    numberOfHives: "",
-    yearsExperience: "",
-    beekeeperType: "",
-    experiencedDisease: "" as "" | "ja" | "nei",
-    diseaseTypes: "",
-    difficultyDetectingDisease: 3,
-    lateDetection: "" as "" | "ja" | "nei",
+    numberOfHivesCategory: "",
+    yearsExperienceCategory: "",
+    isMember: "" as "" | "ja" | "nei",
+    experiencedDisease: "" as "" | "ja" | "nei" | "usikker",
+    diseaseTypes: [] as string[],
     currentRecordMethod: "",
-    timeSpentDocumentation: "",
+    timeSpentPerWeek: "",
     valueWarningSystem: 3,
     valueNearbyAlert: 3,
     valueReporting: 3,
-    valueAiAnalysis: 3,
-    wouldUseSystem: "",
-    willingnessToPay: "",
+    valueBetterOverview: 3,
+    wouldUseSystemChoice: "",
+    pricePerYear: "",
     biggestChallenge: "",
     featureWishes: "",
     pilotAnswer: "" as PilotAnswer,
     pilotEmail: "",
-    pilotHivesForTesting: "",
   });
 
   const updateField = (field: keyof typeof form, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const toggleDiseaseType = (value: string) => {
+    setForm((prev) => {
+      const exists = prev.diseaseTypes.includes(value);
+      return {
+        ...prev,
+        diseaseTypes: exists
+          ? prev.diseaseTypes.filter((v) => v !== value)
+          : [...prev.diseaseTypes, value],
+      };
+    });
+  };
+
   const nextStep = () => {
-    setStep((s) => Math.min(7, s + 1));
+    setStep((s) => Math.min(8, s + 1));
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -59,28 +142,33 @@ export default function SurveyFormPage() {
 
     try {
       const experiencedDiseaseBool =
-        form.experiencedDisease === "" ? null : form.experiencedDisease === "ja";
-      const lateDetectionBool =
-        form.lateDetection === "" ? null : form.lateDetection === "ja";
+        form.experiencedDisease === ""
+          ? null
+          : form.experiencedDisease === "ja";
 
       const { error: insertError } = await supabase
         .from("survey_responses")
         .insert({
           county: form.county || null,
-          number_of_hives: form.numberOfHives || null,
-          years_experience: form.yearsExperience || null,
-          beekeeper_type: form.beekeeperType || null,
+          number_of_hives_category: form.numberOfHivesCategory || null,
+          years_experience_category: form.yearsExperienceCategory || null,
+          is_member_norwegian_beekeepers:
+            form.isMember === ""
+              ? null
+              : form.isMember === "ja",
           experienced_disease: experiencedDiseaseBool,
-          disease_types: form.diseaseTypes || null,
-          difficulty_detecting_disease: form.difficultyDetectingDisease,
-          late_detection: lateDetectionBool,
+          disease_types:
+            form.diseaseTypes.length > 0
+              ? form.diseaseTypes.join(",")
+              : null,
           current_record_method: form.currentRecordMethod || null,
-          time_spent_documentation: form.timeSpentDocumentation || null,
+          time_spent_documentation: form.timeSpentPerWeek || null,
           value_warning_system: form.valueWarningSystem,
           value_nearby_alert: form.valueNearbyAlert,
           value_reporting: form.valueReporting,
-          value_ai_analysis: form.valueAiAnalysis,
-          willingness_to_pay: form.willingnessToPay || null,
+          value_better_overview: form.valueBetterOverview,
+          would_use_system_choice: form.wouldUseSystemChoice || null,
+          willingness_to_pay: form.pricePerYear || null,
           biggest_challenge: form.biggestChallenge || null,
           feature_wishes: form.featureWishes || null,
         });
@@ -98,12 +186,9 @@ export default function SurveyFormPage() {
           .insert({
             email: form.pilotEmail,
             interested: true,
-            number_of_hives_for_testing:
-              form.pilotHivesForTesting || form.numberOfHives || null,
           });
 
         if (pilotError) {
-          // Ikke stopp hele skjemaet, men logg feilen og gå videre
           console.error("Feil ved lagring av pilot-interesse", pilotError);
         }
       }
@@ -128,84 +213,90 @@ export default function SurveyFormPage() {
                 Seksjon 1 – Om deg som birøkter
               </h2>
               <p className="text-sm text-gray-600">
-                Noen enkle spørsmål for å forstå bakgrunnen din.
+                Noen korte spørsmål om birøkten din.
               </p>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-800 mb-2">
                   Hvor mange kuber har du?
                 </label>
-                <input
-                  type="text"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-honey-500"
-                  value={form.numberOfHives}
-                  onChange={(e) => updateField("numberOfHives", e.target.value)}
-                />
+                <select
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-honey-500"
+                  value={form.numberOfHivesCategory}
+                  onChange={(e) =>
+                    updateField("numberOfHivesCategory", e.target.value)
+                  }
+                >
+                  <option value="">Velg antall kuber</option>
+                  {HIVE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-800 mb-2">
                   Hvor lenge har du drevet med birøkt?
                 </label>
-                <input
-                  type="text"
-                  placeholder="For eksempel: 2 år, 5–10 år, siden 1998"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-honey-500"
-                  value={form.yearsExperience}
+                <select
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-honey-500"
+                  value={form.yearsExperienceCategory}
                   onChange={(e) =>
-                    updateField("yearsExperience", e.target.value)
+                    updateField("yearsExperienceCategory", e.target.value)
                   }
-                />
+                >
+                  <option value="">Velg erfaring</option>
+                  {YEARS_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Driver du som hobby eller næring?
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {["Hobby", "Næring", "Både hobby og næring"].map((option) => (
+                <p className="block text-sm font-medium text-gray-800 mb-2">
+                  Er du medlem av Norges Birøkterlag?
+                </p>
+                <div className="flex gap-3">
+                  {["ja", "nei"].map((value) => (
                     <button
-                      key={option}
+                      key={value}
                       type="button"
-                      onClick={() => updateField("beekeeperType", option)}
-                      className={`px-3 py-2 rounded-lg border text-sm ${
-                        form.beekeeperType === option
-                          ? "border-honey-500 bg-honey-50 text-honey-700 font-semibold"
+                      onClick={() =>
+                        updateField("isMember", value as "ja" | "nei")
+                      }
+                      className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium border ${
+                        form.isMember === value
+                          ? "border-honey-500 bg-honey-50 text-honey-700"
                           : "border-gray-200 bg-white text-gray-700"
                       }`}
                     >
-                      {option}
+                      {value === "ja" ? "Ja" : "Nei"}
                     </button>
                   ))}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-800 mb-2">
                   Hvilket fylke driver du i?
                 </label>
                 <select
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-honey-500"
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-honey-500"
                   value={form.county}
                   onChange={(e) => updateField("county", e.target.value)}
                 >
                   <option value="">Velg fylke</option>
-                  <option value="Agder">Agder</option>
-                  <option value="Akershus">Akershus</option>
-                  <option value="Buskerud">Buskerud</option>
-                  <option value="Finnmark">Finnmark</option>
-                  <option value="Innlandet">Innlandet</option>
-                  <option value="Møre og Romsdal">Møre og Romsdal</option>
-                  <option value="Nordland">Nordland</option>
-                  <option value="Rogaland">Rogaland</option>
-                  <option value="Telemark">Telemark</option>
-                  <option value="Troms">Troms</option>
-                  <option value="Trøndelag">Trøndelag</option>
-                  <option value="Vestfold">Vestfold</option>
-                  <option value="Vestland">Vestland</option>
-                  <option value="Østfold">Østfold</option>
+                  {COUNTIES.map((county) => (
+                    <option key={county} value={county}>
+                      {county}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -220,113 +311,79 @@ export default function SurveyFormPage() {
                 Seksjon 2 – Erfaring med sykdom
               </h2>
               <p className="text-sm text-gray-600">
-                Her spør vi om erfaringer med sykdom de siste årene.
+                Vi spør om erfaringer med sykdom de siste årene.
               </p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Har du opplevd sykdom siste 3 år?
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => updateField("experiencedDisease", "ja")}
-                    className={`px-3 py-2 rounded-lg border text-sm flex-1 ${
-                      form.experiencedDisease === "ja"
-                        ? "border-honey-500 bg-honey-50 text-honey-700 font-semibold"
-                        : "border-gray-200 bg-white text-gray-700"
-                    }`}
-                  >
-                    Ja
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateField("experiencedDisease", "nei")}
-                    className={`px-3 py-2 rounded-lg border text-sm flex-1 ${
-                      form.experiencedDisease === "nei"
-                        ? "border-honey-500 bg-honey-50 text-honey-700 font-semibold"
-                        : "border-gray-200 bg-white text-gray-700"
-                    }`}
-                  >
-                    Nei
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Hvilke typer sykdom?
-                </label>
-                <textarea
-                  rows={3}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-honey-500"
-                  placeholder="For eksempel: amerikansk yngelråte, varroa, nosema ..."
-                  value={form.diseaseTypes}
-                  onChange={(e) =>
-                    updateField("diseaseTypes", e.target.value)
-                  }
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hvor vanskelig er tidlig oppdagelse?
-                </label>
-                <div className="flex items-center justify-between mb-2 text-xs text-gray-500">
-                  <span>1 = Svært enkelt</span>
-                  <span>5 = Svært vanskelig</span>
-                </div>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map((value) => (
+                <p className="block text-sm font-medium text-gray-800 mb-2">
+                  Har du opplevd sykdom i kubene de siste 3 årene?
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { label: "Ja", value: "ja" },
+                    { label: "Nei", value: "nei" },
+                    { label: "Usikker", value: "usikker" },
+                  ].map((option) => (
                     <button
-                      key={value}
+                      key={option.value}
                       type="button"
                       onClick={() =>
-                        updateField("difficultyDetectingDisease", value)
+                        updateField(
+                          "experiencedDisease",
+                          option.value as "ja" | "nei" | "usikker"
+                        )
                       }
-                      className={`flex-1 py-2 rounded-lg border text-sm ${
-                        form.difficultyDetectingDisease === value
-                          ? "border-honey-500 bg-honey-500 text-white font-semibold"
+                      className={`px-4 py-3 rounded-xl text-sm font-medium border ${
+                        form.experiencedDisease === option.value
+                          ? "border-honey-500 bg-honey-50 text-honey-700"
                           : "border-gray-200 bg-white text-gray-700"
                       }`}
                     >
-                      {value}
+                      {option.label}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Har du opplevd å oppdage sykdom for sent?
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => updateField("lateDetection", "ja")}
-                    className={`px-3 py-2 rounded-lg border text-sm flex-1 ${
-                      form.lateDetection === "ja"
-                        ? "border-red-500 bg-red-50 text-red-700 font-semibold"
-                        : "border-gray-200 bg-white text-gray-700"
-                    }`}
-                  >
-                    Ja
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateField("lateDetection", "nei")}
-                    className={`px-3 py-2 rounded-lg border text-sm flex-1 ${
-                      form.lateDetection === "nei"
-                        ? "border-honey-500 bg-honey-50 text-honey-700 font-semibold"
-                        : "border-gray-200 bg-white text-gray-700"
-                    }`}
-                  >
-                    Nei
-                  </button>
+              {(form.experiencedDisease === "ja" ||
+                form.experiencedDisease === "usikker") && (
+                <div>
+                  <p className="block text-sm font-medium text-gray-800 mb-2">
+                    Hvilke typer sykdom har du erfart?
+                  </p>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Du kan krysse av for flere.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {DISEASE_OPTIONS.map((option) => {
+                      const checked = form.diseaseTypes.includes(option);
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => toggleDiseaseType(option)}
+                          className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm border ${
+                            checked
+                              ? "border-honey-500 bg-honey-50 text-honey-700"
+                              : "border-gray-200 bg-white text-gray-700"
+                          }`}
+                        >
+                          <span>{option}</span>
+                          <span
+                            className={`w-4 h-4 rounded-full border ${
+                              checked
+                                ? "border-honey-500 bg-honey-500"
+                                : "border-gray-300"
+                            }`}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </section>
         );
@@ -339,39 +396,49 @@ export default function SurveyFormPage() {
                 Seksjon 3 – Dagens arbeidsmetoder
               </h2>
               <p className="text-sm text-gray-600">
-                Hvordan dokumenterer du i dag, og hvor mye tid bruker du?
+                Hvordan du registrerer og fører oversikt i dag.
               </p>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-800 mb-2">
                   Hvordan registrerer du inspeksjoner i dag?
                 </label>
-                <textarea
-                  rows={3}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-honey-500"
-                  placeholder="For eksempel: papirskjema, Excel, egen app, LEK-Biens Vokter ..."
+                <select
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-honey-500"
                   value={form.currentRecordMethod}
                   onChange={(e) =>
                     updateField("currentRecordMethod", e.target.value)
                   }
-                />
+                >
+                  <option value="">Velg metode</option>
+                  {RECORD_METHOD_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Hvor mye tid bruker du på dokumentasjon?
+                <label className="block text-sm font-medium text-gray-800 mb-2">
+                  Hvor mye tid bruker du på dokumentasjon per uke?
                 </label>
-                <input
-                  type="text"
-                  placeholder="For eksempel: ca. 1 time per uke"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-honey-500"
-                  value={form.timeSpentDocumentation}
+                <select
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-honey-500"
+                  value={form.timeSpentPerWeek}
                   onChange={(e) =>
-                    updateField("timeSpentDocumentation", e.target.value)
+                    updateField("timeSpentPerWeek", e.target.value)
                   }
-                />
+                >
+                  <option value="">Velg tidsbruk</option>
+                  {TIME_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </section>
@@ -382,10 +449,11 @@ export default function SurveyFormPage() {
           <section className="space-y-6">
             <div>
               <h2 className="text-xl font-bold text-gray-900 mb-1">
-                Seksjon 4 – Verdi av digitale verktøy
+                Seksjon 4 – Verdi av et digitalt system
               </h2>
               <p className="text-sm text-gray-600">
-                Gi karakter fra 1–5 hvor 1 = liten verdi og 5 = svært høy verdi.
+                Gi karakter fra 1 til 5 der 1 er liten verdi og 5 er svært høy
+                verdi.
               </p>
             </div>
 
@@ -407,13 +475,13 @@ export default function SurveyFormPage() {
                   value: form.valueReporting,
                 },
                 {
-                  label: "AI-analyse av registreringer",
-                  field: "valueAiAnalysis" as const,
-                  value: form.valueAiAnalysis,
+                  label: "Bedre oversikt over egen bigård",
+                  field: "valueBetterOverview" as const,
+                  value: form.valueBetterOverview,
                 },
               ].map((item) => (
                 <div key={item.field}>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-800 mb-2">
                     {item.label}
                   </label>
                   <div className="flex gap-2">
@@ -422,9 +490,9 @@ export default function SurveyFormPage() {
                         key={value}
                         type="button"
                         onClick={() => updateField(item.field, value)}
-                        className={`flex-1 py-2 rounded-lg border text-sm ${
+                        className={`flex-1 py-3 rounded-xl text-sm font-medium border ${
                           item.value === value
-                            ? "border-honey-500 bg-honey-500 text-white font-semibold"
+                            ? "border-honey-500 bg-honey-500 text-white"
                             : "border-gray-200 bg-white text-gray-700"
                         }`}
                       >
@@ -443,42 +511,39 @@ export default function SurveyFormPage() {
           <section className="space-y-6">
             <div>
               <h2 className="text-xl font-bold text-gray-900 mb-1">
-                Seksjon 5 – Betalingsvilje
+                Seksjon 5 – Hovedspørsmål
               </h2>
               <p className="text-sm text-gray-600">
-                Vi spør for å forstå betalingsviljen for et digitalt smittevernverktøy.
+                Her ønsker vi din ærlige vurdering av et slikt system.
               </p>
             </div>
 
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ville du brukt et slikt system?
-                </label>
-                <textarea
-                  rows={2}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-honey-500"
-                  placeholder="For eksempel: Ja, hvis det er enkelt nok å bruke ..."
-                  value={form.wouldUseSystem}
-                  onChange={(e) =>
-                    updateField("wouldUseSystem", e.target.value)
-                  }
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Hva ville vært akseptabel pris per år?
-                </label>
-                <input
-                  type="text"
-                  placeholder="For eksempel: 500 kr, 1 000 kr, avhengig av antall kuber ..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-honey-500"
-                  value={form.willingnessToPay}
-                  onChange={(e) =>
-                    updateField("willingnessToPay", e.target.value)
-                  }
-                />
+              <p className="block text-sm font-medium text-gray-800 mb-2">
+                Ville du brukt et slikt system?
+              </p>
+              <div className="grid grid-cols-1 gap-3">
+                {[
+                  "Ja",
+                  "Ja, hvis det er enkelt å bruke",
+                  "Vet ikke",
+                  "Nei",
+                ].map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() =>
+                      updateField("wouldUseSystemChoice", option)
+                    }
+                    className={`w-full px-5 py-4 rounded-2xl text-base font-semibold border text-left ${
+                      form.wouldUseSystemChoice === option
+                        ? "border-honey-500 bg-honey-50 text-honey-800"
+                        : "border-gray-200 bg-white text-gray-800"
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
               </div>
             </div>
           </section>
@@ -489,40 +554,32 @@ export default function SurveyFormPage() {
           <section className="space-y-6">
             <div>
               <h2 className="text-xl font-bold text-gray-900 mb-1">
-                Seksjon 6 – Åpne spørsmål
+                Seksjon 6 – Pris og betalingsvilje
               </h2>
               <p className="text-sm text-gray-600">
-                Her kan du utdype utfordringer og ønskede funksjoner.
+                Dette hjelper oss å forstå hva som er realistisk prisnivå.
               </p>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Hva er din største utfordring i dag?
+                <label className="block text-sm font-medium text-gray-800 mb-2">
+                  Hva ville vært akseptabel pris per år for et slikt system?
                 </label>
-                <textarea
-                  rows={3}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-honey-500"
-                  value={form.biggestChallenge}
+                <select
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-honey-500"
+                  value={form.pricePerYear}
                   onChange={(e) =>
-                    updateField("biggestChallenge", e.target.value)
+                    updateField("pricePerYear", e.target.value)
                   }
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Hvilke funksjoner ønsker du deg?
-                </label>
-                <textarea
-                  rows={3}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-honey-500"
-                  value={form.featureWishes}
-                  onChange={(e) =>
-                    updateField("featureWishes", e.target.value)
-                  }
-                />
+                >
+                  <option value="">Velg prisnivå</option>
+                  {PRICE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </section>
@@ -533,19 +590,65 @@ export default function SurveyFormPage() {
           <section className="space-y-6">
             <div>
               <h2 className="text-xl font-bold text-gray-900 mb-1">
-                Seksjon 7 – Pilotprogram
+                Seksjon 7 – Åpne spørsmål
               </h2>
               <p className="text-sm text-gray-600">
-                Her kan du melde interesse for å teste LEK-Biens Vokter™️ 2.0 før lansering.
+                Her kan du dele erfaringer og ønsker med egne ord.
               </p>
             </div>
 
             <div className="space-y-4">
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-1">
-                  Ønsker du å få mulighet til å teste LEK-Biens Vokter™️ 2.0 før lansering?
+                <label className="block text-sm font-medium text-gray-800 mb-1">
+                  Hva er din største utfordring som birøkter i dag?
+                </label>
+                <textarea
+                  rows={3}
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-honey-500"
+                  value={form.biggestChallenge}
+                  onChange={(e) =>
+                    updateField("biggestChallenge", e.target.value)
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-800 mb-1">
+                  Hvilke funksjoner ønsker du deg mest i en slik app?
+                </label>
+                <textarea
+                  rows={3}
+                  className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-honey-500"
+                  value={form.featureWishes}
+                  onChange={(e) =>
+                    updateField("featureWishes", e.target.value)
+                  }
+                />
+              </div>
+            </div>
+          </section>
+        );
+
+      case 8:
+        return (
+          <section className="space-y-6">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 mb-1">
+                Seksjon 8 – Pilotprogram
+              </h2>
+              <p className="text-sm text-gray-600">
+                Her kan du melde interesse for å teste LEK-Honning™️ 2.0 før
+                lansering.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <p className="block text-sm font-medium text-gray-800 mb-2">
+                  Ønsker du å få mulighet til å teste LEK-Honning™️ 2.0 før
+                  lansering?
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
                     { label: "Ja", value: "ja" as PilotAnswer },
                     { label: "Kanskje", value: "kanskje" as PilotAnswer },
@@ -554,10 +657,12 @@ export default function SurveyFormPage() {
                     <button
                       key={option.value}
                       type="button"
-                      onClick={() => updateField("pilotAnswer", option.value)}
-                      className={`px-3 py-2 rounded-lg border text-sm ${
+                      onClick={() =>
+                        updateField("pilotAnswer", option.value)
+                      }
+                      className={`px-4 py-3 rounded-xl text-sm font-medium border ${
                         form.pilotAnswer === option.value
-                          ? "border-honey-500 bg-honey-50 text-honey-700 font-semibold"
+                          ? "border-honey-500 bg-honey-50 text-honey-700"
                           : "border-gray-200 bg-white text-gray-700"
                       }`}
                     >
@@ -570,33 +675,20 @@ export default function SurveyFormPage() {
               {(form.pilotAnswer === "ja" || form.pilotAnswer === "kanskje") && (
                 <div className="space-y-3">
                   <p className="text-xs text-gray-600">
-                    E-post brukes kun for å invitere til pilotprogram og lagres separat.
+                    E-post brukes kun for å invitere til pilotprogram og lagres
+                    separat.
                   </p>
-
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      E-postadresse
+                    <label className="block text-sm font-medium text-gray-800 mb-1">
+                      Legg igjen e-postadresse hvis du ønsker invitasjon til
+                      testing
                     </label>
                     <input
                       type="email"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-honey-500"
+                      className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-honey-500"
                       value={form.pilotEmail}
                       onChange={(e) =>
                         updateField("pilotEmail", e.target.value)
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hvor mange kuber kunne du tenke deg å bruke i testingen?
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-honey-500"
-                      value={form.pilotHivesForTesting}
-                      onChange={(e) =>
-                        updateField("pilotHivesForTesting", e.target.value)
                       }
                     />
                   </div>
@@ -619,23 +711,21 @@ export default function SurveyFormPage() {
             Behovsanalyse
           </p>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">
-            Hjelp oss å forme LEK-Biens Vokter™️ 2.0
+            Hjelp oss å forme neste generasjon verktøy for birøktere
           </h1>
           <p className="text-sm text-gray-600">
-            Undersøkelsen er anonym. Det tar ca. 5–7 minutter å svare.
+            Undersøkelsen er anonym. Det tar vanligvis 5–7 minutter å svare.
           </p>
         </header>
 
         <div className="mb-6">
           <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-            <span>
-              Steg {step} av 7
-            </span>
+            <span>Steg {step} av 8</span>
           </div>
           <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div
               className="h-full bg-honey-500 transition-all"
-              style={{ width: `${(step / 7) * 100}%` }}
+              style={{ width: `${(step / 8) * 100}%` }}
             />
           </div>
         </div>
@@ -666,7 +756,7 @@ export default function SurveyFormPage() {
               Tilbake
             </button>
 
-            {step < 7 && (
+            {step < 8 && (
               <button
                 type="button"
                 onClick={nextStep}
@@ -677,7 +767,7 @@ export default function SurveyFormPage() {
               </button>
             )}
 
-            {step === 7 && (
+            {step === 8 && (
               <button
                 type="submit"
                 disabled={submitting}

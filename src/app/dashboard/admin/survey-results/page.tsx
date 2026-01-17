@@ -11,8 +11,11 @@ type SurveyResponse = {
   created_at: string;
   county: string | null;
   number_of_hives: string | null;
+  number_of_hives_category: string | null;
   years_experience: string | null;
+  years_experience_category: string | null;
   beekeeper_type: string | null;
+  is_member_norwegian_beekeepers: boolean | null;
   experienced_disease: boolean | null;
   disease_types: string | null;
   difficulty_detecting_disease: number | null;
@@ -23,6 +26,8 @@ type SurveyResponse = {
   value_nearby_alert: number | null;
   value_reporting: number | null;
   value_ai_analysis: number | null;
+  value_better_overview: number | null;
+  would_use_system_choice: string | null;
   willingness_to_pay: string | null;
   biggest_challenge: string | null;
   feature_wishes: string | null;
@@ -92,53 +97,48 @@ export default function SurveyResultsAdminPage() {
     if (!responses.length) {
       return {
         total: 0,
-        hobby: 0,
-        naering: 0,
-        both: 0,
         experiencedDisease: 0,
-        avgDifficulty: 0,
+        memberCount: 0,
         avgWarning: 0,
         avgNearby: 0,
         avgReporting: 0,
-        avgAi: 0,
+        avgOverview: 0,
+        wouldUse: {
+          yes: 0,
+          yesIfEasy: 0,
+          unsure: 0,
+          no: 0,
+        },
       };
     }
 
     const total = responses.length;
-    let hobby = 0;
-    let naering = 0;
-    let both = 0;
     let experiencedDisease = 0;
+    let memberCount = 0;
 
-    let sumDifficulty = 0;
-    let countDifficulty = 0;
     let sumWarning = 0;
     let countWarning = 0;
     let sumNearby = 0;
     let countNearby = 0;
     let sumReporting = 0;
     let countReporting = 0;
-    let sumAi = 0;
-    let countAi = 0;
+    let sumOverview = 0;
+    let countOverview = 0;
+
+    let yes = 0;
+    let yesIfEasy = 0;
+    let unsure = 0;
+    let no = 0;
 
     responses.forEach((r) => {
-      const type = (r.beekeeper_type || '').toLowerCase();
-      if (type.includes('hobby') && !type.includes('næring')) {
-        hobby += 1;
-      } else if (!type.includes('hobby') && type.includes('næring')) {
-        naering += 1;
-      } else if (type.includes('hobby') && type.includes('næring')) {
-        both += 1;
-      }
-
       if (r.experienced_disease) {
         experiencedDisease += 1;
       }
 
-      if (r.difficulty_detecting_disease != null) {
-        sumDifficulty += r.difficulty_detecting_disease;
-        countDifficulty += 1;
+      if (r.is_member_norwegian_beekeepers === true) {
+        memberCount += 1;
       }
+
       if (r.value_warning_system != null) {
         sumWarning += r.value_warning_system;
         countWarning += 1;
@@ -151,9 +151,22 @@ export default function SurveyResultsAdminPage() {
         sumReporting += r.value_reporting;
         countReporting += 1;
       }
-      if (r.value_ai_analysis != null) {
-        sumAi += r.value_ai_analysis;
-        countAi += 1;
+      if (r.value_better_overview != null) {
+        sumOverview += r.value_better_overview;
+        countOverview += 1;
+      }
+
+      const choice = (r.would_use_system_choice || '').toLowerCase();
+      if (choice) {
+        if (choice === 'ja') {
+          yes += 1;
+        } else if (choice.startsWith('ja, hvis')) {
+          yesIfEasy += 1;
+        } else if (choice.startsWith('vet')) {
+          unsure += 1;
+        } else if (choice === 'nei') {
+          no += 1;
+        }
       }
     });
 
@@ -162,15 +175,18 @@ export default function SurveyResultsAdminPage() {
 
     return {
       total,
-      hobby,
-      naering,
-      both,
       experiencedDisease,
-      avgDifficulty: avg(sumDifficulty, countDifficulty),
+      memberCount,
       avgWarning: avg(sumWarning, countWarning),
       avgNearby: avg(sumNearby, countNearby),
       avgReporting: avg(sumReporting, countReporting),
-      avgAi: avg(sumAi, countAi),
+      avgOverview: avg(sumOverview, countOverview),
+      wouldUse: {
+        yes,
+        yesIfEasy,
+        unsure,
+        no,
+      },
     };
   }, [responses]);
 
@@ -182,18 +198,20 @@ export default function SurveyResultsAdminPage() {
       'created_at',
       'county',
       'number_of_hives',
+      'number_of_hives_category',
       'years_experience',
+      'years_experience_category',
       'beekeeper_type',
+      'is_member_norwegian_beekeepers',
       'experienced_disease',
       'disease_types',
-      'difficulty_detecting_disease',
-      'late_detection',
       'current_record_method',
       'time_spent_documentation',
       'value_warning_system',
       'value_nearby_alert',
       'value_reporting',
-      'value_ai_analysis',
+      'value_better_overview',
+      'would_use_system_choice',
       'willingness_to_pay',
       'biggest_challenge',
       'feature_wishes',
@@ -313,10 +331,13 @@ export default function SurveyResultsAdminPage() {
           </div>
           <div className="bg-white p-4 rounded-xl border border-gray-200">
             <p className="text-xs text-gray-500 uppercase tracking-wide">
-              Snittverdi: smittevarsling
+              Andel medlem i Norges Birøkterlag
             </p>
             <p className="text-2xl font-bold text-honey-600">
-              {stats.avgWarning.toFixed(1)}
+              {stats.total
+                ? Math.round((stats.memberCount / stats.total) * 100)
+                : 0}
+              %
             </p>
           </div>
         </section>
@@ -326,14 +347,31 @@ export default function SurveyResultsAdminPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                 <Activity className="w-4 h-4 text-honey-600" />
-                Fordeling – Hobby vs. næring
+                Svar på hovedspørsmål – ville du brukt systemet?
               </h2>
             </div>
             <div className="space-y-3 text-sm text-gray-700">
               {[
-                { label: 'Hobby', value: stats.hobby, color: 'bg-honey-500' },
-                { label: 'Næring', value: stats.naering, color: 'bg-purple-500' },
-                { label: 'Begge deler', value: stats.both, color: 'bg-green-500' },
+                {
+                  label: 'Ja',
+                  value: stats.wouldUse.yes,
+                  color: 'bg-honey-500',
+                },
+                {
+                  label: 'Ja, hvis det er enkelt å bruke',
+                  value: stats.wouldUse.yesIfEasy,
+                  color: 'bg-green-500',
+                },
+                {
+                  label: 'Vet ikke',
+                  value: stats.wouldUse.unsure,
+                  color: 'bg-yellow-500',
+                },
+                {
+                  label: 'Nei',
+                  value: stats.wouldUse.no,
+                  color: 'bg-red-500',
+                },
               ].map((item) => {
                 const percent = stats.total
                   ? Math.round((item.value / stats.total) * 100)
@@ -376,12 +414,12 @@ export default function SurveyResultsAdminPage() {
                   value: stats.avgNearby,
                 },
                 {
-                  label: 'Rapportering til Mattilsynet',
+                  label: 'Enkel rapportering til Mattilsynet',
                   value: stats.avgReporting,
                 },
                 {
-                  label: 'AI-analyse av registreringer',
-                  value: stats.avgAi,
+                  label: 'Bedre oversikt over egen bigård',
+                  value: stats.avgOverview,
                 },
               ].map((item) => {
                 const percent = (item.value / 5) * 100;
@@ -429,13 +467,16 @@ export default function SurveyResultsAdminPage() {
                     Kuber
                   </th>
                   <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                    Type birøkter
+                      Erfaring
+                    </th>
+                    <th className="px-3 py-2 text-left font-semibold text-gray-600">
+                      Medlem N.B.
                   </th>
                   <th className="px-3 py-2 text-left font-semibold text-gray-600">
                     Sykdom siste 3 år
                   </th>
                   <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                    Vanskelighetsgrad tidlig oppdagelse
+                      Ville brukt systemet?
                   </th>
                   <th className="px-3 py-2 text-left font-semibold text-gray-600 hidden lg:table-cell">
                     Største utfordring
@@ -453,10 +494,17 @@ export default function SurveyResultsAdminPage() {
                     </td>
                     <td className="px-3 py-2 text-gray-700">{r.county}</td>
                     <td className="px-3 py-2 text-gray-700">
-                      {r.number_of_hives}
+                      {r.number_of_hives_category || r.number_of_hives}
                     </td>
                     <td className="px-3 py-2 text-gray-700">
-                      {r.beekeeper_type}
+                      {r.years_experience_category || r.years_experience}
+                    </td>
+                    <td className="px-3 py-2 text-gray-700">
+                      {r.is_member_norwegian_beekeepers === null
+                        ? 'Ubesvart'
+                        : r.is_member_norwegian_beekeepers
+                        ? 'Ja'
+                        : 'Nei'}
                     </td>
                     <td className="px-3 py-2 text-gray-700">
                       {r.experienced_disease === null
@@ -466,7 +514,7 @@ export default function SurveyResultsAdminPage() {
                         : 'Nei'}
                     </td>
                     <td className="px-3 py-2 text-gray-700">
-                      {r.difficulty_detecting_disease ?? '–'}
+                      {r.would_use_system_choice || '–'}
                     </td>
                     <td className="px-3 py-2 text-gray-700 hidden lg:table-cell max-w-xs truncate">
                       {r.biggest_challenge}
@@ -476,7 +524,7 @@ export default function SurveyResultsAdminPage() {
                 {!responses.length && (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-3 py-6 text-center text-gray-500"
                     >
                       Ingen svar registrert ennå.
@@ -491,4 +539,3 @@ export default function SurveyResultsAdminPage() {
     </div>
   );
 }
-

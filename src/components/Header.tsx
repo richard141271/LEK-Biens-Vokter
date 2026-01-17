@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { LogOut, QrCode } from 'lucide-react';
+import { QrCode } from 'lucide-react';
 import Link from 'next/link';
 // VoiceAssistant removed by user request
 

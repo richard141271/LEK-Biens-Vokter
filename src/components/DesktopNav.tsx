@@ -1,10 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Home, Map, Box, Settings, LogOut, Wallet, Archive, ShoppingBag, ScanLine, ShieldAlert } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Home, Map, Box, Settings, LogOut, Archive, ShoppingBag, ShieldAlert } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
-import { useRouter } from 'next/navigation';
 
 export default function DesktopNav() {
   const pathname = usePathname();
