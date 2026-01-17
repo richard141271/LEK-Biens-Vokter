@@ -49,7 +49,7 @@ export async function POST(request: Request) {
     if (bucketError && bucketError.message && bucketError.message.toLowerCase().includes('not found')) {
       const { error: createBucketError } = await adminClient.storage.createBucket(bucketName, {
         public: false,
-        fileSizeLimit: 104857600,
+        fileSizeLimit: 52428800,
         allowedMimeTypes: ['audio/webm', 'audio/mpeg', 'audio/mp4', 'audio/ogg'],
       });
 
