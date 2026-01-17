@@ -74,15 +74,28 @@ export async function POST(request: Request) {
       console.error('Get bucket error', bucketError);
     }
 
-    const { error: uploadError } = await supabase.storage.from(bucketName).upload(filePath, buffer, {
+    const { error: uploadError } = await adminClient.storage.from(bucketName).upload(filePath, buffer, {
       contentType: file.type || 'audio/webm',
       upsert: false,
     });
 
     if (uploadError) {
       console.error('Upload error', uploadError);
-      return NextResponse.json({ error: 'Kunne ikke lagre lydfil' }, { status: 500 });
+      const uploadDetails =
+        typeof uploadError.message === 'string'
+          ? uploadError.message
+          : JSON.stringify(uploadError);
+      return NextResponse.json(
+        { error: 'Kunne ikke lagre lydfil', details: uploadDetails },
+        { status: 500 },
+      );
     }
+
+    await adminClient
+      .from('storage.objects')
+      .update({ owner: user.id })
+      .eq('bucket_id', bucketName)
+      .eq('name', filePath);
 
     const openaiApiKey = process.env.OPENAI_API_KEY;
     if (!openaiApiKey) {
