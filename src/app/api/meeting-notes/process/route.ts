@@ -102,81 +102,100 @@ export async function POST(request: Request) {
       body: whisperFormData,
     });
 
+    let transcript = '';
+    let summary = '';
+    let actionPointsArr: string[] = [];
+    let title: string | null = null;
+
     if (!whisperResponse.ok) {
       const errorText = await whisperResponse.text();
       console.error('Whisper error', whisperResponse.status, errorText);
-      return NextResponse.json({ error: 'Feil ved transkripsjon av lydfil' }, { status: 502 });
-    }
+      summary =
+        'Transkripsjon av lydopptaket feilet. Lydopptaket er lagret, men tekst er ikke tilgjengelig.';
+    } else {
+      const whisperData = (await whisperResponse.json()) as { text?: string };
+      transcript = whisperData.text || '';
 
-    const whisperData = (await whisperResponse.json()) as { text?: string };
-    const transcript = whisperData.text || '';
+      if (!transcript) {
+        summary =
+          'Transkripsjon av lydopptaket feilet. Lydopptaket er lagret, men tekst er ikke tilgjengelig.';
+      } else {
+        const systemPrompt =
+          'Du er en profesjonell referatskriver på norsk. Lag et tydelig, strukturert møtereferat basert på teksten.';
 
-    if (!transcript) {
-      return NextResponse.json({ error: 'Transkripsjon mislyktes' }, { status: 502 });
-    }
-
-    const systemPrompt =
-      'Du er en profesjonell referatskriver på norsk. Lag et tydelig, strukturert møtereferat basert på teksten.';
-
-    const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          {
-            role: 'user',
-            content:
-              'Lag et strukturert JSON-svar med følgende format:\n{\n  "summary": "Kort oppsummering av møtet",\n  "decisions": ["beslutning 1", "beslutning 2"],\n  "action_points": ["oppgave 1", "oppgave 2"]\n}\n\nMøtereferatets rå transkripsjon er:\n\n' +
-              transcript,
+        const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${openaiApiKey}`,
+            'Content-Type': 'application/json',
           },
-        ],
-        response_format: {
-          type: 'json_schema',
-          json_schema: {
-            name: 'meeting_minutes',
-            schema: {
-              type: 'object',
-              properties: {
-                summary: { type: 'string' },
-                decisions: { type: 'array', items: { type: 'string' } },
-                action_points: { type: 'array', items: { type: 'string' } },
+          body: JSON.stringify({
+            model: 'gpt-4.1-mini',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              {
+                role: 'user',
+                content:
+                  'Lag et strukturert JSON-svar med følgende format:\n{\n  "summary": "Kort oppsummering av møtet",\n  "decisions": ["beslutning 1", "beslutning 2"],\n  "action_points": ["oppgave 1", "oppgave 2"]\n}\n\nMøtereferatets rå transkripsjon er:\n\n' +
+                  transcript,
               },
-              required: ['summary', 'decisions', 'action_points'],
-              additionalProperties: false,
+            ],
+            response_format: {
+              type: 'json_schema',
+              json_schema: {
+                name: 'meeting_minutes',
+                schema: {
+                  type: 'object',
+                  properties: {
+                    summary: { type: 'string' },
+                    decisions: { type: 'array', items: { type: 'string' } },
+                    action_points: { type: 'array', items: { type: 'string' } },
+                  },
+                  required: ['summary', 'decisions', 'action_points'],
+                  additionalProperties: false,
+                },
+              },
             },
-          },
-        },
-      }),
-    });
+          }),
+        });
 
-    if (!gptResponse.ok) {
-      const errorText = await gptResponse.text();
-      console.error('GPT error', gptResponse.status, errorText);
-      return NextResponse.json({ error: 'Feil ved generering av referat' }, { status: 502 });
+        if (!gptResponse.ok) {
+          const errorText = await gptResponse.text();
+          console.error('GPT error', gptResponse.status, errorText);
+          summary =
+            'AI-oppsummering feilet. Lydopptak og rå transkripsjon er lagret, men ikke strukturert.';
+        } else {
+          const gptJson = await gptResponse.json();
+          const contentRaw =
+            gptJson.choices?.[0]?.message?.content && typeof gptJson.choices[0].message.content === 'string'
+              ? gptJson.choices[0].message.content
+              : JSON.stringify(gptJson.choices?.[0]?.message?.content || {});
+
+          let parsed: { summary?: string; decisions?: string[]; action_points?: string[] } = {};
+          try {
+            parsed = JSON.parse(contentRaw);
+          } catch (e) {
+            console.warn('Failed to parse GPT json content, falling back to raw', e);
+          }
+
+          summary = parsed.summary || '';
+          if (Array.isArray(parsed.action_points)) {
+            actionPointsArr = parsed.action_points;
+          }
+
+          if (parsed.summary && parsed.summary.length > 0) {
+            title = parsed.summary.slice(0, 80);
+          }
+        }
+      }
     }
 
-    const gptJson = await gptResponse.json();
-    const contentRaw =
-      gptJson.choices?.[0]?.message?.content && typeof gptJson.choices[0].message.content === 'string'
-        ? gptJson.choices[0].message.content
-        : JSON.stringify(gptJson.choices?.[0]?.message?.content || {});
-
-    let parsed: { summary?: string; decisions?: string[]; action_points?: string[] } = {};
-    try {
-      parsed = JSON.parse(contentRaw);
-    } catch (e) {
-      console.warn('Failed to parse GPT json content, falling back to raw', e);
+    if (!title) {
+      title =
+        summary && summary.length > 0
+          ? summary.slice(0, 80)
+          : 'Møtereferat ' + new Date().toLocaleString('no-NO');
     }
-
-    const title =
-      parsed.summary && parsed.summary.length > 0
-        ? parsed.summary.slice(0, 80)
-        : 'Møtereferat ' + new Date().toLocaleString('no-NO');
 
     const { data: inserted, error: insertError } = await adminClient
       .from('meeting_notes')
@@ -187,8 +206,8 @@ export async function POST(request: Request) {
         duration: durationSeconds,
         audio_url: filePath,
         transcript,
-        summary: parsed.summary || '',
-        action_points: (parsed.action_points || []).join('\n'),
+        summary,
+        action_points: actionPointsArr.join('\n'),
       })
       .select('id')
       .single();
