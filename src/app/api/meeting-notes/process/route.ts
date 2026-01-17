@@ -34,8 +34,29 @@ export async function POST(request: Request) {
     const filePath = `${user.id}/${fileName}`;
 
     const adminClient = createAdminClient();
+    const bucketName = 'meeting-audio';
 
-    const { error: uploadError } = await adminClient.storage.from('meeting-audio').upload(filePath, buffer, {
+    const { error: bucketError } = await adminClient.storage.getBucket(bucketName);
+
+    if (bucketError && bucketError.message && bucketError.message.toLowerCase().includes('not found')) {
+      const { error: createBucketError } = await adminClient.storage.createBucket(bucketName, {
+        public: false,
+        fileSizeLimit: 104857600,
+        allowedMimeTypes: ['audio/webm', 'audio/mpeg', 'audio/mp4', 'audio/ogg'],
+      });
+
+      if (createBucketError) {
+        const message = typeof createBucketError.message === 'string' ? createBucketError.message.toLowerCase() : '';
+        if (!message.includes('exists')) {
+          console.error('Create bucket error', createBucketError);
+          return NextResponse.json({ error: 'Kunne ikke opprette lagringsplass for lyd' }, { status: 500 });
+        }
+      }
+    } else if (bucketError) {
+      console.error('Get bucket error', bucketError);
+    }
+
+    const { error: uploadError } = await adminClient.storage.from(bucketName).upload(filePath, buffer, {
       contentType: file.type || 'audio/webm',
       upsert: false,
     });
@@ -165,4 +186,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Uventet feil' }, { status: 500 });
   }
 }
-
