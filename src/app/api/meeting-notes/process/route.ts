@@ -36,6 +36,14 @@ export async function POST(request: Request) {
     const adminClient = createAdminClient();
     const bucketName = 'meeting-audio';
 
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('SUPABASE_SERVICE_ROLE_KEY is missing in environment variables');
+      return NextResponse.json(
+        { error: 'SUPABASE_SERVICE_ROLE_KEY mangler i miljøvariabler' },
+        { status: 500 }
+      );
+    }
+
     const { error: bucketError } = await adminClient.storage.getBucket(bucketName);
 
     if (bucketError && bucketError.message && bucketError.message.toLowerCase().includes('not found')) {
@@ -46,10 +54,20 @@ export async function POST(request: Request) {
       });
 
       if (createBucketError) {
-        const message = typeof createBucketError.message === 'string' ? createBucketError.message.toLowerCase() : '';
+        const rawMessage =
+          typeof createBucketError.message === 'string'
+            ? createBucketError.message
+            : JSON.stringify(createBucketError);
+        const message = rawMessage.toLowerCase();
         if (!message.includes('exists')) {
           console.error('Create bucket error', createBucketError);
-          return NextResponse.json({ error: 'Kunne ikke opprette lagringsplass for lyd' }, { status: 500 });
+          return NextResponse.json(
+            {
+              error: 'Kunne ikke opprette lagringsplass for lyd',
+              details: rawMessage,
+            },
+            { status: 500 }
+          );
         }
       }
     } else if (bucketError) {
