@@ -91,11 +91,15 @@ export async function POST(request: Request) {
       );
     }
 
-    await adminClient
+    const { error: ownerError } = await adminClient
       .from('storage.objects')
       .update({ owner: user.id })
       .eq('bucket_id', bucketName)
       .eq('name', filePath);
+
+    if (ownerError) {
+      console.error('Owner update error', ownerError);
+    }
 
     const openaiApiKey = process.env.OPENAI_API_KEY;
     if (!openaiApiKey) {

@@ -35,6 +35,7 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState<MeetingNoteDetail | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioError, setAudioError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -63,11 +64,25 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
       setNote(typed);
 
       if (typed.audio_url) {
+        console.log('Attempting to create signed URL for:', typed.audio_url);
+        
+        // Debug: List files in the user's folder to check permissions
+        const { data: listData, error: listError } = await supabase.storage
+          .from('meeting-audio')
+          .list(user.id);
+        console.log('Debug - List files in user folder:', listData, listError);
+
         const { data: signed, error } = await supabase.storage
           .from('meeting-audio')
           .createSignedUrl(typed.audio_url, 60 * 60);
 
+        if (error) {
+          console.error('Error creating signed URL:', error);
+          setAudioError(error.message);
+        }
+
         if (!error && signed?.signedUrl) {
+          console.log('Signed URL created:', signed.signedUrl);
           setAudioUrl(signed.signedUrl);
         }
       }
@@ -259,6 +274,13 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
               </button>
             </div>
           </div>
+
+          {audioError && (
+            <div className="mt-3 p-3 bg-red-50 text-red-700 rounded-md text-xs">
+              <p className="font-semibold">Feil ved lasting av lydfil:</p>
+              <p>{audioError}</p>
+            </div>
+          )}
 
           {audioUrl && (
             <div className="mt-3">
