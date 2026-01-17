@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Map, Box, Settings, LogOut, Archive, ShoppingBag, ShieldAlert } from 'lucide-react';
+import { Home, Map, Box, Settings, LogOut, Archive, ShoppingBag, ShieldAlert, FileText } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 export default function DesktopNav() {
@@ -37,6 +37,7 @@ export default function DesktopNav() {
     { href: '/dashboard/smittevern', label: 'Smittevern', icon: ShieldAlert },
     { href: '/apiaries', label: 'Bigårder', icon: Map },
     { href: '/hives', label: 'Bikuber', icon: Box },
+    { href: '/referater', label: 'Referater', icon: FileText },
     { href: '/archive', label: 'Arkiv', icon: Archive },
     { href: '/settings', label: 'Innstillinger', icon: Settings },
   ];
