@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     if (body.pilotEmail) {
       const { count: existingEmailCount, error: emailCountError } =
         await adminClient
-          .from('survey_pilot_interest')
+          .from('pilot_interest')
           .select('*', { count: 'exact', head: true })
           .eq('email', body.pilotEmail);
 
@@ -138,7 +138,7 @@ export async function POST(request: Request) {
       body.pilotEmail
     ) {
       const { error: pilotError } = await adminClient
-        .from('survey_pilot_interest')
+        .from('pilot_interest')
         .insert({
           email: body.pilotEmail,
           interested: true,
@@ -161,4 +161,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

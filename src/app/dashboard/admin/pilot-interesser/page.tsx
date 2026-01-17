@@ -19,7 +19,7 @@ export default function PilotInterestPage() {
   useEffect(() => {
     const fetchInterests = async () => {
       const { data, error } = await supabase
-        .from('survey_pilot_interest')
+        .from('pilot_interest')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -114,4 +114,3 @@ export default function PilotInterestPage() {
     </div>
   );
 }
-

@@ -57,7 +57,7 @@ export async function GET() {
     }
 
     const { count: pilotCount } = await adminClient
-      .from('survey_pilot_interest')
+      .from('pilot_interest')
       .select('*', { count: 'exact', head: true });
 
     return NextResponse.json(

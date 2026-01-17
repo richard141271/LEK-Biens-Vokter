@@ -279,59 +279,215 @@ export default function SurveyResultsAdminPage() {
     URL.revokeObjectURL(url);
   };
 
-  const generatePdfReport = () => {
+  const loadImageAsDataUrl = async (src: string) => {
+    const res = await fetch(src);
+    if (!res.ok) {
+      throw new Error('Kunne ikke laste bilde');
+    }
+    const blob = await res.blob();
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        resolve(reader.result as string);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  const generatePdfReport = async () => {
     if (!responses.length) return;
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text('Behovsanalyse – Administratorsammendrag', 15, 20);
-    doc.setFontSize(11);
-    const created = new Date().toLocaleString('nb-NO');
-    doc.text(`Generert: ${created}`, 15, 30);
-    const lines: string[] = [];
-    lines.push(`Antall svar: ${stats.total}`);
-    lines.push(`Antall pilotinteresserte: ${pilotCount}`);
+    const doc = new jsPDF('landscape', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 14;
+
+    let logoDataUrl: string | null = null;
+    try {
+      logoDataUrl = await loadImageAsDataUrl('/våpen.png');
+    } catch (e) {
+      logoDataUrl = null;
+    }
+
+    if (logoDataUrl) {
+      doc.addImage(logoDataUrl, 'PNG', margin, 10, 38, 26);
+    }
+
+    doc.setTextColor(20, 20, 20);
+    doc.setFontSize(18);
+    doc.text('Behovsanalyse', margin + 44, 20);
+    doc.setFontSize(12);
+    doc.text('Administratorsammendrag', margin + 44, 28);
+
+    doc.setFontSize(10);
+    const generated = new Date().toLocaleString('nb-NO');
+    doc.text(`Generert: ${generated}`, pageWidth - margin, 18, { align: 'right' });
+
+    const cardWidth = (pageWidth - margin * 2 - 12 * 3) / 4;
+    const cardHeight = 26;
+    const cardY = 46;
+
+    const drawCard = (
+      index: number,
+      title: string,
+      value: string,
+      subtitle: string
+    ) => {
+      const x = margin + index * (cardWidth + 12);
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(x, cardY, cardWidth, cardHeight, 3, 3, 'FD');
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(9);
+      doc.text(title, x + 6, cardY + 8);
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(16);
+      doc.text(value, x + 6, cardY + 17);
+      doc.setTextColor(148, 163, 184);
+      doc.setFontSize(9);
+      doc.text(subtitle, x + 6, cardY + 24);
+    };
+
     const diseasePercent = stats.total
       ? Math.round((stats.experiencedDisease / stats.total) * 100)
       : 0;
     const memberPercent = stats.total
       ? Math.round((stats.memberCount / stats.total) * 100)
       : 0;
-    lines.push(`Andel med sykdomserfaring: ${diseasePercent}%`);
-    lines.push(`Andel medlem i Norges Birøkterlag: ${memberPercent}%`);
-    lines.push('');
-    lines.push('Snittscore digitale verktøy (1–5):');
-    lines.push(`- Automatisk smittevarsling: ${stats.avgWarning.toFixed(1)}`);
-    lines.push(`- Varsel til nærliggende bigårder: ${stats.avgNearby.toFixed(1)}`);
-    lines.push(`- Enkel rapportering til Mattilsynet: ${stats.avgReporting.toFixed(1)}`);
-    lines.push(`- Bedre oversikt over egen bigård: ${stats.avgOverview.toFixed(1)}`);
-    lines.push('');
-    const totalWouldUse = stats.wouldUse.yes + stats.wouldUse.yesIfEasy + stats.wouldUse.unsure + stats.wouldUse.no;
+
+    drawCard(
+      0,
+      'Antall svar',
+      String(stats.total),
+      'Totalt antall svar'
+    );
+    drawCard(
+      1,
+      'Pilotinteresse',
+      String(pilotCount),
+      'Unike e-postadresser'
+    );
+    drawCard(
+      2,
+      'Sykdomserfaring',
+      stats.total ? `${diseasePercent}%` : '–',
+      'Andel med sykdomserfaring'
+    );
+    drawCard(
+      3,
+      'Medlem i NBL',
+      stats.total ? `${memberPercent}%` : '–',
+      'Andel medlem i Norges Birøkterlag'
+    );
+
+    const sectionTop = cardY + cardHeight + 18;
+
+    const totalWouldUse =
+      stats.wouldUse.yes +
+      stats.wouldUse.yesIfEasy +
+      stats.wouldUse.unsure +
+      stats.wouldUse.no;
+
+    const leftX = margin;
+    const rightX = pageWidth / 2 + 4;
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(12);
+    doc.text('Aksept: Ville du brukt systemet?', leftX, sectionTop);
+
+    doc.setFontSize(10);
     if (stats.total > 0 && totalWouldUse > 0) {
       const yesPercent = Math.round((stats.wouldUse.yes / stats.total) * 100);
-      const yesEasyPercent = Math.round((stats.wouldUse.yesIfEasy / stats.total) * 100);
-      const unsurePercent = Math.round((stats.wouldUse.unsure / stats.total) * 100);
+      const yesEasyPercent = Math.round(
+        (stats.wouldUse.yesIfEasy / stats.total) * 100
+      );
+      const unsurePercent = Math.round(
+        (stats.wouldUse.unsure / stats.total) * 100
+      );
       const noPercent = Math.round((stats.wouldUse.no / stats.total) * 100);
-      lines.push('Svar på hovedspørsmål – ville du brukt systemet?');
-      lines.push(`- Ja: ${stats.wouldUse.yes} svar (${yesPercent}%)`);
-      lines.push(`- Ja, hvis det er enkelt å bruke: ${stats.wouldUse.yesIfEasy} svar (${yesEasyPercent}%)`);
-      lines.push(`- Vet ikke: ${stats.wouldUse.unsure} svar (${unsurePercent}%)`);
-      lines.push(`- Nei: ${stats.wouldUse.no} svar (${noPercent}%)`);
+
+      const barWidth = (pageWidth / 2 - margin * 2) * 0.95;
+      const barHeight = 5;
+      const barStartY = sectionTop + 6;
+      const lineGap = 10;
+
+      const drawBar = (index: number, label: string, percent: number) => {
+        const y = barStartY + index * lineGap;
+        const width = (barWidth * percent) / 100;
+        doc.setFillColor(251, 191, 36);
+        doc.roundedRect(leftX, y, width, barHeight, 1.5, 1.5, 'F');
+        doc.setTextColor(55, 65, 81);
+        doc.text(`${label} – ${percent}%`, leftX, y - 1);
+      };
+
+      drawBar(0, 'Ja', yesPercent);
+      drawBar(1, 'Ja, hvis det er enkelt å bruke', yesEasyPercent);
+      drawBar(2, 'Vet ikke', unsurePercent);
+      drawBar(3, 'Nei', noPercent);
+    } else {
+      doc.setTextColor(107, 114, 128);
+      doc.text('Ingen gyldige svar registrert ennå.', leftX, sectionTop + 8);
     }
-    if (responses.length) {
-      const challenges = responses
-        .map((r) => r.biggest_challenge)
-        .filter((v): v is string => !!v)
-        .slice(0, 5);
-      if (challenges.length) {
-        lines.push('');
-        lines.push('Eksempler på største utfordringer (inntil 5):');
-        challenges.forEach((c, index) => {
-          lines.push(`${index + 1}. ${c}`);
-        });
-      }
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(12);
+    doc.text('Snittscore digitale verktøy (1–5)', rightX, sectionTop);
+
+    doc.setFontSize(10);
+    doc.setTextColor(55, 65, 81);
+    const toolYStart = sectionTop + 6;
+    const toolLineGap = 7;
+    const scores = [
+      {
+        label: 'Automatisk smittevarsling',
+        value: stats.avgWarning,
+      },
+      {
+        label: 'Varsel til nærliggende bigårder',
+        value: stats.avgNearby,
+      },
+      {
+        label: 'Enkel rapportering til Mattilsynet',
+        value: stats.avgReporting,
+      },
+      {
+        label: 'Bedre oversikt over egen bigård',
+        value: stats.avgOverview,
+      },
+    ];
+
+    scores.forEach((s, index) => {
+      const y = toolYStart + index * toolLineGap;
+      const label = s.label;
+      const valueText =
+        s.value && s.value > 0 ? s.value.toFixed(1).replace('.', ',') : '–';
+      doc.text(label, rightX, y);
+      doc.text(valueText, rightX + 75, y);
+    });
+
+    const challengesY = sectionTop + 4 + toolLineGap * 6;
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(12);
+    doc.text('Eksempler på største utfordringer', leftX, challengesY);
+
+    doc.setFontSize(10);
+    doc.setTextColor(55, 65, 81);
+
+    const challenges = responses
+      .map((r) => r.biggest_challenge)
+      .filter((v): v is string => !!v)
+      .slice(0, 5);
+
+    if (challenges.length) {
+      const startY = challengesY + 6;
+      challenges.forEach((c, index) => {
+        const text = `${index + 1}. ${c}`;
+        const wrapped = doc.splitTextToSize(text, pageWidth - margin * 2);
+        doc.text(wrapped, leftX, startY + index * 6);
+      });
+    } else {
+      doc.text('Ingen tekstsvar registrert.', leftX, challengesY + 6);
     }
-    const wrapped = doc.splitTextToSize(lines.join('\n'), 180);
-    doc.text(wrapped, 15, 40);
+
     doc.save('behovsanalyse_rapport.pdf');
   };
 
