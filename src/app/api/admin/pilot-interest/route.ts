@@ -65,22 +65,37 @@ export async function GET() {
   const adminClient = createAdminClient();
 
   try {
+    let interests: any[] = [];
+
     const { data, error } = await adminClient
       .from('pilot_interest')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Feil ved henting av pilot-interesser', error);
-      return NextResponse.json(
-        { error: 'Kunne ikke hente pilot-interesser' },
-        { status: 500 }
-      );
+      console.error('Feil ved henting av pilot-interesser (pilot_interest)', error);
+
+      const { data: legacyData, error: legacyError } = await adminClient
+        .from('survey_pilot_interest')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (legacyError) {
+        console.error('Feil ved henting av pilot-interesser (survey_pilot_interest)', legacyError);
+        return NextResponse.json(
+          { error: 'Kunne ikke hente pilot-interesser' },
+          { status: 500 }
+        );
+      }
+
+      interests = legacyData || [];
+    } else {
+      interests = data || [];
     }
 
     return NextResponse.json(
       {
-        interests: data || [],
+        interests,
       },
       { status: 200 }
     );
@@ -92,4 +107,3 @@ export async function GET() {
     );
   }
 }
-

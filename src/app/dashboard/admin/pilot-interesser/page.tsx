@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Loader2, Mail, Calendar } from 'lucide-react';
 
@@ -52,7 +53,7 @@ export default function PilotInterestPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-2">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Pilot-interesser</h1>
             <p className="text-gray-500">
@@ -62,6 +63,16 @@ export default function PilotInterestPage() {
           <div className="text-sm text-gray-500">
             Totalt: {interests.length}
           </div>
+        </div>
+
+        <div className="mb-6">
+          <Link
+            href="/dashboard/admin"
+            className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
+          >
+            <span className="mr-2">←</span>
+            Tilbake til Systemadministrasjon
+          </Link>
         </div>
 
         {error && (
