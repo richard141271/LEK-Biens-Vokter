@@ -13,6 +13,17 @@ type MeetingNote = {
   duration: number | null;
 };
 
+const formatDuration = (duration: number | null) => {
+  if (!duration || duration <= 0) {
+    return 'Varighet ukjent';
+  }
+  if (duration < 60) {
+    return `${duration} sek`;
+  }
+  const minutes = Math.round(duration / 60);
+  return `${minutes} min`;
+};
+
 export default function MeetingNotesListPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -94,11 +105,7 @@ export default function MeetingNotesListPage() {
                   </p>
                 </div>
                 <div className="text-right text-xs text-gray-500">
-                  {note.duration ? (
-                    <span>{Math.round(note.duration / 60)} min</span>
-                  ) : (
-                    <span>Varighet ukjent</span>
-                  )}
+                  <span>{formatDuration(note.duration)}</span>
                 </div>
               </button>
             ))}

@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       console.error('Get bucket error', bucketError);
     }
 
-    const { error: uploadError } = await adminClient.storage.from(bucketName).upload(filePath, buffer, {
+    const { error: uploadError } = await supabase.storage.from(bucketName).upload(filePath, buffer, {
       contentType: file.type || 'audio/webm',
       upsert: false,
     });
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
 
     const whisperFormData = new FormData();
     whisperFormData.append('file', new Blob([buffer], { type: file.type || 'audio/webm' }), fileName);
-    whisperFormData.append('model', 'whisper-1');
+    whisperFormData.append('model', 'gpt-4o-mini-transcribe');
     whisperFormData.append('language', 'no');
 
     const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {

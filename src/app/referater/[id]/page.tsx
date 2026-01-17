@@ -17,6 +17,17 @@ type MeetingNoteDetail = {
   audio_url: string | null;
 };
 
+const formatDuration = (duration: number | null) => {
+  if (!duration || duration <= 0) {
+    return 'Varighet ukjent';
+  }
+  if (duration < 60) {
+    return `${duration} sek`;
+  }
+  const minutes = Math.round(duration / 60);
+  return `${minutes} min`;
+};
+
 export default function MeetingNoteDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
   const router = useRouter();
@@ -90,8 +101,7 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
     );
   }
 
-  const durationDisplay =
-    note.duration && note.duration > 0 ? `${Math.round(note.duration / 60)} min` : 'Varighet ukjent';
+  const durationDisplay = formatDuration(note.duration);
 
   const actionPoints = note.action_points
     ? note.action_points.split('\n').filter((line) => line.trim().length > 0)
