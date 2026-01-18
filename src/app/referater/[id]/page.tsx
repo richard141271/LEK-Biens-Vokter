@@ -82,7 +82,19 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
           } else {
             const json = (await res.json()) as { url?: string };
             if (json.url) {
-              setAudioUrl(json.url);
+              try {
+                const audioRes = await fetch(json.url);
+                if (!audioRes.ok) {
+                  setAudioError('Kunne ikke laste lydfil fra lagring');
+                } else {
+                  const blob = await audioRes.blob();
+                  const objectUrl = URL.createObjectURL(blob);
+                  setAudioUrl(objectUrl);
+                }
+              } catch (e) {
+                console.error('Uventet feil ved nedlasting av lydfil', e);
+                setAudioError('Uventet feil ved nedlasting av lydfil');
+              }
             } else {
               setAudioError('Mangler URL til lydfil');
             }
@@ -98,6 +110,14 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
 
     fetchNote();
   }, [params.id, router, supabase]);
+
+  useEffect(() => {
+    return () => {
+      if (audioUrl && audioUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50">Laster referat...</div>;
@@ -303,7 +323,14 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
                 <LinkIcon className="w-3 h-3" />
                 Lydopptak
               </p>
-              <audio controls src={audioUrl} className="w-full">
+              <audio
+                controls
+                src={audioUrl}
+                className="w-full"
+                onError={() =>
+                  setAudioError('Kunne ikke spille av lydfilen i nettleseren')
+                }
+              >
                 Din nettleser støtter ikke lydavspilling.
               </audio>
             </div>
