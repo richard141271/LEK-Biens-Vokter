@@ -70,10 +70,7 @@ export async function POST(request: Request) {
         ? null
         : body.experiencedDisease === 'ja';
 
-    const pilotInterest =
-      body.pilotAnswer === 'ja' || body.pilotAnswer === 'kanskje';
-
-    const basePayload = {
+    const basePayload: any = {
       county: body.county || null,
       number_of_hives_category: body.numberOfHivesCategory || null,
       years_experience_category: body.yearsExperienceCategory || null,
@@ -94,25 +91,19 @@ export async function POST(request: Request) {
       willingness_to_pay: body.pricePerYear || null,
       biggest_challenge: body.biggestChallenge || null,
       feature_wishes: body.featureWishes || null,
-      pilot_answer: body.pilotAnswer || null,
-      pilot_interest: pilotInterest,
       ip_address: getClientIp(request),
     };
 
-    let insertError = null as any;
-
-    const { error: firstError } = await client
+    const { error } = await client
       .from('survey_responses')
       .insert(basePayload);
 
-    insertError = firstError;
-
-    if (insertError) {
-      console.error('Feil ved lagring av survey-respons', insertError);
+    if (error) {
+      console.error('Feil ved lagring av survey-respons', error);
       const details =
-        typeof insertError.message === 'string'
-          ? insertError.message
-          : JSON.stringify(insertError);
+        typeof error.message === 'string'
+          ? error.message
+          : JSON.stringify(error);
       return NextResponse.json(
         {
           error:
