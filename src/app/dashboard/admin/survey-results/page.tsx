@@ -329,6 +329,7 @@ export default function SurveyResultsAdminPage() {
     if (!responses.length) return;
     const doc = new jsPDF('landscape', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 14;
 
     let logoDataUrl: string | null = null;
@@ -338,23 +339,134 @@ export default function SurveyResultsAdminPage() {
       logoDataUrl = null;
     }
 
+    const generated = new Date().toLocaleString('nb-NO');
+
+    const totalWouldUse =
+      stats.wouldUse.yes +
+      stats.wouldUse.yesIfEasy +
+      stats.wouldUse.unsure +
+      stats.wouldUse.no;
+
+    const totalPositive = stats.wouldUse.yes + stats.wouldUse.yesIfEasy;
+
+    const diseasePercent = stats.total
+      ? Math.round((stats.experiencedDisease / stats.total) * 100)
+      : 0;
+    const memberPercent = stats.total
+      ? Math.round((stats.memberCount / stats.total) * 100)
+      : 0;
+    const pilotPercent = stats.total
+      ? Math.round((pilotCount / stats.total) * 100)
+      : 0;
+    const answeredAcceptance = totalWouldUse;
+    const positivePercent = answeredAcceptance
+      ? Math.round((totalPositive / answeredAcceptance) * 100)
+      : 0;
+
+    const challengeTexts = responses
+      .map((r) => r.biggest_challenge)
+      .filter((v): v is string => !!v && !!v.trim());
+
+    const diseaseChallengeCount = challengeTexts.filter((t) => {
+      const lower = t.toLowerCase();
+      return lower.includes('smitte') || lower.includes('sykdom');
+    }).length;
+
+    const scores = [
+      {
+        label: 'Automatisk smittevarsling',
+        value: stats.avgWarning,
+      },
+      {
+        label: 'Varsel til nærliggende bigårder',
+        value: stats.avgNearby,
+      },
+      {
+        label: 'Enkel rapportering til Mattilsynet',
+        value: stats.avgReporting,
+      },
+      {
+        label: 'Bedre oversikt over egen bigård',
+        value: stats.avgOverview,
+      },
+    ];
+
+    const averageScoreValues = scores
+      .map((s) => s.value)
+      .filter((v) => v && v > 0);
+    const averageScore =
+      averageScoreValues.length > 0
+        ? Math.round(
+            (averageScoreValues.reduce((a, b) => a + b, 0) /
+              averageScoreValues.length) *
+              10
+          ) / 10
+        : 0;
+
     if (logoDataUrl) {
-      doc.addImage(logoDataUrl, 'PNG', margin, 10, 38, 26);
+      const logoWidth = 40;
+      const logoHeight = 28;
+      const logoX = pageWidth / 2 - logoWidth / 2;
+      const logoY = 18;
+      doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
     }
 
     doc.setTextColor(20, 20, 20);
-    doc.setFontSize(18);
-    doc.text('Behovsanalyse', margin + 44, 20);
+    doc.setFontSize(20);
+    doc.text(
+      'Behovsanalyse – LEK-Biens Vokter™️',
+      pageWidth / 2,
+      logoDataUrl ? 60 : 40,
+      { align: 'center' }
+    );
+
     doc.setFontSize(12);
-    doc.text('Administratorsammendrag', margin + 44, 28);
+    doc.text(
+      'Oppsummert rapport basert på spørreundersøkelse blant birøktere i Norge.',
+      pageWidth / 2,
+      logoDataUrl ? 68 : 48,
+      { align: 'center' }
+    );
 
     doc.setFontSize(10);
-    const generated = new Date().toLocaleString('nb-NO');
-    doc.text(`Generert: ${generated}`, pageWidth - margin, 18, { align: 'right' });
+    doc.text(`Generert: ${generated}`, pageWidth / 2, logoDataUrl ? 76 : 56, {
+      align: 'center',
+    });
+
+    doc.setFontSize(11);
+    doc.setTextColor(55, 65, 81);
+    const introText = doc.splitTextToSize(
+      'Formålet med denne behovsanalysen er å forstå hvordan birøktere arbeider med forebygging, oppdagelse og håndtering av sykdom i bigården, samt å vurdere nytten av digitale verktøy som kan støtte smittevern, rapportering og oversikt.',
+      pageWidth - margin * 2
+    );
+    doc.text(introText, margin, logoDataUrl ? 92 : 70);
+
+    const introText2 = doc.splitTextToSize(
+      'Resultatene brukes til å prioritere videre utvikling av LEK-Biens Vokter™️ og planlegging av et pilotprogram sammen med engasjerte birøktere.',
+      pageWidth - margin * 2
+    );
+    doc.text(introText2, margin, logoDataUrl ? 112 : 90);
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text(
+      'LEK-Honning – internt arbeidsdokument',
+      margin,
+      pageHeight - margin
+    );
+
+    doc.text(
+      'Side 1 av 5 – Forside',
+      pageWidth - margin,
+      pageHeight - margin,
+      { align: 'right' }
+    );
+
+    doc.addPage();
 
     const cardWidth = (pageWidth - margin * 2 - 12 * 3) / 4;
     const cardHeight = 26;
-    const cardY = 46;
+    const cardY = 32;
 
     const drawCard = (
       index: number,
@@ -376,16 +488,6 @@ export default function SurveyResultsAdminPage() {
       doc.setFontSize(9);
       doc.text(subtitle, x + 6, cardY + 24);
     };
-
-    const diseasePercent = stats.total
-      ? Math.round((stats.experiencedDisease / stats.total) * 100)
-      : 0;
-    const memberPercent = stats.total
-      ? Math.round((stats.memberCount / stats.total) * 100)
-      : 0;
-    const pilotPercent = stats.total
-      ? Math.round((pilotCount / stats.total) * 100)
-      : 0;
 
     drawCard(
       0,
@@ -412,23 +514,64 @@ export default function SurveyResultsAdminPage() {
       'Andel medlem i Norges Birøkterlag'
     );
 
-    const sectionTop = cardY + cardHeight + 18;
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(14);
+    doc.text(
+      'Sammendrag av hovedfunn',
+      margin,
+      cardY + cardHeight + 18
+    );
 
-    const totalWouldUse =
-      stats.wouldUse.yes +
-      stats.wouldUse.yesIfEasy +
-      stats.wouldUse.unsure +
-      stats.wouldUse.no;
+    doc.setFontSize(10);
+    doc.setTextColor(55, 65, 81);
+    const summaryLines = [
+      stats.total
+        ? `Totalt ${stats.total} svar fra birøktere med ulik erfaring, antall kuber og geografi.`
+        : 'Ingen svar registrert ennå.',
+      answeredAcceptance
+        ? `${positivePercent}% av de som har svart sier JA eller JA, hvis det er enkelt å bruke – et tydelig signal om markedspotensial.`
+        : 'For få svar til å beregne aksept for systemet.',
+      diseasePercent
+        ? `${diseasePercent}% rapporterer sykdomserfaring de siste årene, noe som understreker behovet for bedre smitteoppfølging.`
+        : 'Sykdomserfaring er foreløpig begrenset i datasettet.',
+      diseaseChallengeCount
+        ? `${diseaseChallengeCount} av fritekstsvarene på største utfordring omtaler smitte eller sykdom direkte.`
+        : 'Fritekstsvarene nevner foreløpig lite om smitte eller sykdom.',
+      averageScore
+        ? `Gjennomsnittlig opplevd nytteverdi av digitale verktøy ligger rundt ${averageScore.toFixed(
+            1
+          ).replace('.', ',')} på en skala fra 1–5.`
+        : 'Det er for få svar til å beregne snittscore for digitale verktøy.',
+    ];
 
-    const totalPositive = stats.wouldUse.yes + stats.wouldUse.yesIfEasy;
+    let summaryY = cardY + cardHeight + 26;
+    summaryLines.forEach((line) => {
+      const wrapped = doc.splitTextToSize(
+        line,
+        pageWidth - margin * 2
+      );
+      doc.text(wrapped, margin, summaryY);
+      summaryY += wrapped.length * 6;
+    });
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text(
+      'Side 2 av 5 – Sammendrag',
+      pageWidth - margin,
+      pageHeight - margin,
+      { align: 'right' }
+    );
+
+    doc.addPage();
 
     const leftX = margin;
     const rightX = pageWidth / 2 + 4;
+    const sectionTop = 30;
 
-    // Aksept-tabell
     doc.setTextColor(15, 23, 42);
-    doc.setFontSize(12);
-    doc.text('Aksept: Ville du brukt systemet?', leftX, sectionTop);
+    doc.setFontSize(14);
+    doc.text('Aksept og betalingsvilje', leftX, sectionTop);
 
     doc.setFontSize(10);
     if (totalWouldUse > 0) {
@@ -441,11 +584,7 @@ export default function SurveyResultsAdminPage() {
         (stats.wouldUse.unsure / answered) * 100
       );
       const noPercent = Math.round((stats.wouldUse.no / answered) * 100);
-      const positivePercent = Math.round(
-        (totalPositive / answered) * 100
-      );
-
-      const tableY = sectionTop + 4;
+      const tableY = sectionTop + 6;
       const rowHeight = 7;
       const rows = [
         ['Ja', String(stats.wouldUse.yes), `${yesPercent}%`],
@@ -470,74 +609,64 @@ export default function SurveyResultsAdminPage() {
 
       doc.setDrawColor(209, 213, 219);
       doc.setLineWidth(0.1);
-
-      // Ytre ramme
       doc.rect(leftX, tableY, tableWidth, rowHeight * (rows.length + 1));
 
-      // Horisontale linjer
       for (let i = 1; i <= rows.length; i++) {
         const y = tableY + rowHeight * i;
         doc.line(leftX, y, leftX + tableWidth, y);
       }
 
-      // Vertikale linjer
       const col1X = leftX + col1Width;
       const col2X = col1X + col2Width;
       doc.line(col1X, tableY, col1X, tableY + rowHeight * (rows.length + 1));
       doc.line(col2X, tableY, col2X, tableY + rowHeight * (rows.length + 1));
 
-      // Header
       doc.setTextColor(55, 65, 81);
       doc.text('Svaralternativ', leftX + 2, tableY + 4.5);
       doc.text('Antall', col1X + 2, tableY + 4.5);
       doc.text('Prosent', col2X + 2, tableY + 4.5);
 
-      // Rader
       rows.forEach((row, index) => {
         const y = tableY + rowHeight * (index + 1) + 4.5;
         doc.text(row[0], leftX + 2, y);
         doc.text(row[1], col1X + 2, y);
         doc.text(row[2], col2X + 2, y);
       });
+
+      const acceptanceSummary = doc.splitTextToSize(
+        `Samlet positiv holdning (JA + JA, hvis det er enkelt å bruke) er ${positivePercent}% av alle som har svart på dette spørsmålet.`,
+        pageWidth / 2 - margin
+      );
+      doc.text(acceptanceSummary, leftX, tableY + rowHeight * (rows.length + 1) + 10);
     } else {
       doc.setTextColor(107, 114, 128);
-      doc.text('Ingen gyldige svar registrert ennå.', leftX, sectionTop + 8);
+      doc.text(
+        'Ingen gyldige svar registrert ennå på spørsmålet om du ville brukt systemet.',
+        leftX,
+        sectionTop + 8
+      );
     }
 
-    // Snittscore-tabell
     doc.setTextColor(15, 23, 42);
-    doc.setFontSize(12);
+    doc.setFontSize(14);
     doc.text('Snittscore digitale verktøy (1–5)', rightX, sectionTop);
 
-    doc.setFontSize(10);
-    doc.setTextColor(55, 65, 81);
-    const scores = [
-      {
-        label: 'Automatisk smittevarsling',
-        value: stats.avgWarning,
-      },
-      {
-        label: 'Varsel til nærliggende bigårder',
-        value: stats.avgNearby,
-      },
-      {
-        label: 'Enkel rapportering til Mattilsynet',
-        value: stats.avgReporting,
-      },
-      {
-        label: 'Bedre oversikt over egen bigård',
-        value: stats.avgOverview,
-      },
-    ];
-    const scoreTableY = sectionTop + 4;
+    const scoreTableY = sectionTop + 6;
     const scoreRowHeight = 7;
     const scoreCol1Width = 70;
     const scoreCol2Width = 24;
     const scoreTableWidth = scoreCol1Width + scoreCol2Width;
 
+    doc.setFontSize(10);
+    doc.setTextColor(55, 65, 81);
     doc.setDrawColor(209, 213, 219);
     doc.setLineWidth(0.1);
-    doc.rect(rightX, scoreTableY, scoreTableWidth, scoreRowHeight * (scores.length + 1));
+    doc.rect(
+      rightX,
+      scoreTableY,
+      scoreTableWidth,
+      scoreRowHeight * (scores.length + 1)
+    );
 
     for (let i = 1; i <= scores.length; i++) {
       const y = scoreTableY + scoreRowHeight * i;
@@ -564,60 +693,106 @@ export default function SurveyResultsAdminPage() {
       doc.text(valueText, scoreCol1X + 2, y);
     });
 
-    // Utfordringer-tabell
-    const challengesTop = sectionTop + 4 + scoreRowHeight * (scores.length + 1) + 14;
+    const scoreSummaryY =
+      scoreTableY + scoreRowHeight * (scores.length + 1) + 10;
+    const scoreSummary = doc.splitTextToSize(
+      averageScore
+        ? `Samlet peker svarene mot en moderat til høy opplevd nytte av digitale verktøy, med gjennomsnittsscore rundt ${averageScore
+            .toFixed(1)
+            .replace('.', ',')} av 5.`
+        : 'Det er foreløpig for få svar til å trekke sikre konklusjoner om nytteverdien av digitale verktøy.',
+      pageWidth / 2 - margin
+    );
+    doc.text(scoreSummary, rightX, scoreSummaryY);
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text(
+      'Side 3 av 5 – Aksept og statistikk',
+      pageWidth - margin,
+      pageHeight - margin,
+      { align: 'right' }
+    );
+
+    doc.addPage();
+
     doc.setTextColor(15, 23, 42);
-    doc.setFontSize(12);
-    doc.text('Eksempler på største utfordringer', leftX, challengesTop);
+    doc.setFontSize(14);
+    doc.text('Detaljerte funn', margin, 30);
 
     doc.setFontSize(10);
     doc.setTextColor(55, 65, 81);
+    const detailedLines = [
+      stats.total
+        ? `Datagrunnlaget består av ${stats.total} besvarelser, der både hobby- og næringsbirøktere er representert.`
+        : 'Datagrunnlaget består foreløpig av få besvarelser.',
+      diseasePercent
+        ? `${diseasePercent}% rapporterer at de har hatt sykdom i bigården de siste årene. Dette skaper et tydelig behov for bedre oversikt og mer systematisk oppfølging.`
+        : 'Sykdomserfaring er foreløpig begrenset og må tolkes med varsomhet.',
+      memberPercent
+        ? `${memberPercent}% er medlem i Norges Birøkterlag, som kan være en viktig kanal for videre dialog og rekruttering til pilot.`
+        : 'Andelen medlemmer i Norges Birøkterlag er uklar i datagrunnlaget.',
+      answeredAcceptance
+        ? `${positivePercent}% sier JA eller JA, hvis det er enkelt å bruke. Det betyr at flertallet er positive, men brukervennlighet er avgjørende for faktisk adopsjon.`
+        : 'Vi har foreløpig ikke nok data til å si noe sikkert om hvor mange som vil ta i bruk systemet.',
+      diseaseChallengeCount
+        ? `I fritekstsvarene beskriver mange smitte og sykdom som en av de største bekymringene, ofte knyttet til usikkerhet rundt tidlig oppdagelse og varsling.`
+        : 'Fritekstsvarene peker mer på generelle utfordringer i hverdagen enn på konkrete smittesituasjoner.',
+    ];
 
-    const challenges = responses
-      .map((r) => r.biggest_challenge)
-      .filter((v): v is string => !!v)
-      .sort((a, b) => {
-        const aLower = a.toLowerCase();
-        const bLower = b.toLowerCase();
-        const aMatch =
-          aLower.includes('smitte') || aLower.includes('sykdom');
-        const bMatch =
-          bLower.includes('smitte') || bLower.includes('sykdom');
-        if (aMatch === bMatch) return 0;
-        return aMatch ? -1 : 1;
-      })
-      .slice(0, 8);
+    let detailedY = 40;
+    detailedLines.forEach((line) => {
+      const wrapped = doc.splitTextToSize(
+        `• ${line}`,
+        pageWidth - margin * 2
+      );
+      doc.text(wrapped, margin, detailedY);
+      detailedY += wrapped.length * 7;
+    });
 
-    if (challenges.length) {
-      const challengeRowHeight = 6;
-      const challengeWidth = pageWidth - margin * 2;
-      const tableHeight = challengeRowHeight * (challenges.length + 1);
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text(
+      'Side 4 av 5 – Detaljerte funn',
+      pageWidth - margin,
+      pageHeight - margin,
+      { align: 'right' }
+    );
 
-      doc.setDrawColor(209, 213, 219);
-      doc.setLineWidth(0.1);
-      const tableY = challengesTop + 4;
-      doc.rect(leftX, tableY, challengeWidth, tableHeight);
+    doc.addPage();
 
-      for (let i = 1; i <= challenges.length; i++) {
-        const y = tableY + challengeRowHeight * i;
-        doc.line(leftX, y, leftX + challengeWidth, y);
-      }
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(14);
+    doc.text('Veien videre', margin, 30);
 
-      doc.setTextColor(55, 65, 81);
-      doc.text('Utfordring', leftX + 2, tableY + 4.5);
+    doc.setFontSize(10);
+    doc.setTextColor(55, 65, 81);
+    const nextSteps = [
+      'Etablere et pilotprogram med de birøkterne som har meldt interesse, med fokus på enkel innlogging, registrering og varsling.',
+      'Prioritere en MVP-versjon av smittefunksjonaliteten i LEK-Biens Vokter™️: varsel om mulig smitte, enkel rapportering og rask oversikt over berørte kuber.',
+      'Utforme tydelige rutiner og veiledning for hvordan birøktere skal bruke systemet i hverdagen, slik at løsningen oppleves som enkel og tidsbesparende.',
+      'Samarbeide med relevante aktører (for eksempel Norges Birøkterlag og Mattilsynet) om informasjonsflyt, anbefalinger og videre utrulling.',
+      'Gjennomføre nye runder med datainnsamling etter pilot for å validere effekten og justere prioriteringer.',
+    ];
 
-      challenges.forEach((c, index) => {
-        const y = tableY + challengeRowHeight * (index + 1) + 4;
-        const text = `${index + 1}. ${c}`;
-        const wrapped = doc.splitTextToSize(
-          text,
-          challengeWidth - 4
-        );
-        doc.text(wrapped, leftX + 2, y);
-      });
-    } else {
-      doc.text('Ingen tekstsvar registrert.', leftX, challengesTop + 6);
-    }
+    let nextY = 40;
+    nextSteps.forEach((line) => {
+      const wrapped = doc.splitTextToSize(
+        `• ${line}`,
+        pageWidth - margin * 2
+      );
+      doc.text(wrapped, margin, nextY);
+      nextY += wrapped.length * 7;
+    });
+
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text(
+      'Side 5 av 5 – Veien videre',
+      pageWidth - margin,
+      pageHeight - margin,
+      { align: 'right' }
+    );
 
     doc.save('behovsanalyse_rapport.pdf');
   };
