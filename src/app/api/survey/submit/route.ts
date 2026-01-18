@@ -117,19 +117,32 @@ export async function POST(request: Request) {
       );
     }
 
-    if (hasServiceRoleKey) {
-      if (
-        (body.pilotAnswer === 'ja' || body.pilotAnswer === 'kanskje') &&
-        body.pilotEmail
-      ) {
-        const { error: pilotError } = await client
-          .from('pilot_interest')
-          .insert({
-            email: body.pilotEmail,
-            interested: true,
-          });
+    if (
+      (body.pilotAnswer === 'ja' || body.pilotAnswer === 'kanskje') &&
+      body.pilotEmail
+    ) {
+      const { error: pilotError } = await client
+        .from('pilot_interest')
+        .insert({
+          email: body.pilotEmail,
+          interested: true,
+          status: body.pilotAnswer === 'ja' ? 'Interessert' : 'Kanskje',
+          source: 'survey'
+        });
 
-        if (pilotError) {
+      if (pilotError) {
+        // If columns don't exist yet (migration pending), try fallback without them
+        if (pilotError.message?.includes('column "status" of relation "pilot_interest" does not exist')) {
+           const { error: fallbackError } = await client
+            .from('pilot_interest')
+            .insert({
+              email: body.pilotEmail,
+              interested: true,
+            });
+            if (fallbackError) {
+              console.error('Feil ved lagring av pilot-interesse (fallback)', fallbackError);
+            }
+        } else {
           console.error('Feil ved lagring av pilot-interesse', pilotError);
         }
       }
