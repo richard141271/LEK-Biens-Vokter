@@ -499,15 +499,6 @@ export default function SurveyResultsAdminPage() {
         doc.text(row[1], col1X + 2, y);
         doc.text(row[2], col2X + 2, y);
       });
-
-      const highlightY = tableY + rowHeight * (rows.length + 2) + 2;
-      doc.setTextColor(220, 38, 38);
-      doc.setFontSize(11);
-      doc.text(
-        `Samlet positiv holdning: ${positivePercent}% JA – kun ${noPercent}% NEI`,
-        leftX,
-        highlightY,
-      );
     } else {
       doc.setTextColor(107, 114, 128);
       doc.text('Ingen gyldige svar registrert ennå.', leftX, sectionTop + 8);

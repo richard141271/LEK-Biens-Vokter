@@ -74,8 +74,10 @@ export async function POST(request: Request) {
       console.error('Get bucket error', bucketError);
     }
 
+    const baseMimeType = file.type ? file.type.split(';')[0].trim() : 'audio/webm';
+
     const { error: uploadError } = await adminClient.storage.from(bucketName).upload(filePath, buffer, {
-      contentType: file.type || 'audio/webm',
+      contentType: baseMimeType,
       upsert: false,
     });
 
