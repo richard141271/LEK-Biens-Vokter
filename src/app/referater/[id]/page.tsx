@@ -28,6 +28,8 @@ const formatDuration = (duration: number | null) => {
   return `${minutes} min`;
 };
 
+const ERROR_TITLE = 'Transkripsjon feilet – lydopptaket er lagret';
+
 export default function MeetingNoteDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
   const router = useRouter();
@@ -122,6 +124,16 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
 
   const durationDisplay = formatDuration(note.duration);
 
+  const effectiveTitle =
+    note.title && note.title.trim() && note.title !== ERROR_TITLE
+      ? note.title
+      : 'Møteopptak';
+
+  const effectiveSummary =
+    note.title === ERROR_TITLE || !note.summary || !note.summary.trim()
+      ? 'Dette er et lagret møteopptak uten automatisk tekstlig oppsummering.'
+      : note.summary;
+
   const actionPoints = note.action_points
     ? note.action_points.split('\n').filter((line) => line.trim().length > 0)
     : [];
@@ -136,7 +148,7 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
       let y = 16;
 
       doc.setFontSize(14);
-      doc.text(note.title || 'Møtereferat', left, y);
+      doc.text(effectiveTitle, left, y);
       y += 8;
 
       doc.setFontSize(10);
@@ -153,8 +165,7 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
       doc.text('Sammendrag', left, y);
       y += 6;
       doc.setFontSize(10);
-      const summary = note.summary || '';
-      const summaryLines = doc.splitTextToSize(summary || 'Ingen oppsummering.', 180);
+      const summaryLines = doc.splitTextToSize(effectiveSummary, 180);
       doc.text(summaryLines, left, y);
       y += summaryLines.length * 5 + 8;
 
@@ -186,9 +197,8 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
       doc.text('Full transkripsjon', left, y);
       y += 6;
       doc.setFontSize(9);
-      const transcript = note.transcript || '';
       const transcriptLines = doc.splitTextToSize(
-        transcript || 'Ingen transkripsjon tilgjengelig.',
+        'Ingen transkripsjon tilgjengelig for dette opptaket.',
         180,
       );
       transcriptLines.forEach((line: string | string[]) => {
@@ -210,16 +220,16 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
     if (!note) return;
     const blob = new Blob(
       [
-        (note.title || 'Møtereferat') + '\n',
+        effectiveTitle + '\n',
         note.date ? new Date(note.date).toLocaleString('nb-NO') + '\n\n' : '\n',
-        note.transcript || '',
+        'Ingen transkripsjon tilgjengelig for dette opptaket.',
       ],
       { type: 'text/plain;charset=utf-8' },
     );
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = (note.title || 'møtereferat') + '.txt';
+    a.download = effectiveTitle + '.txt';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -253,7 +263,7 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
             </div>
             <div>
               <h2 className="text-base font-semibold text-gray-900">
-                {note.title || 'Møtereferat'}
+                {effectiveTitle}
               </h2>
               <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
                 <Clock className="w-3 h-3" />
@@ -303,7 +313,7 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="text-sm font-semibold text-gray-900 mb-2">Sammendrag</h3>
           <p className="text-sm text-gray-700 whitespace-pre-line">
-            {note.summary || 'Ingen oppsummering tilgjengelig.'}
+            {effectiveSummary}
           </p>
         </div>
 
@@ -332,7 +342,7 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
             Full transkripsjon
           </h3>
           <div className="max-h-80 overflow-y-auto text-sm text-gray-700 whitespace-pre-line border border-gray-100 rounded-lg p-3 bg-gray-50">
-            {note.transcript || 'Ingen transkripsjon tilgjengelig.'}
+            Ingen transkripsjon tilgjengelig for dette opptaket.
           </div>
         </div>
       </div>

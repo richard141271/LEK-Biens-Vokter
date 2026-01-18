@@ -126,7 +126,7 @@ export default function NewMeetingRecordingPage() {
     setError(null);
   };
 
-  const handleSaveAndTranscribe = async () => {
+  const handleSaveRecording = async () => {
     if (!recordedBlob) return;
 
     setProcessing(true);
@@ -200,7 +200,7 @@ export default function NewMeetingRecordingPage() {
         <div className="bg-white p-6 rounded-2xl shadow-lg border border-honey-100 text-center">
           <p className="text-gray-600 mb-6">
             Trykk på start for å begynne opptaket. Når møtet er ferdig, stopper du opptaket og velger om du vil lagre
-            og transkribere eller forkaste opptaket.
+            eller forkaste opptaket.
           </p>
 
           <div className="flex justify-center mb-4">
@@ -222,8 +222,8 @@ export default function NewMeetingRecordingPage() {
           </div>
 
           <p className="text-xs text-gray-400 mb-4">
-            Opptaket lagres lokalt på enheten mens du spiller inn, og lastes først opp når du velger &quot;Lagre og
-            transkriber&quot;.
+            Opptaket lagres lokalt på enheten mens du spiller inn, og lastes først opp når du velger &quot;Lagre
+            opptak&quot;.
           </p>
 
           {recordedBlob && !recording && (
@@ -241,7 +241,7 @@ export default function NewMeetingRecordingPage() {
                   Forkast opptak
                 </button>
                 <button
-                  onClick={handleSaveAndTranscribe}
+                  onClick={handleSaveRecording}
                   disabled={processing}
                   className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-black text-white font-semibold hover:bg-gray-900 disabled:opacity-50"
                 >
@@ -253,7 +253,7 @@ export default function NewMeetingRecordingPage() {
                   ) : (
                     <>
                       <Check className="w-4 h-4" />
-                      Lagre og transkriber
+                      Lagre opptak
                     </>
                   )}
                 </button>
@@ -262,9 +262,7 @@ export default function NewMeetingRecordingPage() {
           )}
 
           {!recordedBlob && !recording && (
-            <p className="mt-4 text-xs text-gray-400">
-              Tips: Test gjerne funksjonen i et kort møte først for å se hvordan referatet blir.
-            </p>
+            <p className="mt-4 text-xs text-gray-400">Tips: Test gjerne funksjonen i et kort opptak først.</p>
           )}
 
           {error && (
@@ -277,4 +275,3 @@ export default function NewMeetingRecordingPage() {
     </div>
   );
 }
-

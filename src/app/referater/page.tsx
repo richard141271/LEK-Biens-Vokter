@@ -90,7 +90,12 @@ export default function MeetingNotesListPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {notes.map((note) => (
+            {notes.map((note) => {
+              const title =
+                note.title && note.title.trim() && note.title !== 'Transkripsjon feilet – lydopptaket er lagret'
+                  ? note.title
+                  : 'Møteopptak';
+              return (
               <button
                 key={note.id}
                 onClick={() => router.push(`/referater/${note.id}`)}
@@ -98,7 +103,7 @@ export default function MeetingNotesListPage() {
               >
                 <div>
                   <h2 className="text-sm font-semibold text-gray-900">
-                    {note.title || 'Møtereferat'}
+                      {title}
                   </h2>
                   <p className="text-xs text-gray-500 mt-1">
                     {note.date ? new Date(note.date).toLocaleString('nb-NO') : 'Ukjent tidspunkt'}
@@ -108,7 +113,7 @@ export default function MeetingNotesListPage() {
                   <span>{formatDuration(note.duration)}</span>
                 </div>
               </button>
-            ))}
+            )})}
           </div>
         )}
       </div>

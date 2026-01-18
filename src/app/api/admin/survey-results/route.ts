@@ -60,9 +60,9 @@ export async function GET() {
 
     let pilotCount = 0;
 
-    const { count: pilotCountNew, error: pilotError } = await adminClient
+    const { data: pilotRows, error: pilotError } = await adminClient
       .from('pilot_interest')
-      .select('*', { count: 'exact', head: true });
+      .select('id');
 
     if (pilotError) {
       console.error(
@@ -70,9 +70,9 @@ export async function GET() {
         pilotError
       );
 
-      const { count: legacyCount, error: legacyError } = await adminClient
+      const { data: legacyRows, error: legacyError } = await adminClient
         .from('survey_pilot_interest')
-        .select('*', { count: 'exact', head: true });
+        .select('id');
 
       if (legacyError) {
         console.error(
@@ -80,10 +80,10 @@ export async function GET() {
           legacyError
         );
       } else {
-        pilotCount = legacyCount || 0;
+        pilotCount = (legacyRows || []).length;
       }
     } else {
-      pilotCount = pilotCountNew || 0;
+      pilotCount = (pilotRows || []).length;
     }
 
     return NextResponse.json(

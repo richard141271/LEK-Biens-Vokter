@@ -36,7 +36,15 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Referat ikke funnet' }, { status: 404 });
       }
 
-      if (data.user_id !== user.id) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      const isAdmin = profile?.role === 'admin' || user.email === 'richard141271@gmail.com';
+
+      if (data.user_id !== user.id && !isAdmin) {
         return NextResponse.json({ error: 'Ingen tilgang til dette referatet' }, { status: 403 });
       }
 
@@ -68,4 +76,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Uventet feil' }, { status: 500 });
   }
 }
-
