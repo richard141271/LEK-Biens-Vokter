@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { createClient } from '@/utils/supabase/server';
 
 function getClientIp(request: Request) {
   const forwarded = request.headers.get('x-forwarded-for');
@@ -31,12 +32,13 @@ type Body = {
 
 export async function POST(request: Request) {
   try {
-    const adminClient = createAdminClient();
+    const hasServiceRoleKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const client = hasServiceRoleKey ? createAdminClient() : createClient();
     const body = (await request.json()) as Body;
 
-    if (body.pilotEmail) {
+    if (hasServiceRoleKey && body.pilotEmail) {
       const { count: existingEmailCount, error: emailCountError } =
-        await adminClient
+        await client
           .from('pilot_interest')
           .select('*', { count: 'exact', head: true })
           .eq('email', body.pilotEmail);
@@ -68,72 +70,81 @@ export async function POST(request: Request) {
         ? null
         : body.experiencedDisease === 'ja';
 
-    const { error: insertError } = await adminClient
+    const basePayload = {
+      county: body.county || null,
+      number_of_hives_category: body.numberOfHivesCategory || null,
+      years_experience_category: body.yearsExperienceCategory || null,
+      is_member_norwegian_beekeepers:
+        body.isMember === '' ? null : body.isMember === 'ja',
+      experienced_disease: experiencedDiseaseBool,
+      disease_types:
+        body.diseaseTypes && body.diseaseTypes.length > 0
+          ? body.diseaseTypes.join(',')
+          : null,
+      current_record_method: body.currentRecordMethod || null,
+      time_spent_documentation: body.timeSpentPerWeek || null,
+      value_warning_system: body.valueWarningSystem,
+      value_nearby_alert: body.valueNearbyAlert,
+      value_reporting: body.valueReporting,
+      value_better_overview: body.valueBetterOverview,
+      would_use_system_choice: body.wouldUseSystemChoice || null,
+      willingness_to_pay: body.pricePerYear || null,
+      biggest_challenge: body.biggestChallenge || null,
+      feature_wishes: body.featureWishes || null,
+    };
+
+    let insertError = null as any;
+
+    const { error: firstError } = await client
       .from('survey_responses')
-      .insert({
-        county: body.county || null,
-        number_of_hives_category: body.numberOfHivesCategory || null,
-        years_experience_category: body.yearsExperienceCategory || null,
-        is_member_norwegian_beekeepers:
-          body.isMember === '' ? null : body.isMember === 'ja',
-        experienced_disease: experiencedDiseaseBool,
-        disease_types:
-          body.diseaseTypes && body.diseaseTypes.length > 0
-            ? body.diseaseTypes.join(',')
-            : null,
-        current_record_method: body.currentRecordMethod || null,
-        time_spent_documentation: body.timeSpentPerWeek || null,
-        value_warning_system: body.valueWarningSystem,
-        value_nearby_alert: body.valueNearbyAlert,
-        value_reporting: body.valueReporting,
-        value_better_overview: body.valueBetterOverview,
-        would_use_system_choice: body.wouldUseSystemChoice || null,
-        willingness_to_pay: body.pricePerYear || null,
-        biggest_challenge: body.biggestChallenge || null,
-        feature_wishes: body.featureWishes || null,
-        pilot_answer: body.pilotAnswer || null,
-        pilot_interest:
-          body.pilotAnswer === 'ja' || body.pilotAnswer === 'kanskje',
-        is_test: false,
-        is_invalid: false,
-        submitted_at: new Date().toISOString(),
-        ip_address: getClientIp(request),
-      });
+      .insert(basePayload);
+
+    insertError = firstError;
 
     if (insertError) {
       console.error('Feil ved lagring av survey-respons', insertError);
+      const details =
+        typeof insertError.message === 'string'
+          ? insertError.message
+          : JSON.stringify(insertError);
       return NextResponse.json(
         {
           error:
             'Noe gikk galt ved innsending av skjemaet. Vennligst prøv igjen om litt.',
+          details,
         },
         { status: 500 }
       );
     }
 
-    if (
-      (body.pilotAnswer === 'ja' || body.pilotAnswer === 'kanskje') &&
-      body.pilotEmail
-    ) {
-      const { error: pilotError } = await adminClient
-        .from('pilot_interest')
-        .insert({
-          email: body.pilotEmail,
-          interested: true,
-        });
+    if (hasServiceRoleKey) {
+      if (
+        (body.pilotAnswer === 'ja' || body.pilotAnswer === 'kanskje') &&
+        body.pilotEmail
+      ) {
+        const { error: pilotError } = await client
+          .from('pilot_interest')
+          .insert({
+            email: body.pilotEmail,
+            interested: true,
+          });
 
-      if (pilotError) {
-        console.error('Feil ved lagring av pilot-interesse', pilotError);
+        if (pilotError) {
+          console.error('Feil ved lagring av pilot-interesse', pilotError);
+        }
       }
     }
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e) {
     console.error('Uventet feil ved innsending av survey', e);
+    const details =
+      e instanceof Error ? e.message : typeof e === 'string' ? e : JSON.stringify(e);
     return NextResponse.json(
       {
         error:
           'Noe gikk galt ved innsending av skjemaet. Vennligst prøv igjen om litt.',
+        details,
       },
       { status: 500 }
     );
