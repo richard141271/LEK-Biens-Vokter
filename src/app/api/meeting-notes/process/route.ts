@@ -140,18 +140,22 @@ export async function POST(request: Request) {
     let actionPointsArr: string[] = [];
     let title: string | null = null;
 
+    const failedTranscriptionSummary =
+      'Transkripsjon av lydopptaket feilet. Lydopptaket er lagret, men tekst er ikke tilgjengelig.';
+    const failedTranscriptionTitle = 'Transkripsjon feilet – lydopptaket er lagret';
+
     if (!whisperResponse.ok) {
       const errorText = await whisperResponse.text();
       console.error('Whisper error', whisperResponse.status, errorText);
-      summary =
-        'Transkripsjon av lydopptaket feilet. Lydopptaket er lagret, men tekst er ikke tilgjengelig.';
+      summary = failedTranscriptionSummary;
+      title = failedTranscriptionTitle;
     } else {
       const whisperData = (await whisperResponse.json()) as { text?: string };
       transcript = whisperData.text || '';
 
       if (!transcript) {
-        summary =
-          'Transkripsjon av lydopptaket feilet. Lydopptaket er lagret, men tekst er ikke tilgjengelig.';
+        summary = failedTranscriptionSummary;
+        title = failedTranscriptionTitle;
       } else {
         const systemPrompt =
           'Du er en profesjonell referatskriver på norsk. Lag et tydelig, strukturert møtereferat basert på teksten.';
