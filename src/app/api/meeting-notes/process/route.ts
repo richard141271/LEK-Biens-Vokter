@@ -122,19 +122,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'OPENAI_API_KEY mangler i miljøvariabler' }, { status: 500 });
     }
 
-    const whisperFormData = new FormData();
-    whisperFormData.append('file', new Blob([buffer], { type: file.type || 'audio/webm' }), fileName);
-    whisperFormData.append('model', 'gpt-4o-mini-transcribe');
-    whisperFormData.append('language', 'no');
-
-    const whisperResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${openaiApiKey}`,
-      },
-      body: whisperFormData,
-    });
-
     let transcript = '';
     let summary = '';
     let actionPointsArr: string[] = [];
@@ -144,85 +131,112 @@ export async function POST(request: Request) {
       'Transkripsjon av lydopptaket feilet. Lydopptaket er lagret, men tekst er ikke tilgjengelig.';
     const failedTranscriptionTitle = 'Transkripsjon feilet – lydopptaket er lagret';
 
-    if (!whisperResponse.ok) {
-      const errorText = await whisperResponse.text();
-      console.error('Whisper error', whisperResponse.status, errorText);
+    const mimeType = file.type || 'audio/webm';
+
+    const transcribeWithModel = async (model: string) => {
+      const formData = new FormData();
+      formData.append('file', new Blob([buffer], { type: mimeType }), fileName);
+      formData.append('model', model);
+      formData.append('language', 'no');
+
+      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${openaiApiKey}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Whisper error', model, response.status, errorText);
+        throw new Error(`Whisper error for model ${model}: ${errorText}`);
+      }
+
+      const data = (await response.json()) as { text?: string };
+      return data.text || '';
+    };
+
+    try {
+      transcript = await transcribeWithModel('gpt-4o-mini-transcribe');
+    } catch (firstError) {
+      console.error('Primary transcription model failed, trying fallback', firstError);
+      try {
+        transcript = await transcribeWithModel('whisper-1');
+      } catch (secondError) {
+        console.error('Fallback transcription model also failed', secondError);
+      }
+    }
+
+    if (!transcript) {
       summary = failedTranscriptionSummary;
       title = failedTranscriptionTitle;
     } else {
-      const whisperData = (await whisperResponse.json()) as { text?: string };
-      transcript = whisperData.text || '';
+      const systemPrompt =
+        'Du er en profesjonell referatskriver på norsk. Lag et tydelig, strukturert møtereferat basert på teksten.';
 
-      if (!transcript) {
-        summary = failedTranscriptionSummary;
-        title = failedTranscriptionTitle;
-      } else {
-        const systemPrompt =
-          'Du er en profesjonell referatskriver på norsk. Lag et tydelig, strukturert møtereferat basert på teksten.';
-
-        const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${openaiApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'gpt-4.1-mini',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              {
-                role: 'user',
-                content:
-                  'Lag et strukturert JSON-svar med følgende format:\n{\n  "summary": "Kort oppsummering av møtet",\n  "decisions": ["beslutning 1", "beslutning 2"],\n  "action_points": ["oppgave 1", "oppgave 2"]\n}\n\nMøtereferatets rå transkripsjon er:\n\n' +
-                  transcript,
-              },
-            ],
-            response_format: {
-              type: 'json_schema',
-              json_schema: {
-                name: 'meeting_minutes',
-                schema: {
-                  type: 'object',
-                  properties: {
-                    summary: { type: 'string' },
-                    decisions: { type: 'array', items: { type: 'string' } },
-                    action_points: { type: 'array', items: { type: 'string' } },
-                  },
-                  required: ['summary', 'decisions', 'action_points'],
-                  additionalProperties: false,
+      const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4.1-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            {
+              role: 'user',
+              content:
+                'Lag et strukturert JSON-svar med følgende format:\n{\n  "summary": "Kort oppsummering av møtet",\n  "decisions": ["beslutning 1", "beslutning 2"],\n  "action_points": ["oppgave 1", "oppgave 2"]\n}\n\nMøtereferatets rå transkripsjon er:\n\n' +
+                transcript,
+            },
+          ],
+          response_format: {
+            type: 'json_schema',
+            json_schema: {
+              name: 'meeting_minutes',
+              schema: {
+                type: 'object',
+                properties: {
+                  summary: { type: 'string' },
+                  decisions: { type: 'array', items: { type: 'string' } },
+                  action_points: { type: 'array', items: { type: 'string' } },
                 },
+                required: ['summary', 'decisions', 'action_points'],
+                additionalProperties: false,
               },
             },
-          }),
-        });
+          },
+        }),
+      });
 
-        if (!gptResponse.ok) {
-          const errorText = await gptResponse.text();
-          console.error('GPT error', gptResponse.status, errorText);
-          summary =
-            'AI-oppsummering feilet. Lydopptak og rå transkripsjon er lagret, men ikke strukturert.';
-        } else {
-          const gptJson = await gptResponse.json();
-          const contentRaw =
-            gptJson.choices?.[0]?.message?.content && typeof gptJson.choices[0].message.content === 'string'
-              ? gptJson.choices[0].message.content
-              : JSON.stringify(gptJson.choices?.[0]?.message?.content || {});
+      if (!gptResponse.ok) {
+        const errorText = await gptResponse.text();
+        console.error('GPT error', gptResponse.status, errorText);
+        summary =
+          'AI-oppsummering feilet. Lydopptak og rå transkripsjon er lagret, men ikke strukturert.';
+      } else {
+        const gptJson = await gptResponse.json();
+        const contentRaw =
+          gptJson.choices?.[0]?.message?.content && typeof gptJson.choices[0].message.content === 'string'
+            ? gptJson.choices[0].message.content
+            : JSON.stringify(gptJson.choices?.[0]?.message?.content || {});
 
-          let parsed: { summary?: string; decisions?: string[]; action_points?: string[] } = {};
-          try {
-            parsed = JSON.parse(contentRaw);
-          } catch (e) {
-            console.warn('Failed to parse GPT json content, falling back to raw', e);
-          }
+        let parsed: { summary?: string; decisions?: string[]; action_points?: string[] } = {};
+        try {
+          parsed = JSON.parse(contentRaw);
+        } catch (e) {
+          console.warn('Failed to parse GPT json content, falling back to raw', e);
+        }
 
-          summary = parsed.summary || '';
-          if (Array.isArray(parsed.action_points)) {
-            actionPointsArr = parsed.action_points;
-          }
+        summary = parsed.summary || '';
+        if (Array.isArray(parsed.action_points)) {
+          actionPointsArr = parsed.action_points;
+        }
 
-          if (parsed.summary && parsed.summary.length > 0) {
-            title = parsed.summary.slice(0, 80);
-          }
+        if (parsed.summary && parsed.summary.length > 0) {
+          title = parsed.summary.slice(0, 80);
         }
       }
     }
