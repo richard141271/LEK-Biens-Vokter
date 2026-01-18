@@ -425,63 +425,92 @@ export default function SurveyResultsAdminPage() {
     const leftX = margin;
     const rightX = pageWidth / 2 + 4;
 
+    // Aksept-tabell
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(12);
     doc.text('Aksept: Ville du brukt systemet?', leftX, sectionTop);
 
     doc.setFontSize(10);
-    if (stats.total > 0 && totalWouldUse > 0) {
-      const yesPercent = Math.round((stats.wouldUse.yes / stats.total) * 100);
+    if (totalWouldUse > 0) {
+      const answered = totalWouldUse;
+      const yesPercent = Math.round((stats.wouldUse.yes / answered) * 100);
       const yesEasyPercent = Math.round(
-        (stats.wouldUse.yesIfEasy / stats.total) * 100
+        (stats.wouldUse.yesIfEasy / answered) * 100
       );
       const unsurePercent = Math.round(
-        (stats.wouldUse.unsure / stats.total) * 100
+        (stats.wouldUse.unsure / answered) * 100
       );
-      const noPercent = Math.round((stats.wouldUse.no / stats.total) * 100);
+      const noPercent = Math.round((stats.wouldUse.no / answered) * 100);
       const positivePercent = Math.round(
-        (totalPositive / stats.total) * 100
+        (totalPositive / answered) * 100
       );
 
-      const barWidth = (pageWidth / 2 - margin * 2) * 0.95;
-      const barHeight = 5;
-      const barStartY = sectionTop + 6;
-      const lineGap = 10;
+      const tableY = sectionTop + 4;
+      const rowHeight = 7;
+      const rows = [
+        ['Ja', String(stats.wouldUse.yes), `${yesPercent}%`],
+        [
+          'Ja, hvis det er enkelt å bruke',
+          String(stats.wouldUse.yesIfEasy),
+          `${yesEasyPercent}%`,
+        ],
+        ['Vet ikke', String(stats.wouldUse.unsure), `${unsurePercent}%`],
+        ['Nei', String(stats.wouldUse.no), `${noPercent}%`],
+        [
+          'Samlet positiv holdning',
+          String(totalPositive),
+          `${positivePercent}%`,
+        ],
+      ];
 
-      const drawBar = (index: number, label: string, percent: number) => {
-        const y = barStartY + index * lineGap;
-        const width = (barWidth * percent) / 100;
-        doc.setFillColor(251, 191, 36);
-        doc.roundedRect(leftX, y, width, barHeight, 1.5, 1.5, 'F');
-        doc.setTextColor(55, 65, 81);
-        doc.text(`${label} – ${percent}%`, leftX, y - 1);
-      };
+      const col1Width = 70;
+      const col2Width = 18;
+      const col3Width = 24;
+      const tableWidth = col1Width + col2Width + col3Width;
 
-      drawBar(0, 'Ja', yesPercent);
-      drawBar(1, 'Ja, hvis det er enkelt å bruke', yesEasyPercent);
-      drawBar(2, 'Vet ikke', unsurePercent);
-      drawBar(3, 'Nei', noPercent);
+      doc.setDrawColor(209, 213, 219);
+      doc.setLineWidth(0.1);
 
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(10);
-      doc.text(
-        `Samlet positiv holdning: ${totalPositive} svar (${positivePercent}%)`,
-        leftX,
-        barStartY + 4 * lineGap + 4
-      );
+      // Ytre ramme
+      doc.rect(leftX, tableY, tableWidth, rowHeight * (rows.length + 1));
+
+      // Horisontale linjer
+      for (let i = 1; i <= rows.length; i++) {
+        const y = tableY + rowHeight * i;
+        doc.line(leftX, y, leftX + tableWidth, y);
+      }
+
+      // Vertikale linjer
+      const col1X = leftX + col1Width;
+      const col2X = col1X + col2Width;
+      doc.line(col1X, tableY, col1X, tableY + rowHeight * (rows.length + 1));
+      doc.line(col2X, tableY, col2X, tableY + rowHeight * (rows.length + 1));
+
+      // Header
+      doc.setTextColor(55, 65, 81);
+      doc.text('Svaralternativ', leftX + 2, tableY + 4.5);
+      doc.text('Antall', col1X + 2, tableY + 4.5);
+      doc.text('Prosent', col2X + 2, tableY + 4.5);
+
+      // Rader
+      rows.forEach((row, index) => {
+        const y = tableY + rowHeight * (index + 1) + 4.5;
+        doc.text(row[0], leftX + 2, y);
+        doc.text(row[1], col1X + 2, y);
+        doc.text(row[2], col2X + 2, y);
+      });
     } else {
       doc.setTextColor(107, 114, 128);
       doc.text('Ingen gyldige svar registrert ennå.', leftX, sectionTop + 8);
     }
 
+    // Snittscore-tabell
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(12);
     doc.text('Snittscore digitale verktøy (1–5)', rightX, sectionTop);
 
     doc.setFontSize(10);
     doc.setTextColor(55, 65, 81);
-    const toolYStart = sectionTop + 6;
-    const toolLineGap = 7;
     const scores = [
       {
         label: 'Automatisk smittevarsling',
@@ -500,20 +529,46 @@ export default function SurveyResultsAdminPage() {
         value: stats.avgOverview,
       },
     ];
+    const scoreTableY = sectionTop + 4;
+    const scoreRowHeight = 7;
+    const scoreCol1Width = 70;
+    const scoreCol2Width = 24;
+    const scoreTableWidth = scoreCol1Width + scoreCol2Width;
+
+    doc.setDrawColor(209, 213, 219);
+    doc.setLineWidth(0.1);
+    doc.rect(rightX, scoreTableY, scoreTableWidth, scoreRowHeight * (scores.length + 1));
+
+    for (let i = 1; i <= scores.length; i++) {
+      const y = scoreTableY + scoreRowHeight * i;
+      doc.line(rightX, y, rightX + scoreTableWidth, y);
+    }
+
+    const scoreCol1X = rightX + scoreCol1Width;
+    doc.line(
+      scoreCol1X,
+      scoreTableY,
+      scoreCol1X,
+      scoreTableY + scoreRowHeight * (scores.length + 1)
+    );
+
+    doc.setTextColor(55, 65, 81);
+    doc.text('Funksjon', rightX + 2, scoreTableY + 4.5);
+    doc.text('Snitt', scoreCol1X + 2, scoreTableY + 4.5);
 
     scores.forEach((s, index) => {
-      const y = toolYStart + index * toolLineGap;
-      const label = s.label;
+      const y = scoreTableY + scoreRowHeight * (index + 1) + 4.5;
       const valueText =
         s.value && s.value > 0 ? s.value.toFixed(1).replace('.', ',') : '–';
-      doc.text(label, rightX, y);
-      doc.text(valueText, rightX + 75, y);
+      doc.text(s.label, rightX + 2, y);
+      doc.text(valueText, scoreCol1X + 2, y);
     });
 
-    const challengesY = sectionTop + 4 + toolLineGap * 6;
+    // Utfordringer-tabell
+    const challengesTop = sectionTop + 4 + scoreRowHeight * (scores.length + 1) + 14;
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(12);
-    doc.text('Eksempler på største utfordringer', leftX, challengesY);
+    doc.text('Eksempler på største utfordringer', leftX, challengesTop);
 
     doc.setFontSize(10);
     doc.setTextColor(55, 65, 81);
@@ -534,14 +589,34 @@ export default function SurveyResultsAdminPage() {
       .slice(0, 8);
 
     if (challenges.length) {
-      const startY = challengesY + 6;
+      const challengeRowHeight = 6;
+      const challengeWidth = pageWidth - margin * 2;
+      const tableHeight = challengeRowHeight * (challenges.length + 1);
+
+      doc.setDrawColor(209, 213, 219);
+      doc.setLineWidth(0.1);
+      const tableY = challengesTop + 4;
+      doc.rect(leftX, tableY, challengeWidth, tableHeight);
+
+      for (let i = 1; i <= challenges.length; i++) {
+        const y = tableY + challengeRowHeight * i;
+        doc.line(leftX, y, leftX + challengeWidth, y);
+      }
+
+      doc.setTextColor(55, 65, 81);
+      doc.text('Utfordring', leftX + 2, tableY + 4.5);
+
       challenges.forEach((c, index) => {
+        const y = tableY + challengeRowHeight * (index + 1) + 4;
         const text = `${index + 1}. ${c}`;
-        const wrapped = doc.splitTextToSize(text, pageWidth - margin * 2);
-        doc.text(wrapped, leftX, startY + index * 6);
+        const wrapped = doc.splitTextToSize(
+          text,
+          challengeWidth - 4
+        );
+        doc.text(wrapped, leftX + 2, y);
       });
     } else {
-      doc.text('Ingen tekstsvar registrert.', leftX, challengesY + 6);
+      doc.text('Ingen tekstsvar registrert.', leftX, challengesTop + 6);
     }
 
     doc.save('behovsanalyse_rapport.pdf');
@@ -830,8 +905,13 @@ export default function SurveyResultsAdminPage() {
                   color: 'bg-red-500',
                 },
               ].map((item) => {
-                const percent = stats.total
-                  ? Math.round((item.value / stats.total) * 100)
+                const answered =
+                  stats.wouldUse.yes +
+                  stats.wouldUse.yesIfEasy +
+                  stats.wouldUse.unsure +
+                  stats.wouldUse.no;
+                const percent = answered
+                  ? Math.round((item.value / answered) * 100)
                   : 0;
                 return (
                   <div key={item.label}>
@@ -855,8 +935,13 @@ export default function SurveyResultsAdminPage() {
                 {(() => {
                   const positiveCount =
                     stats.wouldUse.yes + stats.wouldUse.yesIfEasy;
-                  const positivePercent = stats.total
-                    ? Math.round((positiveCount / stats.total) * 100)
+                  const answered =
+                    stats.wouldUse.yes +
+                    stats.wouldUse.yesIfEasy +
+                    stats.wouldUse.unsure +
+                    stats.wouldUse.no;
+                  const positivePercent = answered
+                    ? Math.round((positiveCount / answered) * 100)
                     : 0;
                   return `${positiveCount} svar (${positivePercent}%)`;
                 })()}

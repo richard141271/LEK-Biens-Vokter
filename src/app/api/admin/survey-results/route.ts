@@ -58,10 +58,33 @@ export async function GET() {
 
     const safeResponses = responses || [];
 
-    const pilotCount = safeResponses.filter((r: any) => {
-      const answer = (r.pilot_answer || '').toString().toLowerCase();
-      return answer === 'ja' || answer === 'kanskje';
-    }).length;
+    let pilotCount = 0;
+
+    const { count: pilotCountNew, error: pilotError } = await adminClient
+      .from('pilot_interest')
+      .select('*', { count: 'exact', head: true });
+
+    if (pilotError) {
+      console.error(
+        'Feil ved henting av pilot-interesse-count (pilot_interest)',
+        pilotError
+      );
+
+      const { count: legacyCount, error: legacyError } = await adminClient
+        .from('survey_pilot_interest')
+        .select('*', { count: 'exact', head: true });
+
+      if (legacyError) {
+        console.error(
+          'Feil ved henting av pilot-interesse-count (survey_pilot_interest)',
+          legacyError
+        );
+      } else {
+        pilotCount = legacyCount || 0;
+      }
+    } else {
+      pilotCount = pilotCountNew || 0;
+    }
 
     return NextResponse.json(
       {
