@@ -56,14 +56,17 @@ export async function GET() {
       );
     }
 
-    const { count: pilotCount } = await adminClient
-      .from('pilot_interest')
-      .select('*', { count: 'exact', head: true });
+    const safeResponses = responses || [];
+
+    const pilotCount = safeResponses.filter((r: any) => {
+      const answer = (r.pilot_answer || '').toString().toLowerCase();
+      return answer === 'ja' || answer === 'kanskje';
+    }).length;
 
     return NextResponse.json(
       {
-        responses: responses || [],
-        pilotCount: pilotCount || 0,
+        responses: safeResponses,
+        pilotCount,
       },
       { status: 200 }
     );

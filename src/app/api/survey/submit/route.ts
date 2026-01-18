@@ -91,6 +91,9 @@ export async function POST(request: Request) {
         willingness_to_pay: body.pricePerYear || null,
         biggest_challenge: body.biggestChallenge || null,
         feature_wishes: body.featureWishes || null,
+        pilot_answer: body.pilotAnswer || null,
+        pilot_interest:
+          body.pilotAnswer === 'ja' || body.pilotAnswer === 'kanskje',
         is_test: false,
         is_invalid: false,
         submitted_at: new Date().toISOString(),

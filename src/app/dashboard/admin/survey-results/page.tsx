@@ -32,6 +32,8 @@ type SurveyResponse = {
   willingness_to_pay: string | null;
   biggest_challenge: string | null;
   feature_wishes: string | null;
+  pilot_answer: string | null;
+  pilot_interest: boolean | null;
   is_test: boolean | null;
   is_invalid: boolean | null;
   submitted_at: string | null;
@@ -53,6 +55,7 @@ export default function SurveyResultsAdminPage() {
   const [activeResponse, setActiveResponse] = useState<SurveyResponse | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
+  const [challengeFilter, setChallengeFilter] = useState<'all' | 'disease'>('all');
 
   useEffect(() => {
     checkUser();
@@ -219,6 +222,33 @@ export default function SurveyResultsAdminPage() {
     };
   }, [responses]);
 
+  const challengeQuotes = useMemo(() => {
+    const source = responses.filter(
+      (r) => r.is_test !== true && r.is_invalid !== true
+    );
+    const texts = source
+      .map((r) => r.biggest_challenge)
+      .filter((v): v is string => !!v && !!v.trim());
+
+    const filtered =
+      challengeFilter === 'disease'
+        ? texts.filter((t) => {
+            const lower = t.toLowerCase();
+            return lower.includes('smitte') || lower.includes('sykdom');
+          })
+        : texts;
+
+    const unique: string[] = [];
+    filtered.forEach((t) => {
+      const normalized = t.trim();
+      if (!unique.some((u) => u === normalized)) {
+        unique.push(normalized);
+      }
+    });
+
+    return unique.slice(0, 10);
+  }, [responses, challengeFilter]);
+
   const exportCsv = () => {
     if (!responses.length) return;
 
@@ -353,6 +383,9 @@ export default function SurveyResultsAdminPage() {
     const memberPercent = stats.total
       ? Math.round((stats.memberCount / stats.total) * 100)
       : 0;
+    const pilotPercent = stats.total
+      ? Math.round((pilotCount / stats.total) * 100)
+      : 0;
 
     drawCard(
       0,
@@ -364,7 +397,7 @@ export default function SurveyResultsAdminPage() {
       1,
       'Pilotinteresse',
       String(pilotCount),
-      'Unike e-postadresser'
+      stats.total ? `${pilotPercent}% av svarene` : 'Andel som ønsker pilot'
     );
     drawCard(
       2,
@@ -387,6 +420,8 @@ export default function SurveyResultsAdminPage() {
       stats.wouldUse.unsure +
       stats.wouldUse.no;
 
+    const totalPositive = stats.wouldUse.yes + stats.wouldUse.yesIfEasy;
+
     const leftX = margin;
     const rightX = pageWidth / 2 + 4;
 
@@ -404,6 +439,9 @@ export default function SurveyResultsAdminPage() {
         (stats.wouldUse.unsure / stats.total) * 100
       );
       const noPercent = Math.round((stats.wouldUse.no / stats.total) * 100);
+      const positivePercent = Math.round(
+        (totalPositive / stats.total) * 100
+      );
 
       const barWidth = (pageWidth / 2 - margin * 2) * 0.95;
       const barHeight = 5;
@@ -423,6 +461,14 @@ export default function SurveyResultsAdminPage() {
       drawBar(1, 'Ja, hvis det er enkelt å bruke', yesEasyPercent);
       drawBar(2, 'Vet ikke', unsurePercent);
       drawBar(3, 'Nei', noPercent);
+
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(10);
+      doc.text(
+        `Samlet positiv holdning: ${totalPositive} svar (${positivePercent}%)`,
+        leftX,
+        barStartY + 4 * lineGap + 4
+      );
     } else {
       doc.setTextColor(107, 114, 128);
       doc.text('Ingen gyldige svar registrert ennå.', leftX, sectionTop + 8);
@@ -475,7 +521,17 @@ export default function SurveyResultsAdminPage() {
     const challenges = responses
       .map((r) => r.biggest_challenge)
       .filter((v): v is string => !!v)
-      .slice(0, 5);
+      .sort((a, b) => {
+        const aLower = a.toLowerCase();
+        const bLower = b.toLowerCase();
+        const aMatch =
+          aLower.includes('smitte') || aLower.includes('sykdom');
+        const bMatch =
+          bLower.includes('smitte') || bLower.includes('sykdom');
+        if (aMatch === bMatch) return 0;
+        return aMatch ? -1 : 1;
+      })
+      .slice(0, 8);
 
     if (challenges.length) {
       const startY = challengesY + 6;
@@ -713,6 +769,11 @@ export default function SurveyResultsAdminPage() {
               Pilotinteresserte
             </p>
             <p className="text-2xl font-bold text-honey-600">{pilotCount}</p>
+            <p className="text-xs text-gray-500 mt-1">
+              {stats.total
+                ? `${Math.round((pilotCount / stats.total) * 100)}% av svarene`
+                : 'Ingen svar ennå'}
+            </p>
           </div>
           <div className="bg-white p-4 rounded-xl border border-gray-200">
             <p className="text-xs text-gray-500 uppercase tracking-wide">
@@ -789,7 +850,50 @@ export default function SurveyResultsAdminPage() {
                   </div>
                 );
               })}
+              <div className="pt-2 border-t border-gray-100 text-xs text-gray-600">
+                <span className="font-semibold">Samlet positiv holdning: </span>
+                {(() => {
+                  const positiveCount =
+                    stats.wouldUse.yes + stats.wouldUse.yesIfEasy;
+                  const positivePercent = stats.total
+                    ? Math.round((positiveCount / stats.total) * 100)
+                    : 0;
+                  return `${positiveCount} svar (${positivePercent}%)`;
+                })()}
+              </div>
             </div>
+          </div>
+
+          <div className="bg-white p-5 rounded-xl border border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold text-gray-900">
+                Rapporterte utfordringer
+              </h2>
+              <div className="flex items-center gap-2 text-xs text-gray-600">
+                <span>Filter:</span>
+                <select
+                  value={challengeFilter}
+                  onChange={(e) =>
+                    setChallengeFilter(e.target.value as 'all' | 'disease')
+                  }
+                  className="border border-gray-300 rounded-full px-2 py-1 bg-white text-xs"
+                >
+                  <option value="all">Alle</option>
+                  <option value="disease">Smitte/sykdom først</option>
+                </select>
+              </div>
+            </div>
+            {challengeQuotes.length === 0 ? (
+              <p className="text-xs text-gray-500">
+                Ingen utfordringer registrert ennå.
+              </p>
+            ) : (
+              <ol className="space-y-2 text-sm text-gray-700 list-decimal list-inside">
+                {challengeQuotes.map((text, index) => (
+                  <li key={index}>{text}</li>
+                ))}
+              </ol>
+            )}
           </div>
 
           <div className="bg-white p-5 rounded-xl border border-gray-200">
