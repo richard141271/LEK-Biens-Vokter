@@ -94,9 +94,10 @@ export async function POST(request: Request) {
       ip_address: getClientIp(request),
     };
 
-    const { error } = await client
+    const { data: insertData, error } = await client
       .from('survey_responses')
-      .insert(basePayload);
+      .insert(basePayload)
+      .select('id');
 
     if (error) {
       console.error('Feil ved lagring av survey-respons', error);
@@ -114,8 +115,38 @@ export async function POST(request: Request) {
       );
     }
 
+    const rows: any = insertData as any;
+    const responseId = Array.isArray(rows) ? rows[0]?.id : rows?.id;
+
+    const pilotPositive =
+      body.pilotAnswer === 'ja' || body.pilotAnswer === 'kanskje';
+
+    if (pilotPositive && responseId) {
+      try {
+        const { error: pilotColumnsError } = await client
+          .from('survey_responses')
+          .update({
+            pilot_answer: body.pilotAnswer || null,
+            pilot_interest: true,
+          })
+          .eq('id', responseId);
+
+        if (pilotColumnsError) {
+          console.error(
+            'Feil ved oppdatering av pilot-kolonner i survey_responses',
+            pilotColumnsError
+          );
+        }
+      } catch (e) {
+        console.error(
+          'Uventet feil ved oppdatering av pilot-kolonner i survey_responses',
+          e
+        );
+      }
+    }
+
     if (
-      (body.pilotAnswer === 'ja' || body.pilotAnswer === 'kanskje') &&
+      pilotPositive &&
       body.pilotEmail
     ) {
       const { error: pilotError } = await client
@@ -129,16 +160,44 @@ export async function POST(request: Request) {
 
       if (pilotError) {
         // If columns don't exist yet (migration pending), try fallback without them
-        if (pilotError.message?.includes('column "status" of relation "pilot_interest" does not exist')) {
-           const { error: fallbackError } = await client
+        const message = pilotError.message || '';
+
+        if (
+          message.includes(
+            'column "status" of relation "pilot_interest" does not exist'
+          ) ||
+          message.includes(
+            'column \"status\" of relation \"pilot_interest\" does not exist'
+          )
+        ) {
+          const { error: fallbackError } = await client
             .from('pilot_interest')
             .insert({
               email: body.pilotEmail,
               interested: true,
             });
-            if (fallbackError) {
-              console.error('Feil ved lagring av pilot-interesse (fallback)', fallbackError);
-            }
+          if (fallbackError) {
+            console.error(
+              'Feil ved lagring av pilot-interesse (fallback pilot_interest)',
+              fallbackError
+            );
+          }
+        } else if (
+          message.includes('relation "pilot_interest" does not exist') ||
+          message.includes('relation \"pilot_interest\" does not exist')
+        ) {
+          const { error: legacyError } = await client
+            .from('survey_pilot_interest')
+            .insert({
+              email: body.pilotEmail,
+              interested: true,
+            });
+          if (legacyError) {
+            console.error(
+              'Feil ved lagring av pilot-interesse (fallback survey_pilot_interest)',
+              legacyError
+            );
+          }
         } else {
           console.error('Feil ved lagring av pilot-interesse', pilotError);
         }

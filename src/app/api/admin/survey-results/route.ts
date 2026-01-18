@@ -65,18 +65,30 @@ export async function GET() {
       return interest === true || positiveAnswer;
     }).length;
 
-    let pilotCountFromTables = 0;
+    let pilotCountFromPilotInterest = 0;
+    let pilotCountFromLegacy = 0;
 
-    const { data: pilotRows, error: pilotError } = await adminClient
-      .from('pilot_interest')
-      .select('id');
+    try {
+      const { data: pilotRows, error: pilotError } = await adminClient
+        .from('pilot_interest')
+        .select('id');
 
-    if (pilotError) {
+      if (pilotError) {
+        console.error(
+          'Feil ved henting av pilot-interesse-count (pilot_interest)',
+          pilotError
+        );
+      } else {
+        pilotCountFromPilotInterest = (pilotRows || []).length;
+      }
+    } catch (e) {
       console.error(
-        'Feil ved henting av pilot-interesse-count (pilot_interest)',
-        pilotError
+        'Uventet feil ved henting av pilot-interesse-count (pilot_interest)',
+        e
       );
+    }
 
+    try {
       const { data: legacyRows, error: legacyError } = await adminClient
         .from('survey_pilot_interest')
         .select('id');
@@ -87,13 +99,20 @@ export async function GET() {
           legacyError
         );
       } else {
-        pilotCountFromTables = (legacyRows || []).length;
+        pilotCountFromLegacy = (legacyRows || []).length;
       }
-    } else {
-      pilotCountFromTables = (pilotRows || []).length;
+    } catch (e) {
+      console.error(
+        'Uventet feil ved henting av pilot-interesse-count (survey_pilot_interest)',
+        e
+      );
     }
 
-    const pilotCount = Math.max(pilotCountFromResponses, pilotCountFromTables);
+    const pilotCountFromTables =
+      pilotCountFromPilotInterest + pilotCountFromLegacy;
+
+    const pilotCount =
+      pilotCountFromTables > 0 ? pilotCountFromTables : pilotCountFromResponses;
 
     return NextResponse.json(
       {

@@ -372,6 +372,46 @@ export default function SurveyResultsAdminPage() {
       return lower.includes('smitte') || lower.includes('sykdom');
     }).length;
 
+    const prioritizedQuotes: string[] = [];
+
+    const addQuotes = (predicate: (t: string) => boolean) => {
+      challengeTexts.forEach((text) => {
+        if (prioritizedQuotes.length >= 10) return;
+        const normalized = text.trim();
+        if (!normalized) return;
+        if (!predicate(normalized)) return;
+        if (!prioritizedQuotes.some((q) => q === normalized)) {
+          prioritizedQuotes.push(normalized);
+        }
+      });
+    };
+
+    addQuotes((t) => {
+      const lower = t.toLowerCase();
+      return (
+        lower.includes('smitte') ||
+        lower.includes('sykdom') ||
+        lower.includes('varroa')
+      );
+    });
+
+    addQuotes((t) => {
+      const lower = t.toLowerCase();
+      return lower.includes('rapport') || lower.includes('melding');
+    });
+
+    addQuotes((t) => {
+      const lower = t.toLowerCase();
+      return (
+        lower.includes('hverdag') ||
+        lower.includes('tid') ||
+        lower.includes('praktisk') ||
+        lower.includes('arbeid')
+      );
+    });
+
+    addQuotes(() => true);
+
     const scores = [
       {
         label: 'Automatisk smittevarsling',
@@ -749,6 +789,37 @@ export default function SurveyResultsAdminPage() {
       doc.text(wrapped, margin, detailedY);
       detailedY += wrapped.length * 7;
     });
+
+    if (prioritizedQuotes.length > 0) {
+      detailedY += 6;
+      doc.setFontSize(12);
+      doc.setTextColor(15, 23, 42);
+      doc.text('Utvalgte fritekstsvar fra birøktere', margin, detailedY);
+      detailedY += 8;
+
+      doc.setFontSize(9);
+      doc.setTextColor(75, 85, 99);
+
+      prioritizedQuotes.slice(0, 10).forEach((quote) => {
+        if (detailedY > pageHeight - margin - 20) {
+          doc.addPage();
+          detailedY = 30;
+          doc.setFontSize(12);
+          doc.setTextColor(15, 23, 42);
+          doc.text('Utvalgte fritekstsvar fra birøktere (forts.)', margin, detailedY);
+          detailedY += 8;
+          doc.setFontSize(9);
+          doc.setTextColor(75, 85, 99);
+        }
+
+        const wrapped = doc.splitTextToSize(
+          `“${quote}”`,
+          pageWidth - margin * 2
+        );
+        doc.text(wrapped, margin, detailedY);
+        detailedY += wrapped.length * 5 + 3;
+      });
+    }
 
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);

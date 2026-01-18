@@ -203,7 +203,7 @@ export default function AdminDashboard() {
         <section className="mb-12">
           <h2 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
             <BarChart2 className="w-5 h-5 text-honey-600" />
-            Analyse & Pilot
+            Pilot og analyse
           </h2>
           <p className="text-sm text-gray-500 mb-4">
             Behovsanalysen og oppfølging av pilotinteresserte birøktere.
