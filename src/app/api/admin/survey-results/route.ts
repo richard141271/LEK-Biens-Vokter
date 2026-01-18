@@ -58,61 +58,13 @@ export async function GET() {
 
     const safeResponses = responses || [];
 
-    const pilotCountFromResponses = safeResponses.filter((response: any) => {
-      const answer = response.pilot_answer as string | null;
+    const pilotCount = safeResponses.filter((response: any) => {
+      const answerRaw = response.pilot_answer as string | null;
+      const answer = (answerRaw || '').toLowerCase();
       const interest = response.pilot_interest as boolean | null;
       const positiveAnswer = answer === 'ja' || answer === 'kanskje';
       return interest === true || positiveAnswer;
     }).length;
-
-    let pilotCountFromPilotInterest = 0;
-    let pilotCountFromLegacy = 0;
-
-    try {
-      const { data: pilotRows, error: pilotError } = await adminClient
-        .from('pilot_interest')
-        .select('id');
-
-      if (pilotError) {
-        console.error(
-          'Feil ved henting av pilot-interesse-count (pilot_interest)',
-          pilotError
-        );
-      } else {
-        pilotCountFromPilotInterest = (pilotRows || []).length;
-      }
-    } catch (e) {
-      console.error(
-        'Uventet feil ved henting av pilot-interesse-count (pilot_interest)',
-        e
-      );
-    }
-
-    try {
-      const { data: legacyRows, error: legacyError } = await adminClient
-        .from('survey_pilot_interest')
-        .select('id');
-
-      if (legacyError) {
-        console.error(
-          'Feil ved henting av pilot-interesse-count (survey_pilot_interest)',
-          legacyError
-        );
-      } else {
-        pilotCountFromLegacy = (legacyRows || []).length;
-      }
-    } catch (e) {
-      console.error(
-        'Uventet feil ved henting av pilot-interesse-count (survey_pilot_interest)',
-        e
-      );
-    }
-
-    const pilotCountFromTables =
-      pilotCountFromPilotInterest + pilotCountFromLegacy;
-
-    const pilotCount =
-      pilotCountFromTables > 0 ? pilotCountFromTables : pilotCountFromResponses;
 
     return NextResponse.json(
       {
