@@ -58,7 +58,14 @@ export async function GET() {
 
     const safeResponses = responses || [];
 
-    let pilotCount = 0;
+    const pilotCountFromResponses = safeResponses.filter((response: any) => {
+      const answer = response.pilot_answer as string | null;
+      const interest = response.pilot_interest as boolean | null;
+      const positiveAnswer = answer === 'ja' || answer === 'kanskje';
+      return interest === true || positiveAnswer;
+    }).length;
+
+    let pilotCountFromTables = 0;
 
     const { data: pilotRows, error: pilotError } = await adminClient
       .from('pilot_interest')
@@ -80,11 +87,13 @@ export async function GET() {
           legacyError
         );
       } else {
-        pilotCount = (legacyRows || []).length;
+        pilotCountFromTables = (legacyRows || []).length;
       }
     } else {
-      pilotCount = (pilotRows || []).length;
+      pilotCountFromTables = (pilotRows || []).length;
     }
+
+    const pilotCount = Math.max(pilotCountFromResponses, pilotCountFromTables);
 
     return NextResponse.json(
       {

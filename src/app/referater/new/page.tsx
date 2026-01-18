@@ -97,7 +97,12 @@ export default function NewMeetingRecordingPage() {
 
       recorder.onstop = () => {
         stream.getTracks().forEach((track) => track.stop());
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        const firstChunk = chunksRef.current[0] as Blob | undefined;
+        const mimeType =
+          firstChunk && firstChunk.type && firstChunk.type.length > 0
+            ? firstChunk.type
+            : 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: mimeType });
         setRecordedBlob(blob);
         setRecording(false);
         stopTimer();
@@ -133,8 +138,17 @@ export default function NewMeetingRecordingPage() {
     setError(null);
 
     try {
+      let extension = 'webm';
+      if (recordedBlob.type === 'audio/mp4') {
+        extension = 'm4a';
+      } else if (recordedBlob.type === 'audio/mpeg') {
+        extension = 'mp3';
+      } else if (recordedBlob.type === 'audio/ogg') {
+        extension = 'ogg';
+      }
+
       const formData = new FormData();
-      formData.append('file', recordedBlob, 'meeting.webm');
+      formData.append('file', recordedBlob, `meeting.${extension}`);
       formData.append('duration_seconds', String(elapsedSeconds));
 
       const res = await fetch('/api/meeting-notes/process', {

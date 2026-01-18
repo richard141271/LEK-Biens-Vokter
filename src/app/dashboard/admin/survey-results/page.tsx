@@ -499,6 +499,15 @@ export default function SurveyResultsAdminPage() {
         doc.text(row[1], col1X + 2, y);
         doc.text(row[2], col2X + 2, y);
       });
+
+      const highlightY = tableY + rowHeight * (rows.length + 2) + 2;
+      doc.setTextColor(220, 38, 38);
+      doc.setFontSize(11);
+      doc.text(
+        `Samlet positiv holdning: ${positivePercent}% JA – kun ${noPercent}% NEI`,
+        leftX,
+        highlightY,
+      );
     } else {
       doc.setTextColor(107, 114, 128);
       doc.text('Ingen gyldige svar registrert ennå.', leftX, sectionTop + 8);
@@ -841,13 +850,15 @@ export default function SurveyResultsAdminPage() {
           </div>
           <div className="bg-white p-4 rounded-xl border border-gray-200">
             <p className="text-xs text-gray-500 uppercase tracking-wide">
-              Pilotinteresserte
+              Pilotinteresse
             </p>
-            <p className="text-2xl font-bold text-honey-600">{pilotCount}</p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-2xl font-bold text-honey-600">
               {stats.total
-                ? `${Math.round((pilotCount / stats.total) * 100)}% av svarene`
-                : 'Ingen svar ennå'}
+                ? `${Math.round((pilotCount / stats.total) * 100)}%`
+                : '–'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {stats.total ? `${pilotCount} svar` : 'Ingen svar ennå'}
             </p>
           </div>
           <div className="bg-white p-4 rounded-xl border border-gray-200">
@@ -876,7 +887,7 @@ export default function SurveyResultsAdminPage() {
 
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
           <div className="bg-white p-5 rounded-xl border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-2">
               <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                 <Activity className="w-4 h-4 text-honey-600" />
                 Svar på hovedspørsmål – ville du brukt systemet?
@@ -930,8 +941,7 @@ export default function SurveyResultsAdminPage() {
                   </div>
                 );
               })}
-              <div className="pt-2 border-t border-gray-100 text-xs text-gray-600">
-                <span className="font-semibold">Samlet positiv holdning: </span>
+              <div className="pt-3 border-t border-gray-100 text-xs text-gray-600 flex flex-wrap items-center gap-2">
                 {(() => {
                   const positiveCount =
                     stats.wouldUse.yes + stats.wouldUse.yesIfEasy;
@@ -940,10 +950,29 @@ export default function SurveyResultsAdminPage() {
                     stats.wouldUse.yesIfEasy +
                     stats.wouldUse.unsure +
                     stats.wouldUse.no;
+                  const noCount = stats.wouldUse.no;
                   const positivePercent = answered
                     ? Math.round((positiveCount / answered) * 100)
                     : 0;
-                  return `${positiveCount} svar (${positivePercent}%)`;
+                  const noPercent = answered
+                    ? Math.round((noCount / answered) * 100)
+                    : 0;
+                  return (
+                    <>
+                      <span className="font-semibold text-gray-900">
+                        Samlet positiv holdning:
+                      </span>
+                      <span className="text-sm font-bold text-honey-600">
+                        {positivePercent}% JA
+                      </span>
+                      <span className="text-[11px] text-gray-500">
+                        ({positiveCount} av {answered} svar)
+                      </span>
+                      <span className="text-[11px] text-red-500 ml-auto">
+                        Kun {noPercent}% ({noCount} svar) sier nei
+                      </span>
+                    </>
+                  );
                 })()}
               </div>
             </div>

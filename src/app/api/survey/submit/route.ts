@@ -70,6 +70,9 @@ export async function POST(request: Request) {
         ? null
         : body.experiencedDisease === 'ja';
 
+    const pilotInterest =
+      body.pilotAnswer === 'ja' || body.pilotAnswer === 'kanskje';
+
     const basePayload = {
       county: body.county || null,
       number_of_hives_category: body.numberOfHivesCategory || null,
@@ -91,6 +94,9 @@ export async function POST(request: Request) {
       willingness_to_pay: body.pricePerYear || null,
       biggest_challenge: body.biggestChallenge || null,
       feature_wishes: body.featureWishes || null,
+      pilot_answer: body.pilotAnswer || null,
+      pilot_interest: pilotInterest,
+      ip_address: getClientIp(request),
     };
 
     let insertError = null as any;
