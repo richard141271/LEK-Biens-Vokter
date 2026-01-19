@@ -54,6 +54,8 @@ export async function POST(request: Request) {
       body.pilotAnswer === 'ja' || body.pilotAnswer === 'kanskje';
 
     // Check for existing email if pilot interest
+    /* 
+    DISABLED FOR TESTING PURPOSES
     if (hasServiceRoleKey && body.pilotEmail) {
       const { count: existingEmailCount, error: emailCountError } =
         await client
@@ -74,6 +76,7 @@ export async function POST(request: Request) {
         );
       }
     }
+    */
 
     // Prepare payload for survey_responses
     const basePayload: any = {
