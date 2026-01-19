@@ -58,7 +58,7 @@ export function NonBeekeeperSurvey() {
 
   const [form, setForm] = useState({
     eatsHoney: "" as "ja" | "nei" | "vet_ikke" | "",
-    rentalInterest: "" as "ja" | "nei" | "vet_ikke" | "",
+    rentalInterest: "" as "ja" | "kanskje" | "nei" | "",
     rentalPrice: "",
     pollinatorImportance: "" as "ja" | "nei" | "vet_ikke" | "",
     county: "",
@@ -204,8 +204,8 @@ export function NonBeekeeperSurvey() {
                 <div className="flex gap-3">
                   {[
                     { label: "Ja", value: "ja" },
+                    { label: "Kanskje", value: "kanskje" },
                     { label: "Nei", value: "nei" },
-                    { label: "Vet ikke", value: "vet_ikke" },
                   ].map((option) => (
                     <button
                       key={option.value}

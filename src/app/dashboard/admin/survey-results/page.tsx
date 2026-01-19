@@ -203,7 +203,7 @@ export default function SurveyResultsAdminPage() {
       return {
         total: 0,
         eatsHoney: { yes: 0, no: 0, unsure: 0 },
-        rentalInterest: { yes: 0, no: 0, unsure: 0 },
+        rentalInterest: { yes: 0, no: 0, unsure: 0, maybe: 0 },
         pollinatorImportance: { yes: 0, no: 0, unsure: 0 },
         digitalToolInterest: { yes: 0, no: 0, unsure: 0 },
       };
@@ -211,7 +211,7 @@ export default function SurveyResultsAdminPage() {
 
     const total = relevant.length;
     const eatsHoney = { yes: 0, no: 0, unsure: 0 };
-    const rentalInterest = { yes: 0, no: 0, unsure: 0 };
+    const rentalInterest = { yes: 0, no: 0, unsure: 0, maybe: 0 };
     const pollinatorImportance = { yes: 0, no: 0, unsure: 0 };
     const digitalToolInterest = { yes: 0, no: 0, unsure: 0 };
 
@@ -223,6 +223,7 @@ export default function SurveyResultsAdminPage() {
       if (r.rental_interest === 'ja') rentalInterest.yes++;
       else if (r.rental_interest === 'nei') rentalInterest.no++;
       else if (r.rental_interest === 'vet_ikke') rentalInterest.unsure++;
+      else if (r.rental_interest === 'kanskje') rentalInterest.maybe++;
 
       if (r.pollinator_importance === 'ja') pollinatorImportance.yes++;
       else if (r.pollinator_importance === 'nei') pollinatorImportance.no++;
@@ -365,8 +366,11 @@ export default function SurveyResultsAdminPage() {
       
       addText('Interesse for å leie bikube:', 12, true);
       addText(`- Ja: ${nonBeekeeperStats.rentalInterest.yes}`);
+      addText(`- Kanskje: ${nonBeekeeperStats.rentalInterest.maybe}`);
       addText(`- Nei: ${nonBeekeeperStats.rentalInterest.no}`);
-      addText(`- Vet ikke: ${nonBeekeeperStats.rentalInterest.unsure}`);
+      if (nonBeekeeperStats.rentalInterest.unsure > 0) {
+        addText(`- Vet ikke (gammelt): ${nonBeekeeperStats.rentalInterest.unsure}`);
+      }
       y += 5;
 
       addText('Spiser honning:', 12, true);
@@ -624,10 +628,11 @@ export default function SurveyResultsAdminPage() {
                  <div className="space-y-3">
                   {[
                     { label: 'Ja', value: nonBeekeeperStats.rentalInterest.yes, color: 'bg-honey-500' },
+                    { label: 'Kanskje', value: nonBeekeeperStats.rentalInterest.maybe, color: 'bg-orange-300' },
                     { label: 'Nei', value: nonBeekeeperStats.rentalInterest.no, color: 'bg-gray-300' },
-                    { label: 'Vet ikke', value: nonBeekeeperStats.rentalInterest.unsure, color: 'bg-yellow-500' },
+                    ...(nonBeekeeperStats.rentalInterest.unsure > 0 ? [{ label: 'Vet ikke (gammelt)', value: nonBeekeeperStats.rentalInterest.unsure, color: 'bg-yellow-500' }] : []),
                   ].map((item) => {
-                     const total = nonBeekeeperStats.rentalInterest.yes + nonBeekeeperStats.rentalInterest.no + nonBeekeeperStats.rentalInterest.unsure;
+                     const total = nonBeekeeperStats.rentalInterest.yes + nonBeekeeperStats.rentalInterest.no + nonBeekeeperStats.rentalInterest.unsure + nonBeekeeperStats.rentalInterest.maybe;
                      const percent = total ? Math.round((item.value / total) * 100) : 0;
                      return (
                       <div key={item.label}>
