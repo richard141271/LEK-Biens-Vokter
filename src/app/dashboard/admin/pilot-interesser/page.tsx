@@ -2,14 +2,18 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Mail, Calendar, Trash2, CheckSquare, Square, Copy, Send } from 'lucide-react';
+import { Loader2, Mail, Calendar, Trash2, CheckSquare, Square, Copy, Send, Bug, Users } from 'lucide-react';
 
 type PilotInterest = {
   id: string;
   email: string;
   interested: boolean;
   created_at: string;
+  source: string | null;
+  status: string | null;
 };
+
+type TabType = 'beekeeper' | 'non_beekeeper';
 
 export default function PilotInterestPage() {
   const [interests, setInterests] = useState<PilotInterest[]>([]);
@@ -18,6 +22,7 @@ export default function PilotInterestPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>('beekeeper');
 
   useEffect(() => {
     const fetchInterests = async () => {
@@ -45,10 +50,22 @@ export default function PilotInterestPage() {
     fetchInterests();
   }, []);
 
+  const filteredInterests = useMemo(() => {
+    return interests.filter((item) => {
+      if (activeTab === 'beekeeper') {
+        // Include legacy data (null source) in beekeeper tab
+        return !item.source || item.source === 'survey_beekeeper';
+      } else {
+        return item.source === 'survey_non_beekeeper';
+      }
+    });
+  }, [interests, activeTab]);
+
   const allSelected = useMemo(() => {
-    if (!interests.length) return false;
-    return selectedIds.length === interests.length;
-  }, [interests, selectedIds]);
+    if (!filteredInterests.length) return false;
+    // Check if all displayed items are selected
+    return filteredInterests.every((item) => selectedIds.includes(item.id));
+  }, [filteredInterests, selectedIds]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) =>
@@ -57,22 +74,38 @@ export default function PilotInterestPage() {
   };
 
   const toggleSelectAll = () => {
-    if (!interests.length) return;
+    if (!filteredInterests.length) return;
+    
     if (allSelected) {
-      setSelectedIds([]);
+      // Unselect only the visible ones
+      const visibleIds = filteredInterests.map(i => i.id);
+      setSelectedIds(prev => prev.filter(id => !visibleIds.includes(id)));
     } else {
-      setSelectedIds(interests.map((i) => i.id));
+      // Select all visible ones
+      const visibleIds = filteredInterests.map(i => i.id);
+      setSelectedIds(prev => {
+        const newIds = [...prev];
+        visibleIds.forEach(id => {
+          if (!newIds.includes(id)) newIds.push(id);
+        });
+        return newIds;
+      });
     }
   };
 
   const selectedEmails = useMemo(() => {
     if (!selectedIds.length) {
-      return interests.map((i) => i.email);
+      // If none selected, return all VISIBLE emails (filtered by tab)
+      // This matches the "Send felles e-post" behavior usually expected (send to all in list)
+      // BUT, usually "Send felles e-post" button logic below uses this list.
+      // Let's stick to "if nothing selected, use all visible".
+      return filteredInterests.map((i) => i.email);
     }
-    return interests
+    // Return selected emails that are also in the current filter (to avoid confusion)
+    return filteredInterests
       .filter((i) => selectedIds.includes(i.id))
       .map((i) => i.email);
-  }, [interests, selectedIds]);
+  }, [filteredInterests, selectedIds]);
 
   const handleCopyEmails = async () => {
     try {
@@ -92,32 +125,59 @@ export default function PilotInterestPage() {
     const list = selectedEmails;
     if (!list.length) return '#';
 
-    const subject =
-      'Takk for at du vil bidra i pilot for LEK-Biens Vokter';
-    const bodyLines = [
-      'Hei,',
-      '',
-      'Tusen takk for at du har meldt interesse for å teste LEK-Biens Vokter™️.',
-      'Vi bygger et nasjonalt smittevernverktøy for birøkt, og pilotbrukerne våre er helt avgjørende for at løsningen skal bli nyttig i ekte birøkterhverdag.',
-      '',
-      'Kort om oss:',
-      '- LEK-Biens Vokter™️ er utviklet for å gjøre det enklere å oppdage, rapportere og håndtere bisykdommer tidlig.',
-      '- Vi samarbeider tett med birøktere og fagmiljø for å lage et verktøy som faktisk brukes, ikke bare ser fint ut på papiret.',
-      '',
-      'Slik kommer du i gang:',
-      '- Installer appen via lenken under. Den fungerer på både iPhone og Android.',
-      '- Logg inn med e-postadressen du vanligvis bruker, og aktiver varslinger for å få mest mulig ut av løsningen.',
-      '',
-      'Installer appen:',
-      '<LENKE TIL APPEN LEGGES INN HER>',
-      '',
-      'Når du har installert appen, kan du gjerne svare direkte på denne e-posten hvis du har innspill, ønsker eller oppdager noe som skurrer. Alle tilbakemeldinger er gull verdt i pilotfasen.',
-      '',
-      'Igjen – tusen takk for at du vil være med og gjøre norsk birøkt litt tryggere.',
-      '',
-      'Vennlig hilsen',
-      'LEK-Biens Vokter-teamet',
-    ];
+    let subject = '';
+    let bodyLines: string[] = [];
+
+    if (activeTab === 'beekeeper') {
+      subject = 'Takk for at du vil bidra i pilot for LEK-Biens Vokter';
+      bodyLines = [
+        'Hei,',
+        '',
+        'Tusen takk for at du har meldt interesse for å teste LEK-Biens Vokter™️.',
+        'Vi bygger et nasjonalt smittevernverktøy for birøkt, og pilotbrukerne våre er helt avgjørende for at løsningen skal bli nyttig i ekte birøkterhverdag.',
+        '',
+        'Kort om oss:',
+        '- LEK-Biens Vokter™️ er utviklet for å gjøre det enklere å oppdage, rapportere og håndtere bisykdommer tidlig.',
+        '- Vi samarbeider tett med birøktere og fagmiljø for å lage et verktøy som faktisk brukes, ikke bare ser fint ut på papiret.',
+        '',
+        'Slik kommer du i gang:',
+        '- Installer appen via lenken under. Den fungerer på både iPhone og Android.',
+        '- Logg inn med e-postadressen du vanligvis bruker, og aktiver varslinger for å få mest mulig ut av løsningen.',
+        '',
+        'Installer appen:',
+        '<LENKE TIL APPEN LEGGES INN HER>',
+        '',
+        'Når du har installert appen, kan du gjerne svare direkte på denne e-posten hvis du har innspill, ønsker eller oppdager noe som skurrer. Alle tilbakemeldinger er gull verdt i pilotfasen.',
+        '',
+        'Igjen – tusen takk for at du vil være med og gjøre norsk birøkt litt tryggere.',
+        '',
+        'Vennlig hilsen',
+        'LEK-Biens Vokter-teamet',
+      ];
+    } else {
+      subject = 'Pilot for leie av bikube - LEK-Biens Vokter';
+      bodyLines = [
+        'Hei,',
+        '',
+        'Tusen takk for at du har meldt interesse for vårt pilotprogram for leie av bikuber.',
+        '',
+        'Vi jobber med å gjøre det enkelt for privatpersoner og bedrifter å ha egne bikuber, der vi tar oss av alt stellet.',
+        '',
+        'Kort om piloten:',
+        '- Du får låne en bikube som plasseres i din hage/på din tomt.',
+        '- Vi (erfarne birøktere) kommer jevnlig innom for å stelle biene.',
+        '- Du får din egen honning når sesongen er over.',
+        '- Som pilotdeltaker får du sterkt redusert pris mot at du gir oss tilbakemeldinger på opplevelsen.',
+        '',
+        'Hva skjer nå?',
+        'Vi går nå gjennom interesselisten og vil kontakte aktuelle kandidater i Halden-området fortløpende for en uforpliktende prat og befaring.',
+        '',
+        'Har du spørsmål i mellomtiden, svar gjerne på denne e-posten.',
+        '',
+        'Vennlig hilsen',
+        'LEK-Biens Vokter-teamet',
+      ];
+    }
 
     const params = new URLSearchParams({
       subject,
@@ -149,6 +209,8 @@ export default function PilotInterestPage() {
       }
 
       setInterests((prev) => prev.filter((item) => item.id !== id));
+      // Remove from selectedIds if present
+      setSelectedIds((prev) => prev.filter((x) => x !== id));
     } catch (e: any) {
       console.error('Feil ved sletting av pilot-interesse:', e);
       setError(
@@ -179,9 +241,9 @@ export default function PilotInterestPage() {
           </div>
           <div className="flex flex-col items-end gap-1">
             <div className="text-sm text-gray-500">
-              Totalt: {interests.length}
+              Totalt: {filteredInterests.length} (av {interests.length})
             </div>
-            {interests.length > 0 && (
+            {filteredInterests.length > 0 && (
               <div className="flex items-center gap-2 text-xs">
                 <button
                   onClick={toggleSelectAll}
@@ -196,7 +258,7 @@ export default function PilotInterestPage() {
                 </button>
                 <button
                   onClick={handleCopyEmails}
-                  disabled={!interests.length}
+                  disabled={!filteredInterests.length}
                   className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                 >
                   <Copy className="w-3 h-3" />
@@ -233,6 +295,32 @@ export default function PilotInterestPage() {
           </Link>
         </div>
 
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200 mb-6">
+          <button
+            onClick={() => setActiveTab('beekeeper')}
+            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'beekeeper'
+                ? 'border-honey-500 text-honey-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Bug className="w-4 h-4" />
+            Birøktere ({interests.filter(i => !i.source || i.source === 'survey_beekeeper').length})
+          </button>
+          <button
+            onClick={() => setActiveTab('non_beekeeper')}
+            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'non_beekeeper'
+                ? 'border-honey-500 text-honey-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            Ikke-birøktere ({interests.filter(i => i.source === 'survey_non_beekeeper').length})
+          </button>
+        </div>
+
         {error && (
           <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
             {error}
@@ -245,7 +333,7 @@ export default function PilotInterestPage() {
               <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-4 w-10">
-                    {interests.length > 0 && (
+                    {filteredInterests.length > 0 && (
                       <button
                         onClick={toggleSelectAll}
                         className="inline-flex items-center justify-center"
@@ -266,14 +354,14 @@ export default function PilotInterestPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {interests.length === 0 ? (
+                {filteredInterests.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
-                      Ingen interesserte registrert ennå.
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                      Ingen interesserte registrert i denne kategorien ennå.
                     </td>
                   </tr>
                 ) : (
-                  interests.map((item) => {
+                  filteredInterests.map((item) => {
                     const isSelected = selectedIds.includes(item.id);
                     return (
                       <tr
@@ -305,7 +393,15 @@ export default function PilotInterestPage() {
                         </a>
                       </td>
                       <td className="px-6 py-4">
-                        {item.interested ? (
+                        {item.status ? (
+                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                             item.status === 'Interessert' ? 'bg-green-100 text-green-800' : 
+                             item.status === 'Kanskje' ? 'bg-yellow-100 text-yellow-800' :
+                             'bg-gray-100 text-gray-800'
+                           }`}>
+                            {item.status}
+                          </span>
+                        ) : item.interested ? (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Interessert
                           </span>

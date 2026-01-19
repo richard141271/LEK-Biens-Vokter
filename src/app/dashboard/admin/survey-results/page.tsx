@@ -4,43 +4,51 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import Link from 'next/link';
-import { Activity, ArrowLeft, BarChart2, FileDown, Printer, Flag, Trash2, Undo2, CheckSquare, Square } from 'lucide-react';
+import { Activity, ArrowLeft, BarChart2, FileDown, Printer, Flag, Trash2, Undo2, CheckSquare, Square, Users, Bug } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 
 type SurveyResponse = {
   id: string;
   created_at: string;
+  is_beekeeper: boolean;
   county: string | null;
-  number_of_hives: string | null;
-  number_of_hives_category: string | null;
-  years_experience: string | null;
-  years_experience_category: string | null;
-  beekeeper_type: string | null;
-  is_member_norwegian_beekeepers: boolean | null;
-  experienced_disease: boolean | null;
-  disease_types: string | null;
-  difficulty_detecting_disease: number | null;
-  late_detection: boolean | null;
-  current_record_method: string | null;
-  time_spent_documentation: string | null;
-  value_warning_system: number | null;
-  value_nearby_alert: number | null;
-  value_reporting: number | null;
-  value_ai_analysis: number | null;
-  value_better_overview: number | null;
-  would_use_system_choice: string | null;
-  willingness_to_pay: string | null;
-  biggest_challenge: string | null;
-  feature_wishes: string | null;
   pilot_answer: string | null;
   pilot_interest: boolean | null;
   is_test: boolean | null;
   is_invalid: boolean | null;
   submitted_at: string | null;
   ip_address: string | null;
+
+  // Beekeeper specific
+  number_of_hives_category: string | null;
+  years_experience_category: string | null;
+  is_member_norwegian_beekeepers: boolean | null;
+  experienced_disease: boolean | null;
+  disease_types: string | null;
+  current_record_method: string | null;
+  time_spent_documentation: string | null;
+  value_warning_system: number | null;
+  value_nearby_alert: number | null;
+  value_reporting: number | null;
+  value_better_overview: number | null;
+  would_use_system_choice: string | null;
+  willingness_to_pay: string | null;
+  biggest_challenge: string | null;
+  feature_wishes: string | null;
+
+  // Non-beekeeper specific
+  eats_honey: string | null;
+  rental_interest: string | null;
+  rental_price: string | null;
+  pollinator_importance: string | null;
+  digital_tool_interest: string | null;
+  disease_awareness: string | null;
+  knowledge_about_beekeeping: string | null;
+  considered_starting_beekeeping: string | null;
 };
 
 type FilterType = 'all' | 'valid' | 'test' | 'invalid';
+type TabType = 'beekeeper' | 'non_beekeeper';
 
 export default function SurveyResultsAdminPage() {
   const supabase = createClient();
@@ -56,6 +64,7 @@ export default function SurveyResultsAdminPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [filter, setFilter] = useState<FilterType>('all');
   const [challengeFilter, setChallengeFilter] = useState<'all' | 'disease'>('all');
+  const [activeTab, setActiveTab] = useState<TabType>('beekeeper');
 
   useEffect(() => {
     checkUser();
@@ -108,25 +117,36 @@ export default function SurveyResultsAdminPage() {
   };
 
   const filteredResponses = useMemo(() => {
+    let base = responses;
+    
+    // Filter by tab
+    if (activeTab === 'beekeeper') {
+      base = base.filter(r => r.is_beekeeper === true);
+    } else {
+      base = base.filter(r => r.is_beekeeper === false);
+    }
+
+    // Filter by status
     if (filter === 'test') {
-      return responses.filter((r) => r.is_test === true);
+      return base.filter((r) => r.is_test === true);
     }
     if (filter === 'invalid') {
-      return responses.filter((r) => r.is_invalid === true);
+      return base.filter((r) => r.is_invalid === true);
     }
     if (filter === 'valid') {
-      return responses.filter((r) => r.is_test !== true && r.is_invalid !== true);
+      return base.filter((r) => r.is_test !== true && r.is_invalid !== true);
     }
-    return responses;
-  }, [responses, filter]);
+    return base;
+  }, [responses, filter, activeTab]);
 
   const visibleResponses = useMemo(
     () => filteredResponses.slice(0, 200),
     [filteredResponses]
   );
 
-  const stats = useMemo(() => {
-    if (!responses.length) {
+  const beekeeperStats = useMemo(() => {
+    const relevant = responses.filter(r => r.is_beekeeper === true && r.is_test !== true && r.is_invalid !== true);
+    if (!relevant.length) {
       return {
         total: 0,
         experiencedDisease: 0,
@@ -135,75 +155,35 @@ export default function SurveyResultsAdminPage() {
         avgNearby: 0,
         avgReporting: 0,
         avgOverview: 0,
-        wouldUse: {
-          yes: 0,
-          yesIfEasy: 0,
-          unsure: 0,
-          no: 0,
-        },
+        wouldUse: { yes: 0, yesIfEasy: 0, unsure: 0, no: 0 },
       };
     }
 
-    const total = responses.length;
+    const total = relevant.length;
     let experiencedDisease = 0;
     let memberCount = 0;
+    let sumWarning = 0; let countWarning = 0;
+    let sumNearby = 0; let countNearby = 0;
+    let sumReporting = 0; let countReporting = 0;
+    let sumOverview = 0; let countOverview = 0;
+    let yes = 0; let yesIfEasy = 0; let unsure = 0; let no = 0;
 
-    let sumWarning = 0;
-    let countWarning = 0;
-    let sumNearby = 0;
-    let countNearby = 0;
-    let sumReporting = 0;
-    let countReporting = 0;
-    let sumOverview = 0;
-    let countOverview = 0;
-
-    let yes = 0;
-    let yesIfEasy = 0;
-    let unsure = 0;
-    let no = 0;
-
-    responses.forEach((r) => {
-      if (r.experienced_disease) {
-        experiencedDisease += 1;
-      }
-
-      if (r.is_member_norwegian_beekeepers === true) {
-        memberCount += 1;
-      }
-
-      if (r.value_warning_system != null) {
-        sumWarning += r.value_warning_system;
-        countWarning += 1;
-      }
-      if (r.value_nearby_alert != null) {
-        sumNearby += r.value_nearby_alert;
-        countNearby += 1;
-      }
-      if (r.value_reporting != null) {
-        sumReporting += r.value_reporting;
-        countReporting += 1;
-      }
-      if (r.value_better_overview != null) {
-        sumOverview += r.value_better_overview;
-        countOverview += 1;
-      }
+    relevant.forEach((r) => {
+      if (r.experienced_disease) experiencedDisease += 1;
+      if (r.is_member_norwegian_beekeepers) memberCount += 1;
+      if (r.value_warning_system != null) { sumWarning += r.value_warning_system; countWarning += 1; }
+      if (r.value_nearby_alert != null) { sumNearby += r.value_nearby_alert; countNearby += 1; }
+      if (r.value_reporting != null) { sumReporting += r.value_reporting; countReporting += 1; }
+      if (r.value_better_overview != null) { sumOverview += r.value_better_overview; countOverview += 1; }
 
       const choice = (r.would_use_system_choice || '').toLowerCase();
-      if (choice) {
-        if (choice === 'ja') {
-          yes += 1;
-        } else if (choice.startsWith('ja, hvis')) {
-          yesIfEasy += 1;
-        } else if (choice.startsWith('vet')) {
-          unsure += 1;
-        } else if (choice === 'nei') {
-          no += 1;
-        }
-      }
+      if (choice === 'ja') yes += 1;
+      else if (choice.startsWith('ja, hvis')) yesIfEasy += 1;
+      else if (choice.startsWith('vet')) unsure += 1;
+      else if (choice === 'nei') no += 1;
     });
 
-    const avg = (sum: number, count: number) =>
-      count ? Math.round((sum / count) * 10) / 10 : 0;
+    const avg = (sum: number, count: number) => count ? Math.round((sum / count) * 10) / 10 : 0;
 
     return {
       total,
@@ -213,18 +193,52 @@ export default function SurveyResultsAdminPage() {
       avgNearby: avg(sumNearby, countNearby),
       avgReporting: avg(sumReporting, countReporting),
       avgOverview: avg(sumOverview, countOverview),
-      wouldUse: {
-        yes,
-        yesIfEasy,
-        unsure,
-        no,
-      },
+      wouldUse: { yes, yesIfEasy, unsure, no },
     };
+  }, [responses]);
+
+  const nonBeekeeperStats = useMemo(() => {
+    const relevant = responses.filter(r => r.is_beekeeper === false && r.is_test !== true && r.is_invalid !== true);
+    if (!relevant.length) {
+      return {
+        total: 0,
+        eatsHoney: { yes: 0, no: 0, unsure: 0 },
+        rentalInterest: { yes: 0, no: 0, unsure: 0 },
+        pollinatorImportance: { yes: 0, no: 0, unsure: 0 },
+        digitalToolInterest: { yes: 0, no: 0, unsure: 0 },
+      };
+    }
+
+    const total = relevant.length;
+    const eatsHoney = { yes: 0, no: 0, unsure: 0 };
+    const rentalInterest = { yes: 0, no: 0, unsure: 0 };
+    const pollinatorImportance = { yes: 0, no: 0, unsure: 0 };
+    const digitalToolInterest = { yes: 0, no: 0, unsure: 0 };
+
+    relevant.forEach((r) => {
+      if (r.eats_honey === 'ja') eatsHoney.yes++;
+      else if (r.eats_honey === 'nei') eatsHoney.no++;
+      else if (r.eats_honey === 'vet_ikke') eatsHoney.unsure++;
+
+      if (r.rental_interest === 'ja') rentalInterest.yes++;
+      else if (r.rental_interest === 'nei') rentalInterest.no++;
+      else if (r.rental_interest === 'vet_ikke') rentalInterest.unsure++;
+
+      if (r.pollinator_importance === 'ja') pollinatorImportance.yes++;
+      else if (r.pollinator_importance === 'nei') pollinatorImportance.no++;
+      else if (r.pollinator_importance === 'vet_ikke') pollinatorImportance.unsure++;
+
+      if (r.digital_tool_interest === 'ja') digitalToolInterest.yes++;
+      else if (r.digital_tool_interest === 'nei') digitalToolInterest.no++;
+      else if (r.digital_tool_interest === 'vet_ikke') digitalToolInterest.unsure++;
+    });
+
+    return { total, eatsHoney, rentalInterest, pollinatorImportance, digitalToolInterest };
   }, [responses]);
 
   const challengeQuotes = useMemo(() => {
     const source = responses.filter(
-      (r) => r.is_test !== true && r.is_invalid !== true
+      (r) => r.is_beekeeper === true && r.is_test !== true && r.is_invalid !== true
     );
     const texts = source
       .map((r) => r.biggest_challenge)
@@ -253,31 +267,16 @@ export default function SurveyResultsAdminPage() {
     if (!responses.length) return;
 
     const headers = [
-      'id',
-      'created_at',
-      'county',
-      'number_of_hives',
-      'number_of_hives_category',
-      'years_experience',
-      'years_experience_category',
-      'beekeeper_type',
-      'is_member_norwegian_beekeepers',
-      'experienced_disease',
-      'disease_types',
-      'current_record_method',
-      'time_spent_documentation',
-      'value_warning_system',
-      'value_nearby_alert',
-      'value_reporting',
-      'value_better_overview',
-      'would_use_system_choice',
-      'willingness_to_pay',
-      'biggest_challenge',
-      'feature_wishes',
-      'is_test',
-      'is_invalid',
-      'submitted_at',
-      'ip_address',
+      'id', 'created_at', 'is_beekeeper', 'county', 'pilot_answer', 'pilot_interest',
+      'is_test', 'is_invalid', 'ip_address',
+      // Beekeeper
+      'number_of_hives_category', 'years_experience_category', 'is_member_norwegian_beekeepers',
+      'experienced_disease', 'disease_types', 'current_record_method', 'time_spent_documentation',
+      'value_warning_system', 'value_nearby_alert', 'value_reporting', 'value_better_overview',
+      'would_use_system_choice', 'willingness_to_pay', 'biggest_challenge', 'feature_wishes',
+      // Non-beekeeper
+      'eats_honey', 'rental_interest', 'rental_price', 'pollinator_importance',
+      'digital_tool_interest', 'disease_awareness', 'knowledge_about_beekeeping', 'considered_starting_beekeeping'
     ];
 
     const escapeValue = (value: any) => {
@@ -309,593 +308,87 @@ export default function SurveyResultsAdminPage() {
     URL.revokeObjectURL(url);
   };
 
-  const loadImageAsDataUrl = async (src: string) => {
-    const res = await fetch(src);
-    if (!res.ok) {
-      throw new Error('Kunne ikke laste bilde');
-    }
-    const blob = await res.blob();
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        resolve(reader.result as string);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  };
-
   const generatePdfReport = async () => {
     if (!responses.length) return;
-    const doc = new jsPDF('landscape', 'mm', 'a4');
+    
+    // Create new document
+    const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 14;
+    const margin = 20;
+    let y = 20;
 
-    let logoDataUrl: string | null = null;
-    try {
-      logoDataUrl = await loadImageAsDataUrl('/våpen.png');
-    } catch (e) {
-      logoDataUrl = null;
-    }
-
-    const generated = new Date().toLocaleString('nb-NO');
-
-    const totalWouldUse =
-      stats.wouldUse.yes +
-      stats.wouldUse.yesIfEasy +
-      stats.wouldUse.unsure +
-      stats.wouldUse.no;
-
-    const totalPositive = stats.wouldUse.yes + stats.wouldUse.yesIfEasy;
-
-    const diseasePercent = stats.total
-      ? Math.round((stats.experiencedDisease / stats.total) * 100)
-      : 0;
-    const memberPercent = stats.total
-      ? Math.round((stats.memberCount / stats.total) * 100)
-      : 0;
-    const pilotPercent = stats.total
-      ? Math.round((pilotCount / stats.total) * 100)
-      : 0;
-    const answeredAcceptance = totalWouldUse;
-    const positivePercent = answeredAcceptance
-      ? Math.round((totalPositive / answeredAcceptance) * 100)
-      : 0;
-
-    const challengeTexts = responses
-      .map((r) => r.biggest_challenge)
-      .filter((v): v is string => !!v && !!v.trim());
-
-    const diseaseChallengeCount = challengeTexts.filter((t) => {
-      const lower = t.toLowerCase();
-      return lower.includes('smitte') || lower.includes('sykdom');
-    }).length;
-
-    const prioritizedQuotes: string[] = [];
-
-    const addQuotes = (predicate: (t: string) => boolean) => {
-      challengeTexts.forEach((text) => {
-        if (prioritizedQuotes.length >= 10) return;
-        const normalized = text.trim();
-        if (!normalized) return;
-        if (!predicate(normalized)) return;
-        if (!prioritizedQuotes.some((q) => q === normalized)) {
-          prioritizedQuotes.push(normalized);
-        }
-      });
-    };
-
-    addQuotes((t) => {
-      const lower = t.toLowerCase();
-      return (
-        lower.includes('smitte') ||
-        lower.includes('sykdom') ||
-        lower.includes('varroa')
-      );
-    });
-
-    addQuotes((t) => {
-      const lower = t.toLowerCase();
-      return lower.includes('rapport') || lower.includes('melding');
-    });
-
-    addQuotes((t) => {
-      const lower = t.toLowerCase();
-      return (
-        lower.includes('hverdag') ||
-        lower.includes('tid') ||
-        lower.includes('praktisk') ||
-        lower.includes('arbeid')
-      );
-    });
-
-    addQuotes(() => true);
-
-    const scores = [
-      {
-        label: 'Automatisk smittevarsling',
-        value: stats.avgWarning,
-      },
-      {
-        label: 'Varsel til nærliggende bigårder',
-        value: stats.avgNearby,
-      },
-      {
-        label: 'Enkel rapportering til Mattilsynet',
-        value: stats.avgReporting,
-      },
-      {
-        label: 'Bedre oversikt over egen bigård',
-        value: stats.avgOverview,
-      },
-    ];
-
-    const averageScoreValues = scores
-      .map((s) => s.value)
-      .filter((v) => v && v > 0);
-    const averageScore =
-      averageScoreValues.length > 0
-        ? Math.round(
-            (averageScoreValues.reduce((a, b) => a + b, 0) /
-              averageScoreValues.length) *
-              10
-          ) / 10
-        : 0;
-
-    if (logoDataUrl) {
-      const logoWidth = 40;
-      const logoHeight = 28;
-      const logoX = pageWidth / 2 - logoWidth / 2;
-      const logoY = 18;
-      doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
-    }
-
-    doc.setTextColor(20, 20, 20);
-    doc.setFontSize(20);
-    doc.text(
-      'Behovsanalyse – LEK-Biens Vokter™️',
-      pageWidth / 2,
-      logoDataUrl ? 60 : 40,
-      { align: 'center' }
-    );
-
-    doc.setFontSize(12);
-    doc.text(
-      'Oppsummert rapport basert på spørreundersøkelse blant birøktere i Norge.',
-      pageWidth / 2,
-      logoDataUrl ? 68 : 48,
-      { align: 'center' }
-    );
-
-    doc.setFontSize(10);
-    doc.text(`Generert: ${generated}`, pageWidth / 2, logoDataUrl ? 76 : 56, {
-      align: 'center',
-    });
-
-    doc.setFontSize(11);
-    doc.setTextColor(55, 65, 81);
-    const introText = doc.splitTextToSize(
-      'Formålet med denne behovsanalysen er å forstå hvordan birøktere arbeider med forebygging, oppdagelse og håndtering av sykdom i bigården, samt å vurdere nytten av digitale verktøy som kan støtte smittevern, rapportering og oversikt.',
-      pageWidth - margin * 2
-    );
-    doc.text(introText, margin, logoDataUrl ? 92 : 70);
-
-    const introText2 = doc.splitTextToSize(
-      'Resultatene brukes til å prioritere videre utvikling av LEK-Biens Vokter™️ og planlegging av et pilotprogram sammen med engasjerte birøktere.',
-      pageWidth - margin * 2
-    );
-    doc.text(introText2, margin, logoDataUrl ? 112 : 90);
-
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-    doc.text(
-      'LEK-Honning – internt arbeidsdokument',
-      margin,
-      pageHeight - margin
-    );
-
-    doc.text(
-      'Side 1 av 5 – Forside',
-      pageWidth - margin,
-      pageHeight - margin,
-      { align: 'right' }
-    );
-
-    doc.addPage();
-
-    const cardWidth = (pageWidth - margin * 2 - 12 * 3) / 4;
-    const cardHeight = 26;
-    const cardY = 32;
-
-    const drawCard = (
-      index: number,
-      title: string,
-      value: string,
-      subtitle: string
-    ) => {
-      const x = margin + index * (cardWidth + 12);
-      doc.setFillColor(248, 250, 252);
-      doc.setDrawColor(226, 232, 240);
-      doc.roundedRect(x, cardY, cardWidth, cardHeight, 3, 3, 'FD');
-      doc.setTextColor(100, 116, 139);
-      doc.setFontSize(9);
-      doc.text(title, x + 6, cardY + 8);
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(16);
-      doc.text(value, x + 6, cardY + 17);
-      doc.setTextColor(148, 163, 184);
-      doc.setFontSize(9);
-      doc.text(subtitle, x + 6, cardY + 24);
-    };
-
-    drawCard(
-      0,
-      'Antall svar',
-      String(stats.total),
-      'Totalt antall svar'
-    );
-    drawCard(
-      1,
-      'Pilotinteresse',
-      String(pilotCount),
-      stats.total ? `${pilotPercent}% av svarene` : 'Andel som ønsker pilot'
-    );
-    drawCard(
-      2,
-      'Sykdomserfaring',
-      stats.total ? `${diseasePercent}%` : '–',
-      'Andel med sykdomserfaring'
-    );
-    drawCard(
-      3,
-      'Medlem i NBL',
-      stats.total ? `${memberPercent}%` : '–',
-      'Andel medlem i Norges Birøkterlag'
-    );
-
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(14);
-    doc.text(
-      'Sammendrag av hovedfunn',
-      margin,
-      cardY + cardHeight + 18
-    );
-
-    doc.setFontSize(10);
-    doc.setTextColor(55, 65, 81);
-    const summaryLines = [
-      stats.total
-        ? `Totalt ${stats.total} svar fra birøktere med ulik erfaring, antall kuber og geografi.`
-        : 'Ingen svar registrert ennå.',
-      answeredAcceptance
-        ? `${positivePercent}% av de som har svart sier JA eller JA, hvis det er enkelt å bruke – et tydelig signal om markedspotensial.`
-        : 'For få svar til å beregne aksept for systemet.',
-      diseasePercent
-        ? `${diseasePercent}% rapporterer sykdomserfaring de siste årene, noe som understreker behovet for bedre smitteoppfølging.`
-        : 'Sykdomserfaring er foreløpig begrenset i datasettet.',
-      diseaseChallengeCount
-        ? `${diseaseChallengeCount} av fritekstsvarene på største utfordring omtaler smitte eller sykdom direkte.`
-        : 'Fritekstsvarene nevner foreløpig lite om smitte eller sykdom.',
-      averageScore
-        ? `Gjennomsnittlig opplevd nytteverdi av digitale verktøy ligger rundt ${averageScore.toFixed(
-            1
-          ).replace('.', ',')} på en skala fra 1–5.`
-        : 'Det er for få svar til å beregne snittscore for digitale verktøy.',
-    ];
-
-    let summaryY = cardY + cardHeight + 26;
-    summaryLines.forEach((line) => {
-      const wrapped = doc.splitTextToSize(
-        line,
-        pageWidth - margin * 2
-      );
-      doc.text(wrapped, margin, summaryY);
-      summaryY += wrapped.length * 6;
-    });
-
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-    doc.text(
-      'Side 2 av 5 – Sammendrag',
-      pageWidth - margin,
-      pageHeight - margin,
-      { align: 'right' }
-    );
-
-    doc.addPage();
-
-    const leftX = margin;
-    const rightX = pageWidth / 2 + 4;
-    const sectionTop = 30;
-
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(14);
-    doc.text('Aksept og betalingsvilje', leftX, sectionTop);
-
-    doc.setFontSize(10);
-    if (totalWouldUse > 0) {
-      const answered = totalWouldUse;
-      const yesPercent = Math.round((stats.wouldUse.yes / answered) * 100);
-      const yesEasyPercent = Math.round(
-        (stats.wouldUse.yesIfEasy / answered) * 100
-      );
-      const unsurePercent = Math.round(
-        (stats.wouldUse.unsure / answered) * 100
-      );
-      const noPercent = Math.round((stats.wouldUse.no / answered) * 100);
-      const tableY = sectionTop + 6;
-      const rowHeight = 7;
-      const rows = [
-        ['Ja', String(stats.wouldUse.yes), `${yesPercent}%`],
-        [
-          'Ja, hvis det er enkelt å bruke',
-          String(stats.wouldUse.yesIfEasy),
-          `${yesEasyPercent}%`,
-        ],
-        ['Vet ikke', String(stats.wouldUse.unsure), `${unsurePercent}%`],
-        ['Nei', String(stats.wouldUse.no), `${noPercent}%`],
-        [
-          'Samlet positiv holdning',
-          String(totalPositive),
-          `${positivePercent}%`,
-        ],
-      ];
-
-      const col1Width = 70;
-      const col2Width = 18;
-      const col3Width = 24;
-      const tableWidth = col1Width + col2Width + col3Width;
-
-      doc.setDrawColor(209, 213, 219);
-      doc.setLineWidth(0.1);
-      doc.rect(leftX, tableY, tableWidth, rowHeight * (rows.length + 1));
-
-      for (let i = 1; i <= rows.length; i++) {
-        const y = tableY + rowHeight * i;
-        doc.line(leftX, y, leftX + tableWidth, y);
+    // Helper for text
+    const addText = (text: string, fontSize = 12, isBold = false) => {
+      doc.setFontSize(fontSize);
+      doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+      
+      // Handle multi-line
+      const lines = doc.splitTextToSize(text, pageWidth - (margin * 2));
+      doc.text(lines, margin, y);
+      y += (lines.length * fontSize * 0.5) + 4; // Spacing based on font size
+      
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
       }
+    };
 
-      const col1X = leftX + col1Width;
-      const col2X = col1X + col2Width;
-      doc.line(col1X, tableY, col1X, tableY + rowHeight * (rows.length + 1));
-      doc.line(col2X, tableY, col2X, tableY + rowHeight * (rows.length + 1));
+    // Title
+    addText(`Rapport: Behovsanalyse - ${activeTab === 'beekeeper' ? 'Birøktere' : 'Ikke-birøktere'}`, 18, true);
+    addText(`Generert: ${new Date().toLocaleDateString('no-NO')}`, 10);
+    y += 10;
 
-      doc.setTextColor(55, 65, 81);
-      doc.text('Svaralternativ', leftX + 2, tableY + 4.5);
-      doc.text('Antall', col1X + 2, tableY + 4.5);
-      doc.text('Prosent', col2X + 2, tableY + 4.5);
+    if (activeTab === 'beekeeper') {
+      addText(`Antall svar totalt: ${beekeeperStats.total}`, 14, true);
+      y += 5;
+      
+      addText(`Erfart sykdom: ${beekeeperStats.experiencedDisease} (${beekeeperStats.total ? Math.round(beekeeperStats.experiencedDisease / beekeeperStats.total * 100) : 0}%)`);
+      addText(`Medlem i NBL: ${beekeeperStats.memberCount} (${beekeeperStats.total ? Math.round(beekeeperStats.memberCount / beekeeperStats.total * 100) : 0}%)`);
+      y += 5;
+      
+      addText('Verdivurdering (Snitt 1-5):', 12, true);
+      addText(`- Automatisk smittevarsling: ${beekeeperStats.avgWarning}`);
+      addText(`- Varsel til nærliggende: ${beekeeperStats.avgNearby}`);
+      addText(`- Enkel rapportering: ${beekeeperStats.avgReporting}`);
+      addText(`- Bedre oversikt: ${beekeeperStats.avgOverview}`);
+      y += 5;
 
-      rows.forEach((row, index) => {
-        const y = tableY + rowHeight * (index + 1) + 4.5;
-        doc.text(row[0], leftX + 2, y);
-        doc.text(row[1], col1X + 2, y);
-        doc.text(row[2], col2X + 2, y);
-      });
+      addText('Ville brukt systemet:', 12, true);
+      addText(`- Ja: ${beekeeperStats.wouldUse.yes}`);
+      addText(`- Ja, hvis enkelt: ${beekeeperStats.wouldUse.yesIfEasy}`);
+      addText(`- Vet ikke: ${beekeeperStats.wouldUse.unsure}`);
+      addText(`- Nei: ${beekeeperStats.wouldUse.no}`);
 
-      const acceptanceSummary = doc.splitTextToSize(
-        `Samlet positiv holdning (JA + JA, hvis det er enkelt å bruke) er ${positivePercent}% av alle som har svart på dette spørsmålet.`,
-        pageWidth / 2 - margin
-      );
-      doc.text(acceptanceSummary, leftX, tableY + rowHeight * (rows.length + 1) + 10);
     } else {
-      doc.setTextColor(107, 114, 128);
-      doc.text(
-        'Ingen gyldige svar registrert ennå på spørsmålet om du ville brukt systemet.',
-        leftX,
-        sectionTop + 8
-      );
+      addText(`Antall svar totalt: ${nonBeekeeperStats.total}`, 14, true);
+      y += 5;
+      
+      addText('Interesse for å leie bikube:', 12, true);
+      addText(`- Ja: ${nonBeekeeperStats.rentalInterest.yes}`);
+      addText(`- Nei: ${nonBeekeeperStats.rentalInterest.no}`);
+      addText(`- Vet ikke: ${nonBeekeeperStats.rentalInterest.unsure}`);
+      y += 5;
+
+      addText('Spiser honning:', 12, true);
+      addText(`- Ja: ${nonBeekeeperStats.eatsHoney.yes}`);
+      addText(`- Nei: ${nonBeekeeperStats.eatsHoney.no}`);
+      addText(`- Vet ikke: ${nonBeekeeperStats.eatsHoney.unsure}`);
+      y += 5;
+      
+      addText('Viktighet av pollinatorer:', 12, true);
+      addText(`- Ja: ${nonBeekeeperStats.pollinatorImportance.yes}`);
+      addText(`- Nei: ${nonBeekeeperStats.pollinatorImportance.no}`);
+      addText(`- Vet ikke: ${nonBeekeeperStats.pollinatorImportance.unsure}`);
+      y += 5;
+
+      addText('Interesse for digitalt verktøy:', 12, true);
+      addText(`- Ja: ${nonBeekeeperStats.digitalToolInterest.yes}`);
+      addText(`- Nei: ${nonBeekeeperStats.digitalToolInterest.no}`);
+      addText(`- Vet ikke: ${nonBeekeeperStats.digitalToolInterest.unsure}`);
     }
 
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(14);
-    doc.text('Snittscore digitale verktøy (1–5)', rightX, sectionTop);
-
-    const scoreTableY = sectionTop + 6;
-    const scoreRowHeight = 7;
-    const scoreCol1Width = 70;
-    const scoreCol2Width = 24;
-    const scoreTableWidth = scoreCol1Width + scoreCol2Width;
-
-    doc.setFontSize(10);
-    doc.setTextColor(55, 65, 81);
-    doc.setDrawColor(209, 213, 219);
-    doc.setLineWidth(0.1);
-    doc.rect(
-      rightX,
-      scoreTableY,
-      scoreTableWidth,
-      scoreRowHeight * (scores.length + 1)
-    );
-
-    for (let i = 1; i <= scores.length; i++) {
-      const y = scoreTableY + scoreRowHeight * i;
-      doc.line(rightX, y, rightX + scoreTableWidth, y);
-    }
-
-    const scoreCol1X = rightX + scoreCol1Width;
-    doc.line(
-      scoreCol1X,
-      scoreTableY,
-      scoreCol1X,
-      scoreTableY + scoreRowHeight * (scores.length + 1)
-    );
-
-    doc.setTextColor(55, 65, 81);
-    doc.text('Funksjon', rightX + 2, scoreTableY + 4.5);
-    doc.text('Snitt', scoreCol1X + 2, scoreTableY + 4.5);
-
-    scores.forEach((s, index) => {
-      const y = scoreTableY + scoreRowHeight * (index + 1) + 4.5;
-      const valueText =
-        s.value && s.value > 0 ? s.value.toFixed(1).replace('.', ',') : '–';
-      doc.text(s.label, rightX + 2, y);
-      doc.text(valueText, scoreCol1X + 2, y);
-    });
-
-    const scoreSummaryY =
-      scoreTableY + scoreRowHeight * (scores.length + 1) + 10;
-    const scoreSummary = doc.splitTextToSize(
-      averageScore
-        ? `Samlet peker svarene mot en moderat til høy opplevd nytte av digitale verktøy, med gjennomsnittsscore rundt ${averageScore
-            .toFixed(1)
-            .replace('.', ',')} av 5.`
-        : 'Det er foreløpig for få svar til å trekke sikre konklusjoner om nytteverdien av digitale verktøy.',
-      pageWidth / 2 - margin
-    );
-    doc.text(scoreSummary, rightX, scoreSummaryY);
-
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-    doc.text(
-      'Side 3 av 5 – Aksept og statistikk',
-      pageWidth - margin,
-      pageHeight - margin,
-      { align: 'right' }
-    );
-
-    doc.addPage();
-
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(14);
-    doc.text('Detaljerte funn', margin, 30);
-
-    doc.setFontSize(10);
-    doc.setTextColor(55, 65, 81);
-    const detailedLines = [
-      stats.total
-        ? `Datagrunnlaget består av ${stats.total} besvarelser, der både hobby- og næringsbirøktere er representert.`
-        : 'Datagrunnlaget består foreløpig av få besvarelser.',
-      diseasePercent
-        ? `${diseasePercent}% rapporterer at de har hatt sykdom i bigården de siste årene. Dette skaper et tydelig behov for bedre oversikt og mer systematisk oppfølging.`
-        : 'Sykdomserfaring er foreløpig begrenset og må tolkes med varsomhet.',
-      memberPercent
-        ? `${memberPercent}% er medlem i Norges Birøkterlag, som kan være en viktig kanal for videre dialog og rekruttering til pilot.`
-        : 'Andelen medlemmer i Norges Birøkterlag er uklar i datagrunnlaget.',
-      answeredAcceptance
-        ? `${positivePercent}% sier JA eller JA, hvis det er enkelt å bruke. Det betyr at flertallet er positive, men brukervennlighet er avgjørende for faktisk adopsjon.`
-        : 'Vi har foreløpig ikke nok data til å si noe sikkert om hvor mange som vil ta i bruk systemet.',
-      diseaseChallengeCount
-        ? `I fritekstsvarene beskriver mange smitte og sykdom som en av de største bekymringene, ofte knyttet til usikkerhet rundt tidlig oppdagelse og varsling.`
-        : 'Fritekstsvarene peker mer på generelle utfordringer i hverdagen enn på konkrete smittesituasjoner.',
-    ];
-
-    let detailedY = 40;
-    detailedLines.forEach((line) => {
-      const wrapped = doc.splitTextToSize(
-        `• ${line}`,
-        pageWidth - margin * 2
-      );
-      doc.text(wrapped, margin, detailedY);
-      detailedY += wrapped.length * 7;
-    });
-
-    if (prioritizedQuotes.length > 0) {
-      detailedY += 6;
-      doc.setFontSize(12);
-      doc.setTextColor(15, 23, 42);
-      doc.text('Utvalgte fritekstsvar fra birøktere', margin, detailedY);
-      detailedY += 8;
-
-      doc.setFontSize(9);
-      doc.setTextColor(75, 85, 99);
-
-      prioritizedQuotes.slice(0, 10).forEach((quote) => {
-        if (detailedY > pageHeight - margin - 20) {
-          doc.addPage();
-          detailedY = 30;
-          doc.setFontSize(12);
-          doc.setTextColor(15, 23, 42);
-          doc.text('Utvalgte fritekstsvar fra birøktere (forts.)', margin, detailedY);
-          detailedY += 8;
-          doc.setFontSize(9);
-          doc.setTextColor(75, 85, 99);
-        }
-
-        const wrapped = doc.splitTextToSize(
-          `“${quote}”`,
-          pageWidth - margin * 2
-        );
-        doc.text(wrapped, margin, detailedY);
-        detailedY += wrapped.length * 5 + 3;
-      });
-    }
-
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-    doc.text(
-      'Side 4 av 5 – Detaljerte funn',
-      pageWidth - margin,
-      pageHeight - margin,
-      { align: 'right' }
-    );
-
-    doc.addPage();
-
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(14);
-    doc.text('Veien videre', margin, 30);
-
-    doc.setFontSize(10);
-    doc.setTextColor(55, 65, 81);
-    const nextSteps = [
-      'Etablere et pilotprogram med de birøkterne som har meldt interesse, med fokus på enkel innlogging, registrering og varsling.',
-      'Prioritere en MVP-versjon av smittefunksjonaliteten i LEK-Biens Vokter™️: varsel om mulig smitte, enkel rapportering og rask oversikt over berørte kuber.',
-      'Utforme tydelige rutiner og veiledning for hvordan birøktere skal bruke systemet i hverdagen, slik at løsningen oppleves som enkel og tidsbesparende.',
-      'Samarbeide med relevante aktører (for eksempel Norges Birøkterlag og Mattilsynet) om informasjonsflyt, anbefalinger og videre utrulling.',
-      'Gjennomføre nye runder med datainnsamling etter pilot for å validere effekten og justere prioriteringer.',
-    ];
-
-    let nextY = 40;
-    nextSteps.forEach((line) => {
-      const wrapped = doc.splitTextToSize(
-        `• ${line}`,
-        pageWidth - margin * 2
-      );
-      doc.text(wrapped, margin, nextY);
-      nextY += wrapped.length * 7;
-    });
-
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-    doc.text(
-      'Side 5 av 5 – Veien videre',
-      pageWidth - margin,
-      pageHeight - margin,
-      { align: 'right' }
-    );
-
-    doc.save('behovsanalyse_rapport.pdf');
-  };
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  };
-
-  const selectAllVisible = () => {
-    if (!visibleResponses.length) return;
-    if (selectedIds.length === visibleResponses.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(visibleResponses.map((r) => r.id));
-    }
-  };
-
-  const applyLocalUpdate = (id: string, patch: Partial<SurveyResponse>) => {
-    setResponses((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
-    );
-    setActiveResponse((prev) =>
-      prev && prev.id === id ? { ...prev, ...patch } : prev
-    );
-  };
-
-  const removeLocalResponse = (id: string) => {
-    setResponses((prev) => prev.filter((r) => r.id !== id));
-    setSelectedIds((prev) => prev.filter((x) => x !== id));
-    setActiveResponse((prev) => (prev && prev.id === id ? null : prev));
+    // Save
+    doc.save(`behovsanalyse_${activeTab}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const performActionOnId = async (
@@ -907,102 +400,32 @@ export default function SurveyResultsAdminPage() {
         method: 'DELETE',
       });
       if (!res.ok) {
-        const text = await res.text();
-        console.error('Feil ved sletting av svar:', text);
+        console.error('Feil ved sletting av svar:', await res.text());
         setError('Kunne ikke slette ett eller flere svar.');
         return;
       }
-      removeLocalResponse(id);
+      setResponses((prev) => prev.filter((r) => r.id !== id));
+      setSelectedIds((prev) => prev.filter((x) => x !== id));
       return;
     }
 
     const res = await fetch(`/api/admin/survey-responses/${id}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action }),
     });
     if (!res.ok) {
-      const text = await res.text();
-      console.error('Feil ved oppdatering av svar:', text);
+      console.error('Feil ved oppdatering av svar:', await res.text());
       setError('Kunne ikke oppdatere ett eller flere svar.');
       return;
     }
 
-    if (action === 'mark_test') {
-      applyLocalUpdate(id, { is_test: true, is_invalid: false });
-    } else if (action === 'mark_invalid') {
-      applyLocalUpdate(id, { is_invalid: true });
-    } else if (action === 'restore') {
-      applyLocalUpdate(id, { is_test: false, is_invalid: false });
-    }
-  };
-
-  const handleRowAction = async (
-    id: string,
-    action: 'mark_test' | 'mark_invalid' | 'restore' | 'delete'
-  ) => {
-    if (action === 'delete') {
-      const confirmed = window.confirm(
-        'Er du sikker på at du vil slette dette svaret permanent?'
-      );
-      if (!confirmed) return;
-    }
-    setActionLoading(true);
-    try {
-      await performActionOnId(id, action);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleBulkAction = async (
-    action: 'mark_test' | 'mark_invalid' | 'restore' | 'delete'
-  ) => {
-    if (!selectedIds.length) return;
-    if (action === 'delete') {
-      const confirmed = window.confirm(
-        `Er du sikker på at du vil slette ${selectedIds.length} valgte svar permanent?`
-      );
-      if (!confirmed) return;
-    }
-    setActionLoading(true);
-    try {
-      for (const id of selectedIds) {
-        await performActionOnId(id, action);
-      }
-    } finally {
-      setSelectedIds([]);
-      setActionLoading(false);
-    }
-  };
-
-  const handleDeleteAllTestData = async () => {
-    if (!responses.some((r) => r.is_test)) return;
-    const confirmed = window.confirm(
-      'Er du sikker på at du vil slette alle svar som er markert som testdata?'
-    );
-    if (!confirmed) return;
-    setActionLoading(true);
-    try {
-      const res = await fetch('/api/admin/survey-responses/delete-test', {
-        method: 'POST',
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        console.error('Feil ved sletting av testdata:', text);
-        setError('Kunne ikke slette testdata.');
-        return;
-      }
-      setResponses((prev) => prev.filter((r) => !r.is_test));
-      setSelectedIds([]);
-      setActiveResponse((prev) =>
-        prev && prev.is_test ? null : prev
-      );
-    } finally {
-      setActionLoading(false);
-    }
+    const patch = 
+      action === 'mark_test' ? { is_test: true, is_invalid: false } :
+      action === 'mark_invalid' ? { is_invalid: true } :
+      { is_test: false, is_invalid: false };
+    
+    setResponses((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   };
 
   if (loading) {
@@ -1018,18 +441,13 @@ export default function SurveyResultsAdminPage() {
       <header className="bg-[#111827] text-white py-6 px-6 shadow-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard/admin"
-              className="inline-flex items-center gap-2 text-gray-300 hover:text-white text-sm"
-            >
+            <Link href="/dashboard/admin" className="inline-flex items-center gap-2 text-gray-300 hover:text-white text-sm">
               <ArrowLeft className="w-4 h-4" />
               Tilbake til admin
             </Link>
           </div>
           <div className="text-right">
-            <div className="text-sm font-medium text-white">
-              {profile?.full_name || 'Administrator'}
-            </div>
+            <div className="text-sm font-medium text-white">{profile?.full_name || 'Administrator'}</div>
             <div className="text-xs text-purple-300">Behovsanalyse</div>
           </div>
         </div>
@@ -1044,709 +462,317 @@ export default function SurveyResultsAdminPage() {
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">
-              Resultater – Behovsanalyse for LEK-Biens Vokter™️ 2.0
-            </h1>
-            <p className="text-sm text-gray-600">
-              Oversikt over svar, nøkkeltall og administrasjon av datasettet.
-            </p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">Resultater – Behovsanalyse</h1>
+            <p className="text-sm text-gray-600">Oversikt over svar fra både birøktere og ikke-birøktere.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={generatePdfReport}
-              disabled={!responses.length}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm disabled:opacity-60"
-            >
-              <BarChart2 className="w-4 h-4" />
-              Last ned rapport (PDF)
-            </button>
-            <button
-              onClick={exportCsv}
-              disabled={!responses.length}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm disabled:opacity-60"
-            >
+            <button onClick={exportCsv} disabled={!responses.length} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm disabled:opacity-60">
               <FileDown className="w-4 h-4" />
               Eksporter til CSV
             </button>
-            <button
-              onClick={() => window.print()}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm"
-            >
+            <button onClick={generatePdfReport} disabled={!responses.length} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm disabled:opacity-60">
               <Printer className="w-4 h-4" />
-              Skriv ut
+              Last ned PDF
             </button>
           </div>
         </div>
 
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <p className="text-xs text-gray-500 uppercase tracking-wide">
-              Antall svar
-            </p>
-            <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <p className="text-xs text-gray-500 uppercase tracking-wide">
-              Pilotinteresse
-            </p>
-            <p className="text-2xl font-bold text-honey-600">
-              {stats.total
-                ? `${Math.round((pilotCount / stats.total) * 100)}%`
-                : '–'}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {stats.total ? `${pilotCount} svar` : 'Ingen svar ennå'}
-            </p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <p className="text-xs text-gray-500 uppercase tracking-wide">
-              Andel med sykdomserfaring
-            </p>
-            <p className="text-2xl font-bold text-red-600">
-              {stats.total
-                ? Math.round((stats.experiencedDisease / stats.total) * 100)
-                : 0}
-              %
-            </p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <p className="text-xs text-gray-500 uppercase tracking-wide">
-              Andel medlem i Norges Birøkterlag
-            </p>
-            <p className="text-2xl font-bold text-honey-600">
-              {stats.total
-                ? Math.round((stats.memberCount / stats.total) * 100)
-                : 0}
-              %
-            </p>
-          </div>
-        </section>
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200 mb-8">
+          <button
+            onClick={() => setActiveTab('beekeeper')}
+            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'beekeeper'
+                ? 'border-honey-500 text-honey-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Bug className="w-4 h-4" />
+            Birøktere ({responses.filter(r => r.is_beekeeper).length})
+          </button>
+          <button
+            onClick={() => setActiveTab('non_beekeeper')}
+            className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'non_beekeeper'
+                ? 'border-honey-500 text-honey-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            Ikke-birøktere ({responses.filter(r => !r.is_beekeeper).length})
+          </button>
+        </div>
 
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
-          <div className="bg-white p-5 rounded-xl border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-honey-600" />
-                Svar på hovedspørsmål – ville du brukt systemet?
-              </h2>
-            </div>
-            <div className="space-y-3 text-sm text-gray-700">
-              {[
-                {
-                  label: 'Ja',
-                  value: stats.wouldUse.yes,
-                  color: 'bg-honey-500',
-                },
-                {
-                  label: 'Ja, hvis det er enkelt å bruke',
-                  value: stats.wouldUse.yesIfEasy,
-                  color: 'bg-green-500',
-                },
-                {
-                  label: 'Vet ikke',
-                  value: stats.wouldUse.unsure,
-                  color: 'bg-yellow-500',
-                },
-                {
-                  label: 'Nei',
-                  value: stats.wouldUse.no,
-                  color: 'bg-red-500',
-                },
-              ].map((item) => {
-                const answered =
-                  stats.wouldUse.yes +
-                  stats.wouldUse.yesIfEasy +
-                  stats.wouldUse.unsure +
-                  stats.wouldUse.no;
-                const percent = answered
-                  ? Math.round((item.value / answered) * 100)
-                  : 0;
-                return (
-                  <div key={item.label}>
-                    <div className="flex justify-between mb-1">
-                      <span>{item.label}</span>
-                      <span className="text-xs text-gray-500">
-                        {item.value} svar ({percent}%)
-                      </span>
-                    </div>
-                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${item.color}`}
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-              <div className="pt-3 border-t border-gray-100 text-xs text-gray-600 flex flex-wrap items-center gap-2">
-                {(() => {
-                  const positiveCount =
-                    stats.wouldUse.yes + stats.wouldUse.yesIfEasy;
-                  const answered =
-                    stats.wouldUse.yes +
-                    stats.wouldUse.yesIfEasy +
-                    stats.wouldUse.unsure +
-                    stats.wouldUse.no;
-                  const noCount = stats.wouldUse.no;
-                  const positivePercent = answered
-                    ? Math.round((positiveCount / answered) * 100)
-                    : 0;
-                  const noPercent = answered
-                    ? Math.round((noCount / answered) * 100)
-                    : 0;
-                  return (
-                    <>
-                      <span className="font-semibold text-gray-900">
-                        Samlet positiv holdning:
-                      </span>
-                      <span className="text-sm font-bold text-honey-600">
-                        {positivePercent}% JA
-                      </span>
-                      <span className="text-[11px] text-gray-500">
-                        ({positiveCount} av {answered} svar)
-                      </span>
-                      <span className="text-[11px] text-red-500 ml-auto">
-                        Kun {noPercent}% ({noCount} svar) sier nei
-                      </span>
-                    </>
-                  );
-                })()}
+        {activeTab === 'beekeeper' ? (
+          <>
+            <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+              <div className="bg-white p-4 rounded-xl border border-gray-200">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Antall svar</p>
+                <p className="text-2xl font-bold text-gray-900">{beekeeperStats.total}</p>
               </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-5 rounded-xl border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-gray-900">
-                Rapporterte utfordringer
-              </h2>
-              <div className="flex items-center gap-2 text-xs text-gray-600">
-                <span>Filter:</span>
-                <select
-                  value={challengeFilter}
-                  onChange={(e) =>
-                    setChallengeFilter(e.target.value as 'all' | 'disease')
-                  }
-                  className="border border-gray-300 rounded-full px-2 py-1 bg-white text-xs"
-                >
-                  <option value="all">Alle</option>
-                  <option value="disease">Smitte/sykdom først</option>
-                </select>
+              <div className="bg-white p-4 rounded-xl border border-gray-200">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Sykdomserfaring</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {beekeeperStats.total ? Math.round((beekeeperStats.experiencedDisease / beekeeperStats.total) * 100) : 0}%
+                </p>
               </div>
-            </div>
-            {challengeQuotes.length === 0 ? (
-              <p className="text-xs text-gray-500">
-                Ingen utfordringer registrert ennå.
-              </p>
-            ) : (
-              <ol className="space-y-2 text-sm text-gray-700 list-decimal list-inside">
-                {challengeQuotes.map((text, index) => (
-                  <li key={index}>{text}</li>
-                ))}
-              </ol>
-            )}
-          </div>
+              <div className="bg-white p-4 rounded-xl border border-gray-200">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Medlem i NBL</p>
+                <p className="text-2xl font-bold text-honey-600">
+                  {beekeeperStats.total ? Math.round((beekeeperStats.memberCount / beekeeperStats.total) * 100) : 0}%
+                </p>
+              </div>
+            </section>
 
-          <div className="bg-white p-5 rounded-xl border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                <BarChart2 className="w-4 h-4 text-honey-600" />
-                Snittscore – digitale verktøy (1–5)
-              </h2>
-            </div>
-            <div className="space-y-3 text-sm text-gray-700">
-              {[
-                {
-                  label: 'Automatisk smittevarsling',
-                  value: stats.avgWarning,
-                },
-                {
-                  label: 'Varsel til nærliggende bigårder',
-                  value: stats.avgNearby,
-                },
-                {
-                  label: 'Enkel rapportering til Mattilsynet',
-                  value: stats.avgReporting,
-                },
-                {
-                  label: 'Bedre oversikt over egen bigård',
-                  value: stats.avgOverview,
-                },
-              ].map((item) => {
-                const percent = (item.value / 5) * 100;
-                return (
-                  <div key={item.label}>
-                    <div className="flex justify-between mb-1">
-                      <span>{item.label}</span>
-                      <span className="text-xs text-gray-500">
-                        {item.value.toFixed(1)} / 5
-                      </span>
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+              <div className="bg-white p-5 rounded-xl border border-gray-200">
+                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-4">
+                  <Activity className="w-4 h-4 text-honey-600" />
+                  Ville du brukt systemet?
+                </h2>
+                <div className="space-y-3">
+                  {[
+                    { label: 'Ja', value: beekeeperStats.wouldUse.yes, color: 'bg-honey-500' },
+                    { label: 'Ja, hvis enkelt', value: beekeeperStats.wouldUse.yesIfEasy, color: 'bg-green-500' },
+                    { label: 'Vet ikke', value: beekeeperStats.wouldUse.unsure, color: 'bg-yellow-500' },
+                    { label: 'Nei', value: beekeeperStats.wouldUse.no, color: 'bg-red-500' },
+                  ].map((item) => {
+                     const total = beekeeperStats.wouldUse.yes + beekeeperStats.wouldUse.yesIfEasy + beekeeperStats.wouldUse.unsure + beekeeperStats.wouldUse.no;
+                     const percent = total ? Math.round((item.value / total) * 100) : 0;
+                     return (
+                      <div key={item.label}>
+                        <div className="flex justify-between mb-1 text-sm">
+                          <span>{item.label}</span>
+                          <span className="text-gray-500">{item.value} ({percent}%)</span>
+                        </div>
+                        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full ${item.color}`} style={{ width: `${percent}%` }} />
+                        </div>
+                      </div>
+                     );
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-white p-5 rounded-xl border border-gray-200">
+                <h2 className="text-sm font-bold text-gray-900 mb-4">Verdivurdering (Snitt 1-5)</h2>
+                <div className="space-y-4">
+                  {[
+                    { label: 'Automatisk smittevarsling', value: beekeeperStats.avgWarning },
+                    { label: 'Varsel til nærliggende', value: beekeeperStats.avgNearby },
+                    { label: 'Enkel rapportering', value: beekeeperStats.avgReporting },
+                    { label: 'Bedre oversikt', value: beekeeperStats.avgOverview },
+                  ].map(item => (
+                    <div key={item.label}>
+                      <div className="flex justify-between mb-1 text-sm">
+                        <span>{item.label}</span>
+                        <span className="font-bold">{item.value}</span>
+                      </div>
+                      <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-500" style={{ width: `${(item.value / 5) * 100}%` }} />
+                      </div>
                     </div>
-                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-honey-500"
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                  ))}
+                </div>
+              </div>
+            </section>
+
+             <section className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-10">
+              <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                <h3 className="font-bold text-gray-900">Utvalgte utfordringer (Fritekst)</h3>
+                <div className="flex gap-2">
+                  <button onClick={() => setChallengeFilter('all')} className={`px-3 py-1 text-xs rounded-full ${challengeFilter === 'all' ? 'bg-gray-800 text-white' : 'bg-white border text-gray-600'}`}>Alle</button>
+                  <button onClick={() => setChallengeFilter('disease')} className={`px-3 py-1 text-xs rounded-full ${challengeFilter === 'disease' ? 'bg-red-100 text-red-700 border-red-200' : 'bg-white border text-gray-600'}`}>Sykdom/Smitte</button>
+                </div>
+              </div>
+              <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                {challengeQuotes.length > 0 ? (
+                  challengeQuotes.map((quote, i) => (
+                    <div key={i} className="p-4 text-sm text-gray-600 italic">"{quote}"</div>
+                  ))
+                ) : (
+                  <div className="p-8 text-center text-gray-400 text-sm">Ingen sitater funnet med valgt filter.</div>
+                )}
+              </div>
+            </section>
+          </>
+        ) : (
+          <>
+            {/* Non-Beekeeper Stats */}
+            <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+              <div className="bg-white p-4 rounded-xl border border-gray-200">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Antall svar</p>
+                <p className="text-2xl font-bold text-gray-900">{nonBeekeeperStats.total}</p>
+              </div>
+              <div className="bg-white p-4 rounded-xl border border-gray-200">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Interesse for leie</p>
+                <p className="text-2xl font-bold text-honey-600">
+                  {nonBeekeeperStats.total ? Math.round((nonBeekeeperStats.rentalInterest.yes / nonBeekeeperStats.total) * 100) : 0}%
+                </p>
+              </div>
+              <div className="bg-white p-4 rounded-xl border border-gray-200">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Spiser honning (Ja)</p>
+                <p className="text-2xl font-bold text-honey-600">
+                  {nonBeekeeperStats.total ? Math.round((nonBeekeeperStats.eatsHoney.yes / nonBeekeeperStats.total) * 100) : 0}%
+                </p>
+              </div>
+            </section>
+
+             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+              <div className="bg-white p-5 rounded-xl border border-gray-200">
+                <h2 className="text-sm font-bold text-gray-900 mb-4">Interesse for å leie bikube</h2>
+                 <div className="space-y-3">
+                  {[
+                    { label: 'Ja', value: nonBeekeeperStats.rentalInterest.yes, color: 'bg-honey-500' },
+                    { label: 'Nei', value: nonBeekeeperStats.rentalInterest.no, color: 'bg-gray-300' },
+                    { label: 'Vet ikke', value: nonBeekeeperStats.rentalInterest.unsure, color: 'bg-yellow-500' },
+                  ].map((item) => {
+                     const total = nonBeekeeperStats.rentalInterest.yes + nonBeekeeperStats.rentalInterest.no + nonBeekeeperStats.rentalInterest.unsure;
+                     const percent = total ? Math.round((item.value / total) * 100) : 0;
+                     return (
+                      <div key={item.label}>
+                        <div className="flex justify-between mb-1 text-sm">
+                          <span>{item.label}</span>
+                          <span className="text-gray-500">{item.value} ({percent}%)</span>
+                        </div>
+                        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full ${item.color}`} style={{ width: `${percent}%` }} />
+                        </div>
+                      </div>
+                     );
+                  })}
+                </div>
+              </div>
+
+               <div className="bg-white p-5 rounded-xl border border-gray-200">
+                <h2 className="text-sm font-bold text-gray-900 mb-4">Viktighet av pollinatorer</h2>
+                 <div className="space-y-3">
+                  {[
+                    { label: 'Ja', value: nonBeekeeperStats.pollinatorImportance.yes, color: 'bg-green-500' },
+                    { label: 'Nei', value: nonBeekeeperStats.pollinatorImportance.no, color: 'bg-red-500' },
+                    { label: 'Vet ikke', value: nonBeekeeperStats.pollinatorImportance.unsure, color: 'bg-yellow-500' },
+                  ].map((item) => {
+                     const total = nonBeekeeperStats.pollinatorImportance.yes + nonBeekeeperStats.pollinatorImportance.no + nonBeekeeperStats.pollinatorImportance.unsure;
+                     const percent = total ? Math.round((item.value / total) * 100) : 0;
+                     return (
+                      <div key={item.label}>
+                        <div className="flex justify-between mb-1 text-sm">
+                          <span>{item.label}</span>
+                          <span className="text-gray-500">{item.value} ({percent}%)</span>
+                        </div>
+                        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full ${item.color}`} style={{ width: `${percent}%` }} />
+                        </div>
+                      </div>
+                     );
+                  })}
+                </div>
+              </div>
+             </section>
+          </>
+        )}
+
+        {/* Detailed List */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+            <h3 className="font-bold text-gray-900">Alle svar ({visibleResponses.length})</h3>
+            <div className="flex gap-2">
+               <button
+                onClick={() => setFilter('all')}
+                className={`px-3 py-1 text-xs font-medium rounded-full ${
+                  filter === 'all' ? 'bg-gray-800 text-white' : 'bg-white border text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Alle
+              </button>
+              <button
+                onClick={() => setFilter('valid')}
+                className={`px-3 py-1 text-xs font-medium rounded-full ${
+                  filter === 'valid' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-white border text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Gyldige
+              </button>
+              <button
+                onClick={() => setFilter('test')}
+                className={`px-3 py-1 text-xs font-medium rounded-full ${
+                  filter === 'test' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' : 'bg-white border text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Testdata
+              </button>
             </div>
           </div>
-        </section>
-
-        <section className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <div>
-              <h2 className="text-sm font-bold text-gray-900">
-                Tabelloversikt over svar
-              </h2>
-              <p className="text-xs text-gray-500">
-                Viser inntil {visibleResponses.length} svar basert på valgt filter.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 text-xs bg-gray-50 border border-gray-200 rounded-full px-2 py-1">
-                <button
-                  onClick={() => setFilter('all')}
-                  className={`px-2 py-1 rounded-full ${
-                    filter === 'all'
-                      ? 'bg-gray-800 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  Alle
-                </button>
-                <button
-                  onClick={() => setFilter('valid')}
-                  className={`px-2 py-1 rounded-full ${
-                    filter === 'valid'
-                      ? 'bg-green-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  Gyldige
-                </button>
-                <button
-                  onClick={() => setFilter('test')}
-                  className={`px-2 py-1 rounded-full ${
-                    filter === 'test'
-                      ? 'bg-gray-800 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  Testdata
-                </button>
-                <button
-                  onClick={() => setFilter('invalid')}
-                  className={`px-2 py-1 rounded-full ${
-                    filter === 'invalid'
-                      ? 'bg-red-600 text-white'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  Ugyldige
-                </button>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-gray-500">
-                  {selectedIds.length} valgt
-                </span>
-                <button
-                  onClick={() => handleBulkAction('mark_test')}
-                  disabled={!selectedIds.length || actionLoading}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  <Flag className="w-3 h-3" />
-                  Test
-                </button>
-                <button
-                  onClick={() => handleBulkAction('mark_invalid')}
-                  disabled={!selectedIds.length || actionLoading}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-gray-200 text-red-700 hover:bg-red-50 disabled:opacity-50"
-                >
-                  <Flag className="w-3 h-3" />
-                  Ugyldig
-                </button>
-                <button
-                  onClick={() => handleBulkAction('restore')}
-                  disabled={!selectedIds.length || actionLoading}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  <Undo2 className="w-3 h-3" />
-                  Gjenopprett
-                </button>
-                <button
-                  onClick={() => handleBulkAction('delete')}
-                  disabled={!selectedIds.length || actionLoading}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  Slett
-                </button>
-                <button
-                  onClick={handleDeleteAllTestData}
-                  disabled={
-                    !responses.some((r) => r.is_test) || actionLoading
-                  }
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  Slett alle testdata
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {actionLoading && (
-            <div className="mb-3 text-xs text-gray-500">
-              Behandler endringer i valgte svar...
-            </div>
-          )}
-
           <div className="overflow-x-auto">
-            <table className="min-w-full text-xs md:text-sm">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                    <button
-                      onClick={selectAllVisible}
-                      className="inline-flex items-center justify-center"
-                    >
-                      {visibleResponses.length &&
-                      selectedIds.length === visibleResponses.length ? (
-                        <CheckSquare className="w-4 h-4 text-gray-800" />
-                      ) : (
-                        <Square className="w-4 h-4 text-gray-400" />
-                      )}
-                    </button>
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                    Dato
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                    Fylke
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                    Kuber
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                    Erfaring
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                    Medlem N.B.
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                    Sykdom siste 3 år
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                    Ville brukt systemet?
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600 hidden lg:table-cell">
-                    Største utfordring
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                    Status
-                  </th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-600">
-                    Handlinger
-                  </th>
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                <tr>
+                  <th className="px-4 py-3">Dato</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Fylke</th>
+                  {activeTab === 'beekeeper' ? (
+                     <>
+                        <th className="px-4 py-3">Kuber</th>
+                        <th className="px-4 py-3">Sykdom?</th>
+                        <th className="px-4 py-3">Pilot?</th>
+                     </>
+                  ) : (
+                     <>
+                        <th className="px-4 py-3">Leie?</th>
+                        <th className="px-4 py-3">Spiser honning?</th>
+                        <th className="px-4 py-3">Pilot?</th>
+                     </>
+                  )}
+                  <th className="px-4 py-3 text-right">Handlinger</th>
                 </tr>
               </thead>
-              <tbody>
-                {visibleResponses.map((r) => {
-                  const isSelected = selectedIds.includes(r.id);
-                  const isInvalid = r.is_invalid === true;
-                  const isTest = r.is_test === true;
-                  return (
-                    <tr
-                      key={r.id}
-                      className={`border-t border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                        isInvalid
-                          ? 'bg-red-50/50'
-                          : isTest
-                          ? 'bg-gray-50/80'
-                          : ''
-                      }`}
-                      onClick={() => setActiveResponse(r)}
-                    >
-                      <td className="px-3 py-2 text-gray-700">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleSelect(r.id);
-                          }}
-                          className="inline-flex items-center justify-center"
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="w-4 h-4 text-gray-800" />
-                          ) : (
-                            <Square className="w-4 h-4 text-gray-400" />
-                          )}
-                        </button>
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">
-                        {new Date(r.created_at).toLocaleDateString('nb-NO')}
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">{r.county}</td>
-                      <td className="px-3 py-2 text-gray-700">
-                        {r.number_of_hives_category || r.number_of_hives}
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">
-                        {r.years_experience_category || r.years_experience}
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">
-                        {r.is_member_norwegian_beekeepers === null
-                          ? 'Ubesvart'
-                          : r.is_member_norwegian_beekeepers
-                          ? 'Ja'
-                          : 'Nei'}
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">
-                        {r.experienced_disease === null
-                          ? 'Ubesvart'
-                          : r.experienced_disease
-                          ? 'Ja'
-                          : 'Nei'}
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">
-                        {r.would_use_system_choice || '–'}
-                      </td>
-                      <td className="px-3 py-2 text-gray-700 hidden lg:table-cell max-w-xs truncate">
-                        {r.biggest_challenge}
-                      </td>
-                      <td className="px-3 py-2">
-                        {isInvalid ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-semibold bg-red-100 text-red-700">
-                            Ugyldig
-                          </span>
-                        ) : isTest ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-700">
-                            Testdata
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-[10px] font-semibold bg-green-100 text-green-700">
-                            Gyldig
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div
-                          className="flex items-center gap-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            onClick={() => handleRowAction(r.id, 'mark_test')}
-                            disabled={actionLoading}
-                            className="inline-flex items-center justify-center w-6 h-6 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                            title="Marker som testdata"
-                          >
-                            <Flag className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={() => handleRowAction(r.id, 'mark_invalid')}
-                            disabled={actionLoading}
-                            className="inline-flex items-center justify-center w-6 h-6 rounded-md border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50"
-                            title="Marker som ugyldig"
-                          >
-                            <Flag className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={() => handleRowAction(r.id, 'restore')}
-                            disabled={actionLoading}
-                            className="inline-flex items-center justify-center w-6 h-6 rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                            title="Gjenopprett"
-                          >
-                            <Undo2 className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={() => handleRowAction(r.id, 'delete')}
-                            disabled={actionLoading}
-                            className="inline-flex items-center justify-center w-6 h-6 rounded-md border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50"
-                            title="Slett"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {!visibleResponses.length && (
-                  <tr>
-                    <td
-                      colSpan={11}
-                      className="px-3 py-6 text-center text-gray-500"
-                    >
-                      Ingen svar registrert for valgt filter.
+              <tbody className="divide-y divide-gray-100">
+                {visibleResponses.map((r) => (
+                  <tr key={r.id} className={`hover:bg-gray-50 ${r.is_test ? 'bg-yellow-50/50' : ''} ${r.is_invalid ? 'bg-red-50/50' : ''}`}>
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-600">
+                      {new Date(r.created_at).toLocaleDateString('no-NO')}
+                    </td>
+                    <td className="px-4 py-3">
+                       {r.is_beekeeper ? (
+                         <span className="px-2 py-1 bg-honey-100 text-honey-700 rounded-full text-xs">Birøkter</span>
+                       ) : (
+                         <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">Ikke-birøkter</span>
+                       )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-900">{r.county || '–'}</td>
+                    {activeTab === 'beekeeper' ? (
+                       <>
+                         <td className="px-4 py-3">{r.number_of_hives_category || '–'}</td>
+                         <td className="px-4 py-3">
+                           {r.experienced_disease ? (
+                             <span className="text-red-600 font-medium">Ja</span>
+                           ) : (
+                             <span className="text-green-600">Nei</span>
+                           )}
+                         </td>
+                       </>
+                    ) : (
+                       <>
+                         <td className="px-4 py-3">{r.rental_interest || '–'}</td>
+                         <td className="px-4 py-3">{r.eats_honey || '–'}</td>
+                       </>
+                    )}
+                    <td className="px-4 py-3">
+                       {r.pilot_interest ? (
+                          <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">Interessert</span>
+                       ) : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                       <button onClick={() => performActionOnId(r.id, 'delete')} className="text-gray-400 hover:text-red-600 p-1">
+                          <Trash2 className="w-4 h-4" />
+                       </button>
                     </td>
                   </tr>
-                )}
+                ))}
               </tbody>
             </table>
           </div>
-        </section>
-
-        {activeResponse && (
-          <section className="bg-white rounded-xl border border-gray-200 p-5 mb-10">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-sm font-bold text-gray-900">
-                  Detaljer for valgt svar
-                </h2>
-                <p className="text-xs text-gray-500">
-                  Oppsummert visning av alle felter for rask kontroll.
-                </p>
-              </div>
-              <button
-                onClick={() => setActiveResponse(null)}
-                className="text-xs text-gray-500 hover:text-gray-800"
-              >
-                Lukk
-              </button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-800">
-              <div className="space-y-2">
-                <div>
-                  <div className="text-xs text-gray-500">Registrert</div>
-                  <div>
-                    {new Date(
-                      activeResponse.created_at
-                    ).toLocaleString('nb-NO')}
-                  </div>
-                </div>
-                {activeResponse.submitted_at && (
-                  <div>
-                    <div className="text-xs text-gray-500">
-                      Innsendt tidspunkt
-                    </div>
-                    <div>
-                      {new Date(
-                        activeResponse.submitted_at
-                      ).toLocaleString('nb-NO')}
-                    </div>
-                  </div>
-                )}
-                {activeResponse.ip_address && (
-                  <div>
-                    <div className="text-xs text-gray-500">
-                      IP-adresse (spamkontroll)
-                    </div>
-                    <div>{activeResponse.ip_address}</div>
-                  </div>
-                )}
-                <div>
-                  <div className="text-xs text-gray-500">Fylke</div>
-                  <div>{activeResponse.county || 'Ikke oppgitt'}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500">Antall kuber</div>
-                  <div>
-                    {activeResponse.number_of_hives_category ||
-                      activeResponse.number_of_hives ||
-                      'Ikke oppgitt'}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500">
-                    Erfaring som birøkter
-                  </div>
-                  <div>
-                    {activeResponse.years_experience_category ||
-                      activeResponse.years_experience ||
-                      'Ikke oppgitt'}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500">
-                    Medlem i Norges Birøkterlag
-                  </div>
-                  <div>
-                    {activeResponse.is_member_norwegian_beekeepers === null
-                      ? 'Ubesvart'
-                      : activeResponse.is_member_norwegian_beekeepers
-                      ? 'Ja'
-                      : 'Nei'}
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div>
-                  <div className="text-xs text-gray-500">
-                    Sykdom siste 3 år
-                  </div>
-                  <div>
-                    {activeResponse.experienced_disease === null
-                      ? 'Ubesvart'
-                      : activeResponse.experienced_disease
-                      ? 'Ja'
-                      : 'Nei'}
-                  </div>
-                </div>
-                {activeResponse.disease_types && (
-                  <div>
-                    <div className="text-xs text-gray-500">
-                      Type sykdommer
-                    </div>
-                    <div>{activeResponse.disease_types}</div>
-                  </div>
-                )}
-                <div>
-                  <div className="text-xs text-gray-500">
-                    Metode for dokumentasjon
-                  </div>
-                  <div>
-                    {activeResponse.current_record_method || 'Ikke oppgitt'}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500">
-                    Tid brukt på dokumentasjon per uke
-                  </div>
-                  <div>
-                    {activeResponse.time_spent_documentation || 'Ikke oppgitt'}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-gray-500">
-                    Ville brukt systemet?
-                  </div>
-                  <div>
-                    {activeResponse.would_use_system_choice || 'Ikke oppgitt'}
-                  </div>
-                </div>
-                {activeResponse.willingness_to_pay && (
-                  <div>
-                    <div className="text-xs text-gray-500">
-                      Betalingsvillighet (per år)
-                    </div>
-                    <div>{activeResponse.willingness_to_pay}</div>
-                  </div>
-                )}
-              </div>
-            </div>
-            {activeResponse.biggest_challenge && (
-              <div className="mt-4">
-                <div className="text-xs text-gray-500 mb-1">
-                  Største utfordring i birøkterhverdagen
-                </div>
-                <div className="text-sm text-gray-800 whitespace-pre-line bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                  {activeResponse.biggest_challenge}
-                </div>
-              </div>
-            )}
-            {activeResponse.feature_wishes && (
-              <div className="mt-4">
-                <div className="text-xs text-gray-500 mb-1">
-                  Ønsker til funksjoner
-                </div>
-                <div className="text-sm text-gray-800 whitespace-pre-line bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                  {activeResponse.feature_wishes}
-                </div>
-              </div>
-            )}
-          </section>
-        )}
+        </div>
       </main>
     </div>
   );
