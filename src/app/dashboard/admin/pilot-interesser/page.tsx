@@ -164,10 +164,16 @@ export default function PilotInterestPage() {
         'Vi jobber med å gjøre det enkelt for privatpersoner og bedrifter å ha egne bikuber, der vi tar oss av alt stellet.',
         '',
         'Kort om piloten:',
-        '- Du får låne en bikube som plasseres i din hage/på din tomt.',
+        '- Du får leie en bikube som plasseres i din hage/på din tomt.',
         '- Vi (erfarne birøktere) kommer jevnlig innom for å stelle biene.',
-        '- Du får din egen honning når sesongen er over.',
+        '- Du får førsterett til kjøp av honning i egen leid kube til fast lav pris.',
         '- Som pilotdeltaker får du sterkt redusert pris mot at du gir oss tilbakemeldinger på opplevelsen.',
+        '',
+        'Les mer om leie av bikuber her:',
+        'https://lek-biensvokter.no/leie-av-bikube',
+        '',
+        'Din rabattkode for pilotprogrammet:',
+        'PILOT2024',
         '',
         'Hva skjer nå?',
         'Vi går nå gjennom interesselisten og vil kontakte aktuelle kandidater i Halden-området fortløpende for en uforpliktende prat og befaring.',
@@ -179,14 +185,11 @@ export default function PilotInterestPage() {
       ];
     }
 
-    const params = new URLSearchParams({
-      subject,
-      body: bodyLines.join('\n'),
-    });
+    const body = bodyLines.join('\n');
+    const encodedSubject = encodeURIComponent(subject).replace(/\+/g, '%20');
+    const encodedBody = encodeURIComponent(body).replace(/\+/g, '%20');
 
-    return `mailto:${encodeURIComponent(
-      list.join(',')
-    )}?${params.toString()}`;
+    return `mailto:${encodeURIComponent(list.join(','))}?subject=${encodedSubject}&body=${encodedBody}`;
   };
 
   const handleDelete = async (id: string) => {

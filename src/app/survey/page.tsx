@@ -48,6 +48,15 @@ export default function SurveyLandingPage() {
               <li>Vurdering av nytteverdien av digitale smittevernverktøy</li>
             </ul>
 
+            <div className="mt-6 bg-honey-50 rounded-lg p-4 border border-honey-100">
+              <h3 className="text-sm font-bold text-gray-900 mb-1">
+                Er du ikke birøkter?
+              </h3>
+              <p className="text-sm text-gray-700">
+                Alle er hjertelig velkomne til å delta! Vi ønsker også å høre fra deg som er interessert i bier, honning eller natur, selv om du ikke driver med birøkt selv. Din stemme er viktig for helhetsbildet.
+              </p>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-100 mt-4">
               <div>
                 <p className="text-xs font-bold text-gray-500 uppercase mb-1">
@@ -84,6 +93,15 @@ export default function SurveyLandingPage() {
       <section className="max-w-3xl mx-auto px-4 pb-16">
         <h2 className="text-xl font-bold text-gray-900 mb-4">FAQ</h2>
         <div className="space-y-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">
+              Må jeg være birøkter for å svare?
+            </h3>
+            <p className="text-sm text-gray-600">
+              Nei, på ingen måte! Vi har laget et eget løp i undersøkelsen for deg som ikke er birøkter. Alle som vil hjelpe oss med å kartlegge interessen for bier og honning er hjertelig velkomne til å svare.
+            </p>
+          </div>
+
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <h3 className="text-sm font-semibold text-gray-900 mb-1">
               Må jeg være registrert bruker for å svare?

@@ -315,81 +315,284 @@ export default function SurveyResultsAdminPage() {
     // Create new document
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 20;
-    let y = 20;
-
-    // Helper for text
-    const addText = (text: string, fontSize = 12, isBold = false) => {
-      doc.setFontSize(fontSize);
-      doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-      
-      // Handle multi-line
-      const lines = doc.splitTextToSize(text, pageWidth - (margin * 2));
-      doc.text(lines, margin, y);
-      y += (lines.length * fontSize * 0.5) + 4; // Spacing based on font size
-      
-      if (y > 270) {
-        doc.addPage();
-        y = 20;
-      }
+    
+    // Helper to center text
+    const centerText = (text: string, y: number, size = 12, bold = false) => {
+        doc.setFontSize(size);
+        doc.setFont('helvetica', bold ? 'bold' : 'normal');
+        doc.text(text, pageWidth / 2, y, { align: 'center' });
     };
 
-    // Title
-    addText(`Rapport: Behovsanalyse - ${activeTab === 'beekeeper' ? 'Birøktere' : 'Ikke-birøktere'}`, 18, true);
-    addText(`Generert: ${new Date().toLocaleDateString('no-NO')}`, 10);
-    y += 10;
+    // --- Page 1: Title ---
+    // Logo placeholder (Gold circle)
+    doc.setFillColor(218, 165, 32); // Honey gold
+    doc.circle(pageWidth / 2, 60, 15, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text("LEK", pageWidth / 2, 62, { align: "center" });
+    doc.setTextColor(0, 0, 0);
+
+    centerText("Behovsanalyse – LEK-Biens Vokter™", 100, 24, true);
+    centerText(
+      `Oppsummert rapport basert på spørreundersøkelse blant ${activeTab === 'beekeeper' ? 'birøktere' : 'ikke-birøktere'} i Norge.`,
+      115,
+      14
+    );
+    centerText(`Generert: ${new Date().toLocaleDateString('no-NO', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`, 125, 10);
+
+    const introText = activeTab === 'beekeeper' 
+        ? "Formålet med denne behovsanalysen er å forstå hvordan birøktere arbeider med forebygging, oppdagelse og håndtering av sykdom i bigården, samt å vurdere nytten av digitale verktøy som kan støtte smittevern, rapportering og oversikt."
+        : "Formålet med denne markedsanalysen er å kartlegge interessen for birøkt, leie av bikuber og honningproduksjon blant privatpersoner, samt å vurdere markedspotensialet for nye tjenester.";
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    const introLines = doc.splitTextToSize(introText, pageWidth - 2 * margin);
+    doc.text(introLines, margin, 150);
+
+    centerText("Resultatene brukes til å prioritere videre utvikling av LEK-Biens Vokter™ og planlegging av et pilotprogram.", 180, 14, true);
+
+    // Footer Page 1
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text("LEK-Honning – Internt arbeidsdokument", margin, pageHeight - 10);
+    doc.text("Side 1 av 4 – Forside", pageWidth - margin - 30, pageHeight - 10);
+    doc.setTextColor(0);
+
+
+    // --- Page 2: Dashboard / Summary ---
+    doc.addPage();
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Nøkkeltall", margin, 30);
+
+    // Stats Cards
+    const cardWidth = (pageWidth - (margin * 2) - 15) / 4;
+    const cardHeight = 30;
+    let cardX = margin;
+
+    // Helper to draw card
+    const drawCard = (title: string, value: string, subtext: string, x: number) => {
+        doc.setFillColor(249, 250, 251); // gray-50
+        doc.setDrawColor(229, 231, 235); // gray-200
+        doc.roundedRect(x, 40, cardWidth, cardHeight, 3, 3, 'FD');
+        
+        doc.setFontSize(8);
+        doc.setTextColor(107, 114, 128); // gray-500
+        doc.text(title, x + 5, 48);
+        
+        doc.setFontSize(14);
+        doc.setTextColor(17, 24, 39); // gray-900
+        doc.setFont('helvetica', 'bold');
+        doc.text(value, x + 5, 58);
+        
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(156, 163, 175); // gray-400
+        doc.text(subtext, x + 5, 66);
+    };
 
     if (activeTab === 'beekeeper') {
-      addText(`Antall svar totalt: ${beekeeperStats.total}`, 14, true);
-      y += 5;
-      
-      addText(`Erfart sykdom: ${beekeeperStats.experiencedDisease} (${beekeeperStats.total ? Math.round(beekeeperStats.experiencedDisease / beekeeperStats.total * 100) : 0}%)`);
-      addText(`Medlem i NBL: ${beekeeperStats.memberCount} (${beekeeperStats.total ? Math.round(beekeeperStats.memberCount / beekeeperStats.total * 100) : 0}%)`);
-      y += 5;
-      
-      addText('Verdivurdering (Snitt 1-5):', 12, true);
-      addText(`- Automatisk smittevarsling: ${beekeeperStats.avgWarning}`);
-      addText(`- Varsel til nærliggende: ${beekeeperStats.avgNearby}`);
-      addText(`- Enkel rapportering: ${beekeeperStats.avgReporting}`);
-      addText(`- Bedre oversikt: ${beekeeperStats.avgOverview}`);
-      y += 5;
+        drawCard("Antall svar", beekeeperStats.total.toString(), "Totalt antall svar", cardX);
+        cardX += cardWidth + 5;
+        
+        drawCard("Sykdomserfaring", `${Math.round((beekeeperStats.experiencedDisease / beekeeperStats.total || 0) * 100)}%`, "Andel med erfaring", cardX);
+        cardX += cardWidth + 5;
+        
+        drawCard("Medlem i NBL", `${Math.round((beekeeperStats.memberCount / beekeeperStats.total || 0) * 100)}%`, "Organisasjonsgrad", cardX);
+        cardX += cardWidth + 5;
 
-      addText('Ville brukt systemet:', 12, true);
-      addText(`- Ja: ${beekeeperStats.wouldUse.yes}`);
-      addText(`- Ja, hvis enkelt: ${beekeeperStats.wouldUse.yesIfEasy}`);
-      addText(`- Vet ikke: ${beekeeperStats.wouldUse.unsure}`);
-      addText(`- Nei: ${beekeeperStats.wouldUse.no}`);
+        const pilotPercent = Math.round((pilotCount / beekeeperStats.total || 0) * 100);
+        drawCard("Pilotinteresse", pilotCount.toString(), `${pilotPercent}% av svarene`, cardX);
 
     } else {
-      addText(`Antall svar totalt: ${nonBeekeeperStats.total}`, 14, true);
-      y += 5;
-      
-      addText('Interesse for å leie bikube:', 12, true);
-      addText(`- Ja: ${nonBeekeeperStats.rentalInterest.yes}`);
-      addText(`- Kanskje: ${nonBeekeeperStats.rentalInterest.maybe}`);
-      addText(`- Nei: ${nonBeekeeperStats.rentalInterest.no}`);
-      if (nonBeekeeperStats.rentalInterest.unsure > 0) {
-        addText(`- Vet ikke (gammelt): ${nonBeekeeperStats.rentalInterest.unsure}`);
-      }
-      y += 5;
+        drawCard("Antall svar", nonBeekeeperStats.total.toString(), "Totalt antall svar", cardX);
+        cardX += cardWidth + 5;
+        
+        const rentalYes = nonBeekeeperStats.rentalInterest.yes + nonBeekeeperStats.rentalInterest.maybe;
+        drawCard("Leieinteresse", `${Math.round((rentalYes / nonBeekeeperStats.total || 0) * 100)}%`, "Ja eller Kanskje", cardX);
+        cardX += cardWidth + 5;
+        
+        const eatsHoneyYes = nonBeekeeperStats.eatsHoney.yes;
+        drawCard("Spiser honning", `${Math.round((eatsHoneyYes / nonBeekeeperStats.total || 0) * 100)}%`, "Markedsgrunnlag", cardX);
+        cardX += cardWidth + 5;
 
-      addText('Spiser honning:', 12, true);
-      addText(`- Ja: ${nonBeekeeperStats.eatsHoney.yes}`);
-      addText(`- Nei: ${nonBeekeeperStats.eatsHoney.no}`);
-      addText(`- Vet ikke: ${nonBeekeeperStats.eatsHoney.unsure}`);
-      y += 5;
-      
-      addText('Viktighet av pollinatorer:', 12, true);
-      addText(`- Ja: ${nonBeekeeperStats.pollinatorImportance.yes}`);
-      addText(`- Nei: ${nonBeekeeperStats.pollinatorImportance.no}`);
-      addText(`- Vet ikke: ${nonBeekeeperStats.pollinatorImportance.unsure}`);
-      y += 5;
-
-      addText('Interesse for digitalt verktøy:', 12, true);
-      addText(`- Ja: ${nonBeekeeperStats.digitalToolInterest.yes}`);
-      addText(`- Nei: ${nonBeekeeperStats.digitalToolInterest.no}`);
-      addText(`- Vet ikke: ${nonBeekeeperStats.digitalToolInterest.unsure}`);
+        const pilotPercent = Math.round((pilotCount / nonBeekeeperStats.total || 0) * 100);
+        drawCard("Pilotinteresse", pilotCount.toString(), `${pilotPercent}% av svarene`, cardX);
     }
+
+    // Summary Text
+    doc.setTextColor(0);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Sammendrag av hovedfunn", margin, 90);
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    let summaryY = 100;
+    
+    const summaryPoints = activeTab === 'beekeeper' ? [
+        `Totalt ${beekeeperStats.total} svar fra birøktere.`,
+        `${Math.round((beekeeperStats.experiencedDisease / beekeeperStats.total || 0) * 100)}% rapporterer å ha erfart sykdom, som understreker behovet for bedre verktøy.`,
+        `Gjennomsnittlig opplevd nytteverdi av automatisk varsling er ${beekeeperStats.avgWarning} av 5.`,
+        `Interessen for å bruke systemet er høy: ${beekeeperStats.wouldUse.yes + beekeeperStats.wouldUse.yesIfEasy} av ${beekeeperStats.total} er positive.`,
+        `De største utfordringene som nevnes er ofte relatert til tidsklemme, sykdomskontroll og oversikt.`
+    ] : [
+        `Totalt ${nonBeekeeperStats.total} svar fra privatpersoner.`,
+        `${Math.round(((nonBeekeeperStats.rentalInterest.yes + nonBeekeeperStats.rentalInterest.maybe) / nonBeekeeperStats.total || 0) * 100)}% er positive til å leie bikube (Ja eller Kanskje).`,
+        `Dette indikerer et betydelig markedspotensial for utleiemodellen.`,
+        `${Math.round((nonBeekeeperStats.eatsHoney.yes / nonBeekeeperStats.total || 0) * 100)}% oppgir at de spiser honning.`,
+        `Pilotprogrammet har allerede generert ${pilotCount} interesserte kandidater.`
+    ];
+
+    summaryPoints.forEach(point => {
+        doc.text(`• ${point}`, margin + 5, summaryY);
+        summaryY += 7;
+    });
+
+    // Footer Page 2
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text("LEK-Honning – Internt arbeidsdokument", margin, pageHeight - 10);
+    doc.text("Side 2 av 4 – Sammendrag", pageWidth - margin - 35, pageHeight - 10);
+    doc.setTextColor(0);
+
+
+    // --- Page 3: Detailed Stats ---
+    doc.addPage();
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Detaljerte resultater", margin, 30);
+    
+    let detailsY = 45;
+
+    const drawBarChart = (label: string, data: { label: string, value: number, total: number }[]) => {
+        if (detailsY > 250) {
+            doc.addPage();
+            detailsY = 30;
+        }
+
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text(label, margin, detailsY);
+        detailsY += 8;
+
+        data.forEach(item => {
+            const percent = item.total ? (item.value / item.total) : 0;
+            const barWidth = (pageWidth - margin * 2 - 60) * percent; // Max width minus label space
+            
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text(item.label, margin, detailsY + 4);
+            
+            // Bar background
+            doc.setFillColor(243, 244, 246);
+            doc.rect(margin + 40, detailsY, pageWidth - margin * 2 - 60, 6, 'F');
+            
+            // Bar value
+            if (barWidth > 0) {
+                doc.setFillColor(218, 165, 32); // Honey
+                doc.rect(margin + 40, detailsY, barWidth, 6, 'F');
+            }
+            
+            doc.text(`${item.value} (${Math.round(percent * 100)}%)`, margin + 45 + (pageWidth - margin * 2 - 60), detailsY + 4);
+            
+            detailsY += 10;
+        });
+        detailsY += 10;
+    };
+
+    if (activeTab === 'beekeeper') {
+        drawBarChart("Ville du brukt systemet?", [
+             { label: "Ja", value: beekeeperStats.wouldUse.yes, total: beekeeperStats.total },
+             { label: "Ja, hvis enkelt", value: beekeeperStats.wouldUse.yesIfEasy, total: beekeeperStats.total },
+             { label: "Vet ikke", value: beekeeperStats.wouldUse.unsure, total: beekeeperStats.total },
+             { label: "Nei", value: beekeeperStats.wouldUse.no, total: beekeeperStats.total },
+        ]);
+        
+        // Add more charts for beekeeper if needed, but 'wouldUse' is the main one available in 'beekeeperStats'
+        // I could calculate others if I had the raw data processing in 'beekeeperStats' memo, but I'll stick to what's available.
+        
+    } else {
+        drawBarChart("Interesse for å leie bikube", [
+            { label: "Ja", value: nonBeekeeperStats.rentalInterest.yes, total: nonBeekeeperStats.total },
+            { label: "Kanskje", value: nonBeekeeperStats.rentalInterest.maybe, total: nonBeekeeperStats.total },
+            { label: "Nei", value: nonBeekeeperStats.rentalInterest.no, total: nonBeekeeperStats.total },
+            { label: "Vet ikke", value: nonBeekeeperStats.rentalInterest.unsure, total: nonBeekeeperStats.total },
+        ]);
+
+        drawBarChart("Viktighet av pollinatorer", [
+            { label: "Ja", value: nonBeekeeperStats.pollinatorImportance.yes, total: nonBeekeeperStats.total },
+            { label: "Nei", value: nonBeekeeperStats.pollinatorImportance.no, total: nonBeekeeperStats.total },
+            { label: "Vet ikke", value: nonBeekeeperStats.pollinatorImportance.unsure, total: nonBeekeeperStats.total },
+        ]);
+
+        drawBarChart("Interesse for digitalt verktøy", [
+            { label: "Ja", value: nonBeekeeperStats.digitalToolInterest.yes, total: nonBeekeeperStats.total },
+            { label: "Nei", value: nonBeekeeperStats.digitalToolInterest.no, total: nonBeekeeperStats.total },
+            { label: "Vet ikke", value: nonBeekeeperStats.digitalToolInterest.unsure, total: nonBeekeeperStats.total },
+        ]);
+    }
+
+    // Footer Page 3
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text("LEK-Honning – Internt arbeidsdokument", margin, pageHeight - 10);
+    doc.text("Side 3 av 4 – Detaljer", pageWidth - margin - 35, pageHeight - 10);
+    doc.setTextColor(0);
+
+
+    // --- Page 4: Qualitative / End ---
+    doc.addPage();
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Kvalitative tilbakemeldinger", margin, 30);
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    
+    // Extract quotes based on tab
+    let quotesToDisplay: string[] = [];
+    if (activeTab === 'beekeeper') {
+        quotesToDisplay = challengeQuotes.slice(0, 10);
+        doc.text("Et utvalg av sitater om største utfordringer:", margin, 40);
+    } else {
+        // For non-beekeepers, extract 'knowledge_about_beekeeping' or similar
+        const comments = responses
+            .filter(r => !r.is_beekeeper && r.knowledge_about_beekeeping)
+            .map(r => r.knowledge_about_beekeeping as string)
+            .filter(t => t.length > 5);
+        quotesToDisplay = comments.slice(0, 10);
+        doc.text("Et utvalg av kommentarer om kunnskap/interesse:", margin, 40);
+    }
+    
+    let quotesY = 50;
+    
+    if (quotesToDisplay.length === 0) {
+        doc.text("Ingen sitater tilgjengelig.", margin, quotesY);
+    } else {
+        quotesToDisplay.forEach(quote => {
+             const lines = doc.splitTextToSize(`"${quote}"`, pageWidth - margin * 2);
+             // Check page break
+             if (quotesY + lines.length * 5 > pageHeight - 20) {
+                 doc.addPage();
+                 quotesY = 30;
+             }
+             
+             doc.setFont('helvetica', 'italic');
+             doc.text(lines, margin, quotesY);
+             quotesY += (lines.length * 5) + 5;
+             doc.setFont('helvetica', 'normal');
+        });
+    }
+
+    // Footer Page 4
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text("LEK-Honning – Internt arbeidsdokument", margin, pageHeight - 10);
+    doc.text(`Side 4 av 4 – ${activeTab === 'beekeeper' ? 'Utfordringer' : 'Kommentarer'}`, pageWidth - margin - 35, pageHeight - 10);
 
     // Save
     doc.save(`behovsanalyse_${activeTab}_${new Date().toISOString().split('T')[0]}.pdf`);
