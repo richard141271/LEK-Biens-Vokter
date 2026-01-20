@@ -17,6 +17,7 @@ export default function ApiariesPage() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedApiaries, setSelectedApiaries] = useState<string[]>([]);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [printSigns, setPrintSigns] = useState<any[]>([]);
 
   const supabase = createClient();
   const router = useRouter();
@@ -26,70 +27,45 @@ export default function ApiariesPage() {
   }, []);
 
   const fetchData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push('/login');
-      return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      // Fetch Profile
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      setProfile(profileData);
+
+      // Fetch Apiaries
+      const { data: apiariesData, error } = await supabase
+        .from('apiaries')
+        .select(`
+          *,
+          hives (*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setApiaries(apiariesData || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
     }
-
-    // Fetch Profile for Sign Info
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-    
-    setProfile(profileData);
-
-    let targetUserId: string | null = null;
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      targetUserId = params.get('user_id');
-    }
-
-    // Fetch Apiaries (valgfritt filtrert på spesifikk bruker)
-    let apiaryQuery = supabase
-      .from('apiaries')
-      .select('*, hives(id, active)')
-      .order('created_at', { ascending: false });
-
-    if (targetUserId) {
-      apiaryQuery = apiaryQuery.eq('user_id', targetUserId);
-    }
-
-    const { data: apiaryData } = await apiaryQuery;
-
-    // Fetch Pending Rentals (Apiaries under construction)
-    const { data: rentalData } = await supabase
-      .from('rentals')
-      .select('*')
-      .eq('user_id', targetUserId || user.id)
-      .is('apiary_id', null)
-      .neq('status', 'cancelled');
-      // Removed .eq('status', 'active') to show all pending/active rentals
-
-
-    // Combine: Map rentals to temporary apiary objects
-    const pendingApiaries = (rentalData || []).map(rental => ({
-      id: `pending-${rental.id}`,
-      name: rental.contact_name ? `${rental.contact_name} sin hage` : 'Ny bigård (leie)',
-      location: rental.contact_address || 'Adresse kommer',
-      type: 'rental_pending',
-      hives: Array(rental.hive_count).fill({ active: true }), // Placeholder hives
-      is_pending: true,
-      status: rental.status // Pass status through
-    }));
-
-    if (apiaryData) setApiaries([...pendingApiaries, ...apiaryData]);
-    setLoading(false);
   };
 
   const getIcon = (type: string) => {
     switch (type) {
-      case 'rental_pending': return Store; // Or a specific icon for pending
-      case 'lager': return Warehouse;
-      case 'bil': return Truck;
-      case 'oppstart': return Store;
+      case 'warehouse': return Warehouse;
+      case 'store': return Store;
+      case 'transport': return Truck;
       default: return MapPin;
     }
   };
@@ -100,116 +76,36 @@ export default function ApiariesPage() {
     );
   };
 
-  const generateSignPDF = async () => {
+  const handlePrintSigns = async () => {
     if (selectedApiaries.length === 0) return;
     setIsGeneratingPDF(true);
 
     try {
-      const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
       const apiariesToPrint = apiaries.filter(a => selectedApiaries.includes(a.id));
-
-      for (let i = 0; i < apiariesToPrint.length; i++) {
-        const apiary = apiariesToPrint[i];
-        if (i > 0) doc.addPage();
-
-        // 1. Background (Yellow)
-        doc.setFillColor(253, 224, 71); // Tailwind yellow-300
-        doc.rect(0, 0, 210, 297, 'F');
-
-        // 2. Black Border (Inset)
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(4); // ~11px
-        doc.rect(5, 5, 200, 287);
-
-        // 3. Header "BIGÅRD"
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(60);
-        doc.setTextColor(0, 0, 0);
-        doc.text('BIGÅRD', 105, 40, { align: 'center' });
-
-        // 4. Responsible Beekeeper Section
-        doc.setFontSize(14);
-        doc.setTextColor(60, 60, 60);
-        doc.text('ANSVARLIG BIRØKTER', 105, 60, { align: 'center' });
-
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(28);
-        doc.text((profile?.full_name || 'Ukjent Eier').toUpperCase(), 105, 75, { align: 'center' });
-        
-        doc.setFontSize(20);
-        doc.text((profile?.address || '').toUpperCase(), 105, 85, { align: 'center' });
-        doc.text(`${profile?.post_code || ''} ${profile?.city || ''}`.toUpperCase(), 105, 95, { align: 'center' });
-
-        doc.setFontSize(28);
-        doc.text(`TLF: ${profile?.phone_number || ''}`, 105, 115, { align: 'center' });
-
-        // 5. Badges
-        let yPos = 140;
-        if (profile?.is_norges_birokterlag_member) {
-            // Black box
-            doc.setFillColor(0, 0, 0);
-            doc.rect(40, yPos, 130, 15, 'F');
-            // Yellow text
-            doc.setTextColor(253, 224, 71);
-            doc.setFontSize(14);
-            doc.text('MEDLEM AV NORGES BIRØKTERLAG', 105, yPos + 10, { align: 'center' });
-            yPos += 25;
-        }
-
-        if (profile?.is_lek_honning_member) {
-             // Black box
-             doc.setFillColor(0, 0, 0);
-             doc.rect(40, yPos, 130, 15, 'F');
-             // Yellow text
-             doc.setTextColor(253, 224, 71);
-             doc.setFontSize(14);
-             doc.text('MEDLEM AV LEK-HONNING™ NORGE', 105, yPos + 10, { align: 'center' });
-        }
-
-        // 6. Bottom Section (Location ID + QR)
-        // Draw line
-        doc.setLineWidth(2);
-        doc.setDrawColor(0, 0, 0);
-        doc.line(20, 230, 190, 230);
-
-        // Location ID Text
-        doc.setTextColor(60, 60, 60);
-        doc.setFontSize(16);
-        doc.text('LOKASJON ID', 20, 245);
-        
-        doc.setTextColor(0, 0, 0);
-        doc.setFont('courier', 'bold'); // Monospace look
-        doc.setFontSize(36);
-        doc.text(apiary.apiary_number || '', 20, 260);
-
-        // QR Code
+      
+      // Generate QR codes for each apiary
+      const signsWithQr = await Promise.all(apiariesToPrint.map(async (apiary) => {
         try {
             const qrUrl = `${window.location.origin}/apiaries/${apiary.id}`;
-            const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 1, width: 200 });
-            // Add QR Image (30x30mm approx)
-            doc.addImage(qrDataUrl, 'PNG', 150, 235, 40, 40);
-            // Border around QR
-            doc.setLineWidth(1);
-            doc.rect(150, 235, 40, 40);
+            const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 1, width: 400 });
+            return { ...apiary, qrDataUrl };
         } catch (err) {
             console.error('QR Gen Error', err);
+            return apiary;
         }
-      }
+      }));
 
-      doc.autoPrint();
-      const blob = doc.output('blob');
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
+      setPrintSigns(signsWithQr);
+      
+      // Allow DOM to update then print
+      setTimeout(() => {
+        window.print();
+        setIsGeneratingPDF(false);
+      }, 500);
 
     } catch (error) {
-      console.error('PDF Generation failed', error);
-      alert('Kunne ikke generere PDF. Prøv igjen.');
-    } finally {
+      console.error('Print prep failed', error);
+      alert('Kunne ikke klargjøre utskrift. Prøv igjen.');
       setIsGeneratingPDF(false);
     }
   };
@@ -238,7 +134,7 @@ export default function ApiariesPage() {
         <div className="mx-4 mb-4 bg-white p-3 rounded-xl border border-honey-200 shadow-sm flex justify-between items-center animate-in slide-in-from-top-2 print:hidden">
           <span className="text-sm font-medium">{selectedApiaries.length} valgt</span>
           <button
-            onClick={generateSignPDF}
+            onClick={handlePrintSigns}
             disabled={selectedApiaries.length === 0 || isGeneratingPDF}
             className="bg-honey-500 text-white px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-50 flex items-center gap-2"
           >
@@ -357,6 +253,60 @@ export default function ApiariesPage() {
           <Plus className="w-8 h-8" />
         </Link>
       )}
+
+      {/* PRINT TEMPLATE - ONLY VISIBLE WHEN PRINTING */}
+      <div className="hidden print:block fixed inset-0 bg-white z-[9999]">
+        {printSigns.map((sign, index) => (
+          <div 
+            key={index} 
+            className="w-[210mm] h-[297mm] p-[20mm] relative flex flex-col items-center text-center"
+            style={{ pageBreakAfter: 'always' }}
+          >
+            {/* Header */}
+            <h1 className="text-6xl font-black text-gray-900 mb-8 uppercase tracking-wider border-b-4 border-black pb-4 w-full">
+              BIGÅRD
+            </h1>
+
+            {/* Main Info */}
+            <div className="flex-1 w-full flex flex-col items-center justify-center space-y-12">
+              
+              <div className="space-y-4">
+                <p className="text-2xl text-gray-600 uppercase tracking-widest font-bold">Birøkter</p>
+                <h2 className="text-5xl font-bold text-gray-900">{profile?.first_name} {profile?.last_name}</h2>
+                <p className="text-2xl text-gray-800">{profile?.phone}</p>
+                <p className="text-xl text-gray-600">{profile?.address}</p>
+              </div>
+
+              <div className="w-full border-t-2 border-gray-300 my-8"></div>
+
+              <div className="space-y-4">
+                <p className="text-2xl text-gray-600 uppercase tracking-widest font-bold">Bigård</p>
+                <h3 className="text-4xl font-bold text-gray-900">{sign.name}</h3>
+                <p className="text-2xl text-gray-800">Nr: {sign.apiary_number}</p>
+                {sign.registration_number && (
+                  <p className="text-xl text-gray-600">Reg: {sign.registration_number}</p>
+                )}
+              </div>
+
+              {/* QR Code */}
+              <div className="mt-12 p-4 bg-white border-4 border-black rounded-xl">
+                {sign.qrDataUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={sign.qrDataUrl} alt="QR Kode" className="w-64 h-64 object-contain" />
+                )}
+              </div>
+
+            </div>
+
+            {/* Footer Warning */}
+            <div className="mt-auto w-full pt-8 border-t-4 border-black">
+              <p className="text-xl font-bold text-red-600 uppercase">
+                Varsle Mattilsynet ved mistanke om sykdom
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -298,13 +298,19 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     try {
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       
-      // 2 cards per page
+      // 2 cards per page logic
+      // A4: 210mm x 297mm
+      // Card size: 190mm x 130mm (leaving margins)
+      // Vertical spacing: 148.5mm (half page)
+      
       const cardsPerPage = 2;
-      const cardHeight = 148.5; // A4 height (297) / 2
+      const cardHeight = 148.5; 
+      const cardContentHeight = 135;
+      const cardContentWidth = 190;
+      const leftMargin = 10;
       
       for (let i = 0; i < hivesToPrint.length; i++) {
         const hive = hivesToPrint[i];
-        const pageIndex = Math.floor(i / cardsPerPage);
         const positionInPage = i % cardsPerPage;
         
         // Add new page if we are at the start of a new page group (but not for the very first item)
@@ -313,127 +319,146 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         }
         
         const yOffset = positionInPage * cardHeight;
+        const topM = yOffset + 10; // 10mm top margin relative to card slot
+        
         const hiveData = data[hive.id] || { inspections: [], logs: [] };
         
-        // --- DRAW CARD CONTENT ---
-        // Top Margin inside the card area
-        const topM = yOffset + 10;
-        
-        // 1. Header
+        // --- DRAW CARD BORDER ---
         doc.setDrawColor(0, 0, 0);
         doc.setLineWidth(0.5);
-        doc.line(10, topM + 15, 200, topM + 15);
-
+        doc.roundedRect(leftMargin, topM, cardContentWidth, cardContentHeight, 3, 3);
+        
+        // 1. Header Area (Inside Border)
         // Hive Number
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(32);
-        doc.text(hive.hive_number, 10, topM + 10);
+        doc.setFontSize(28);
+        doc.text(hive.hive_number, leftMargin + 5, topM + 12);
 
         // Hive Name
         doc.setFontSize(14);
-        doc.text(hive.name, 10, topM + 22);
+        doc.setFont('helvetica', 'normal');
+        doc.text(hive.name, leftMargin + 5, topM + 20);
 
-        // Right side header
+        // Right side header (Type & Apiary)
         doc.setFontSize(12);
-        doc.text((hive.type || 'PRODUKSJON').toUpperCase(), 200, topM + 8, { align: 'right' });
+        doc.text((hive.type || 'PRODUKSJON').toUpperCase(), leftMargin + cardContentWidth - 5, topM + 10, { align: 'right' });
         doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);
-        doc.text(apiary.name, 200, topM + 13, { align: 'right' });
+        doc.text(apiary.name, leftMargin + cardContentWidth - 5, topM + 16, { align: 'right' });
         doc.setTextColor(0, 0, 0);
 
+        // Line separator
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.2);
+        doc.line(leftMargin + 5, topM + 25, leftMargin + cardContentWidth - 5, topM + 25);
+
         // 2. Status & Info Grid
+        const gridY = topM + 30;
+        
         // Status Box
         doc.setFillColor(249, 250, 251);
         doc.setDrawColor(229, 231, 235);
-        doc.roundedRect(10, topM + 30, 90, 25, 2, 2, 'FD');
+        doc.roundedRect(leftMargin + 5, gridY, 85, 20, 2, 2, 'FD');
         
         doc.setFontSize(8);
         doc.setTextColor(107, 114, 128);
-        doc.text('STATUS', 15, topM + 36);
+        doc.text('STATUS', leftMargin + 10, gridY + 5);
         
-        doc.setFontSize(16);
+        doc.setFontSize(14);
         doc.setTextColor(0, 0, 0);
-        doc.text(getStatusText(hive), 15, topM + 48);
+        doc.text(getStatusText(hive), leftMargin + 10, gridY + 15);
 
         // Last Inspection Box
         doc.setFillColor(249, 250, 251);
         doc.setDrawColor(229, 231, 235);
-        doc.roundedRect(110, topM + 30, 90, 25, 2, 2, 'FD');
+        doc.roundedRect(leftMargin + 95, gridY, 85, 20, 2, 2, 'FD');
         
         doc.setFontSize(8);
         doc.setTextColor(107, 114, 128);
-        doc.text('SISTE INSPEKSJON', 115, topM + 36);
+        doc.text('SISTE INSPEKSJON', leftMargin + 100, gridY + 5);
         
-        doc.setFontSize(16);
+        doc.setFontSize(14);
         doc.setTextColor(0, 0, 0);
-        doc.text(hive.last_inspection_date || 'Aldri', 115, topM + 48);
+        doc.text(hive.last_inspection_date || 'Aldri', leftMargin + 100, gridY + 15);
 
         // 3. Inspection History (Compact)
         if (printOptions.includeHistory) {
-            doc.setFontSize(10);
+            const histY = gridY + 28;
+            doc.setFontSize(9);
             doc.setFont('helvetica', 'bold');
-            doc.text('SISTE INSPEKSJONER', 10, topM + 65);
-            doc.line(10, topM + 67, 200, topM + 67);
+            doc.text('HISTORIKK (SISTE 3)', leftMargin + 5, histY);
+            
+            // Table Header
+            doc.setFontSize(8);
+            doc.setTextColor(100, 100, 100);
+            doc.text('Dato', leftMargin + 5, histY + 5);
+            doc.text('Status', leftMargin + 35, histY + 5);
+            doc.text('Notat', leftMargin + 70, histY + 5);
+            doc.line(leftMargin + 5, histY + 6, leftMargin + cardContentWidth - 5, histY + 6);
 
-            let histY = topM + 73;
+            let rowY = histY + 10;
             const recentInspections = hiveData.inspections.slice(0, 3); // Max 3
             
             if (recentInspections.length === 0) {
                 doc.setFont('helvetica', 'italic');
-                doc.setFontSize(9);
-                doc.setTextColor(150, 150, 150);
-                doc.text('Ingen inspeksjoner registrert.', 10, histY);
+                doc.text('Ingen inspeksjoner registrert.', leftMargin + 5, rowY);
             } else {
                 doc.setFont('helvetica', 'normal');
-                doc.setFontSize(9);
                 doc.setTextColor(0, 0, 0);
                 
                 recentInspections.forEach((insp: any) => {
                     const date = new Date(insp.inspection_date).toLocaleDateString();
-                    doc.text(date, 10, histY);
-                    doc.text(insp.status || '-', 40, histY);
+                    doc.text(date, leftMargin + 5, rowY);
+                    doc.text(insp.status || '-', leftMargin + 35, rowY);
                     
-                    const notes = (insp.notes || '').substring(0, 50);
-                    doc.text(notes, 80, histY);
+                    const notes = (insp.notes || '').substring(0, 60) + ((insp.notes?.length > 60) ? '...' : '');
+                    doc.text(notes, leftMargin + 70, rowY);
                     
                     // Icons
-                    let iconX = 180;
+                    let iconX = leftMargin + 170;
                     if (insp.queen_seen) {
-                        doc.text('D', iconX, histY);
-                        iconX += 5;
+                        doc.setFont('helvetica', 'bold');
+                        doc.text('D', iconX, rowY);
+                        iconX += 4;
                     }
                     if (insp.eggs_seen) {
-                        doc.text('E', iconX, histY);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text('E', iconX, rowY);
                     }
+                    doc.setFont('helvetica', 'normal');
                     
-                    histY += 5;
+                    rowY += 5;
                 });
             }
         }
 
-        // 4. Notes Area
-        const notesY = topM + 95;
+        // 4. Notes Area (Bottom)
+        const notesY = topM + 90;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
-        doc.text('NOTATER:', 10, notesY);
+        doc.text('NOTATER:', leftMargin + 5, notesY);
         doc.setDrawColor(200, 200, 200);
-        doc.roundedRect(10, notesY + 2, 140, 35, 1, 1);
+        doc.roundedRect(leftMargin + 5, notesY + 2, 140, 35, 1, 1);
 
         // 5. QR Code (Bottom Right)
         try {
             const qrUrl = `${window.location.origin}/hives/${hive.id}`;
             const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 1, width: 100 });
-            doc.addImage(qrDataUrl, 'PNG', 165, notesY, 35, 35);
+            doc.addImage(qrDataUrl, 'PNG', leftMargin + 150, notesY, 35, 35);
         } catch (err) {
             console.error('QR Gen Error', err);
         }
         
         // 6. Cut Line (if not last on page)
         if (positionInPage === 0 && i < hivesToPrint.length - 1) {
-            doc.setDrawColor(200, 200, 200);
-            (doc as any).setLineDash([5, 5], 0);
-            doc.line(0, cardHeight, 210, cardHeight);
-            (doc as any).setLineDash([], 0); // Reset
+            doc.setDrawColor(150, 150, 150);
+            // Manually draw dashed line since setLineDash can be finicky in TS
+            for (let d = 0; d < 210; d += 4) {
+                doc.line(d, cardHeight, d + 2, cardHeight);
+            }
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text('Klipp her', 5, cardHeight - 2);
         }
       }
       
@@ -455,15 +480,15 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
         
         // 3 cols x 8 rows = 24 per page
-        // Cell size: 70mm x 37mm
-        // Total height: 296mm (A4 is 297mm)
-        // Margin top: 0.5mm to center it vertically
+        // Standard Labels (e.g. Avery L7160/3474): 63.5x38.1mm or 70x37mm
+        // Let's optimize for 70x37mm (3x8)
+        
         const cols = 3;
         const rows = 8;
         const cellW = 70;
         const cellH = 37;
-        const marginTop = 0.5;
-        const marginLeft = 0; // Assuming 210mm width (3*70 = 210), so 0 margin
+        const marginTop = 12; // Adjust for standard label top margin
+        const marginLeft = 0; // 3x70 = 210, so 0 margin (full width)
         
         let col = 0;
         let row = 0;
@@ -480,9 +505,13 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
             const x = marginLeft + (col * cellW);
             const y = marginTop + (row * cellH);
+            
+            // Inner Padding (Safe Area)
+            const pX = x + 3;
+            const pY = y + 3;
 
-            // Draw border (light gray for guidance)
-            doc.setDrawColor(230, 230, 230);
+            // Optional: Draw light border for guidance (can be removed for production labels)
+            doc.setDrawColor(240, 240, 240);
             doc.setLineWidth(0.1);
             doc.rect(x, y, cellW, cellH);
 
@@ -491,7 +520,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             try {
                 const qrUrl = `${window.location.origin}/hives/${hive.id}`;
                 const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 0, width: 100 });
-                doc.addImage(qrDataUrl, 'PNG', x + 42, y + 4, 24, 24);
+                doc.addImage(qrDataUrl, 'PNG', pX + 40, pY + 2, 22, 22);
             } catch (err) {
                 console.error(err);
             }
@@ -499,22 +528,22 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             // Text on left
             doc.setTextColor(0, 0, 0);
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(12);
-            doc.text(hive.hive_number, x + 4, y + 10);
+            doc.setFontSize(11);
+            doc.text(hive.hive_number, pX, pY + 6);
             
             doc.setFontSize(8);
             doc.setFont('helvetica', 'normal');
             // Split text to avoid overlap with QR
-            doc.text(doc.splitTextToSize(hive.name, 38), x + 4, y + 16);
+            doc.text(doc.splitTextToSize(hive.name, 38), pX, pY + 12);
             
             doc.setFontSize(6);
             doc.setTextColor(100, 100, 100);
-            doc.text('LEK-Biens Vokter™', x + 5, y + 33);
+            doc.text('LEK-Biens Vokter™', pX, pY + 28);
             
-            // Optional: Add type/status small
+            // Type/Status
             doc.setFontSize(6);
             doc.setTextColor(50, 50, 50);
-            doc.text((hive.type || '').toUpperCase(), x + 4, y + 28);
+            doc.text((hive.type || '').toUpperCase(), pX, pY + 24);
 
             // Advance
             col++;
