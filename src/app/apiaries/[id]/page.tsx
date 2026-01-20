@@ -507,7 +507,10 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             }
         }
         
-        doc.save('bikube-qr-koder.pdf');
+        doc.autoPrint();
+        const blob = doc.output('blob');
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
     } catch (err) {
         console.error('QR PDF Error', err);
         alert('Kunne ikke generere QR-koder');

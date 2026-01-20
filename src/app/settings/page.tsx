@@ -438,7 +438,7 @@ export default function SettingsPage() {
                             onClick={() => setShowLabelModal(true)}
                             className="w-full bg-honey-500 text-white font-bold py-2 rounded-lg text-sm hover:bg-honey-600 transition-colors"
                           >
-                            Tilpass & Last ned
+                            Tilpass & Skriv ut
                           </button>
                       </div>
                   </div>

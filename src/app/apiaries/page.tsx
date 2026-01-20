@@ -240,7 +240,7 @@ export default function ApiariesPage() {
             className="bg-honey-500 text-white px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-50 flex items-center gap-2"
           >
             <Printer className="w-4 h-4" />
-            {isGeneratingPDF ? 'Lager PDF...' : 'Last ned Skilt (PDF)'}
+            {isGeneratingPDF ? 'Klargjør...' : 'Skriv ut Skilt'}
           </button>
         </div>
       )}
