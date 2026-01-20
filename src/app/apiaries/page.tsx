@@ -255,51 +255,63 @@ export default function ApiariesPage() {
       )}
 
       {/* PRINT TEMPLATE - ONLY VISIBLE WHEN PRINTING */}
-      <div className="hidden print:block fixed inset-0 bg-white z-[9999]">
+      <style jsx global>{`
+        @media print {
+          @page {
+            margin: 0;
+            size: auto;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+          }
+        }
+      `}</style>
+      <div className="hidden print:flex fixed inset-0 bg-white z-[9999] flex-col">
         {printSigns.map((sign, index) => (
           <div 
             key={index} 
-            className="w-[210mm] h-[297mm] p-[20mm] relative flex flex-col items-center text-center"
+            className="w-screen h-screen p-[15mm] flex flex-col items-center text-center relative"
             style={{ pageBreakAfter: 'always' }}
           >
             {/* Header */}
-            <h1 className="text-6xl font-black text-gray-900 mb-8 uppercase tracking-wider border-b-4 border-black pb-4 w-full">
+            <h1 className="text-5xl font-black text-gray-900 mb-8 uppercase tracking-wider border-b-4 border-black pb-4 w-full">
               BIGÅRD
             </h1>
 
             {/* Main Info */}
-            <div className="flex-1 w-full flex flex-col items-center justify-center space-y-12">
+            <div className="flex-1 w-full flex flex-col items-center justify-center gap-8">
               
-              <div className="space-y-4">
-                <p className="text-2xl text-gray-600 uppercase tracking-widest font-bold">Birøkter</p>
-                <h2 className="text-5xl font-bold text-gray-900">{profile?.first_name} {profile?.last_name}</h2>
-                <p className="text-2xl text-gray-800">{profile?.phone}</p>
-                <p className="text-xl text-gray-600">{profile?.address}</p>
+              <div className="space-y-2">
+                <p className="text-xl text-gray-600 uppercase tracking-widest font-bold">Birøkter</p>
+                <h2 className="text-4xl font-bold text-gray-900">{profile?.first_name} {profile?.last_name}</h2>
+                <p className="text-xl text-gray-800">{profile?.phone}</p>
+                <p className="text-lg text-gray-600">{profile?.address}</p>
               </div>
 
-              <div className="w-full border-t-2 border-gray-300 my-8"></div>
+              <div className="w-full border-t-2 border-gray-300"></div>
 
-              <div className="space-y-4">
-                <p className="text-2xl text-gray-600 uppercase tracking-widest font-bold">Bigård</p>
+              <div className="space-y-2">
+                <p className="text-xl text-gray-600 uppercase tracking-widest font-bold">Bigård</p>
                 <h3 className="text-4xl font-bold text-gray-900">{sign.name}</h3>
-                <p className="text-2xl text-gray-800">Nr: {sign.apiary_number}</p>
+                <p className="text-xl text-gray-800">Nr: {sign.apiary_number}</p>
                 {sign.registration_number && (
-                  <p className="text-xl text-gray-600">Reg: {sign.registration_number}</p>
+                  <p className="text-lg text-gray-600">Reg: {sign.registration_number}</p>
                 )}
               </div>
 
               {/* QR Code */}
-              <div className="mt-12 p-4 bg-white border-4 border-black rounded-xl">
+              <div className="mt-4 p-4 bg-white border-4 border-black rounded-xl">
                 {sign.qrDataUrl && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={sign.qrDataUrl} alt="QR Kode" className="w-64 h-64 object-contain" />
+                  <img src={sign.qrDataUrl} alt="QR Kode" className="w-56 h-56 object-contain" />
                 )}
               </div>
 
             </div>
 
             {/* Footer Warning */}
-            <div className="mt-auto w-full pt-8 border-t-4 border-black">
+            <div className="mt-auto w-full pt-8 border-t-4 border-black mb-4">
               <p className="text-xl font-bold text-red-600 uppercase">
                 Varsle Mattilsynet ved mistanke om sykdom
               </p>
