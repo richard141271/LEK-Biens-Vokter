@@ -121,6 +121,12 @@ export async function deleteUser(userId: string) {
 
       const hiveIds = (userHives || []).map(h => h.id)
       if (hiveIds.length > 0) {
+        // Delete inspections for these hives (in case ON DELETE CASCADE is missing)
+        await adminClient
+            .from('inspections')
+            .delete()
+            .in('hive_id', hiveIds)
+
         await adminClient
           .from('hive_logs')
           .delete()

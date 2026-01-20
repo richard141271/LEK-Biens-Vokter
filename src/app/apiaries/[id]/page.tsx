@@ -3,9 +3,10 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Archive, Truck, Trash2, X, Check, MoreVertical, ClipboardList, Edit, QrCode, Calendar } from 'lucide-react';
+import { ArrowLeft, Archive, Truck, Trash2, X, Check, MoreVertical, ClipboardList, Edit, QrCode, Calendar, Printer, List, CreditCard, Activity, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store, MapPin } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function ApiaryDetailsPage({ params }: { params: { id: string } }) {
   const [apiary, setApiary] = useState<any>(null);
@@ -35,6 +36,42 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [rsvpInspectionId, setRsvpInspectionId] = useState<string | null>(null);
   const [rsvpCount, setRsvpCount] = useState(1);
   const [rsvpSizes, setRsvpSizes] = useState('');
+
+  // Print State
+  const [printLayout, setPrintLayout] = useState<'cards' | 'list' | 'qr' | null>(null);
+  const [printData, setPrintData] = useState<{ [key: string]: { inspections: any[], logs: any[] } }>({});
+  const [loadingPrintData, setLoadingPrintData] = useState(false);
+  
+  // Print Options Modal
+  const [isPrintOptionsOpen, setIsPrintOptionsOpen] = useState(false);
+  const [printOptions, setPrintOptions] = useState({
+      includeHistory: true,
+      includeLogs: true,
+      includeImages: true,
+      includeNotes: true,
+      inspectionLimit: 'last5',
+      dateRange: { start: '', end: '' }
+  });
+
+  // Mass Action State
+  const [isMassActionModalOpen, setIsMassActionModalOpen] = useState(false);
+  const [massActionType, setMassActionType] = useState<'inspeksjon' | 'logg' | null>(null);
+  const [isSubmittingMassAction, setIsSubmittingMassAction] = useState(false);
+  
+  // Mass Inspection Form
+  const [massInspectionData, setMassInspectionData] = useState({
+    queen_seen: false,
+    eggs_seen: false,
+    honey_stores: 'middels',
+    temperament: 'rolig',
+    notes: ''
+  });
+
+  // Mass Log Form
+  const [massLogData, setMassLogData] = useState({
+    action: 'BEHANDLING',
+    details: ''
+  });
 
   const supabase = createClient();
   const router = useRouter();
@@ -74,7 +111,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             .from('rentals')
             .select('*')
             .eq('apiary_id', params.id)
-            .maybeSingle(); // Use maybeSingle as it might not be linked yet if manually created
+            .maybeSingle();
         if (rentalData) setRental(rentalData);
 
         // 1.2 Fetch Inspections
@@ -157,7 +194,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         .from('hive_logs')
         .insert(logs);
 
-      if (logError) throw logError; // Non-fatal but good to know
+      if (logError) throw logError;
 
       await fetchData();
       setIsMoveModalOpen(false);
@@ -180,8 +217,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
     setIsProcessingScan(true);
     const input = scanInput.trim(); 
-    // Assume input is Hive Number (e.g., "KUBE-101") or UUID or just "101"
-    // Normalize: If just number "101", make it "KUBE-101"
     let hiveNumber = input;
     if (/^\d+$/.test(input)) {
         hiveNumber = `KUBE-${input.padStart(3, '0')}`;
@@ -205,7 +240,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                     .update({ apiary_id: params.id })
                     .eq('id', existingHive.id);
                 
-                // Log movement
                 await supabase.from('hive_logs').insert({
                     hive_id: existingHive.id,
                     user_id: user?.id,
@@ -218,57 +252,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 setScannedHives(prev => [{ number: existingHive.hive_number, status: 'moved', msg: 'Allerede her' }, ...prev]);
             }
         } else {
-            // Calculate next hive number for THIS USER
-            const { data: userHives } = await supabase
-                .from('hives')
-                .select('hive_number')
-                .eq('user_id', user?.id);
-
-            let nextNum = 1;
-            if (userHives && userHives.length > 0) {
-                const maxNum = userHives.reduce((max, h) => {
-                    if (!h.hive_number) return max;
-                    const parts = h.hive_number.split('-');
-                    if (parts.length === 2) {
-                        const num = parseInt(parts[1], 10);
-                        return !isNaN(num) && num > max ? num : max;
-                    }
-                    return max;
-                }, 0);
-                nextNum = maxNum + 1;
-            }
-
-            // Ensure we don't use the input number if it's just a raw number like "1", "2" etc.
-            // UNLESS the user explicitly typed "KUBE-005" which means they want that specific ID.
-            // If they typed "5", and nextNum is 5, fine. If they typed "5" but nextNum is 10, we should probably warn or use nextNum?
-            // Current logic assumes "scanInput" is what they WANT.
-            // But if it's a NEW hive, we should enforce the sequence to avoid duplicates or gaps?
-            // Actually, if they scan a QR code "KUBE-005", they want KUBE-005.
-            // If they type "5", they mean KUBE-005.
-            // So we trust the input, but we must check if it's already taken by THIS user (which we did above with existingHive check).
-            // If existingHive is null, it means NO ONE has this hive? Or just this user?
-            // RLS policies usually restrict 'select' to own rows. So existingHive check is "does THIS USER have this hive".
-            // If not, we create it.
-            // WAIT: If another user has "KUBE-001", and I create "KUBE-001", is that allowed?
-            // Yes, hive_number is not unique globally, only practically unique per user usually.
-            // Let's stick to the input hiveNumber for creation to support "manual override" or QR scanning.
-            // But if they just hit "Ny" without input, we need auto-generation. 
-            // The current UI seems to require input for this function.
-            
-            // Auto-generation logic if input was empty (not possible with current check) OR if we want to force sequence?
-            // The user said: "alle nye profiler starter med BG-001 og oppover. det samme med alle IDér pr bruker."
-            // This implies auto-increment per user.
-            
-            // If the input was manually typed "KUBE-005", we use it.
-            // If the user wants a completely new hive without specifying number, we should have a "Auto-generate" button?
-            // The current UI is "Scan / Ny". It takes input.
-            // If I type "Ny Kube" (invalid), it returns.
-            // If I type "1", it becomes "KUBE-001".
-            
-            // For now, we trust the input "hiveNumber" as the desired ID.
-            // The user's request "det samme med alle IDér pr bruker" implies that we should respect the sequence.
-            // But if I manually type "100", I get "KUBE-100". That is fine.
-            
             // Create new hive
             const { data: newHive, error: createError } = await supabase
                 .from('hives')
@@ -285,7 +268,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
             if (createError) throw createError;
 
-            // Log creation
             await supabase.from('hive_logs').insert({
                 hive_id: newHive.id,
                 user_id: user?.id,
@@ -296,16 +278,121 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             setScannedHives(prev => [{ number: hiveNumber, status: 'created', msg: 'Opprettet ny' }, ...prev]);
         }
         
-        setScanInput(''); // Clear for next scan
-        fetchData(); // Refresh list in background
+        setScanInput('');
+        fetchData();
 
     } catch (error: any) {
         setScannedHives(prev => [{ number: hiveNumber, status: 'error', msg: 'Feil: ' + error.message }, ...prev]);
     } finally {
         setIsProcessingScan(false);
-        // Keep focus
         const inputEl = document.getElementById('scan-input');
         if (inputEl) inputEl.focus();
+    }
+  };
+
+  // --- PRINT LOGIC ---
+  const handlePrint = async (layout: 'cards' | 'list' | 'qr', skipOptions = false) => {
+    // If cards and options not skipped, open modal first
+    if (layout === 'cards' && !skipOptions) {
+        setIsPrintOptionsOpen(true);
+        return;
+    }
+
+    setLoadingPrintData(true);
+    
+    // Determine which hives to print
+    const hivesToPrint = hives
+        .filter(h => selectedHiveIds.size === 0 || selectedHiveIds.has(h.id));
+
+    const hiveIds = hivesToPrint.map(h => h.id);
+
+    if (hiveIds.length > 0 && layout !== 'qr') {
+        const { data: inspections } = await supabase
+            .from('inspections')
+            .select('*')
+            .in('hive_id', hiveIds)
+            .order('inspection_date', { ascending: false });
+
+        const { data: logs } = await supabase
+            .from('hive_logs')
+            .select('*')
+            .in('hive_id', hiveIds)
+            .order('created_at', { ascending: false });
+
+        const newData: { [key: string]: { inspections: any[], logs: any[] } } = {};
+        hiveIds.forEach(id => {
+            newData[id] = {
+                inspections: inspections?.filter(i => i.hive_id === id) || [],
+                logs: logs?.filter(l => l.hive_id === id) || []
+            };
+        });
+        setPrintData(newData);
+    }
+
+    setLoadingPrintData(false);
+    setPrintLayout(layout);
+    
+    setTimeout(() => {
+      window.print();
+    }, 500);
+  };
+
+  // --- MASS ACTION LOGIC ---
+  const handleMassActionSubmit = async () => {
+    if (selectedHiveIds.size === 0 || !massActionType) return;
+    setIsSubmittingMassAction(true);
+
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const ids = Array.from(selectedHiveIds);
+
+        if (massActionType === 'inspeksjon') {
+            const inspections = ids.map(id => ({
+                hive_id: id,
+                user_id: user.id,
+                inspection_date: new Date().toISOString().split('T')[0],
+                ...massInspectionData
+            }));
+
+            const { error } = await supabase.from('inspections').insert(inspections);
+            if (error) throw error;
+        } else {
+            const logs = ids.map(id => ({
+                hive_id: id,
+                user_id: user.id,
+                action: massLogData.action,
+                details: massLogData.details
+            }));
+
+            const { error } = await supabase.from('hive_logs').insert(logs);
+            if (error) throw error;
+        }
+
+        alert(`${massActionType === 'inspeksjon' ? 'Inspeksjoner' : 'Logger'} registrert på ${ids.length} kuber!`);
+        setIsMassActionModalOpen(false);
+        setMassActionType(null);
+        // Reset forms
+        setMassInspectionData({
+            queen_seen: false,
+            eggs_seen: false,
+            honey_stores: 'middels',
+            temperament: 'rolig',
+            notes: ''
+        });
+        setMassLogData({
+            action: 'BEHANDLING',
+            details: ''
+        });
+        
+        // Refresh data
+        fetchData();
+
+    } catch (error: any) {
+        alert('Feil ved masseregistrering: ' + error.message);
+    } finally {
+        setIsSubmittingMassAction(false);
     }
   };
 
@@ -366,7 +453,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const handleDeleteApiary = async () => {
     if (hives.length > 0) {
       alert('Du kan ikke slette en bigård som inneholder bikuber. Vennligst flytt bikubene først.');
-      // Optionally open move modal with all selected
       if (confirm('Vil du åpne flytte-menyen for å flytte alle kuber nå?')) {
         setSelectedHiveIds(new Set(hives.map(h => h.id)));
         setIsSelectionMode(true);
@@ -398,13 +484,28 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     }
   };
 
+  const getStatusColor = (hive: any) => {
+    if (hive.active === false) return 'bg-gray-100 text-gray-500 border-gray-200';
+    switch (hive.status) {
+      case 'DØD': return 'bg-red-100 text-red-800 border-red-200';
+      case 'SVAK': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'AKTIV': return 'bg-green-100 text-green-800 border-green-200';
+      default: return 'bg-green-100 text-green-800 border-green-200';
+    }
+  };
+
+  const getStatusText = (hive: any) => {
+    if (hive.active === false) return 'INAKTIV';
+    return hive.status || 'AKTIV';
+  };
+
   if (loading) return <div className="p-8 text-center">Laster...</div>;
   if (!apiary) return <div className="p-8 text-center">Fant ikke bigård</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-24 print:bg-white print:pb-0">
       {/* Page Title & Actions */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4">
+      <div className="bg-white border-b border-gray-200 px-4 py-4 print:hidden">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-4">
             <Link href="/dashboard" className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
@@ -434,36 +535,95 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         </div>
       </div>
 
-      <main className="p-4 space-y-4">
+      <main className="p-4 space-y-4 print:hidden">
         {/* Actions Bar */}
-        <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+        <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
            <div className="flex items-center gap-2">
-             <span className="font-semibold text-gray-900">{hives.length} Kuber</span>
+             <span className="font-semibold text-gray-900 whitespace-nowrap">{hives.length} Kuber</span>
            </div>
            
-           <div className="flex gap-2">
+           <div className="flex gap-2 items-center">
              <button 
                 onClick={() => {
                     setIsScanModalOpen(true);
                     setTimeout(() => document.getElementById('scan-input')?.focus(), 100);
                 }}
-                className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-800"
+                className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-800 whitespace-nowrap"
              >
                 <QrCode className="w-4 h-4" />
                 Skann / Ny
              </button>
 
+             {isSelectionMode && selectedHiveIds.size > 0 && (
+                <>
+                  <div className="h-6 w-px bg-gray-300 mx-1 hidden md:block"></div>
+                  
+                  {/* Mass Actions */}
+                  <button 
+                    onClick={() => {
+                        setMassActionType('inspeksjon');
+                        setIsMassActionModalOpen(true);
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium bg-honey-100 text-honey-800 hover:bg-honey-200 whitespace-nowrap flex items-center gap-2"
+                  >
+                    <ClipboardList className="w-4 h-4" />
+                    <span className="hidden md:inline">Registrer Hendelse</span>
+                    <span className="md:hidden">Hendelse</span>
+                  </button>
+
+                  <div className="h-6 w-px bg-gray-300 mx-1 hidden md:block"></div>
+
+                  {/* Print Buttons */}
+                  <div className="flex gap-1">
+                      <button 
+                        onClick={() => handlePrint('list')}
+                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
+                        title="Skriv ut liste"
+                      >
+                        <List className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => handlePrint('cards')}
+                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
+                        title="Skriv ut kort"
+                      >
+                        <CreditCard className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => handlePrint('qr')}
+                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
+                        title="Skriv ut QR-koder"
+                      >
+                        <QrCode className="w-5 h-5" />
+                      </button>
+                  </div>
+                </>
+             )}
+
              {hives.length > 0 && (
-               <button 
-                 onClick={() => setIsSelectionMode(!isSelectionMode)}
-                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                   isSelectionMode 
-                     ? 'bg-honey-100 text-honey-700' 
-                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                 }`}
-               >
-                 {isSelectionMode ? 'Avbryt valg' : 'Velg kuber'}
-               </button>
+               <>
+                 {isSelectionMode && (
+                   <button 
+                     onClick={selectAll}
+                     className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors whitespace-nowrap"
+                   >
+                     {selectedHiveIds.size === hives.length ? 'Velg ingen' : 'Velg alle'}
+                   </button>
+                 )}
+                 <button 
+                   onClick={() => {
+                      setIsSelectionMode(!isSelectionMode);
+                      if (isSelectionMode) setSelectedHiveIds(new Set());
+                   }}
+                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                     isSelectionMode 
+                       ? 'bg-red-50 text-red-600 border border-red-100' 
+                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                   }`}
+                 >
+                   {isSelectionMode ? 'Avbryt' : 'Velg'}
+                 </button>
+               </>
              )}
            </div>
         </div>
@@ -579,7 +739,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                                                 <button 
                                                     onClick={() => {
                                                         const sizes = rsvpSizes.split(',').map(s => s.trim());
-                                                        // Simulate Vipps payment flow here
                                                         if (confirm(`Betal ${rsvpCount * 150} kr med Vipps og bekreft?`)) {
                                                             handleRSVP(insp.id, 'attending', rsvpCount, sizes);
                                                             setRsvpInspectionId(null);
@@ -617,6 +776,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             </div>
           </div>
         )}
+
         {isSelectionMode && (
           <div className="fixed bottom-20 left-4 right-4 bg-gray-900 text-white p-4 rounded-xl shadow-xl flex justify-between items-center z-20 animate-in slide-in-from-bottom-10">
             <div className="flex items-center gap-3">
@@ -782,6 +942,153 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         </div>
       )}
 
+      {/* MASS ACTION MODAL */}
+      {isMassActionModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-900 text-white">
+              <h3 className="font-bold text-lg">
+                {massActionType === 'inspeksjon' ? 'Masse-inspeksjon' : 'Masse-logg'}
+              </h3>
+              <button onClick={() => setIsMassActionModalOpen(false)}><X className="w-6 h-6 text-gray-400 hover:text-white" /></button>
+            </div>
+            
+            <div className="p-6">
+              <p className="text-sm text-gray-600 mb-6">
+                Du registrerer nå på <span className="font-bold">{selectedHiveIds.size}</span> valgte kuber.
+              </p>
+
+              {massActionType === 'inspeksjon' ? (
+                <div className="space-y-4">
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 border p-3 rounded-lg w-full cursor-pointer hover:bg-gray-50">
+                      <input 
+                        type="checkbox" 
+                        checked={massInspectionData.queen_seen}
+                        onChange={e => setMassInspectionData({...massInspectionData, queen_seen: e.target.checked})}
+                        className="w-5 h-5 text-honey-600 rounded"
+                      />
+                      <span className="font-medium">Dronning sett</span>
+                    </label>
+                    <label className="flex items-center gap-2 border p-3 rounded-lg w-full cursor-pointer hover:bg-gray-50">
+                      <input 
+                        type="checkbox" 
+                        checked={massInspectionData.eggs_seen}
+                        onChange={e => setMassInspectionData({...massInspectionData, eggs_seen: e.target.checked})}
+                        className="w-5 h-5 text-honey-600 rounded"
+                      />
+                      <span className="font-medium">Egg sett</span>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Lynne</label>
+                    <select 
+                      value={massInspectionData.temperament}
+                      onChange={e => setMassInspectionData({...massInspectionData, temperament: e.target.value})}
+                      className="w-full border border-gray-300 rounded-lg p-2.5"
+                    >
+                      <option value="rolig">Rolig</option>
+                      <option value="middels">Middels</option>
+                      <option value="aggressiv">Aggressiv</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Notat</label>
+                    <textarea 
+                      value={massInspectionData.notes}
+                      onChange={e => setMassInspectionData({...massInspectionData, notes: e.target.value})}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 h-24"
+                      placeholder="Notat som gjelder alle kubene..."
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                   {/* Logg form fields here if needed later */}
+                </div>
+              )}
+
+              <div className="mt-8 flex gap-3">
+                <button 
+                  onClick={() => setIsMassActionModalOpen(false)}
+                  className="flex-1 py-3 border border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-50"
+                >
+                  Avbryt
+                </button>
+                <button 
+                  onClick={handleMassActionSubmit}
+                  disabled={isSubmittingMassAction}
+                  className="flex-1 py-3 bg-honey-500 text-white rounded-lg font-bold hover:bg-honey-600 disabled:opacity-50"
+                >
+                  {isSubmittingMassAction ? 'Lagrer...' : 'Lagre registrering'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PRINT OPTIONS MODAL */}
+      {isPrintOptionsOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+                <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-900 text-white">
+                    <h3 className="font-bold text-lg">Utskriftsvalg</h3>
+                    <button onClick={() => setIsPrintOptionsOpen(false)}><X className="w-6 h-6 text-gray-400 hover:text-white" /></button>
+                </div>
+                
+                <div className="p-6 space-y-4">
+                    <label className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input 
+                            type="checkbox"
+                            checked={printOptions.includeHistory}
+                            onChange={(e) => setPrintOptions({...printOptions, includeHistory: e.target.checked})}
+                            className="w-5 h-5 text-honey-600"
+                        />
+                        <span className="font-medium">Inkluder inspeksjonshistorikk</span>
+                    </label>
+
+                    {printOptions.includeHistory && (
+                        <div className="pl-8 space-y-2">
+                            <label className="flex items-center gap-2 text-sm text-gray-600">
+                                <input 
+                                    type="radio"
+                                    name="limit"
+                                    checked={printOptions.inspectionLimit === 'last5'}
+                                    onChange={() => setPrintOptions({...printOptions, inspectionLimit: 'last5'})}
+                                    className="text-honey-600"
+                                />
+                                Siste 5 inspeksjoner
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-gray-600">
+                                <input 
+                                    type="radio"
+                                    name="limit"
+                                    checked={printOptions.inspectionLimit === 'all'}
+                                    onChange={() => setPrintOptions({...printOptions, inspectionLimit: 'all'})}
+                                    className="text-honey-600"
+                                />
+                                Alle inspeksjoner
+                            </label>
+                        </div>
+                    )}
+
+                    <button
+                        onClick={() => {
+                            setIsPrintOptionsOpen(false);
+                            handlePrint('cards', true);
+                        }}
+                        className="w-full bg-honey-500 text-white font-bold py-3 rounded-lg hover:bg-honey-600 mt-4"
+                    >
+                        Skriv ut
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
       {/* SCAN MODAL */}
       {isScanModalOpen && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
@@ -855,6 +1162,199 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         </div>
       )}
 
+      {/* PRINT CONTENT (Hidden on screen) */}
+      {printLayout && (
+        <div className="hidden print:block p-8">
+            <div className="mb-8">
+                <h1 className="text-2xl font-bold mb-2">Bikubeoversikt - {apiary.name}</h1>
+                <p className="text-sm text-gray-500">Utskriftsdato: {new Date().toLocaleDateString()}</p>
+            </div>
+
+            {printLayout === 'list' ? (
+                // LIST VIEW
+                <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr className="border-b-2 border-black">
+                            <th className="py-2 font-bold w-16">Kube #</th>
+                            <th className="py-2 font-bold w-32">Navn</th>
+                            <th className="py-2 font-bold w-16">Status</th>
+                            <th className="py-2 font-bold w-64">Siste Inspeksjon</th>
+                            <th className="py-2 font-bold">Siste Logg</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {hives
+                            .filter(h => selectedHiveIds.size === 0 || selectedHiveIds.has(h.id))
+                            .map(hive => {
+                                const lastInsp = printData[hive.id]?.inspections?.[0];
+                                const lastLog = printData[hive.id]?.logs?.[0];
+                                return (
+                                    <tr key={hive.id} className="border-b border-gray-300 break-inside-avoid">
+                                        <td className="py-2 align-top font-mono font-bold">{hive.hive_number}</td>
+                                        <td className="py-2 align-top">
+                                            <div className="font-bold">{hive.name}</div>
+                                            <div className="text-gray-500 uppercase text-[10px]">{hive.type || 'PRODUKSJON'}</div>
+                                        </td>
+                                        <td className="py-2 align-top">
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${getStatusColor(hive)}`}>
+                                                {getStatusText(hive)}
+                                            </span>
+                                        </td>
+                                        <td className="py-2 align-top">
+                                            {lastInsp ? (
+                                                <div>
+                                                    <div className="font-bold">{new Date(lastInsp.inspection_date).toLocaleDateString()}</div>
+                                                    <div className="flex gap-1 flex-wrap mt-0.5">
+                                                        {lastInsp.queen_seen && <span className="text-[10px] bg-green-50 text-green-700 px-1 rounded">Dronning</span>}
+                                                        {lastInsp.eggs_seen && <span className="text-[10px] bg-green-50 text-green-700 px-1 rounded">Egg</span>}
+                                                    </div>
+                                                    {lastInsp.notes && <div className="text-gray-600 italic mt-1 line-clamp-3">{lastInsp.notes}</div>}
+                                                </div>
+                                            ) : '-'}
+                                        </td>
+                                        <td className="py-2 align-top">
+                                            {lastLog ? (
+                                                <div>
+                                                    <div className="font-bold">{new Date(lastLog.created_at).toLocaleDateString()}</div>
+                                                    <div className="text-[10px] uppercase font-bold text-gray-500">{lastLog.action}</div>
+                                                    <div className="text-gray-600 line-clamp-2">{lastLog.details}</div>
+                                                </div>
+                                            ) : '-'}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                    </tbody>
+                </table>
+            ) : printLayout === 'qr' ? (
+                // QR CODE VIEW - Optimized for 3 per row (24 per page) - 70x37mm
+                <div className="grid grid-cols-3 gap-0 print:gap-0 p-0 print:p-0 w-full">
+                  <style jsx global>{`
+                    @media print {
+                      @page {
+                        size: A4;
+                        margin: 0;
+                      }
+                      .qr-label {
+                        width: 70mm;
+                        height: 37mm;
+                        page-break-inside: avoid;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                      }
+                    }
+                  `}</style>
+                  {hives
+                    .filter(h => selectedHiveIds.size === 0 || selectedHiveIds.has(h.id))
+                    .map(hive => (
+                      <div key={hive.id} className="qr-label flex flex-col items-center justify-center text-center overflow-hidden p-2">
+                        <div className="flex items-center gap-2 w-full justify-between px-2">
+                             <div className="text-left">
+                                <h2 className="text-sm font-bold leading-tight">{hive.hive_number}</h2>
+                                <p className="text-[8px] text-gray-600 truncate max-w-[80px]">{hive.name}</p>
+                             </div>
+                             <QRCodeSVG 
+                                value={`${window.location.origin}/hives/${hive.id}`}
+                                size={90}
+                                level="H"
+                                includeMargin={false}
+                              />
+                        </div>
+                      </div>
+                    ))}
+                </div>
+            ) : (
+                // CARDS VIEW
+                <div className="grid grid-cols-1 gap-8">
+                    {hives
+                        .filter(h => selectedHiveIds.size === 0 || selectedHiveIds.has(h.id))
+                        .map(hive => {
+                            const hiveInspections = printData[hive.id]?.inspections || [];
+                            const lastInsp = hiveInspections[0];
+
+                            return (
+                                <div key={hive.id} className="break-inside-avoid border-2 border-black rounded-xl p-6 page-break-after-always relative overflow-hidden h-[95vh] flex flex-col">
+                                    <div className="flex justify-between items-start mb-4 border-b-2 border-black pb-4">
+                                        <div>
+                                            <h2 className="text-6xl font-black mb-2">{hive.hive_number}</h2>
+                                            <p className="text-2xl">{hive.name}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-xl font-bold uppercase">{hive.type || 'PRODUKSJON'}</div>
+                                            <div className="text-gray-600 text-lg">{apiary.name}</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 gap-8 mb-8">
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                            <h3 className="font-bold text-gray-500 uppercase text-sm mb-2">STATUS</h3>
+                                            <div className="text-3xl font-bold">
+                                                {getStatusText(hive)} 
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                            <h3 className="font-bold text-gray-500 uppercase text-sm mb-2">SISTE INSPEKSJON</h3>
+                                            <div className="text-3xl font-bold">{hive.last_inspection_date || 'Aldri'}</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Inspection History Table */}
+                                    {printOptions.includeHistory && (
+                                        <div className="flex-1">
+                                            <h3 className="font-bold border-b-2 border-black mb-4 text-xl">INSPEKSJONSHISTORIKK</h3>
+                                            {hiveInspections.length > 0 ? (
+                                                <table className="w-full text-sm text-left">
+                                                    <thead>
+                                                        <tr className="border-b-2 border-gray-400">
+                                                            <th className="py-2 w-32">Dato</th>
+                                                            <th className="py-2 w-32">Status</th>
+                                                            <th className="py-2">Notater</th>
+                                                            <th className="py-2 w-48">Detaljer</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {hiveInspections
+                                                            .slice(0, printOptions.inspectionLimit === 'last5' ? 10 : 20)
+                                                            .map((insp: any) => (
+                                                                <tr key={insp.id} className="border-b border-gray-200">
+                                                                    <td className="py-3 font-bold">{new Date(insp.inspection_date).toLocaleDateString()}</td>
+                                                                    <td className="py-3">{insp.status || 'Ukjent'}</td>
+                                                                    <td className="py-3 line-clamp-2">{insp.notes || '-'}</td>
+                                                                    <td className="py-3">
+                                                                        <div className="flex gap-2">
+                                                                        {insp.queen_seen && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-bold">Dronning</span>}
+                                                                        {insp.eggs_seen && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-bold">Egg</span>}
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                    </tbody>
+                                                </table>
+                                            ) : (
+                                                <p className="text-lg italic text-gray-500">Ingen inspeksjoner registrert</p>
+                                            )}
+                                        </div>
+                                    )}
+                                    
+                                    <div className="mt-auto pt-8 border-t-2 border-black flex justify-between items-end">
+                                        <div className="text-sm text-gray-500">
+                                            Utskrift fra LEK-Biens Vokter™
+                                        </div>
+                                        <QRCodeSVG 
+                                            value={`${window.location.origin}/hives/${hive.id}`}
+                                            size={100}
+                                            level="H"
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })}
+                </div>
+            )}
+        </div>
+      )}
     </div>
   );
 }

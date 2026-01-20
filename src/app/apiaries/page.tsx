@@ -261,21 +261,25 @@ export default function ApiariesPage() {
               html, body {
                 margin: 0 !important;
                 padding: 0 !important;
-                visibility: hidden;
+                background: white;
               }
               
-              /* Show only the print container and its children */
-              .print-container, .print-container * {
-                visibility: visible;
+              /* Hide everything else */
+              body > *:not(.print-container) {
+                display: none !important;
               }
-              
+
+              /* Show only the print container */
               .print-container {
+                display: block !important;
                 position: absolute;
                 left: 0;
                 top: 0;
-                width: 100%;
+                width: 210mm;
+                height: 297mm;
                 margin: 0;
                 padding: 0;
+                overflow: hidden;
               }
             }
           `}</style>
@@ -291,12 +295,12 @@ export default function ApiariesPage() {
                   
                   {/* HEADER */}
                   <div className="w-full text-center space-y-6">
-                    <h1 className="text-[120px] leading-none font-black tracking-tighter uppercase text-black">BIGÅRD</h1>
+                    <h1 className="text-[100px] leading-none font-black tracking-tighter uppercase text-black">BIGÅRD</h1>
                     
                     <div className="space-y-4">
                       <p className="uppercase tracking-widest text-xl font-bold text-black/60">ANSVARLIG BIRØKTER</p>
                       <div className="space-y-1">
-                        <p className="text-5xl font-black text-black uppercase">{profile?.full_name || 'Ukjent Eier'}</p>
+                        <p className="text-5xl font-black text-black uppercase break-words leading-tight">{profile?.full_name || 'Ukjent Eier'}</p>
                         <p className="text-3xl font-bold text-black">{profile?.address || ''}</p>
                         <p className="text-3xl font-bold text-black">{profile?.post_code} {profile?.city}</p>
                       </div>
@@ -324,14 +328,14 @@ export default function ApiariesPage() {
                      {/* ID */}
                      <div className="text-left">
                         <p className="text-2xl font-black uppercase text-black/60 mb-2">LOKASJON ID</p>
-                        <p className="text-7xl font-black font-mono tracking-widest text-black">{apiary.apiary_number}</p>
+                        <p className="text-6xl font-black font-mono tracking-widest text-black">{apiary.apiary_number}</p>
                      </div>
 
                      {/* QR Code */}
                      <div className="bg-white p-3 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
                         <QRCodeSVG 
                           value={`${window.location.origin}/apiaries/${apiary.id}`}
-                          size={180}
+                          size={150}
                           level="H"
                           includeMargin={true}
                         />
