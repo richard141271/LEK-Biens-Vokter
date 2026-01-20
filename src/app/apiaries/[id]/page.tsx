@@ -1291,7 +1291,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                             return (
                                 <div 
                                     key={hive.id} 
-                                    className={`relative w-[210mm] h-[297mm] p-8 flex flex-col bg-white overflow-hidden print:w-full print:h-[100vh] ${
+                                    className={`relative w-[210mm] h-[297mm] p-8 flex flex-col bg-white overflow-hidden print:w-[210mm] print:h-[290mm] print:overflow-hidden ${
                                         index < array.length - 1 ? 'break-after-page page-break-after-always' : ''
                                     }`}
                                 >

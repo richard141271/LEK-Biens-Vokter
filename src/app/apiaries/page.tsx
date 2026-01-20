@@ -293,7 +293,7 @@ export default function ApiariesPage() {
             .map((apiary, index, array) => (
               <div 
                 key={apiary.id} 
-                className={`w-[210mm] h-[297mm] relative overflow-hidden bg-yellow-300 print:w-full print:h-[100vh] ${
+                className={`w-[210mm] h-[297mm] relative overflow-hidden bg-yellow-300 print:w-[210mm] print:h-[290mm] print:overflow-hidden ${
                   index < array.length - 1 ? 'break-after-page page-break-after-always' : ''
                 }`}
               >
