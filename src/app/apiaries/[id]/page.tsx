@@ -298,142 +298,149 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     try {
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       
+      // 2 cards per page
+      const cardsPerPage = 2;
+      const cardHeight = 148.5; // A4 height (297) / 2
+      
       for (let i = 0; i < hivesToPrint.length; i++) {
         const hive = hivesToPrint[i];
-        if (i > 0) doc.addPage();
+        const pageIndex = Math.floor(i / cardsPerPage);
+        const positionInPage = i % cardsPerPage;
         
+        // Add new page if we are at the start of a new page group (but not for the very first item)
+        if (i > 0 && positionInPage === 0) {
+          doc.addPage();
+        }
+        
+        const yOffset = positionInPage * cardHeight;
         const hiveData = data[hive.id] || { inspections: [], logs: [] };
+        
+        // --- DRAW CARD CONTENT ---
+        // Top Margin inside the card area
+        const topM = yOffset + 10;
         
         // 1. Header
         doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(1);
-        doc.line(10, 35, 200, 35);
+        doc.setLineWidth(0.5);
+        doc.line(10, topM + 15, 200, topM + 15);
 
         // Hive Number
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(40);
-        doc.text(hive.hive_number, 10, 25);
+        doc.setFontSize(32);
+        doc.text(hive.hive_number, 10, topM + 10);
 
         // Hive Name
-        doc.setFontSize(16);
-        doc.text(hive.name, 10, 32);
+        doc.setFontSize(14);
+        doc.text(hive.name, 10, topM + 22);
 
         // Right side header
-        doc.setFontSize(14);
-        doc.text((hive.type || 'PRODUKSJON').toUpperCase(), 200, 20, { align: 'right' });
         doc.setFontSize(12);
+        doc.text((hive.type || 'PRODUKSJON').toUpperCase(), 200, topM + 8, { align: 'right' });
+        doc.setFontSize(10);
         doc.setTextColor(100, 100, 100);
-        doc.text(apiary.name, 200, 30, { align: 'right' });
+        doc.text(apiary.name, 200, topM + 13, { align: 'right' });
         doc.setTextColor(0, 0, 0);
 
-        // 2. Status & Last Inspection Boxes
+        // 2. Status & Info Grid
         // Status Box
-        doc.setFillColor(249, 250, 251); // gray-50
-        doc.setDrawColor(229, 231, 235); // gray-200
-        doc.roundedRect(10, 45, 90, 30, 3, 3, 'FD');
+        doc.setFillColor(249, 250, 251);
+        doc.setDrawColor(229, 231, 235);
+        doc.roundedRect(10, topM + 30, 90, 25, 2, 2, 'FD');
         
-        doc.setFontSize(10);
-        doc.setTextColor(107, 114, 128); // gray-500
-        doc.text('STATUS', 15, 53);
+        doc.setFontSize(8);
+        doc.setTextColor(107, 114, 128);
+        doc.text('STATUS', 15, topM + 36);
         
-        doc.setFontSize(20);
+        doc.setFontSize(16);
         doc.setTextColor(0, 0, 0);
-        doc.text(getStatusText(hive), 15, 65);
+        doc.text(getStatusText(hive), 15, topM + 48);
 
         // Last Inspection Box
         doc.setFillColor(249, 250, 251);
-        doc.roundedRect(110, 45, 90, 30, 3, 3, 'FD');
+        doc.setDrawColor(229, 231, 235);
+        doc.roundedRect(110, topM + 30, 90, 25, 2, 2, 'FD');
         
-        doc.setFontSize(10);
+        doc.setFontSize(8);
         doc.setTextColor(107, 114, 128);
-        doc.text('SISTE INSPEKSJON', 115, 53);
+        doc.text('SISTE INSPEKSJON', 115, topM + 36);
         
-        doc.setFontSize(20);
+        doc.setFontSize(16);
         doc.setTextColor(0, 0, 0);
-        doc.text(hive.last_inspection_date || 'Aldri', 115, 65);
+        doc.text(hive.last_inspection_date || 'Aldri', 115, topM + 48);
 
-        // 3. Inspection History
-        if (printOptions.includeHistory && hiveData.inspections.length > 0) {
-            doc.setFontSize(14);
-            doc.text('INSPEKSJONSHISTORIKK', 10, 90);
-            doc.line(10, 92, 200, 92);
-
-            // Table Header
-            let y = 100;
+        // 3. Inspection History (Compact)
+        if (printOptions.includeHistory) {
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
-            doc.text('Dato', 10, y);
-            doc.text('Status', 40, y);
-            doc.text('Notater', 70, y);
-            doc.text('Detaljer', 160, y);
+            doc.text('SISTE INSPEKSJONER', 10, topM + 65);
+            doc.line(10, topM + 67, 200, topM + 67);
+
+            let histY = topM + 73;
+            const recentInspections = hiveData.inspections.slice(0, 3); // Max 3
             
-            y += 2;
-            doc.line(10, y, 200, y);
-            y += 5;
-
-            doc.setFont('helvetica', 'normal');
-            
-            const limit = printOptions.inspectionLimit === 'last5' ? 10 : 20;
-            const inspections = hiveData.inspections.slice(0, limit);
-
-            for (const insp of inspections) {
-                if (y > 250) break; 
-                
-                doc.text(new Date(insp.inspection_date).toLocaleDateString(), 10, y);
-                doc.text(insp.status || 'Ukjent', 40, y);
-                
-                // Notes (truncated)
-                const notes = doc.splitTextToSize(insp.notes || '-', 80);
-                doc.text(notes[0], 70, y);
-
-                // Details
-                let detailsX = 160;
-                if (insp.queen_seen) {
-                    doc.setFillColor(220, 252, 231); // green-100
-                    doc.rect(detailsX, y-3, 15, 4, 'F');
-                    doc.setFontSize(8);
-                    doc.setTextColor(21, 128, 61); // green-700
-                    doc.text('Dronning', detailsX+1, y);
-                    detailsX += 18;
-                }
-                if (insp.eggs_seen) {
-                    doc.setFillColor(220, 252, 231);
-                    doc.rect(detailsX, y-3, 10, 4, 'F');
-                    doc.setFontSize(8);
-                    doc.setTextColor(21, 128, 61);
-                    doc.text('Egg', detailsX+1, y);
-                }
-                
-                doc.setFontSize(10);
+            if (recentInspections.length === 0) {
+                doc.setFont('helvetica', 'italic');
+                doc.setFontSize(9);
+                doc.setTextColor(150, 150, 150);
+                doc.text('Ingen inspeksjoner registrert.', 10, histY);
+            } else {
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
                 doc.setTextColor(0, 0, 0);
-
-                y += 8;
-                doc.setDrawColor(229, 231, 235);
-                doc.line(10, y-4, 200, y-4);
+                
+                recentInspections.forEach((insp: any) => {
+                    const date = new Date(insp.inspection_date).toLocaleDateString();
+                    doc.text(date, 10, histY);
+                    doc.text(insp.status || '-', 40, histY);
+                    
+                    const notes = (insp.notes || '').substring(0, 50);
+                    doc.text(notes, 80, histY);
+                    
+                    // Icons
+                    let iconX = 180;
+                    if (insp.queen_seen) {
+                        doc.text('D', iconX, histY);
+                        iconX += 5;
+                    }
+                    if (insp.eggs_seen) {
+                        doc.text('E', iconX, histY);
+                    }
+                    
+                    histY += 5;
+                });
             }
         }
 
-        // 4. Footer & QR
-        const footerY = 270;
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(1);
-        doc.line(10, footerY, 200, footerY);
+        // 4. Notes Area
+        const notesY = topM + 95;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.text('NOTATER:', 10, notesY);
+        doc.setDrawColor(200, 200, 200);
+        doc.roundedRect(10, notesY + 2, 140, 35, 1, 1);
 
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text('Utskrift fra LEK-Biens Vokter™', 10, footerY + 10);
-
-        // QR Code
+        // 5. QR Code (Bottom Right)
         try {
             const qrUrl = `${window.location.origin}/hives/${hive.id}`;
             const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 1, width: 100 });
-            doc.addImage(qrDataUrl, 'PNG', 170, footerY - 5, 30, 30);
+            doc.addImage(qrDataUrl, 'PNG', 165, notesY, 35, 35);
         } catch (err) {
             console.error('QR Gen Error', err);
         }
+        
+        // 6. Cut Line (if not last on page)
+        if (positionInPage === 0 && i < hivesToPrint.length - 1) {
+            doc.setDrawColor(200, 200, 200);
+            (doc as any).setLineDash([5, 5], 0);
+            doc.line(0, cardHeight, 210, cardHeight);
+            (doc as any).setLineDash([], 0); // Reset
+        }
       }
       
-      doc.save('bikube-kort.pdf');
+      doc.autoPrint();
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
     } catch (err) {
         console.error('PDF Error', err);
         alert('Kunne ikke generere PDF');
@@ -449,10 +456,14 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         
         // 3 cols x 8 rows = 24 per page
         // Cell size: 70mm x 37mm
+        // Total height: 296mm (A4 is 297mm)
+        // Margin top: 0.5mm to center it vertically
         const cols = 3;
         const rows = 8;
         const cellW = 70;
         const cellH = 37;
+        const marginTop = 0.5;
+        const marginLeft = 0; // Assuming 210mm width (3*70 = 210), so 0 margin
         
         let col = 0;
         let row = 0;
@@ -467,11 +478,11 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 row = 0;
             }
 
-            const x = col * cellW;
-            const y = row * cellH;
+            const x = marginLeft + (col * cellW);
+            const y = marginTop + (row * cellH);
 
-            // Draw border (optional, good for cutting)
-            doc.setDrawColor(200, 200, 200);
+            // Draw border (light gray for guidance)
+            doc.setDrawColor(230, 230, 230);
             doc.setLineWidth(0.1);
             doc.rect(x, y, cellW, cellH);
 
@@ -480,7 +491,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             try {
                 const qrUrl = `${window.location.origin}/hives/${hive.id}`;
                 const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 0, width: 100 });
-                doc.addImage(qrDataUrl, 'PNG', x + 40, y + 3, 25, 25);
+                doc.addImage(qrDataUrl, 'PNG', x + 42, y + 4, 24, 24);
             } catch (err) {
                 console.error(err);
             }
@@ -488,16 +499,22 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             // Text on left
             doc.setTextColor(0, 0, 0);
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(14);
-            doc.text(hive.hive_number, x + 5, y + 10);
+            doc.setFontSize(12);
+            doc.text(hive.hive_number, x + 4, y + 10);
             
             doc.setFontSize(8);
             doc.setFont('helvetica', 'normal');
-            doc.text(doc.splitTextToSize(hive.name, 35), x + 5, y + 18);
+            // Split text to avoid overlap with QR
+            doc.text(doc.splitTextToSize(hive.name, 38), x + 4, y + 16);
             
             doc.setFontSize(6);
             doc.setTextColor(100, 100, 100);
-            doc.text('LEK-Biens Vokter™', x + 5, y + 32);
+            doc.text('LEK-Biens Vokter™', x + 5, y + 33);
+            
+            // Optional: Add type/status small
+            doc.setFontSize(6);
+            doc.setTextColor(50, 50, 50);
+            doc.text((hive.type || '').toUpperCase(), x + 4, y + 28);
 
             // Advance
             col++;
