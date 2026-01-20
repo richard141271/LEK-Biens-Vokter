@@ -262,17 +262,14 @@ export default function ApiariesPage() {
                 margin: 0 !important;
                 padding: 0 !important;
                 background: white;
+                height: 100%;
+                overflow: hidden;
               }
               
-              /* Hide everything else */
-              body > *:not(.print-container) {
-                display: none !important;
-              }
-
-              /* Show only the print container */
+              /* Ensure the print container is visible and positioned correctly */
               .print-container {
                 display: block !important;
-                position: absolute;
+                position: fixed;
                 left: 0;
                 top: 0;
                 width: 210mm;
@@ -280,6 +277,8 @@ export default function ApiariesPage() {
                 margin: 0;
                 padding: 0;
                 overflow: hidden;
+                z-index: 9999;
+                background: white;
               }
             }
           `}</style>
