@@ -61,6 +61,16 @@ export async function deleteUser(userId: string) {
         .delete()
         .eq('user_id', userId)
 
+      await adminClient
+        .from('survey_pilot_interest')
+        .delete()
+        .eq('user_id', userId)
+
+      await adminClient
+        .from('market_survey_responses')
+        .delete()
+        .eq('user_id', userId)
+
       // 0.1) Cleanup MLM and Shop related data
       // Nullify referrer_id in profiles (downline)
       await adminClient

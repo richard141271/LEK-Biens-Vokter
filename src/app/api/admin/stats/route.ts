@@ -58,7 +58,7 @@ export async function GET() {
     const admins = profiles.filter((p) => p.role === 'admin').length;
     const mattilsynet = profiles.filter((p) => p.role === 'mattilsynet').length;
     const beekeepers = profiles.filter(
-      (p) => p.role === 'beekeeper' || !p.role
+      (p) => p.role !== 'admin' && p.role !== 'mattilsynet'
     ).length;
 
     const { count: activeAlertsCount, error: alertsError } = await adminClient
