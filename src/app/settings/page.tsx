@@ -442,6 +442,48 @@ export default function SettingsPage() {
                           </button>
                       </div>
                   </div>
+
+                  {/* Driftsmateriell Links */}
+                  <div className="mt-6 border-t border-gray-100 pt-4">
+                      <h5 className="font-bold text-gray-900 text-sm mb-3">Driftsmateriell</h5>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="flex items-center gap-3">
+                             <div className="bg-white p-2 rounded-full border border-gray-200">
+                               <Printer className="w-4 h-4 text-gray-600" />
+                             </div>
+                             <div>
+                                <span className="font-bold text-gray-800 text-sm block">Bigårdsskilt</span>
+                                <span className="text-xs text-gray-500">Skriv ut varselskilt for dine bigårder</span>
+                             </div>
+                          </div>
+                          <button 
+                            onClick={() => router.push('/apiaries')} 
+                            className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1"
+                          >
+                            Gå til utskrift <ArrowRight className="w-3 h-3" />
+                          </button>
+                        </div>
+                        
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="flex items-center gap-3">
+                             <div className="bg-white p-2 rounded-full border border-gray-200">
+                               <Printer className="w-4 h-4 text-gray-600" />
+                             </div>
+                             <div>
+                                <span className="font-bold text-gray-800 text-sm block">Bikubekort & QR</span>
+                                <span className="text-xs text-gray-500">Stamkort og merking (via Bigård)</span>
+                             </div>
+                          </div>
+                          <button 
+                            onClick={() => router.push('/apiaries')}
+                            className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1"
+                          >
+                            Velg bigård <ArrowRight className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                  </div>
               </div>
 
               <button 

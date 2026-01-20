@@ -290,8 +290,13 @@ export default function ApiariesPage() {
           `}</style>
           {apiaries
             .filter(a => selectedApiaries.includes(a.id))
-            .map(apiary => (
-              <div key={apiary.id} className="w-[210mm] h-[297mm] relative overflow-hidden bg-yellow-300 break-after-page page-break-after-always print:w-[210mm] print:h-[297mm]">
+            .map((apiary, index, array) => (
+              <div 
+                key={apiary.id} 
+                className={`w-[210mm] h-[297mm] relative overflow-hidden bg-yellow-300 print:w-[210mm] print:h-[297mm] ${
+                  index < array.length - 1 ? 'break-after-page page-break-after-always' : ''
+                }`}
+              >
                 
                 {/* Border Container - slightly inset to be safe from printer margins */}
                 <div className="absolute inset-0 border-[15px] border-black pointer-events-none z-50"></div>

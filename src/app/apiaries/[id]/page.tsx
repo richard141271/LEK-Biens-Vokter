@@ -1228,12 +1228,16 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 </table>
             ) : printLayout === 'qr' ? (
                 // QR CODE VIEW - Optimized for 3 per row (24 per page) - 70x37mm
-                <div className="grid grid-cols-3 gap-0 print:gap-0 p-0 print:p-0 w-full">
+                <div className="grid grid-cols-3 gap-0 print:gap-0 p-0 print:p-0 w-[210mm]">
                   <style jsx global>{`
                     @media print {
                       @page {
                         size: A4;
                         margin: 0;
+                      }
+                      body {
+                        margin: 0;
+                        padding: 0;
                       }
                       .qr-label {
                         width: 70mm;
@@ -1248,7 +1252,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                   {hives
                     .filter(h => selectedHiveIds.size === 0 || selectedHiveIds.has(h.id))
                     .map(hive => (
-                      <div key={hive.id} className="qr-label flex flex-col items-center justify-center text-center overflow-hidden p-2">
+                      <div key={hive.id} className="qr-label flex flex-col items-center justify-center text-center overflow-hidden p-2 border border-gray-100 print:border-none">
                         <div className="flex items-center gap-2 w-full justify-between px-2">
                              <div className="text-left">
                                 <h2 className="text-sm font-bold leading-tight">{hive.hive_number}</h2>
@@ -1266,15 +1270,31 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 </div>
             ) : (
                 // CARDS VIEW
-                <div className="grid grid-cols-1 gap-8">
+                <div className="block w-full">
+                    <style jsx global>{`
+                        @media print {
+                            @page {
+                                size: A4;
+                                margin: 0;
+                            }
+                            body {
+                                -webkit-print-color-adjust: exact;
+                            }
+                        }
+                    `}</style>
                     {hives
                         .filter(h => selectedHiveIds.size === 0 || selectedHiveIds.has(h.id))
-                        .map(hive => {
+                        .map((hive, index, array) => {
                             const hiveInspections = printData[hive.id]?.inspections || [];
                             const lastInsp = hiveInspections[0];
 
                             return (
-                                <div key={hive.id} className="break-inside-avoid border-2 border-black rounded-xl p-6 page-break-after-always relative overflow-hidden h-[95vh] flex flex-col">
+                                <div 
+                                    key={hive.id} 
+                                    className={`relative w-[210mm] h-[297mm] p-8 flex flex-col bg-white overflow-hidden ${
+                                        index < array.length - 1 ? 'break-after-page page-break-after-always' : ''
+                                    }`}
+                                >
                                     <div className="flex justify-between items-start mb-4 border-b-2 border-black pb-4">
                                         <div>
                                             <h2 className="text-6xl font-black mb-2">{hive.hive_number}</h2>
