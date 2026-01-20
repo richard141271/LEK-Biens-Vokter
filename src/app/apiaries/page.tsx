@@ -290,32 +290,32 @@ export default function ApiariesPage() {
                 {/* Border Container */}
                 <div className="absolute inset-0 border-[15px] border-black pointer-events-none z-50"></div>
 
-                <div className="flex flex-col items-center justify-between h-full py-16 px-12 relative z-10">
+                <div className="flex flex-col items-center justify-between h-full py-10 px-8 relative z-10">
                   
                   {/* HEADER */}
-                  <div className="w-full text-center space-y-6">
-                    <h1 className="text-[100px] leading-none font-black tracking-tighter uppercase text-black">BIGÅRD</h1>
+                  <div className="w-full text-center space-y-4">
+                    <h1 className="text-[80px] leading-none font-black tracking-tighter uppercase text-black">BIGÅRD</h1>
                     
-                    <div className="space-y-4">
-                      <p className="uppercase tracking-widest text-xl font-bold text-black/60">ANSVARLIG BIRØKTER</p>
+                    <div className="space-y-3">
+                      <p className="uppercase tracking-widest text-lg font-bold text-black/60">ANSVARLIG BIRØKTER</p>
                       <div className="space-y-1">
-                        <p className="text-5xl font-black text-black uppercase break-words leading-tight">{profile?.full_name || 'Ukjent Eier'}</p>
-                        <p className="text-3xl font-bold text-black">{profile?.address || ''}</p>
-                        <p className="text-3xl font-bold text-black">{profile?.post_code} {profile?.city}</p>
+                        <p className="text-4xl font-black text-black uppercase break-words leading-tight">{profile?.full_name || 'Ukjent Eier'}</p>
+                        <p className="text-2xl font-bold text-black">{profile?.address || ''}</p>
+                        <p className="text-2xl font-bold text-black">{profile?.post_code} {profile?.city}</p>
                       </div>
-                      <div className="pt-4">
-                         <p className="text-4xl font-black text-black">Tlf: {profile?.phone_number || ''}</p>
+                      <div className="pt-2">
+                         <p className="text-3xl font-black text-black">Tlf: {profile?.phone_number || ''}</p>
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-4 mt-12 items-center w-full">
+                    <div className="flex flex-col gap-3 mt-8 items-center w-full">
                       {profile?.is_norges_birokterlag_member && (
-                        <div className="bg-black text-yellow-300 px-8 py-3 text-2xl font-black uppercase tracking-wider w-full max-w-2xl transform -skew-x-12 border-4 border-yellow-300 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]">
+                        <div className="bg-black text-yellow-300 px-6 py-2 text-xl font-black uppercase tracking-wider w-full max-w-xl transform -skew-x-12 border-4 border-yellow-300 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]">
                           <span className="block transform skew-x-12">Medlem av Norges Birøkterlag</span>
                         </div>
                       )}
                       {profile?.is_lek_honning_member && (
-                        <div className="bg-black text-yellow-300 px-8 py-3 text-2xl font-black uppercase tracking-wider w-full max-w-2xl transform -skew-x-12 border-4 border-yellow-300 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]">
+                        <div className="bg-black text-yellow-300 px-6 py-2 text-xl font-black uppercase tracking-wider w-full max-w-xl transform -skew-x-12 border-4 border-yellow-300 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]">
                           <span className="block transform skew-x-12">Medlem av LEK-Honning™ Norge</span>
                         </div>
                       )}
@@ -323,18 +323,18 @@ export default function ApiariesPage() {
                   </div>
 
                   {/* BOTTOM SECTION */}
-                  <div className="w-full flex justify-between items-end mt-auto pt-8 border-t-4 border-black">
+                  <div className="w-full flex justify-between items-end mt-auto pt-6 border-t-4 border-black">
                      {/* ID */}
                      <div className="text-left">
-                        <p className="text-2xl font-black uppercase text-black/60 mb-2">LOKASJON ID</p>
-                        <p className="text-6xl font-black font-mono tracking-widest text-black">{apiary.apiary_number}</p>
+                        <p className="text-xl font-black uppercase text-black/60 mb-1">LOKASJON ID</p>
+                        <p className="text-5xl font-black font-mono tracking-widest text-black">{apiary.apiary_number}</p>
                      </div>
 
                      {/* QR Code */}
-                     <div className="bg-white p-3 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                     <div className="bg-white p-2 border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
                         <QRCodeSVG 
                           value={`${window.location.origin}/apiaries/${apiary.id}`}
-                          size={150}
+                          size={120}
                           level="H"
                           includeMargin={true}
                         />
