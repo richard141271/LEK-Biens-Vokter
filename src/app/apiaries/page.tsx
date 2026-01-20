@@ -17,7 +17,6 @@ export default function ApiariesPage() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedApiaries, setSelectedApiaries] = useState<string[]>([]);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [printSigns, setPrintSigns] = useState<any[]>([]);
 
   const supabase = createClient();
   const router = useRouter();
@@ -82,30 +81,70 @@ export default function ApiariesPage() {
 
     try {
       const apiariesToPrint = apiaries.filter(a => selectedApiaries.includes(a.id));
-      
-      // Generate QR codes for each apiary
-      const signsWithQr = await Promise.all(apiariesToPrint.map(async (apiary) => {
+      const doc = new jsPDF('p', 'mm', 'a4');
+
+      for (let i = 0; i < apiariesToPrint.length; i++) {
+        const apiary = apiariesToPrint[i];
+        if (i > 0) doc.addPage();
+
+        // --- Header ---
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(40);
+        doc.text("BIGÅRD", 105, 30, { align: "center" });
+        doc.setLineWidth(1);
+        doc.line(20, 35, 190, 35);
+
+        // --- Apiary Info ---
+        doc.setFontSize(24);
+        doc.text(apiary.name || "Ukjent Bigård", 105, 55, { align: "center" });
+        
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Nr: ${apiary.apiary_number || '-'}`, 105, 65, { align: "center" });
+
+        if (apiary.registration_number) {
+            doc.text(`Reg: ${apiary.registration_number}`, 105, 73, { align: "center" });
+        }
+
+        // --- Contact Info ---
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.text("KONTAKTINFO", 105, 95, { align: "center" });
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(18);
+        const name = profile ? `${profile.first_name} ${profile.last_name}` : "";
+        doc.text(name, 105, 105, { align: "center" });
+        
+        doc.setFontSize(14);
+        doc.text(profile?.address || "", 105, 113, { align: "center" });
+        doc.text(profile?.phone || "", 105, 121, { align: "center" });
+
+        // --- QR Code ---
         try {
             const qrUrl = `${window.location.origin}/apiaries/${apiary.id}`;
             const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 1, width: 400 });
-            return { ...apiary, qrDataUrl };
+            doc.addImage(qrDataUrl, 'PNG', 55, 140, 100, 100);
         } catch (err) {
-            console.error('QR Gen Error', err);
-            return apiary;
+            console.error("QR Gen Error", err);
         }
-      }));
 
-      setPrintSigns(signsWithQr);
-      
-      // Allow DOM to update then print
-      setTimeout(() => {
-        window.print();
-        setIsGeneratingPDF(false);
-      }, 500);
+        // --- Footer Warning ---
+        doc.setTextColor(220, 0, 0); // Red
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.text("VARSLE MATTILSYNET VED MISTANKE OM SYKDOM", 105, 270, { align: "center" });
+        doc.setTextColor(0, 0, 0); // Reset black
+      }
+
+      // Open print dialog
+      doc.autoPrint();
+      window.open(doc.output('bloburl'), '_blank');
 
     } catch (error) {
-      console.error('Print prep failed', error);
-      alert('Kunne ikke klargjøre utskrift. Prøv igjen.');
+      console.error('Print generation failed', error);
+      alert('Kunne ikke generere PDF. Prøv igjen.');
+    } finally {
       setIsGeneratingPDF(false);
     }
   };
@@ -254,71 +293,7 @@ export default function ApiariesPage() {
         </Link>
       )}
 
-      {/* PRINT TEMPLATE - ONLY VISIBLE WHEN PRINTING */}
-      <style jsx global>{`
-        @media print {
-          @page {
-            margin: 0;
-            size: auto;
-          }
-          body {
-            margin: 0;
-            padding: 0;
-          }
-        }
-      `}</style>
-      <div className="hidden print:flex fixed inset-0 bg-white z-[9999] flex-col">
-        {printSigns.map((sign, index) => (
-          <div 
-            key={index} 
-            className="w-full h-[290mm] p-[10mm] flex flex-col items-center text-center relative overflow-hidden"
-            style={{ pageBreakAfter: 'always' }}
-          >
-            {/* Header */}
-            <h1 className="text-4xl font-black text-gray-900 mb-6 uppercase tracking-wider border-b-4 border-black pb-2 w-full">
-              BIGÅRD
-            </h1>
 
-            {/* Main Info */}
-            <div className="flex-1 w-full flex flex-col items-center justify-center gap-6">
-              
-              <div className="space-y-1">
-                <p className="text-lg text-gray-600 uppercase tracking-widest font-bold">Birøkter</p>
-                <h2 className="text-3xl font-bold text-gray-900">{profile?.first_name} {profile?.last_name}</h2>
-                <p className="text-lg text-gray-800">{profile?.phone}</p>
-                <p className="text-base text-gray-600">{profile?.address}</p>
-              </div>
-
-              <div className="w-full border-t-2 border-gray-300"></div>
-
-              <div className="space-y-1">
-                <p className="text-lg text-gray-600 uppercase tracking-widest font-bold">Bigård</p>
-                <h3 className="text-3xl font-bold text-gray-900">{sign.name}</h3>
-                <p className="text-lg text-gray-800">Nr: {sign.apiary_number}</p>
-                {sign.registration_number && (
-                  <p className="text-base text-gray-600">Reg: {sign.registration_number}</p>
-                )}
-              </div>
-
-              {/* QR Code */}
-              <div className="mt-2 p-2 bg-white border-4 border-black rounded-xl">
-                {sign.qrDataUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={sign.qrDataUrl} alt="QR Kode" className="w-48 h-48 object-contain" />
-                )}
-              </div>
-
-            </div>
-
-            {/* Footer Warning */}
-            <div className="mt-auto w-full pt-4 border-t-4 border-black mb-2">
-              <p className="text-lg font-bold text-red-600 uppercase">
-                Varsle Mattilsynet ved mistanke om sykdom
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
