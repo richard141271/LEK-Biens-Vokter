@@ -201,7 +201,10 @@ export default function ApiariesPage() {
         }
       }
 
-      doc.save('bigard-skilt.pdf');
+      doc.autoPrint();
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
 
     } catch (error) {
       console.error('PDF Generation failed', error);
