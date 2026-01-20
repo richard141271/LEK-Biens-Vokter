@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Archive, Truck, Trash2, X, Check, MoreVertical, ClipboardList, Edit, QrCode, Calendar, Printer, List, CreditCard, Activity, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store, MapPin } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
+import jsPDF from 'jspdf';
+import QRCode from 'qrcode';
 
 export default function ApiaryDetailsPage({ params }: { params: { id: string } }) {
   const [apiary, setApiary] = useState<any>(null);
@@ -41,6 +42,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [printLayout, setPrintLayout] = useState<'cards' | 'list' | 'qr' | null>(null);
   const [printData, setPrintData] = useState<{ [key: string]: { inspections: any[], logs: any[] } }>({});
   const [loadingPrintData, setLoadingPrintData] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   
   // Print Options Modal
   const [isPrintOptionsOpen, setIsPrintOptionsOpen] = useState(false);
@@ -291,6 +293,229 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   };
 
   // --- PRINT LOGIC ---
+  const generateHiveCardsPDF = async (hivesToPrint: any[], data: any) => {
+    setIsGeneratingPDF(true);
+    try {
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      
+      for (let i = 0; i < hivesToPrint.length; i++) {
+        const hive = hivesToPrint[i];
+        if (i > 0) doc.addPage();
+        
+        const hiveData = data[hive.id] || { inspections: [], logs: [] };
+        
+        // 1. Header
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(1);
+        doc.line(10, 35, 200, 35);
+
+        // Hive Number
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(40);
+        doc.text(hive.hive_number, 10, 25);
+
+        // Hive Name
+        doc.setFontSize(16);
+        doc.text(hive.name, 10, 32);
+
+        // Right side header
+        doc.setFontSize(14);
+        doc.text((hive.type || 'PRODUKSJON').toUpperCase(), 200, 20, { align: 'right' });
+        doc.setFontSize(12);
+        doc.setTextColor(100, 100, 100);
+        doc.text(apiary.name, 200, 30, { align: 'right' });
+        doc.setTextColor(0, 0, 0);
+
+        // 2. Status & Last Inspection Boxes
+        // Status Box
+        doc.setFillColor(249, 250, 251); // gray-50
+        doc.setDrawColor(229, 231, 235); // gray-200
+        doc.roundedRect(10, 45, 90, 30, 3, 3, 'FD');
+        
+        doc.setFontSize(10);
+        doc.setTextColor(107, 114, 128); // gray-500
+        doc.text('STATUS', 15, 53);
+        
+        doc.setFontSize(20);
+        doc.setTextColor(0, 0, 0);
+        doc.text(getStatusText(hive), 15, 65);
+
+        // Last Inspection Box
+        doc.setFillColor(249, 250, 251);
+        doc.roundedRect(110, 45, 90, 30, 3, 3, 'FD');
+        
+        doc.setFontSize(10);
+        doc.setTextColor(107, 114, 128);
+        doc.text('SISTE INSPEKSJON', 115, 53);
+        
+        doc.setFontSize(20);
+        doc.setTextColor(0, 0, 0);
+        doc.text(hive.last_inspection_date || 'Aldri', 115, 65);
+
+        // 3. Inspection History
+        if (printOptions.includeHistory && hiveData.inspections.length > 0) {
+            doc.setFontSize(14);
+            doc.text('INSPEKSJONSHISTORIKK', 10, 90);
+            doc.line(10, 92, 200, 92);
+
+            // Table Header
+            let y = 100;
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Dato', 10, y);
+            doc.text('Status', 40, y);
+            doc.text('Notater', 70, y);
+            doc.text('Detaljer', 160, y);
+            
+            y += 2;
+            doc.line(10, y, 200, y);
+            y += 5;
+
+            doc.setFont('helvetica', 'normal');
+            
+            const limit = printOptions.inspectionLimit === 'last5' ? 10 : 20;
+            const inspections = hiveData.inspections.slice(0, limit);
+
+            for (const insp of inspections) {
+                if (y > 250) break; 
+                
+                doc.text(new Date(insp.inspection_date).toLocaleDateString(), 10, y);
+                doc.text(insp.status || 'Ukjent', 40, y);
+                
+                // Notes (truncated)
+                const notes = doc.splitTextToSize(insp.notes || '-', 80);
+                doc.text(notes[0], 70, y);
+
+                // Details
+                let detailsX = 160;
+                if (insp.queen_seen) {
+                    doc.setFillColor(220, 252, 231); // green-100
+                    doc.rect(detailsX, y-3, 15, 4, 'F');
+                    doc.setFontSize(8);
+                    doc.setTextColor(21, 128, 61); // green-700
+                    doc.text('Dronning', detailsX+1, y);
+                    detailsX += 18;
+                }
+                if (insp.eggs_seen) {
+                    doc.setFillColor(220, 252, 231);
+                    doc.rect(detailsX, y-3, 10, 4, 'F');
+                    doc.setFontSize(8);
+                    doc.setTextColor(21, 128, 61);
+                    doc.text('Egg', detailsX+1, y);
+                }
+                
+                doc.setFontSize(10);
+                doc.setTextColor(0, 0, 0);
+
+                y += 8;
+                doc.setDrawColor(229, 231, 235);
+                doc.line(10, y-4, 200, y-4);
+            }
+        }
+
+        // 4. Footer & QR
+        const footerY = 270;
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(1);
+        doc.line(10, footerY, 200, footerY);
+
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        doc.text('Utskrift fra LEK-Biens Vokter™', 10, footerY + 10);
+
+        // QR Code
+        try {
+            const qrUrl = `${window.location.origin}/hives/${hive.id}`;
+            const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 1, width: 100 });
+            doc.addImage(qrDataUrl, 'PNG', 170, footerY - 5, 30, 30);
+        } catch (err) {
+            console.error('QR Gen Error', err);
+        }
+      }
+      
+      doc.save('bikube-kort.pdf');
+    } catch (err) {
+        console.error('PDF Error', err);
+        alert('Kunne ikke generere PDF');
+    } finally {
+        setIsGeneratingPDF(false);
+    }
+  };
+
+  const generateQRCodesPDF = async (hivesToPrint: any[]) => {
+    setIsGeneratingPDF(true);
+    try {
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        
+        // 3 cols x 8 rows = 24 per page
+        // Cell size: 70mm x 37mm
+        const cols = 3;
+        const rows = 8;
+        const cellW = 70;
+        const cellH = 37;
+        
+        let col = 0;
+        let row = 0;
+
+        for (let i = 0; i < hivesToPrint.length; i++) {
+            const hive = hivesToPrint[i];
+            
+            // New page if needed
+            if (i > 0 && i % (cols * rows) === 0) {
+                doc.addPage();
+                col = 0;
+                row = 0;
+            }
+
+            const x = col * cellW;
+            const y = row * cellH;
+
+            // Draw border (optional, good for cutting)
+            doc.setDrawColor(200, 200, 200);
+            doc.setLineWidth(0.1);
+            doc.rect(x, y, cellW, cellH);
+
+            // Content
+            // QR Code on right
+            try {
+                const qrUrl = `${window.location.origin}/hives/${hive.id}`;
+                const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 0, width: 100 });
+                doc.addImage(qrDataUrl, 'PNG', x + 40, y + 3, 25, 25);
+            } catch (err) {
+                console.error(err);
+            }
+
+            // Text on left
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text(hive.hive_number, x + 5, y + 10);
+            
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            doc.text(doc.splitTextToSize(hive.name, 35), x + 5, y + 18);
+            
+            doc.setFontSize(6);
+            doc.setTextColor(100, 100, 100);
+            doc.text('LEK-Biens Vokter™', x + 5, y + 32);
+
+            // Advance
+            col++;
+            if (col >= cols) {
+                col = 0;
+                row++;
+            }
+        }
+        
+        doc.save('bikube-qr-koder.pdf');
+    } catch (err) {
+        console.error('QR PDF Error', err);
+        alert('Kunne ikke generere QR-koder');
+    } finally {
+        setIsGeneratingPDF(false);
+    }
+  };
+
   const handlePrint = async (layout: 'cards' | 'list' | 'qr', skipOptions = false) => {
     // If cards and options not skipped, open modal first
     if (layout === 'cards' && !skipOptions) {
@@ -305,6 +530,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         .filter(h => selectedHiveIds.size === 0 || selectedHiveIds.has(h.id));
 
     const hiveIds = hivesToPrint.map(h => h.id);
+    let fetchedData: any = {};
 
     if (hiveIds.length > 0 && layout !== 'qr') {
         const { data: inspections } = await supabase
@@ -319,22 +545,29 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             .in('hive_id', hiveIds)
             .order('created_at', { ascending: false });
 
-        const newData: { [key: string]: { inspections: any[], logs: any[] } } = {};
+        
         hiveIds.forEach(id => {
-            newData[id] = {
+            fetchedData[id] = {
                 inspections: inspections?.filter(i => i.hive_id === id) || [],
                 logs: logs?.filter(l => l.hive_id === id) || []
             };
         });
-        setPrintData(newData);
+        setPrintData(fetchedData);
     }
 
     setLoadingPrintData(false);
-    setPrintLayout(layout);
-    
-    setTimeout(() => {
-      window.print();
-    }, 500);
+
+    if (layout === 'cards') {
+        await generateHiveCardsPDF(hivesToPrint, fetchedData);
+    } else if (layout === 'qr') {
+        await generateQRCodesPDF(hivesToPrint);
+    } else {
+        // List View - use browser print
+        setPrintLayout(layout);
+        setTimeout(() => {
+            window.print();
+        }, 500);
+    }
   };
 
   // --- MASS ACTION LOGIC ---
@@ -1163,216 +1396,67 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       )}
 
       {/* PRINT CONTENT (Hidden on screen) */}
-      {printLayout && (
+      {printLayout === 'list' && (
         <div className="hidden print:block p-8">
             <div className="mb-8">
                 <h1 className="text-2xl font-bold mb-2">Bikubeoversikt - {apiary.name}</h1>
                 <p className="text-sm text-gray-500">Utskriftsdato: {new Date().toLocaleDateString()}</p>
             </div>
 
-            {printLayout === 'list' ? (
-                // LIST VIEW
-                <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                        <tr className="border-b-2 border-black">
-                            <th className="py-2 font-bold w-16">Kube #</th>
-                            <th className="py-2 font-bold w-32">Navn</th>
-                            <th className="py-2 font-bold w-16">Status</th>
-                            <th className="py-2 font-bold w-64">Siste Inspeksjon</th>
-                            <th className="py-2 font-bold">Siste Logg</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {hives
-                            .filter(h => selectedHiveIds.size === 0 || selectedHiveIds.has(h.id))
-                            .map(hive => {
-                                const lastInsp = printData[hive.id]?.inspections?.[0];
-                                const lastLog = printData[hive.id]?.logs?.[0];
-                                return (
-                                    <tr key={hive.id} className="border-b border-gray-300 break-inside-avoid">
-                                        <td className="py-2 align-top font-mono font-bold">{hive.hive_number}</td>
-                                        <td className="py-2 align-top">
-                                            <div className="font-bold">{hive.name}</div>
-                                            <div className="text-gray-500 uppercase text-[10px]">{hive.type || 'PRODUKSJON'}</div>
-                                        </td>
-                                        <td className="py-2 align-top">
-                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${getStatusColor(hive)}`}>
-                                                {getStatusText(hive)}
-                                            </span>
-                                        </td>
-                                        <td className="py-2 align-top">
-                                            {lastInsp ? (
-                                                <div>
-                                                    <div className="font-bold">{new Date(lastInsp.inspection_date).toLocaleDateString()}</div>
-                                                    <div className="flex gap-1 flex-wrap mt-0.5">
-                                                        {lastInsp.queen_seen && <span className="text-[10px] bg-green-50 text-green-700 px-1 rounded">Dronning</span>}
-                                                        {lastInsp.eggs_seen && <span className="text-[10px] bg-green-50 text-green-700 px-1 rounded">Egg</span>}
-                                                    </div>
-                                                    {lastInsp.notes && <div className="text-gray-600 italic mt-1 line-clamp-3">{lastInsp.notes}</div>}
-                                                </div>
-                                            ) : '-'}
-                                        </td>
-                                        <td className="py-2 align-top">
-                                            {lastLog ? (
-                                                <div>
-                                                    <div className="font-bold">{new Date(lastLog.created_at).toLocaleDateString()}</div>
-                                                    <div className="text-[10px] uppercase font-bold text-gray-500">{lastLog.action}</div>
-                                                    <div className="text-gray-600 line-clamp-2">{lastLog.details}</div>
-                                                </div>
-                                            ) : '-'}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                    </tbody>
-                </table>
-            ) : printLayout === 'qr' ? (
-                // QR CODE VIEW - Optimized for 3 per row (24 per page) - 70x37mm
-                <div className="grid grid-cols-3 gap-0 print:gap-0 p-0 print:p-0 w-[210mm]">
-                  <style jsx global>{`
-                    @media print {
-                      @page {
-                        size: A4;
-                        margin: 0;
-                      }
-                      body {
-                        margin: 0;
-                        padding: 0;
-                      }
-                      .qr-label {
-                        width: 70mm;
-                        height: 37mm;
-                        page-break-inside: avoid;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                      }
-                    }
-                  `}</style>
-                  {hives
-                    .filter(h => selectedHiveIds.size === 0 || selectedHiveIds.has(h.id))
-                    .map(hive => (
-                      <div key={hive.id} className="qr-label flex flex-col items-center justify-center text-center overflow-hidden p-2 border border-gray-100 print:border-none">
-                        <div className="flex items-center gap-2 w-full justify-between px-2">
-                             <div className="text-left">
-                                <h2 className="text-sm font-bold leading-tight">{hive.hive_number}</h2>
-                                <p className="text-[8px] text-gray-600 truncate max-w-[80px]">{hive.name}</p>
-                             </div>
-                             <QRCodeSVG 
-                                value={`${window.location.origin}/hives/${hive.id}`}
-                                size={90}
-                                level="H"
-                                includeMargin={false}
-                              />
-                        </div>
-                      </div>
-                    ))}
-                </div>
-            ) : (
-                // CARDS VIEW
-                <div className="block w-full">
-                    <style jsx global>{`
-                        @media print {
-                            @page {
-                                size: A4;
-                                margin: 0;
-                            }
-                            body {
-                                -webkit-print-color-adjust: exact;
-                            }
-                        }
-                    `}</style>
+            <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                    <tr className="border-b-2 border-black">
+                        <th className="py-2 font-bold w-16">Kube #</th>
+                        <th className="py-2 font-bold w-32">Navn</th>
+                        <th className="py-2 font-bold w-16">Status</th>
+                        <th className="py-2 font-bold w-64">Siste Inspeksjon</th>
+                        <th className="py-2 font-bold">Siste Logg</th>
+                    </tr>
+                </thead>
+                <tbody>
                     {hives
                         .filter(h => selectedHiveIds.size === 0 || selectedHiveIds.has(h.id))
-                        .map((hive, index, array) => {
-                            const hiveInspections = printData[hive.id]?.inspections || [];
-                            const lastInsp = hiveInspections[0];
-
+                        .map(hive => {
+                            const lastInsp = printData[hive.id]?.inspections?.[0];
+                            const lastLog = printData[hive.id]?.logs?.[0];
                             return (
-                                <div 
-                                    key={hive.id} 
-                                    className={`relative w-[210mm] h-[297mm] p-8 flex flex-col bg-white overflow-hidden print:w-[210mm] print:h-[290mm] print:overflow-hidden ${
-                                        index < array.length - 1 ? 'break-after-page page-break-after-always' : ''
-                                    }`}
-                                >
-                                    <div className="flex justify-between items-start mb-4 border-b-2 border-black pb-4">
-                                        <div>
-                                            <h2 className="text-6xl font-black mb-2">{hive.hive_number}</h2>
-                                            <p className="text-2xl">{hive.name}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-xl font-bold uppercase">{hive.type || 'PRODUKSJON'}</div>
-                                            <div className="text-gray-600 text-lg">{apiary.name}</div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-2 gap-8 mb-8">
-                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                                            <h3 className="font-bold text-gray-500 uppercase text-sm mb-2">STATUS</h3>
-                                            <div className="text-3xl font-bold">
-                                                {getStatusText(hive)} 
+                                <tr key={hive.id} className="border-b border-gray-300 break-inside-avoid">
+                                    <td className="py-2 align-top font-mono font-bold">{hive.hive_number}</td>
+                                    <td className="py-2 align-top">
+                                        <div className="font-bold">{hive.name}</div>
+                                        <div className="text-gray-500 uppercase text-[10px]">{hive.type || 'PRODUKSJON'}</div>
+                                    </td>
+                                    <td className="py-2 align-top">
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${getStatusColor(hive)}`}>
+                                            {getStatusText(hive)}
+                                        </span>
+                                    </td>
+                                    <td className="py-2 align-top">
+                                        {lastInsp ? (
+                                            <div>
+                                                <div className="font-bold">{new Date(lastInsp.inspection_date).toLocaleDateString()}</div>
+                                                <div className="flex gap-1 flex-wrap mt-0.5">
+                                                    {lastInsp.queen_seen && <span className="text-[10px] bg-green-50 text-green-700 px-1 rounded">Dronning</span>}
+                                                    {lastInsp.eggs_seen && <span className="text-[10px] bg-green-50 text-green-700 px-1 rounded">Egg</span>}
+                                                </div>
+                                                {lastInsp.notes && <div className="text-gray-600 italic mt-1 line-clamp-3">{lastInsp.notes}</div>}
                                             </div>
-                                        </div>
-                                        
-                                        <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-                                            <h3 className="font-bold text-gray-500 uppercase text-sm mb-2">SISTE INSPEKSJON</h3>
-                                            <div className="text-3xl font-bold">{hive.last_inspection_date || 'Aldri'}</div>
-                                        </div>
-                                    </div>
-
-                                    {/* Inspection History Table */}
-                                    {printOptions.includeHistory && (
-                                        <div className="flex-1">
-                                            <h3 className="font-bold border-b-2 border-black mb-4 text-xl">INSPEKSJONSHISTORIKK</h3>
-                                            {hiveInspections.length > 0 ? (
-                                                <table className="w-full text-sm text-left">
-                                                    <thead>
-                                                        <tr className="border-b-2 border-gray-400">
-                                                            <th className="py-2 w-32">Dato</th>
-                                                            <th className="py-2 w-32">Status</th>
-                                                            <th className="py-2">Notater</th>
-                                                            <th className="py-2 w-48">Detaljer</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {hiveInspections
-                                                            .slice(0, printOptions.inspectionLimit === 'last5' ? 10 : 20)
-                                                            .map((insp: any) => (
-                                                                <tr key={insp.id} className="border-b border-gray-200">
-                                                                    <td className="py-3 font-bold">{new Date(insp.inspection_date).toLocaleDateString()}</td>
-                                                                    <td className="py-3">{insp.status || 'Ukjent'}</td>
-                                                                    <td className="py-3 line-clamp-2">{insp.notes || '-'}</td>
-                                                                    <td className="py-3">
-                                                                        <div className="flex gap-2">
-                                                                        {insp.queen_seen && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-bold">Dronning</span>}
-                                                                        {insp.eggs_seen && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-bold">Egg</span>}
-                                                                        </div>
-                                                                    </td>
-                                                                </tr>
-                                                            ))}
-                                                    </tbody>
-                                                </table>
-                                            ) : (
-                                                <p className="text-lg italic text-gray-500">Ingen inspeksjoner registrert</p>
-                                            )}
-                                        </div>
-                                    )}
-                                    
-                                    <div className="mt-auto pt-8 border-t-2 border-black flex justify-between items-end">
-                                        <div className="text-sm text-gray-500">
-                                            Utskrift fra LEK-Biens Vokter™
-                                        </div>
-                                        <QRCodeSVG 
-                                            value={`${window.location.origin}/hives/${hive.id}`}
-                                            size={100}
-                                            level="H"
-                                        />
-                                    </div>
-                                </div>
+                                        ) : '-'}
+                                    </td>
+                                    <td className="py-2 align-top">
+                                        {lastLog ? (
+                                            <div>
+                                                <div className="font-bold">{new Date(lastLog.created_at).toLocaleDateString()}</div>
+                                                <div className="text-[10px] uppercase font-bold text-gray-500">{lastLog.action}</div>
+                                                <div className="text-gray-600 line-clamp-2">{lastLog.details}</div>
+                                            </div>
+                                        ) : '-'}
+                                    </td>
+                                </tr>
                             );
                         })}
-                </div>
-            )}
+                </tbody>
+            </table>
         </div>
       )}
     </div>

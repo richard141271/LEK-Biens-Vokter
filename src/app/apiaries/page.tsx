@@ -5,17 +5,18 @@ import { useEffect, useState } from 'react';
 import { Plus, MapPin, Warehouse, Store, Truck, LogOut, Box, Printer, CheckSquare, Square, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { QRCodeSVG } from 'qrcode.react';
+import jsPDF from 'jspdf';
+import QRCode from 'qrcode';
 
 export default function ApiariesPage() {
   const [apiaries, setApiaries] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  // Selection / Print State
+  // Selection State
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedApiaries, setSelectedApiaries] = useState<string[]>([]);
-  const [printLayout, setPrintLayout] = useState<'sign' | null>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const supabase = createClient();
   const router = useRouter();
@@ -99,21 +100,116 @@ export default function ApiariesPage() {
     );
   };
 
-  const handlePrint = () => {
-    setPrintLayout('sign');
-    setTimeout(() => {
-      window.print();
-    }, 500);
-  };
+  const generateSignPDF = async () => {
+    if (selectedApiaries.length === 0) return;
+    setIsGeneratingPDF(true);
 
-  // Exit print mode after printing (optional, or manual)
-  useEffect(() => {
-    const handleAfterPrint = () => {
-      setPrintLayout(null);
-    };
-    window.addEventListener('afterprint', handleAfterPrint);
-    return () => window.removeEventListener('afterprint', handleAfterPrint);
-  }, []);
+    try {
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const apiariesToPrint = apiaries.filter(a => selectedApiaries.includes(a.id));
+
+      for (let i = 0; i < apiariesToPrint.length; i++) {
+        const apiary = apiariesToPrint[i];
+        if (i > 0) doc.addPage();
+
+        // 1. Background (Yellow)
+        doc.setFillColor(253, 224, 71); // Tailwind yellow-300
+        doc.rect(0, 0, 210, 297, 'F');
+
+        // 2. Black Border (Inset)
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(4); // ~11px
+        doc.rect(5, 5, 200, 287);
+
+        // 3. Header "BIGÅRD"
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(60);
+        doc.setTextColor(0, 0, 0);
+        doc.text('BIGÅRD', 105, 40, { align: 'center' });
+
+        // 4. Responsible Beekeeper Section
+        doc.setFontSize(14);
+        doc.setTextColor(60, 60, 60);
+        doc.text('ANSVARLIG BIRØKTER', 105, 60, { align: 'center' });
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(28);
+        doc.text((profile?.full_name || 'Ukjent Eier').toUpperCase(), 105, 75, { align: 'center' });
+        
+        doc.setFontSize(20);
+        doc.text((profile?.address || '').toUpperCase(), 105, 85, { align: 'center' });
+        doc.text(`${profile?.post_code || ''} ${profile?.city || ''}`.toUpperCase(), 105, 95, { align: 'center' });
+
+        doc.setFontSize(28);
+        doc.text(`TLF: ${profile?.phone_number || ''}`, 105, 115, { align: 'center' });
+
+        // 5. Badges
+        let yPos = 140;
+        if (profile?.is_norges_birokterlag_member) {
+            // Black box
+            doc.setFillColor(0, 0, 0);
+            doc.rect(40, yPos, 130, 15, 'F');
+            // Yellow text
+            doc.setTextColor(253, 224, 71);
+            doc.setFontSize(14);
+            doc.text('MEDLEM AV NORGES BIRØKTERLAG', 105, yPos + 10, { align: 'center' });
+            yPos += 25;
+        }
+
+        if (profile?.is_lek_honning_member) {
+             // Black box
+             doc.setFillColor(0, 0, 0);
+             doc.rect(40, yPos, 130, 15, 'F');
+             // Yellow text
+             doc.setTextColor(253, 224, 71);
+             doc.setFontSize(14);
+             doc.text('MEDLEM AV LEK-HONNING™ NORGE', 105, yPos + 10, { align: 'center' });
+        }
+
+        // 6. Bottom Section (Location ID + QR)
+        // Draw line
+        doc.setLineWidth(2);
+        doc.setDrawColor(0, 0, 0);
+        doc.line(20, 230, 190, 230);
+
+        // Location ID Text
+        doc.setTextColor(60, 60, 60);
+        doc.setFontSize(16);
+        doc.text('LOKASJON ID', 20, 245);
+        
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('courier', 'bold'); // Monospace look
+        doc.setFontSize(36);
+        doc.text(apiary.apiary_number || '', 20, 260);
+
+        // QR Code
+        try {
+            const qrUrl = `${window.location.origin}/apiaries/${apiary.id}`;
+            const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 1, width: 200 });
+            // Add QR Image (30x30mm approx)
+            doc.addImage(qrDataUrl, 'PNG', 150, 235, 40, 40);
+            // Border around QR
+            doc.setLineWidth(1);
+            doc.rect(150, 235, 40, 40);
+        } catch (err) {
+            console.error('QR Gen Error', err);
+        }
+      }
+
+      doc.save('bigard-skilt.pdf');
+
+    } catch (error) {
+      console.error('PDF Generation failed', error);
+      alert('Kunne ikke generere PDF. Prøv igjen.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
 
   if (loading) return <div className="p-8 text-center">Laster bigårder...</div>;
 
@@ -139,12 +235,12 @@ export default function ApiariesPage() {
         <div className="mx-4 mb-4 bg-white p-3 rounded-xl border border-honey-200 shadow-sm flex justify-between items-center animate-in slide-in-from-top-2 print:hidden">
           <span className="text-sm font-medium">{selectedApiaries.length} valgt</span>
           <button
-            onClick={handlePrint}
-            disabled={selectedApiaries.length === 0}
+            onClick={generateSignPDF}
+            disabled={selectedApiaries.length === 0 || isGeneratingPDF}
             className="bg-honey-500 text-white px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-50 flex items-center gap-2"
           >
             <Printer className="w-4 h-4" />
-            Skriv ut Skilt
+            {isGeneratingPDF ? 'Lager PDF...' : 'Last ned Skilt (PDF)'}
           </button>
         </div>
       )}
@@ -248,118 +344,6 @@ export default function ApiariesPage() {
           })
         )}
       </main>
-
-      {/* PRINT VIEW (Varselskilt) */}
-      {printLayout === 'sign' && (
-        <div className="print-container">
-          <style jsx global>{`
-            @media print {
-              @page {
-                size: A4 portrait;
-                margin: 0;
-              }
-              
-              /* Note: We rely on 'print:hidden' classes on siblings to hide them. */
-              
-              /* Reset body */
-              body {
-                margin: 0;
-                padding: 0;
-                background: white;
-              }
-
-              /* Print container settings */
-              .print-container {
-                display: block !important;
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                margin: 0;
-                padding: 0;
-                background: white;
-                z-index: 9999;
-              }
-              
-              /* Force page breaks */
-              .break-after-page {
-                break-after: page;
-                page-break-after: always;
-              }
-            }
-          `}</style>
-          {apiaries
-            .filter(a => selectedApiaries.includes(a.id))
-            .map((apiary, index, array) => (
-              <div 
-                key={apiary.id} 
-                className={`w-[210mm] h-[297mm] relative overflow-hidden bg-yellow-300 print:w-[210mm] print:h-[290mm] print:overflow-hidden ${
-                  index < array.length - 1 ? 'break-after-page page-break-after-always' : ''
-                }`}
-              >
-                
-                {/* Border Container - slightly inset to be safe from printer margins */}
-                <div className="absolute inset-0 border-[15px] border-black pointer-events-none z-50"></div>
-
-                {/* Content Wrapper */}
-                <div className="relative z-10 h-full w-full">
-                  
-                  {/* HEADER - Normal Flow */}
-                  <div className="pt-16 px-10 text-center w-full">
-                    <h1 className="text-[70px] leading-none font-black tracking-tighter uppercase text-black mb-4">BIGÅRD</h1>
-                    
-                    <div className="space-y-3">
-                      <p className="uppercase tracking-widest text-lg font-bold text-black/60">ANSVARLIG BIRØKTER</p>
-                      <div className="space-y-1">
-                        <p className="text-3xl font-black text-black uppercase break-words leading-tight">{profile?.full_name || 'Ukjent Eier'}</p>
-                        <p className="text-2xl font-bold text-black">{profile?.address || ''}</p>
-                        <p className="text-2xl font-bold text-black">{profile?.post_code} {profile?.city}</p>
-                      </div>
-                      <div className="pt-2">
-                         <p className="text-3xl font-black text-black">Tlf: {profile?.phone_number || ''}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-3 mt-8 items-center w-full">
-                      {profile?.is_norges_birokterlag_member && (
-                        <div className="bg-black text-yellow-300 px-6 py-2 text-xl font-black uppercase tracking-wider w-full max-w-xl transform -skew-x-12 border-4 border-yellow-300 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]">
-                          <span className="block transform skew-x-12">Medlem av Norges Birøkterlag</span>
-                        </div>
-                      )}
-                      {profile?.is_lek_honning_member && (
-                        <div className="bg-black text-yellow-300 px-6 py-2 text-xl font-black uppercase tracking-wider w-full max-w-xl transform -skew-x-12 border-4 border-yellow-300 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]">
-                          <span className="block transform skew-x-12">Medlem av LEK-Honning™ Norge</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* BOTTOM SECTION - Lifted slightly to avoid printer margin clipping */}
-                  <div className="absolute bottom-[20mm] left-0 w-full px-10 z-20">
-                    <div className="w-full flex justify-between items-end pt-6 border-t-4 border-black">
-                       {/* ID */}
-                       <div className="text-left">
-                          <p className="text-xl font-black uppercase text-black/60 mb-1">LOKASJON ID</p>
-                          <p className="text-4xl font-black font-mono tracking-widest text-black">{apiary.apiary_number}</p>
-                       </div>
-
-                       {/* QR Code */}
-                       <div className="bg-white p-2 border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
-                          <QRCodeSVG 
-                            value={`${window.location.origin}/apiaries/${apiary.id}`}
-                            size={90}
-                            level="H"
-                            includeMargin={true}
-                          />
-                       </div>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-            ))}
-        </div>
-      )}
 
       {/* Floating Action Button (Hide in selection mode and for tenants) */}
       {!isSelectionMode && profile?.role !== 'tenant' && (
