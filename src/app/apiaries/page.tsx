@@ -251,34 +251,40 @@ export default function ApiariesPage() {
 
       {/* PRINT VIEW (Varselskilt) */}
       {printLayout === 'sign' && (
-        <div className="hidden print:block bg-white absolute top-0 left-0 w-full h-full z-[9999] print-container">
+        <div className="print-container">
           <style jsx global>{`
             @media print {
               @page {
                 size: A4 portrait;
                 margin: 0;
               }
-              html, body {
-                margin: 0 !important;
-                padding: 0 !important;
-                background: white;
-                height: 100%;
-                overflow: hidden;
-              }
               
-              /* Ensure the print container is visible and positioned correctly */
-              .print-container {
-                display: block !important;
-                position: fixed;
-                left: 0;
-                top: 0;
-                width: 210mm;
-                height: 297mm;
+              /* Note: We rely on 'print:hidden' classes on siblings to hide them. */
+              
+              /* Reset body */
+              body {
                 margin: 0;
                 padding: 0;
-                overflow: hidden;
-                z-index: 9999;
                 background: white;
+              }
+
+              /* Print container settings */
+              .print-container {
+                display: block !important;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                background: white;
+                z-index: 9999;
+              }
+              
+              /* Force page breaks */
+              .break-after-page {
+                break-after: page;
+                page-break-after: always;
               }
             }
           `}</style>
@@ -287,19 +293,20 @@ export default function ApiariesPage() {
             .map(apiary => (
               <div key={apiary.id} className="w-[210mm] h-[297mm] relative overflow-hidden bg-yellow-300 break-after-page page-break-after-always print:w-[210mm] print:h-[297mm]">
                 
-                {/* Border Container */}
+                {/* Border Container - slightly inset to be safe from printer margins */}
                 <div className="absolute inset-0 border-[15px] border-black pointer-events-none z-50"></div>
 
-                <div className="flex flex-col items-center justify-between h-full py-10 px-8 relative z-10">
+                {/* Content Wrapper */}
+                <div className="relative z-10 h-full w-full">
                   
-                  {/* HEADER */}
-                  <div className="w-full text-center space-y-4">
-                    <h1 className="text-[80px] leading-none font-black tracking-tighter uppercase text-black">BIGÅRD</h1>
+                  {/* HEADER - Normal Flow */}
+                  <div className="pt-16 px-10 text-center w-full">
+                    <h1 className="text-[70px] leading-none font-black tracking-tighter uppercase text-black mb-4">BIGÅRD</h1>
                     
                     <div className="space-y-3">
                       <p className="uppercase tracking-widest text-lg font-bold text-black/60">ANSVARLIG BIRØKTER</p>
                       <div className="space-y-1">
-                        <p className="text-4xl font-black text-black uppercase break-words leading-tight">{profile?.full_name || 'Ukjent Eier'}</p>
+                        <p className="text-3xl font-black text-black uppercase break-words leading-tight">{profile?.full_name || 'Ukjent Eier'}</p>
                         <p className="text-2xl font-bold text-black">{profile?.address || ''}</p>
                         <p className="text-2xl font-bold text-black">{profile?.post_code} {profile?.city}</p>
                       </div>
@@ -322,23 +329,25 @@ export default function ApiariesPage() {
                     </div>
                   </div>
 
-                  {/* BOTTOM SECTION */}
-                  <div className="w-full flex justify-between items-end mt-auto pt-6 border-t-4 border-black">
-                     {/* ID */}
-                     <div className="text-left">
-                        <p className="text-xl font-black uppercase text-black/60 mb-1">LOKASJON ID</p>
-                        <p className="text-5xl font-black font-mono tracking-widest text-black">{apiary.apiary_number}</p>
-                     </div>
+                  {/* BOTTOM SECTION - Lifted slightly to avoid printer margin clipping */}
+                  <div className="absolute bottom-[20mm] left-0 w-full px-10 z-20">
+                    <div className="w-full flex justify-between items-end pt-6 border-t-4 border-black">
+                       {/* ID */}
+                       <div className="text-left">
+                          <p className="text-xl font-black uppercase text-black/60 mb-1">LOKASJON ID</p>
+                          <p className="text-4xl font-black font-mono tracking-widest text-black">{apiary.apiary_number}</p>
+                       </div>
 
-                     {/* QR Code */}
-                     <div className="bg-white p-2 border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
-                        <QRCodeSVG 
-                          value={`${window.location.origin}/apiaries/${apiary.id}`}
-                          size={120}
-                          level="H"
-                          includeMargin={true}
-                        />
-                     </div>
+                       {/* QR Code */}
+                       <div className="bg-white p-2 border-4 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+                          <QRCodeSVG 
+                            value={`${window.location.origin}/apiaries/${apiary.id}`}
+                            size={90}
+                            level="H"
+                            includeMargin={true}
+                          />
+                       </div>
+                    </div>
                   </div>
 
                 </div>
