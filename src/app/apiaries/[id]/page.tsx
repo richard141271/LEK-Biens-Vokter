@@ -3,10 +3,9 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Archive, Truck, Trash2, X, Check, MoreVertical, ClipboardList, Edit, QrCode, Calendar, Printer, List, CreditCard, Activity, FileText } from 'lucide-react';
+import { ArrowLeft, Archive, Truck, Trash2, X, Check, ClipboardList, Edit, QrCode, Calendar, List, CreditCard } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store, MapPin } from 'lucide-react';
-import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
 
 export default function ApiaryDetailsPage({ params }: { params: { id: string } }) {
@@ -40,9 +39,8 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
   // Print State
   const [printLayout, setPrintLayout] = useState<'cards' | 'list' | 'qr' | null>(null);
-  const [printData, setPrintData] = useState<{ [key: string]: { inspections: any[], logs: any[] } }>({});
+  const [printData, setPrintData] = useState<{ [key: string]: { inspections: any[], logs: any[], qrDataUrl?: string } }>({});
   const [loadingPrintData, setLoadingPrintData] = useState(false);
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   
   // Print Options Modal
   const [isPrintOptionsOpen, setIsPrintOptionsOpen] = useState(false);
@@ -293,278 +291,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   };
 
   // --- PRINT LOGIC ---
-  const generateHiveCardsPDF = async (hivesToPrint: any[], data: any) => {
-    setIsGeneratingPDF(true);
-    try {
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      
-      // 2 cards per page logic
-      // A4: 210mm x 297mm
-      // Card size: 190mm x 130mm (leaving margins)
-      // Vertical spacing: 148.5mm (half page)
-      
-      const cardsPerPage = 2;
-      const cardHeight = 148.5; 
-      const cardContentHeight = 135;
-      const cardContentWidth = 190;
-      const leftMargin = 10;
-      
-      for (let i = 0; i < hivesToPrint.length; i++) {
-        const hive = hivesToPrint[i];
-        const positionInPage = i % cardsPerPage;
-        
-        // Add new page if we are at the start of a new page group (but not for the very first item)
-        if (i > 0 && positionInPage === 0) {
-          doc.addPage();
-        }
-        
-        const yOffset = positionInPage * cardHeight;
-        const topM = yOffset + 10; // 10mm top margin relative to card slot
-        
-        const hiveData = data[hive.id] || { inspections: [], logs: [] };
-        
-        // --- DRAW CARD BORDER ---
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.5);
-        doc.roundedRect(leftMargin, topM, cardContentWidth, cardContentHeight, 3, 3);
-        
-        // 1. Header Area (Inside Border)
-        // Hive Number
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(28);
-        doc.text(hive.hive_number, leftMargin + 5, topM + 12);
-
-        // Hive Name
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'normal');
-        doc.text(hive.name, leftMargin + 5, topM + 20);
-
-        // Right side header (Type & Apiary)
-        doc.setFontSize(12);
-        doc.text((hive.type || 'PRODUKSJON').toUpperCase(), leftMargin + cardContentWidth - 5, topM + 10, { align: 'right' });
-        doc.setFontSize(10);
-        doc.setTextColor(100, 100, 100);
-        doc.text(apiary.name, leftMargin + cardContentWidth - 5, topM + 16, { align: 'right' });
-        doc.setTextColor(0, 0, 0);
-
-        // Line separator
-        doc.setDrawColor(200, 200, 200);
-        doc.setLineWidth(0.2);
-        doc.line(leftMargin + 5, topM + 25, leftMargin + cardContentWidth - 5, topM + 25);
-
-        // 2. Status & Info Grid
-        const gridY = topM + 30;
-        
-        // Status Box
-        doc.setFillColor(249, 250, 251);
-        doc.setDrawColor(229, 231, 235);
-        doc.roundedRect(leftMargin + 5, gridY, 85, 20, 2, 2, 'FD');
-        
-        doc.setFontSize(8);
-        doc.setTextColor(107, 114, 128);
-        doc.text('STATUS', leftMargin + 10, gridY + 5);
-        
-        doc.setFontSize(14);
-        doc.setTextColor(0, 0, 0);
-        doc.text(getStatusText(hive), leftMargin + 10, gridY + 15);
-
-        // Last Inspection Box
-        doc.setFillColor(249, 250, 251);
-        doc.setDrawColor(229, 231, 235);
-        doc.roundedRect(leftMargin + 95, gridY, 85, 20, 2, 2, 'FD');
-        
-        doc.setFontSize(8);
-        doc.setTextColor(107, 114, 128);
-        doc.text('SISTE INSPEKSJON', leftMargin + 100, gridY + 5);
-        
-        doc.setFontSize(14);
-        doc.setTextColor(0, 0, 0);
-        doc.text(hive.last_inspection_date || 'Aldri', leftMargin + 100, gridY + 15);
-
-        // 3. Inspection History (Compact)
-        if (printOptions.includeHistory) {
-            const histY = gridY + 28;
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'bold');
-            doc.text('HISTORIKK (SISTE 3)', leftMargin + 5, histY);
-            
-            // Table Header
-            doc.setFontSize(8);
-            doc.setTextColor(100, 100, 100);
-            doc.text('Dato', leftMargin + 5, histY + 5);
-            doc.text('Status', leftMargin + 35, histY + 5);
-            doc.text('Notat', leftMargin + 70, histY + 5);
-            doc.line(leftMargin + 5, histY + 6, leftMargin + cardContentWidth - 5, histY + 6);
-
-            let rowY = histY + 10;
-            const recentInspections = hiveData.inspections.slice(0, 3); // Max 3
-            
-            if (recentInspections.length === 0) {
-                doc.setFont('helvetica', 'italic');
-                doc.text('Ingen inspeksjoner registrert.', leftMargin + 5, rowY);
-            } else {
-                doc.setFont('helvetica', 'normal');
-                doc.setTextColor(0, 0, 0);
-                
-                recentInspections.forEach((insp: any) => {
-                    const date = new Date(insp.inspection_date).toLocaleDateString();
-                    doc.text(date, leftMargin + 5, rowY);
-                    doc.text(insp.status || '-', leftMargin + 35, rowY);
-                    
-                    const notes = (insp.notes || '').substring(0, 60) + ((insp.notes?.length > 60) ? '...' : '');
-                    doc.text(notes, leftMargin + 70, rowY);
-                    
-                    // Icons
-                    let iconX = leftMargin + 170;
-                    if (insp.queen_seen) {
-                        doc.setFont('helvetica', 'bold');
-                        doc.text('D', iconX, rowY);
-                        iconX += 4;
-                    }
-                    if (insp.eggs_seen) {
-                        doc.setFont('helvetica', 'bold');
-                        doc.text('E', iconX, rowY);
-                    }
-                    doc.setFont('helvetica', 'normal');
-                    
-                    rowY += 5;
-                });
-            }
-        }
-
-        // 4. Notes Area (Bottom)
-        const notesY = topM + 90;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text('NOTATER:', leftMargin + 5, notesY);
-        doc.setDrawColor(200, 200, 200);
-        doc.roundedRect(leftMargin + 5, notesY + 2, 140, 35, 1, 1);
-
-        // 5. QR Code (Bottom Right)
-        try {
-            const qrUrl = `${window.location.origin}/hives/${hive.id}`;
-            const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 1, width: 100 });
-            doc.addImage(qrDataUrl, 'PNG', leftMargin + 150, notesY, 35, 35);
-        } catch (err) {
-            console.error('QR Gen Error', err);
-        }
-        
-        // 6. Cut Line (if not last on page)
-        if (positionInPage === 0 && i < hivesToPrint.length - 1) {
-            doc.setDrawColor(150, 150, 150);
-            // Manually draw dashed line since setLineDash can be finicky in TS
-            for (let d = 0; d < 210; d += 4) {
-                doc.line(d, cardHeight, d + 2, cardHeight);
-            }
-            doc.setFontSize(8);
-            doc.setTextColor(150, 150, 150);
-            doc.text('Klipp her', 5, cardHeight - 2);
-        }
-      }
-      
-      doc.autoPrint();
-      const blob = doc.output('blob');
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-    } catch (err) {
-        console.error('PDF Error', err);
-        alert('Kunne ikke generere PDF');
-    } finally {
-        setIsGeneratingPDF(false);
-    }
-  };
-
-  const generateQRCodesPDF = async (hivesToPrint: any[]) => {
-    setIsGeneratingPDF(true);
-    try {
-        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        
-        // 3 cols x 8 rows = 24 per page
-        // Standard Labels (e.g. Avery L7160/3474): 63.5x38.1mm or 70x37mm
-        // Let's optimize for 70x37mm (3x8)
-        
-        const cols = 3;
-        const rows = 8;
-        const cellW = 70;
-        const cellH = 37;
-        const marginTop = 12; // Adjust for standard label top margin
-        const marginLeft = 0; // 3x70 = 210, so 0 margin (full width)
-        
-        let col = 0;
-        let row = 0;
-
-        for (let i = 0; i < hivesToPrint.length; i++) {
-            const hive = hivesToPrint[i];
-            
-            // New page if needed
-            if (i > 0 && i % (cols * rows) === 0) {
-                doc.addPage();
-                col = 0;
-                row = 0;
-            }
-
-            const x = marginLeft + (col * cellW);
-            const y = marginTop + (row * cellH);
-            
-            // Inner Padding (Safe Area)
-            const pX = x + 3;
-            const pY = y + 3;
-
-            // Optional: Draw light border for guidance (can be removed for production labels)
-            doc.setDrawColor(240, 240, 240);
-            doc.setLineWidth(0.1);
-            doc.rect(x, y, cellW, cellH);
-
-            // Content
-            // QR Code on right
-            try {
-                const qrUrl = `${window.location.origin}/hives/${hive.id}`;
-                const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 0, width: 100 });
-                doc.addImage(qrDataUrl, 'PNG', pX + 40, pY + 2, 22, 22);
-            } catch (err) {
-                console.error(err);
-            }
-
-            // Text on left
-            doc.setTextColor(0, 0, 0);
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(11);
-            doc.text(hive.hive_number, pX, pY + 6);
-            
-            doc.setFontSize(8);
-            doc.setFont('helvetica', 'normal');
-            // Split text to avoid overlap with QR
-            doc.text(doc.splitTextToSize(hive.name, 38), pX, pY + 12);
-            
-            doc.setFontSize(6);
-            doc.setTextColor(100, 100, 100);
-            doc.text('LEK-Biens Vokter™', pX, pY + 28);
-            
-            // Type/Status
-            doc.setFontSize(6);
-            doc.setTextColor(50, 50, 50);
-            doc.text((hive.type || '').toUpperCase(), pX, pY + 24);
-
-            // Advance
-            col++;
-            if (col >= cols) {
-                col = 0;
-                row++;
-            }
-        }
-        
-        doc.autoPrint();
-        const blob = doc.output('blob');
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-    } catch (err) {
-        console.error('QR PDF Error', err);
-        alert('Kunne ikke generere QR-koder');
-    } finally {
-        setIsGeneratingPDF(false);
-    }
-  };
-
   const handlePrint = async (layout: 'cards' | 'list' | 'qr', skipOptions = false) => {
     // If cards and options not skipped, open modal first
     if (layout === 'cards' && !skipOptions) {
@@ -581,7 +307,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     const hiveIds = hivesToPrint.map(h => h.id);
     let fetchedData: any = {};
 
-    if (hiveIds.length > 0 && layout !== 'qr') {
+    if (hiveIds.length > 0 && layout === 'cards') {
         const { data: inspections } = await supabase
             .from('inspections')
             .select('*')
@@ -593,7 +319,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             .select('*')
             .in('hive_id', hiveIds)
             .order('created_at', { ascending: false });
-
         
         hiveIds.forEach(id => {
             fetchedData[id] = {
@@ -601,22 +326,27 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 logs: logs?.filter(l => l.hive_id === id) || []
             };
         });
-        setPrintData(fetchedData);
     }
 
+    // Generate QR codes for Cards or Labels
+    if (layout === 'qr' || layout === 'cards') {
+        await Promise.all(hivesToPrint.map(async (h) => {
+            try {
+                const qrUrl = `${window.location.origin}/hives/${h.id}`;
+                const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 0, width: 200 });
+                if (!fetchedData[h.id]) fetchedData[h.id] = { inspections: [], logs: [] };
+                fetchedData[h.id].qrDataUrl = qrDataUrl;
+            } catch (e) { console.error(e); }
+        }));
+    }
+
+    setPrintData(fetchedData);
     setLoadingPrintData(false);
+    setPrintLayout(layout);
 
-    if (layout === 'cards') {
-        await generateHiveCardsPDF(hivesToPrint, fetchedData);
-    } else if (layout === 'qr') {
-        await generateQRCodesPDF(hivesToPrint);
-    } else {
-        // List View - use browser print
-        setPrintLayout(layout);
-        setTimeout(() => {
-            window.print();
-        }, 500);
-    }
+    setTimeout(() => {
+        window.print();
+    }, 500);
   };
 
   // --- MASS ACTION LOGIC ---
@@ -786,8 +516,19 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 print:bg-white print:pb-0">
+      {/* Loading Overlay */}
+      {loadingPrintData && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+            <div className="bg-white p-6 rounded-xl shadow-xl flex flex-col items-center">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-honey-500 mb-4"></div>
+                <p className="font-bold text-lg">Klargjør utskrift...</p>
+                <p className="text-sm text-gray-500">Dette kan ta noen sekunder</p>
+            </div>
+        </div>
+      )}
+
       {/* Page Title & Actions */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4 print:hidden">
+      <div className={`bg-white border-b border-gray-200 px-4 py-4 ${printLayout === 'list' ? '' : 'print:hidden'}`}>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-4">
             <Link href="/dashboard" className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
@@ -1507,6 +1248,97 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 </tbody>
             </table>
         </div>
+      )}
+
+      {/* PRINT: CARDS (2 per page) */}
+      {printLayout === 'cards' && (
+        <div className="hidden print:block">
+           {hives
+              .filter(h => selectedHiveIds.size === 0 || selectedHiveIds.has(h.id))
+              .map((hive) => {
+                 const data = printData[hive.id];
+                 return (
+                     <div key={hive.id} className="relative w-full h-[130mm] border-b-2 border-dashed border-gray-300 p-6 break-inside-avoid page-break-after-auto flex flex-col justify-between">
+                        {/* Header */}
+                       <div className="flex justify-between items-start mb-4">
+                          <div>
+                             <h1 className="text-4xl font-black text-gray-900 mb-2">{hive.hive_number}</h1>
+                             <h2 className="text-xl font-bold text-gray-600">{hive.name}</h2>
+                             <div className="mt-2 flex gap-2">
+                                <span className="border border-black px-2 py-1 rounded text-sm font-bold uppercase">{hive.type}</span>
+                                <span className="border border-black px-2 py-1 rounded text-sm font-bold uppercase">{hive.status}</span>
+                             </div>
+                          </div>
+                          {data?.qrDataUrl && (
+                             <img src={data.qrDataUrl} alt="QR" className="w-32 h-32 object-contain" />
+                          )}
+                       </div>
+
+                       {/* History */}
+                       <div className="grid grid-cols-2 gap-8 flex-1 overflow-hidden">
+                          {/* Inspections */}
+                          <div>
+                             <h3 className="font-bold border-b-2 border-black mb-2 pb-1">Siste Inspeksjoner</h3>
+                             <div className="space-y-2 text-xs">
+                                {data?.inspections?.slice(0, 5).map((insp: any, i: number) => (
+                                   <div key={i} className="grid grid-cols-[auto_1fr] gap-2 border-b border-gray-100 pb-1">
+                                      <span className="font-mono font-bold whitespace-nowrap">{new Date(insp.inspection_date).toLocaleDateString()}</span>
+                                      <div className="min-w-0">
+                                         <div className="flex gap-1 mb-0.5">
+                                            {insp.queen_seen && <span className="bg-green-100 text-green-800 px-1 rounded text-[10px] font-bold">Dronning</span>}
+                                            {insp.eggs_seen && <span className="bg-green-100 text-green-800 px-1 rounded text-[10px] font-bold">Egg</span>}
+                                         </div>
+                                         <div className="truncate text-gray-600">{insp.notes || '-'}</div>
+                                      </div>
+                                   </div>
+                                ))}
+                             </div>
+                          </div>
+                          
+                          {/* Logs */}
+                          <div>
+                             <h3 className="font-bold border-b-2 border-black mb-2 pb-1">Siste Hendelser</h3>
+                             <div className="space-y-2 text-xs">
+                                {data?.logs?.slice(0, 5).map((log: any, i: number) => (
+                                   <div key={i} className="grid grid-cols-[auto_1fr] gap-2 border-b border-gray-100 pb-1">
+                                      <span className="font-mono font-bold whitespace-nowrap">{new Date(log.created_at).toLocaleDateString()}</span>
+                                      <div className="min-w-0">
+                                         <span className="font-bold uppercase text-[10px] mr-1 block">{log.action}</span>
+                                         <span className="truncate text-gray-600 block">{log.details}</span>
+                                      </div>
+                                   </div>
+                                ))}
+                             </div>
+                          </div>
+                       </div>
+                       
+                       <div className="text-center text-[10px] text-gray-400 mt-4">
+                          {apiary.name} - Utskrift: {new Date().toLocaleDateString()}
+                       </div>
+                    </div>
+                 );
+              })}
+        </div>
+      )}
+
+      {/* PRINT: QR LABELS (3x8 Grid) */}
+      {printLayout === 'qr' && (
+         <div className="hidden print:grid grid-cols-3 gap-0 content-start">
+            {hives
+               .filter(h => selectedHiveIds.size === 0 || selectedHiveIds.has(h.id))
+               .map(hive => (
+                  <div key={hive.id} className="w-[70mm] h-[37mm] border border-gray-100 p-2 flex items-center justify-between overflow-hidden break-inside-avoid relative bg-white">
+                     <div className="flex flex-col justify-center h-full pl-1 z-10">
+                        <span className="text-[8px] uppercase text-gray-500 font-bold leading-none mb-0.5">LEK-Biens Vokter</span>
+                        <span className="text-xl font-black leading-none">{hive.hive_number}</span>
+                        <span className="text-[10px] font-bold truncate max-w-[35mm] leading-tight mt-1">{hive.name}</span>
+                     </div>
+                     {printData[hive.id]?.qrDataUrl && (
+                        <img src={printData[hive.id]?.qrDataUrl} className="w-[28mm] h-[28mm] object-contain z-10" />
+                     )}
+                  </div>
+               ))}
+         </div>
       )}
     </div>
   );
