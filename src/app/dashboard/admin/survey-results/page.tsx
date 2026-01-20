@@ -116,9 +116,11 @@ export default function SurveyResultsAdminPage() {
     }
   };
 
-  const filteredResponses = useMemo(() => {
+  // --- 1. Filtered Data Management ---
+  // Base filtered data (by tab and validity) - Source of truth for both Table and Stats
+  const validResponses = useMemo(() => {
     let base = responses;
-    
+
     // Filter by tab
     if (activeTab === 'beekeeper') {
       base = base.filter(r => r.is_beekeeper === true);
@@ -126,7 +128,23 @@ export default function SurveyResultsAdminPage() {
       base = base.filter(r => r.is_beekeeper === false);
     }
 
-    // Filter by status
+    // Always filter out tests and invalid for the default view/stats
+    // unless the user specifically asks for them in the list (handled below)
+    return base.filter(r => r.is_test !== true && r.is_invalid !== true);
+  }, [responses, activeTab]);
+
+  // Display data (allows showing tests/invalid if selected)
+  const displayResponses = useMemo(() => {
+    let base = responses;
+
+    // Filter by tab
+    if (activeTab === 'beekeeper') {
+      base = base.filter(r => r.is_beekeeper === true);
+    } else {
+      base = base.filter(r => r.is_beekeeper === false);
+    }
+
+    // Filter by status dropdown
     if (filter === 'test') {
       return base.filter((r) => r.is_test === true);
     }
@@ -136,111 +154,111 @@ export default function SurveyResultsAdminPage() {
     if (filter === 'valid') {
       return base.filter((r) => r.is_test !== true && r.is_invalid !== true);
     }
-    return base;
+    return base; // 'all' - shows everything
   }, [responses, filter, activeTab]);
 
   const visibleResponses = useMemo(
-    () => filteredResponses.slice(0, 200),
-    [filteredResponses]
+    () => displayResponses.slice(0, 200),
+    [displayResponses]
   );
 
-  const beekeeperStats = useMemo(() => {
-    const relevant = responses.filter(r => r.is_beekeeper === true && r.is_test !== true && r.is_invalid !== true);
-    if (!relevant.length) {
-      return {
-        total: 0,
-        experiencedDisease: 0,
-        memberCount: 0,
-        avgWarning: 0,
-        avgNearby: 0,
-        avgReporting: 0,
-        avgOverview: 0,
-        wouldUse: { yes: 0, yesIfEasy: 0, unsure: 0, no: 0 },
-      };
-    }
+  // --- 2. Stats Calculation (Based on VALID responses only) ---
+  const stats = useMemo(() => {
+    // We calculate stats based on validResponses to ensure consistency
+    // If activeTab is beekeeper, validResponses contains only valid beekeepers.
+    
+    const total = validResponses.length;
+    let pilotCount = 0;
 
-    const total = relevant.length;
+    // Common/Beekeeper stats
     let experiencedDisease = 0;
     let memberCount = 0;
     let sumWarning = 0; let countWarning = 0;
     let sumNearby = 0; let countNearby = 0;
     let sumReporting = 0; let countReporting = 0;
     let sumOverview = 0; let countOverview = 0;
-    let yes = 0; let yesIfEasy = 0; let unsure = 0; let no = 0;
+    let wouldUse = { yes: 0, yesIfEasy: 0, unsure: 0, no: 0 };
 
-    relevant.forEach((r) => {
-      if (r.experienced_disease) experiencedDisease += 1;
-      if (r.is_member_norwegian_beekeepers) memberCount += 1;
-      if (r.value_warning_system != null) { sumWarning += r.value_warning_system; countWarning += 1; }
-      if (r.value_nearby_alert != null) { sumNearby += r.value_nearby_alert; countNearby += 1; }
-      if (r.value_reporting != null) { sumReporting += r.value_reporting; countReporting += 1; }
-      if (r.value_better_overview != null) { sumOverview += r.value_better_overview; countOverview += 1; }
+    // Non-beekeeper stats
+    const eatsHoney = { yes: 0, no: 0, unsure: 0 };
+    const rentalInterest = { yes: 0, no: 0, unsure: 0, maybe: 0 };
+    const pollinatorImportance = { yes: 0, no: 0, unsure: 0 };
+    const digitalToolInterest = { yes: 0, no: 0, unsure: 0 };
 
-      const choice = (r.would_use_system_choice || '').toLowerCase();
-      if (choice === 'ja') yes += 1;
-      else if (choice.startsWith('ja, hvis')) yesIfEasy += 1;
-      else if (choice.startsWith('vet')) unsure += 1;
-      else if (choice === 'nei') no += 1;
+    validResponses.forEach((r) => {
+      // Pilot Interest Calculation
+      if (activeTab === 'beekeeper') {
+        // For beekeepers, explicit pilot interest field
+        if (r.pilot_interest === true) pilotCount++;
+      } else {
+        // For non-beekeepers, "Rental Interest" of 'ja' counts as pilot interest
+        // OR if there is an explicit pilot_interest set
+        // Case insensitive check
+        const rInterest = (r.rental_interest || '').toLowerCase();
+        if (rInterest === 'ja' || r.pilot_interest === true) pilotCount++;
+      }
+
+      if (activeTab === 'beekeeper') {
+        if (r.experienced_disease) experiencedDisease += 1;
+        if (r.is_member_norwegian_beekeepers) memberCount += 1;
+        if (r.value_warning_system != null) { sumWarning += r.value_warning_system; countWarning += 1; }
+        if (r.value_nearby_alert != null) { sumNearby += r.value_nearby_alert; countNearby += 1; }
+        if (r.value_reporting != null) { sumReporting += r.value_reporting; countReporting += 1; }
+        if (r.value_better_overview != null) { sumOverview += r.value_better_overview; countOverview += 1; }
+
+        const choice = (r.would_use_system_choice || '').toLowerCase();
+        if (choice === 'ja') wouldUse.yes += 1;
+        else if (choice.startsWith('ja, hvis')) wouldUse.yesIfEasy += 1;
+        else if (choice.startsWith('vet')) wouldUse.unsure += 1;
+        else if (choice === 'nei') wouldUse.no += 1;
+      } else {
+        // Non-beekeeper
+        const eats = (r.eats_honey || '').toLowerCase();
+        if (eats === 'ja') eatsHoney.yes++;
+        else if (eats === 'nei') eatsHoney.no++;
+        else if (eats.includes('vet')) eatsHoney.unsure++;
+
+        const rent = (r.rental_interest || '').toLowerCase();
+        if (rent === 'ja') rentalInterest.yes++;
+        else if (rent === 'nei') rentalInterest.no++;
+        else if (rent.includes('vet')) rentalInterest.unsure++;
+        else if (rent === 'kanskje') rentalInterest.maybe++;
+
+        const pol = (r.pollinator_importance || '').toLowerCase();
+        if (pol === 'ja') pollinatorImportance.yes++;
+        else if (pol === 'nei') pollinatorImportance.no++;
+        else if (pol.includes('vet')) pollinatorImportance.unsure++;
+
+        const dig = (r.digital_tool_interest || '').toLowerCase();
+        if (dig === 'ja') digitalToolInterest.yes++;
+        else if (dig === 'nei') digitalToolInterest.no++;
+        else if (dig.includes('vet')) digitalToolInterest.unsure++;
+      }
     });
 
     const avg = (sum: number, count: number) => count ? Math.round((sum / count) * 10) / 10 : 0;
 
     return {
       total,
+      pilotCount,
+      // Beekeeper
       experiencedDisease,
       memberCount,
       avgWarning: avg(sumWarning, countWarning),
       avgNearby: avg(sumNearby, countNearby),
       avgReporting: avg(sumReporting, countReporting),
       avgOverview: avg(sumOverview, countOverview),
-      wouldUse: { yes, yesIfEasy, unsure, no },
+      wouldUse,
+      // Non-beekeeper
+      eatsHoney,
+      rentalInterest,
+      pollinatorImportance,
+      digitalToolInterest
     };
-  }, [responses]);
-
-  const nonBeekeeperStats = useMemo(() => {
-    const relevant = responses.filter(r => r.is_beekeeper === false && r.is_test !== true && r.is_invalid !== true);
-    if (!relevant.length) {
-      return {
-        total: 0,
-        eatsHoney: { yes: 0, no: 0, unsure: 0 },
-        rentalInterest: { yes: 0, no: 0, unsure: 0, maybe: 0 },
-        pollinatorImportance: { yes: 0, no: 0, unsure: 0 },
-        digitalToolInterest: { yes: 0, no: 0, unsure: 0 },
-      };
-    }
-
-    const total = relevant.length;
-    const eatsHoney = { yes: 0, no: 0, unsure: 0 };
-    const rentalInterest = { yes: 0, no: 0, unsure: 0, maybe: 0 };
-    const pollinatorImportance = { yes: 0, no: 0, unsure: 0 };
-    const digitalToolInterest = { yes: 0, no: 0, unsure: 0 };
-
-    relevant.forEach((r) => {
-      if (r.eats_honey === 'ja') eatsHoney.yes++;
-      else if (r.eats_honey === 'nei') eatsHoney.no++;
-      else if (r.eats_honey === 'vet_ikke') eatsHoney.unsure++;
-
-      if (r.rental_interest === 'ja') rentalInterest.yes++;
-      else if (r.rental_interest === 'nei') rentalInterest.no++;
-      else if (r.rental_interest === 'vet_ikke') rentalInterest.unsure++;
-      else if (r.rental_interest === 'kanskje') rentalInterest.maybe++;
-
-      if (r.pollinator_importance === 'ja') pollinatorImportance.yes++;
-      else if (r.pollinator_importance === 'nei') pollinatorImportance.no++;
-      else if (r.pollinator_importance === 'vet_ikke') pollinatorImportance.unsure++;
-
-      if (r.digital_tool_interest === 'ja') digitalToolInterest.yes++;
-      else if (r.digital_tool_interest === 'nei') digitalToolInterest.no++;
-      else if (r.digital_tool_interest === 'vet_ikke') digitalToolInterest.unsure++;
-    });
-
-    return { total, eatsHoney, rentalInterest, pollinatorImportance, digitalToolInterest };
-  }, [responses]);
+  }, [validResponses, activeTab]);
 
   const challengeQuotes = useMemo(() => {
-    const source = responses.filter(
-      (r) => r.is_beekeeper === true && r.is_test !== true && r.is_invalid !== true
-    );
+    const source = validResponses; // Use validResponses directly
     const texts = source
       .map((r) => r.biggest_challenge)
       .filter((v): v is string => !!v && !!v.trim());
@@ -262,7 +280,7 @@ export default function SurveyResultsAdminPage() {
     });
 
     return unique.slice(0, 10);
-  }, [responses, challengeFilter]);
+  }, [validResponses, challengeFilter]);
 
   const exportCsv = () => {
     if (!responses.length) return;
@@ -309,8 +327,26 @@ export default function SurveyResultsAdminPage() {
     URL.revokeObjectURL(url);
   };
 
+  const getBase64FromUrl = async (url: string): Promise<string> => {
+    try {
+      const data = await fetch(url);
+      const blob = await data.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        reader.onloadend = () => {
+          const base64data = reader.result as string;
+          resolve(base64data);
+        };
+      });
+    } catch (e) {
+      console.warn("Could not load image", url, e);
+      throw e;
+    }
+  };
+
   const generatePdfReport = async () => {
-    if (!responses.length) return;
+    if (!validResponses.length) return;
     
     // Create new document
     const doc = new jsPDF();
@@ -326,14 +362,21 @@ export default function SurveyResultsAdminPage() {
     };
 
     // --- Page 1: Title ---
-    // Logo placeholder (Gold circle)
-    doc.setFillColor(218, 165, 32); // Honey gold
-    doc.circle(pageWidth / 2, 60, 15, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text("LEK", pageWidth / 2, 62, { align: "center" });
-    doc.setTextColor(0, 0, 0);
+    // Logo
+    try {
+        // Attempt to load the logo
+        const logoData = await getBase64FromUrl('/våpen.png');
+        doc.addImage(logoData, 'PNG', (pageWidth / 2) - 15, 45, 30, 30);
+    } catch (e) {
+        // Fallback to Gold circle if logo fails
+        doc.setFillColor(218, 165, 32); // Honey gold
+        doc.circle(pageWidth / 2, 60, 15, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text("LEK", pageWidth / 2, 62, { align: "center" });
+        doc.setTextColor(0, 0, 0);
+    }
 
     centerText("Behovsanalyse – LEK-Biens Vokter™", 100, 24, true);
     centerText(
@@ -395,32 +438,32 @@ export default function SurveyResultsAdminPage() {
     };
 
     if (activeTab === 'beekeeper') {
-        drawCard("Antall svar", beekeeperStats.total.toString(), "Totalt antall svar", cardX);
+        drawCard("Antall svar", stats.total.toString(), "Totalt antall svar", cardX);
         cardX += cardWidth + 5;
         
-        drawCard("Sykdomserfaring", `${Math.round((beekeeperStats.experiencedDisease / beekeeperStats.total || 0) * 100)}%`, "Andel med erfaring", cardX);
+        drawCard("Sykdomserfaring", `${Math.round((stats.experiencedDisease / stats.total || 0) * 100)}%`, "Andel med erfaring", cardX);
         cardX += cardWidth + 5;
         
-        drawCard("Medlem i NBL", `${Math.round((beekeeperStats.memberCount / beekeeperStats.total || 0) * 100)}%`, "Organisasjonsgrad", cardX);
+        drawCard("Medlem i NBL", `${Math.round((stats.memberCount / stats.total || 0) * 100)}%`, "Organisasjonsgrad", cardX);
         cardX += cardWidth + 5;
 
-        const pilotPercent = Math.round((pilotCount / beekeeperStats.total || 0) * 100);
-        drawCard("Pilotinteresse", pilotCount.toString(), `${pilotPercent}% av svarene`, cardX);
+        const pilotPercent = Math.round((stats.pilotCount / stats.total || 0) * 100);
+        drawCard("Pilotinteresse", stats.pilotCount.toString(), `${pilotPercent}% av svarene`, cardX);
 
     } else {
-        drawCard("Antall svar", nonBeekeeperStats.total.toString(), "Totalt antall svar", cardX);
+        drawCard("Antall svar", stats.total.toString(), "Totalt antall svar", cardX);
         cardX += cardWidth + 5;
         
-        const rentalYes = nonBeekeeperStats.rentalInterest.yes + nonBeekeeperStats.rentalInterest.maybe;
-        drawCard("Leieinteresse", `${Math.round((rentalYes / nonBeekeeperStats.total || 0) * 100)}%`, "Ja eller Kanskje", cardX);
+        const rentalYes = stats.rentalInterest.yes + stats.rentalInterest.maybe;
+        drawCard("Leieinteresse", `${Math.round((rentalYes / stats.total || 0) * 100)}%`, "Ja eller Kanskje", cardX);
         cardX += cardWidth + 5;
         
-        const eatsHoneyYes = nonBeekeeperStats.eatsHoney.yes;
-        drawCard("Spiser honning", `${Math.round((eatsHoneyYes / nonBeekeeperStats.total || 0) * 100)}%`, "Markedsgrunnlag", cardX);
+        const eatsHoneyYes = stats.eatsHoney.yes;
+        drawCard("Spiser honning", `${Math.round((eatsHoneyYes / stats.total || 0) * 100)}%`, "Markedsgrunnlag", cardX);
         cardX += cardWidth + 5;
 
-        const pilotPercent = Math.round((pilotCount / nonBeekeeperStats.total || 0) * 100);
-        drawCard("Pilotinteresse", pilotCount.toString(), `${pilotPercent}% av svarene`, cardX);
+        const pilotPercent = Math.round((stats.pilotCount / stats.total || 0) * 100);
+        drawCard("Pilotinteresse", stats.pilotCount.toString(), `${pilotPercent}% av svarene`, cardX);
     }
 
     // Summary Text
@@ -434,17 +477,17 @@ export default function SurveyResultsAdminPage() {
     let summaryY = 100;
     
     const summaryPoints = activeTab === 'beekeeper' ? [
-        `Totalt ${beekeeperStats.total} svar fra birøktere.`,
-        `${Math.round((beekeeperStats.experiencedDisease / beekeeperStats.total || 0) * 100)}% rapporterer å ha erfart sykdom, som understreker behovet for bedre verktøy.`,
-        `Gjennomsnittlig opplevd nytteverdi av automatisk varsling er ${beekeeperStats.avgWarning} av 5.`,
-        `Interessen for å bruke systemet er høy: ${beekeeperStats.wouldUse.yes + beekeeperStats.wouldUse.yesIfEasy} av ${beekeeperStats.total} er positive.`,
+        `Totalt ${stats.total} svar fra birøktere.`,
+        `${Math.round((stats.experiencedDisease / stats.total || 0) * 100)}% rapporterer å ha erfart sykdom, som understreker behovet for bedre verktøy.`,
+        `Gjennomsnittlig opplevd nytteverdi av automatisk varsling er ${stats.avgWarning} av 5.`,
+        `Interessen for å bruke systemet er høy: ${stats.wouldUse.yes + stats.wouldUse.yesIfEasy} av ${stats.total} er positive.`,
         `De største utfordringene som nevnes er ofte relatert til tidsklemme, sykdomskontroll og oversikt.`
     ] : [
-        `Totalt ${nonBeekeeperStats.total} svar fra privatpersoner.`,
-        `${Math.round(((nonBeekeeperStats.rentalInterest.yes + nonBeekeeperStats.rentalInterest.maybe) / nonBeekeeperStats.total || 0) * 100)}% er positive til å leie bikube (Ja eller Kanskje).`,
+        `Totalt ${stats.total} svar fra privatpersoner.`,
+        `${Math.round(((stats.rentalInterest.yes + stats.rentalInterest.maybe) / stats.total || 0) * 100)}% er positive til å leie bikube (Ja eller Kanskje).`,
         `Dette indikerer et betydelig markedspotensial for utleiemodellen.`,
-        `${Math.round((nonBeekeeperStats.eatsHoney.yes / nonBeekeeperStats.total || 0) * 100)}% oppgir at de spiser honning.`,
-        `Pilotprogrammet har allerede generert ${pilotCount} interesserte kandidater.`
+        `${Math.round((stats.eatsHoney.yes / stats.total || 0) * 100)}% oppgir at de spiser honning.`,
+        `Pilotprogrammet har generert ${stats.pilotCount} interesserte kandidater.`
     ];
 
     summaryPoints.forEach(point => {
@@ -506,33 +549,30 @@ export default function SurveyResultsAdminPage() {
 
     if (activeTab === 'beekeeper') {
         drawBarChart("Ville du brukt systemet?", [
-             { label: "Ja", value: beekeeperStats.wouldUse.yes, total: beekeeperStats.total },
-             { label: "Ja, hvis enkelt", value: beekeeperStats.wouldUse.yesIfEasy, total: beekeeperStats.total },
-             { label: "Vet ikke", value: beekeeperStats.wouldUse.unsure, total: beekeeperStats.total },
-             { label: "Nei", value: beekeeperStats.wouldUse.no, total: beekeeperStats.total },
+             { label: "Ja", value: stats.wouldUse.yes, total: stats.total },
+             { label: "Ja, hvis enkelt", value: stats.wouldUse.yesIfEasy, total: stats.total },
+             { label: "Vet ikke", value: stats.wouldUse.unsure, total: stats.total },
+             { label: "Nei", value: stats.wouldUse.no, total: stats.total },
         ]);
-        
-        // Add more charts for beekeeper if needed, but 'wouldUse' is the main one available in 'beekeeperStats'
-        // I could calculate others if I had the raw data processing in 'beekeeperStats' memo, but I'll stick to what's available.
         
     } else {
         drawBarChart("Interesse for å leie bikube", [
-            { label: "Ja", value: nonBeekeeperStats.rentalInterest.yes, total: nonBeekeeperStats.total },
-            { label: "Kanskje", value: nonBeekeeperStats.rentalInterest.maybe, total: nonBeekeeperStats.total },
-            { label: "Nei", value: nonBeekeeperStats.rentalInterest.no, total: nonBeekeeperStats.total },
-            { label: "Vet ikke", value: nonBeekeeperStats.rentalInterest.unsure, total: nonBeekeeperStats.total },
+            { label: "Ja", value: stats.rentalInterest.yes, total: stats.total },
+            { label: "Kanskje", value: stats.rentalInterest.maybe, total: stats.total },
+            { label: "Nei", value: stats.rentalInterest.no, total: stats.total },
+            { label: "Vet ikke", value: stats.rentalInterest.unsure, total: stats.total },
         ]);
 
         drawBarChart("Viktighet av pollinatorer", [
-            { label: "Ja", value: nonBeekeeperStats.pollinatorImportance.yes, total: nonBeekeeperStats.total },
-            { label: "Nei", value: nonBeekeeperStats.pollinatorImportance.no, total: nonBeekeeperStats.total },
-            { label: "Vet ikke", value: nonBeekeeperStats.pollinatorImportance.unsure, total: nonBeekeeperStats.total },
+            { label: "Ja, viktig", value: stats.pollinatorImportance.yes, total: stats.total },
+            { label: "Nei", value: stats.pollinatorImportance.no, total: stats.total },
+            { label: "Vet ikke", value: stats.pollinatorImportance.unsure, total: stats.total },
         ]);
 
         drawBarChart("Interesse for digitalt verktøy", [
-            { label: "Ja", value: nonBeekeeperStats.digitalToolInterest.yes, total: nonBeekeeperStats.total },
-            { label: "Nei", value: nonBeekeeperStats.digitalToolInterest.no, total: nonBeekeeperStats.total },
-            { label: "Vet ikke", value: nonBeekeeperStats.digitalToolInterest.unsure, total: nonBeekeeperStats.total },
+            { label: "Ja", value: stats.digitalToolInterest.yes, total: stats.total },
+            { label: "Nei", value: stats.digitalToolInterest.no, total: stats.total },
+            { label: "Vet ikke", value: stats.digitalToolInterest.unsure, total: stats.total },
         ]);
     }
 
@@ -540,62 +580,65 @@ export default function SurveyResultsAdminPage() {
     doc.setFontSize(8);
     doc.setTextColor(150);
     doc.text("LEK-Honning – Internt arbeidsdokument", margin, pageHeight - 10);
-    doc.text("Side 3 av 4 – Detaljer", pageWidth - margin - 35, pageHeight - 10);
+    doc.text("Side 3 av 4 – Detaljer", pageWidth - margin - 30, pageHeight - 10);
     doc.setTextColor(0);
 
-
-    // --- Page 4: Qualitative / End ---
+    // --- Page 4: Qualitative Feedback ---
     doc.addPage();
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text("Kvalitative tilbakemeldinger", margin, 30);
+    doc.text(activeTab === 'beekeeper' ? "Utfordringer og ønsker" : "Kunnskap og interesse", margin, 30);
     
-    doc.setFontSize(12);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    
-    // Extract quotes based on tab
-    let quotesToDisplay: string[] = [];
+    let qualY = 45;
+
     if (activeTab === 'beekeeper') {
-        quotesToDisplay = challengeQuotes.slice(0, 10);
-        doc.text("Et utvalg av sitater om største utfordringer:", margin, 40);
+        doc.text("Hva er din største utfordring?", margin, qualY);
+        qualY += 10;
+        
+        challengeQuotes.slice(0, 15).forEach(quote => {
+             if (qualY > 270) {
+                 doc.addPage();
+                 qualY = 30;
+             }
+             const splitQuote = doc.splitTextToSize(`- "${quote}"`, pageWidth - margin * 2);
+             doc.text(splitQuote, margin, qualY);
+             qualY += (splitQuote.length * 5) + 3;
+        });
     } else {
-        // For non-beekeepers, extract 'knowledge_about_beekeeping' or similar
-        const comments = responses
+        doc.text("Kvalitative tilbakemeldinger:", margin, qualY);
+        qualY += 10;
+        
+        const comments = validResponses
             .filter(r => !r.is_beekeeper && r.knowledge_about_beekeeping)
             .map(r => r.knowledge_about_beekeeping as string)
             .filter(t => t.length > 5);
-        quotesToDisplay = comments.slice(0, 10);
-        doc.text("Et utvalg av kommentarer om kunnskap/interesse:", margin, 40);
-    }
-    
-    let quotesY = 50;
-    
-    if (quotesToDisplay.length === 0) {
-        doc.text("Ingen sitater tilgjengelig.", margin, quotesY);
-    } else {
-        quotesToDisplay.forEach(quote => {
-             const lines = doc.splitTextToSize(`"${quote}"`, pageWidth - margin * 2);
-             // Check page break
-             if (quotesY + lines.length * 5 > pageHeight - 20) {
-                 doc.addPage();
-                 quotesY = 30;
-             }
-             
-             doc.setFont('helvetica', 'italic');
-             doc.text(lines, margin, quotesY);
-             quotesY += (lines.length * 5) + 5;
-             doc.setFont('helvetica', 'normal');
-        });
+
+        if (comments.length === 0) {
+            doc.text("Ingen spesifikke fritekstsvar tilgjengelig for denne visningen.", margin, qualY);
+        } else {
+             comments.slice(0, 15).forEach(comment => {
+                 if (qualY > 270) {
+                     doc.addPage();
+                     qualY = 30;
+                 }
+                 const splitQuote = doc.splitTextToSize(`- "${comment}"`, pageWidth - margin * 2);
+                 doc.text(splitQuote, margin, qualY);
+                 qualY += (splitQuote.length * 5) + 3;
+            });
+        }
     }
 
     // Footer Page 4
     doc.setFontSize(8);
     doc.setTextColor(150);
     doc.text("LEK-Honning – Internt arbeidsdokument", margin, pageHeight - 10);
-    doc.text(`Side 4 av 4 – ${activeTab === 'beekeeper' ? 'Utfordringer' : 'Kommentarer'}`, pageWidth - margin - 35, pageHeight - 10);
+    doc.text("Side 4 av 4 – Fritekst", pageWidth - margin - 30, pageHeight - 10);
+    doc.setTextColor(0);
 
     // Save
-    doc.save(`behovsanalyse_${activeTab}_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`behovsanalyse-rapport-${activeTab}-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const performActionOnId = async (
@@ -715,18 +758,24 @@ export default function SurveyResultsAdminPage() {
             <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
               <div className="bg-white p-4 rounded-xl border border-gray-200">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Antall svar</p>
-                <p className="text-2xl font-bold text-gray-900">{beekeeperStats.total}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
               </div>
               <div className="bg-white p-4 rounded-xl border border-gray-200">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Sykdomserfaring</p>
                 <p className="text-2xl font-bold text-red-600">
-                  {beekeeperStats.total ? Math.round((beekeeperStats.experiencedDisease / beekeeperStats.total) * 100) : 0}%
+                  {stats.total ? Math.round((stats.experiencedDisease / stats.total) * 100) : 0}%
                 </p>
               </div>
               <div className="bg-white p-4 rounded-xl border border-gray-200">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Medlem i NBL</p>
                 <p className="text-2xl font-bold text-honey-600">
-                  {beekeeperStats.total ? Math.round((beekeeperStats.memberCount / beekeeperStats.total) * 100) : 0}%
+                  {stats.total ? Math.round((stats.memberCount / stats.total) * 100) : 0}%
+                </p>
+              </div>
+              <div className="bg-white p-4 rounded-xl border border-gray-200">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Pilotinteresse</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {stats.total ? Math.round((stats.pilotCount / stats.total) * 100) : 0}%
                 </p>
               </div>
             </section>
@@ -739,12 +788,12 @@ export default function SurveyResultsAdminPage() {
                 </h2>
                 <div className="space-y-3">
                   {[
-                    { label: 'Ja', value: beekeeperStats.wouldUse.yes, color: 'bg-honey-500' },
-                    { label: 'Ja, hvis enkelt', value: beekeeperStats.wouldUse.yesIfEasy, color: 'bg-green-500' },
-                    { label: 'Vet ikke', value: beekeeperStats.wouldUse.unsure, color: 'bg-yellow-500' },
-                    { label: 'Nei', value: beekeeperStats.wouldUse.no, color: 'bg-red-500' },
+                    { label: 'Ja', value: stats.wouldUse.yes, color: 'bg-honey-500' },
+                    { label: 'Ja, hvis enkelt', value: stats.wouldUse.yesIfEasy, color: 'bg-green-500' },
+                    { label: 'Vet ikke', value: stats.wouldUse.unsure, color: 'bg-yellow-500' },
+                    { label: 'Nei', value: stats.wouldUse.no, color: 'bg-red-500' },
                   ].map((item) => {
-                     const total = beekeeperStats.wouldUse.yes + beekeeperStats.wouldUse.yesIfEasy + beekeeperStats.wouldUse.unsure + beekeeperStats.wouldUse.no;
+                     const total = stats.wouldUse.yes + stats.wouldUse.yesIfEasy + stats.wouldUse.unsure + stats.wouldUse.no;
                      const percent = total ? Math.round((item.value / total) * 100) : 0;
                      return (
                       <div key={item.label}>
@@ -765,10 +814,10 @@ export default function SurveyResultsAdminPage() {
                 <h2 className="text-sm font-bold text-gray-900 mb-4">Verdivurdering (Snitt 1-5)</h2>
                 <div className="space-y-4">
                   {[
-                    { label: 'Automatisk smittevarsling', value: beekeeperStats.avgWarning },
-                    { label: 'Varsel til nærliggende', value: beekeeperStats.avgNearby },
-                    { label: 'Enkel rapportering', value: beekeeperStats.avgReporting },
-                    { label: 'Bedre oversikt', value: beekeeperStats.avgOverview },
+                    { label: 'Automatisk smittevarsling', value: stats.avgWarning },
+                    { label: 'Varsel til nærliggende', value: stats.avgNearby },
+                    { label: 'Enkel rapportering', value: stats.avgReporting },
+                    { label: 'Bedre oversikt', value: stats.avgOverview },
                   ].map(item => (
                     <div key={item.label}>
                       <div className="flex justify-between mb-1 text-sm">
@@ -809,18 +858,24 @@ export default function SurveyResultsAdminPage() {
             <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
               <div className="bg-white p-4 rounded-xl border border-gray-200">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Antall svar</p>
-                <p className="text-2xl font-bold text-gray-900">{nonBeekeeperStats.total}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
               </div>
               <div className="bg-white p-4 rounded-xl border border-gray-200">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Interesse for leie</p>
                 <p className="text-2xl font-bold text-honey-600">
-                  {nonBeekeeperStats.total ? Math.round((nonBeekeeperStats.rentalInterest.yes / nonBeekeeperStats.total) * 100) : 0}%
+                  {stats.total ? Math.round((stats.rentalInterest.yes / stats.total) * 100) : 0}%
                 </p>
               </div>
               <div className="bg-white p-4 rounded-xl border border-gray-200">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Spiser honning (Ja)</p>
                 <p className="text-2xl font-bold text-honey-600">
-                  {nonBeekeeperStats.total ? Math.round((nonBeekeeperStats.eatsHoney.yes / nonBeekeeperStats.total) * 100) : 0}%
+                  {stats.total ? Math.round((stats.eatsHoney.yes / stats.total) * 100) : 0}%
+                </p>
+              </div>
+              <div className="bg-white p-4 rounded-xl border border-gray-200">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Pilotinteresse</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {stats.total ? Math.round((stats.pilotCount / stats.total) * 100) : 0}%
                 </p>
               </div>
             </section>
@@ -830,12 +885,12 @@ export default function SurveyResultsAdminPage() {
                 <h2 className="text-sm font-bold text-gray-900 mb-4">Interesse for å leie bikube</h2>
                  <div className="space-y-3">
                   {[
-                    { label: 'Ja', value: nonBeekeeperStats.rentalInterest.yes, color: 'bg-honey-500' },
-                    { label: 'Kanskje', value: nonBeekeeperStats.rentalInterest.maybe, color: 'bg-orange-300' },
-                    { label: 'Nei', value: nonBeekeeperStats.rentalInterest.no, color: 'bg-gray-300' },
-                    ...(nonBeekeeperStats.rentalInterest.unsure > 0 ? [{ label: 'Vet ikke (gammelt)', value: nonBeekeeperStats.rentalInterest.unsure, color: 'bg-yellow-500' }] : []),
+                    { label: 'Ja', value: stats.rentalInterest.yes, color: 'bg-honey-500' },
+                    { label: 'Kanskje', value: stats.rentalInterest.maybe, color: 'bg-orange-300' },
+                    { label: 'Nei', value: stats.rentalInterest.no, color: 'bg-gray-300' },
+                    ...(stats.rentalInterest.unsure > 0 ? [{ label: 'Vet ikke (gammelt)', value: stats.rentalInterest.unsure, color: 'bg-yellow-500' }] : []),
                   ].map((item) => {
-                     const total = nonBeekeeperStats.rentalInterest.yes + nonBeekeeperStats.rentalInterest.no + nonBeekeeperStats.rentalInterest.unsure + nonBeekeeperStats.rentalInterest.maybe;
+                     const total = stats.rentalInterest.yes + stats.rentalInterest.no + stats.rentalInterest.unsure + stats.rentalInterest.maybe;
                      const percent = total ? Math.round((item.value / total) * 100) : 0;
                      return (
                       <div key={item.label}>
@@ -856,11 +911,11 @@ export default function SurveyResultsAdminPage() {
                 <h2 className="text-sm font-bold text-gray-900 mb-4">Viktighet av pollinatorer</h2>
                  <div className="space-y-3">
                   {[
-                    { label: 'Ja', value: nonBeekeeperStats.pollinatorImportance.yes, color: 'bg-green-500' },
-                    { label: 'Nei', value: nonBeekeeperStats.pollinatorImportance.no, color: 'bg-red-500' },
-                    { label: 'Vet ikke', value: nonBeekeeperStats.pollinatorImportance.unsure, color: 'bg-yellow-500' },
+                    { label: 'Ja', value: stats.pollinatorImportance.yes, color: 'bg-green-500' },
+                    { label: 'Nei', value: stats.pollinatorImportance.no, color: 'bg-red-500' },
+                    { label: 'Vet ikke', value: stats.pollinatorImportance.unsure, color: 'bg-yellow-500' },
                   ].map((item) => {
-                     const total = nonBeekeeperStats.pollinatorImportance.yes + nonBeekeeperStats.pollinatorImportance.no + nonBeekeeperStats.pollinatorImportance.unsure;
+                     const total = stats.pollinatorImportance.yes + stats.pollinatorImportance.no + stats.pollinatorImportance.unsure;
                      const percent = total ? Math.round((item.value / total) * 100) : 0;
                      return (
                       <div key={item.label}>

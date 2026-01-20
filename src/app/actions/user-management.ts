@@ -50,6 +50,43 @@ export async function deleteUser(userId: string) {
   if (rpcError) {
     console.warn('RPC deletion failed, attempting manual cleanup with admin client:', rpcError)
     try {
+      // 0) Delete survey responses and pilot interests linked to this user
+      await adminClient
+        .from('survey_responses')
+        .delete()
+        .eq('user_id', userId)
+
+      await adminClient
+        .from('pilot_interest')
+        .delete()
+        .eq('user_id', userId)
+
+      // 0.1) Cleanup MLM and Shop related data
+      // Nullify referrer_id in profiles (downline)
+      await adminClient
+        .from('profiles')
+        .update({ referrer_id: null })
+        .eq('referrer_id', userId)
+
+      // Delete commissions
+      await adminClient
+        .from('commissions')
+        .delete()
+        .or(`beneficiary_id.eq.${userId},source_user_id.eq.${userId}`)
+
+      // Delete honey transactions and listings
+      // Note: This might be destructive for history, but for user deletion it's often required
+      // Alternatively set to NULL if schema allows, but usually we delete or anonymize
+      await adminClient
+        .from('honey_transactions')
+        .delete()
+        .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
+
+      await adminClient
+        .from('honey_listings')
+        .delete()
+        .eq('seller_id', userId)
+
       // 1) Null out foreign keys that reference the user
       await adminClient
         .from('rentals')

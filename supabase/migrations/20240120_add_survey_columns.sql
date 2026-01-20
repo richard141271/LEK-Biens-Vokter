@@ -38,4 +38,14 @@ ALTER TABLE survey_responses ADD COLUMN IF NOT EXISTS considered_starting_beekee
 ALTER TABLE survey_responses ENABLE ROW LEVEL SECURITY;
 
 -- Allow anonymous inserts (if not already set)
-CREATE POLICY "Allow anonymous inserts" ON survey_responses FOR INSERT WITH CHECK (true);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'survey_responses' 
+        AND policyname = 'Allow anonymous inserts'
+    ) THEN
+        CREATE POLICY "Allow anonymous inserts" ON survey_responses FOR INSERT WITH CHECK (true);
+    END IF;
+END
+$$;
