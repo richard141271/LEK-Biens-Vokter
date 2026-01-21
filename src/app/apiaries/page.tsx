@@ -80,66 +80,111 @@ export default function ApiariesPage() {
     setIsGeneratingPDF(true);
 
     try {
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
       const apiariesToPrint = apiaries.filter(a => selectedApiaries.includes(a.id));
-      const doc = new jsPDF('p', 'mm', 'a4');
 
       for (let i = 0; i < apiariesToPrint.length; i++) {
         const apiary = apiariesToPrint[i];
         if (i > 0) doc.addPage();
 
-        // --- Header ---
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(40);
-        doc.text("BIGÅRD", 105, 30, { align: "center" });
-        doc.setLineWidth(1);
-        doc.line(20, 35, 190, 35);
+        // 1. Background (Yellow)
+        doc.setFillColor(253, 224, 71); // Tailwind yellow-300
+        doc.rect(0, 0, 210, 297, 'F');
 
-        // --- Apiary Info ---
-        doc.setFontSize(24);
-        doc.text(apiary.name || "Ukjent Bigård", 105, 55, { align: "center" });
+        // 2. Black Border (Inset)
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(4); // ~11px
+        doc.rect(5, 5, 200, 287);
+
+        // 3. Header "BIGÅRD"
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(60);
+        doc.setTextColor(0, 0, 0);
+        doc.text('BIGÅRD', 105, 40, { align: 'center' });
+
+        // 4. Responsible Beekeeper Section
+        doc.setFontSize(14);
+        doc.setTextColor(60, 60, 60);
+        doc.text('ANSVARLIG BIRØKTER', 105, 60, { align: 'center' });
+
+        const fullName = profile?.full_name || `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim();
+        const address = profile?.address || '';
+        const city = `${profile?.post_code || ''} ${profile?.city || ''}`.trim();
+        const phone = profile?.phone_number || profile?.phone || '';
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(28);
+        doc.text((fullName || 'Ukjent Eier').toUpperCase(), 105, 75, { align: 'center' });
         
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Nr: ${apiary.apiary_number || '-'}`, 105, 65, { align: "center" });
+        doc.setFontSize(20);
+        doc.text(address.toUpperCase(), 105, 85, { align: 'center' });
+        doc.text(city.toUpperCase(), 105, 95, { align: 'center' });
 
-        if (apiary.registration_number) {
-            doc.text(`Reg: ${apiary.registration_number}`, 105, 73, { align: "center" });
+        doc.setFontSize(28);
+        doc.text(`TLF: ${phone}`, 105, 115, { align: 'center' });
+
+        // 5. Badges
+        let yPos = 140;
+        if (profile?.is_norges_birokterlag_member) {
+            // Black box
+            doc.setFillColor(0, 0, 0);
+            doc.rect(40, yPos, 130, 15, 'F');
+            // Yellow text
+            doc.setTextColor(253, 224, 71);
+            doc.setFontSize(14);
+            doc.text('MEDLEM AV NORGES BIRØKTERLAG', 105, yPos + 10, { align: 'center' });
+            yPos += 25;
         }
 
-        // --- Contact Info ---
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(14);
-        doc.text("KONTAKTINFO", 105, 95, { align: "center" });
-        
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(18);
-        const name = profile ? `${profile.first_name} ${profile.last_name}` : "";
-        doc.text(name, 105, 105, { align: "center" });
-        
-        doc.setFontSize(14);
-        doc.text(profile?.address || "", 105, 113, { align: "center" });
-        doc.text(profile?.phone || "", 105, 121, { align: "center" });
+        if (profile?.is_lek_honning_member) {
+             // Black box
+             doc.setFillColor(0, 0, 0);
+             doc.rect(40, yPos, 130, 15, 'F');
+             // Yellow text
+             doc.setTextColor(253, 224, 71);
+             doc.setFontSize(14);
+             doc.text('MEDLEM AV LEK-HONNING™ NORGE', 105, yPos + 10, { align: 'center' });
+        }
 
-        // --- QR Code ---
+        // 6. Bottom Section (Location ID + QR)
+        // Draw line
+        doc.setLineWidth(2);
+        doc.setDrawColor(0, 0, 0);
+        doc.line(20, 230, 190, 230);
+
+        // Location ID Text
+        doc.setTextColor(60, 60, 60);
+        doc.setFontSize(16);
+        doc.text('LOKASJON ID', 20, 245);
+        
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('courier', 'bold'); // Monospace look
+        doc.setFontSize(36);
+        doc.text(apiary.apiary_number || '', 20, 260);
+
+        // QR Code
         try {
             const qrUrl = `${window.location.origin}/apiaries/${apiary.id}`;
-            const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 1, width: 400 });
-            doc.addImage(qrDataUrl, 'PNG', 55, 140, 100, 100);
+            const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 1, width: 200 });
+            // Add QR Image (30x30mm approx)
+            doc.addImage(qrDataUrl, 'PNG', 150, 235, 40, 40);
+            // Border around QR
+            doc.setLineWidth(1);
+            doc.rect(150, 235, 40, 40);
         } catch (err) {
-            console.error("QR Gen Error", err);
+            console.error('QR Gen Error', err);
         }
-
-        // --- Footer Warning ---
-        doc.setTextColor(220, 0, 0); // Red
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(16);
-        doc.text("VARSLE MATTILSYNET VED MISTANKE OM SYKDOM", 105, 270, { align: "center" });
-        doc.setTextColor(0, 0, 0); // Reset black
       }
 
-      // Open print dialog
       doc.autoPrint();
-      window.open(doc.output('bloburl'), '_blank');
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
 
     } catch (error) {
       console.error('Print generation failed', error);
