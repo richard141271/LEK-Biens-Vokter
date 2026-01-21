@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Download, Share } from 'lucide-react';
+import { Download, Share, X } from 'lucide-react';
 
 interface InstallPromptProps {
   embedded?: boolean;
@@ -12,6 +12,7 @@ export default function InstallPrompt({ embedded = false }: InstallPromptProps) 
   const [showIOSPrompt, setShowIOSPrompt] = useState(false);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [isIOSOpen, setIsIOSOpen] = useState(false);
 
   useEffect(() => {
     // Check if running in browser
@@ -101,5 +102,42 @@ export default function InstallPrompt({ embedded = false }: InstallPromptProps) 
   }
 
   // Floating version (default, but hidden if embedded is preferred)
-  return null; 
+  if (showIOSPrompt) {
+    if (isIOSOpen) {
+      return (
+        <div className="fixed top-20 right-4 z-[100] bg-white p-4 rounded-xl shadow-xl border border-gray-200 max-w-xs animate-in slide-in-from-right-5 print:hidden">
+          <button 
+            onClick={() => setIsIOSOpen(false)} 
+            className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+          >
+            <X size={16} />
+          </button>
+          <h3 className="font-bold text-gray-900 mb-2">Installer på iPhone</h3>
+          <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
+            <li>Trykk på dele-knappen <Share className="inline w-4 h-4 mx-1 text-blue-500" /></li>
+            <li>Scroll ned og velg <strong>&quot;Legg til på Hjem-skjerm&quot;</strong></li>
+          </ol>
+        </div>
+      );
+    }
+    return (
+      <button
+        onClick={() => setIsIOSOpen(true)}
+        className="fixed top-4 right-4 z-[100] bg-white/90 backdrop-blur-sm text-gray-800 font-bold py-2 px-3 rounded-full shadow-md border border-gray-200 flex items-center gap-2 text-xs hover:bg-white transition-all hover:scale-105 active:scale-95 print:hidden"
+      >
+        <Download size={14} />
+        Installer App
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={handleInstallClick}
+      className="fixed top-4 right-4 z-[100] bg-honey-500 hover:bg-honey-600 text-white font-bold py-2 px-4 rounded-full shadow-lg flex items-center gap-2 text-sm transition-all hover:scale-105 active:scale-95 print:hidden"
+    >
+      <Download size={16} />
+      Installer App
+    </button>
+  );
 }
