@@ -100,30 +100,28 @@ export default function DynamicSurveyResultsPage() {
     if (question.type === 'TEXT' || question.type === 'EMAIL') return null;
 
     const counts: Record<string, number> = {};
-    let total = 0;
+    let answeredCount = 0;
+    const totalRespondents = submissions.length;
 
     submissions.forEach((sub) => {
       const val = sub.answers[question.id];
-      if (val === undefined || val === null) return;
+      // Skip if null/undefined or empty string (which we map to null in backend but check here too)
+      if (val === undefined || val === null || val === '') return;
+
+      // Also check for empty arrays in multi-choice
+      if (Array.isArray(val) && val.length === 0) return;
+
+      answeredCount++;
 
       if (Array.isArray(val)) {
         val.forEach((v) => {
           counts[v] = (counts[v] || 0) + 1;
         });
-        // For multi-choice, total usually means number of respondents, not total selections
-        // But for percentage calculation of "what % selected X", we use total respondents
       } else {
         counts[val] = (counts[val] || 0) + 1;
       }
-      // Count valid submission for this question (once per submission)
-      total++; 
     });
     
-    // Fix total for multi-choice: total should be number of submissions that have *any* value for this question
-    if (question.type === 'MULTI_CHOICE') {
-      total = submissions.filter(s => s.answers[question.id] && s.answers[question.id].length > 0).length;
-    }
-
     let optionsToRender = question.options || [];
 
     // Handle Scale 1-5
@@ -142,26 +140,15 @@ export default function DynamicSurveyResultsPage() {
         <h3 className="text-lg font-bold text-gray-900 mb-4">{question.text}</h3>
         <div className="space-y-3">
           {optionsToRender.map((opt) => {
-            // Handle both string and number matching (scale 1-5 comes as numbers from DB)
             const valKey = String(opt.value);
-            // DB might store scale as 1 (number), counts keys will be "1" (string) if we use standard object
-            // If DB stores "1–4 kuber", key is "1–4 kuber".
-            
-            // For scale, opt.value is "1", "2"...
-            // DB has 1, 2...
-            
             let count = counts[valKey] || 0;
-            // Try number key if string failed (for safety)
             if (count === 0 && !isNaN(Number(valKey))) {
-               count = counts[Number(valKey)] || 0; // if counts was populated with numbers
+               count = counts[Number(valKey)] || 0;
             }
 
-            // Recalculate count based on how we populated 'counts'
-            // We populated counts[val]. If val is 1 (number), counts[1] = X.
-            // If val is "1" (string), counts["1"] = X.
-            // JS objects treat 1 and "1" keys as same usually, but let's be safe.
+            // Calculate percentage based on TOTAL respondents, not just those who answered
+            const percentage = totalRespondents > 0 ? Math.round((count / totalRespondents) * 100) : 0;
             
-            const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
             return (
               <div key={opt.value}>
                 <div className="flex justify-between text-sm mb-1">
@@ -179,7 +166,7 @@ export default function DynamicSurveyResultsPage() {
           })}
         </div>
         <div className="mt-4 text-xs text-gray-400">
-          Totalt antall svar: {total}
+          Besvart: {answeredCount} av {totalRespondents}
         </div>
       </div>
     );
