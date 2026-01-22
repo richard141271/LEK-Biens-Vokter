@@ -94,7 +94,7 @@ export const BeekeeperSurvey: Survey = {
            text: "Hvilke sykdommer har du erfart?", 
            type: "MULTI_CHOICE", 
            required: false, 
-           visible_if: [{ question_id: "disease_last_3y", equals: "yes" }], 
+           visible_if: [{ question_id: "disease_last_3y", equals: ["yes", "unsure"] }], 
            options: [ 
              { value: "varroa", label: "Varroa" }, 
              { value: "open_brood", label: "Åpen yngelråte" }, 

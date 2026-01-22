@@ -125,16 +125,21 @@ export const NonBeekeeperSurvey: Survey = {
           type: "MULTI_CHOICE",
           required: false,
           visible_if: [
-            { question_id: "nb_disease_awareness", equals: "ja" }
+            { question_id: "nb_disease_awareness", equals: ["ja", "usikker"] }
           ],
           options: [
-            { value: "Varroa", label: "Varroa" },
-            { value: "Åpen yngelråte", label: "Åpen yngelråte" },
-            { value: "Lukket yngelråte", label: "Lukket yngelråte" },
-            { value: "Nosema", label: "Nosema" },
-            { value: "Kalkyngel", label: "Kalkyngel" },
-            { value: "Amerikansk yngelråte", label: "Amerikansk yngelråte" },
-            { value: "Europeisk yngelråte", label: "Europeisk yngelråte" }
+            { value: "varroa", label: "Varroa" },
+            { value: "open_brood", label: "Åpen yngelråte" },
+            { value: "closed_brood", label: "Lukket yngelråte" },
+            { value: "nosema", label: "Nosema" },
+            { value: "chalkbrood", label: "Kalkyngel" },
+            { value: "stonebrood", label: "Steinyngel" },
+            { value: "tracheal_mite", label: "Trakémidd" },
+            { value: "deformed_wing", label: "Vingedeformitetsvirus" },
+            { value: "american_foulbrood", label: "Amerikansk yngelråte" },
+            { value: "european_foulbrood", label: "Europeisk yngelråte" },
+            { value: "black_mold", label: "Svartesopp" },
+            { value: "unknown", label: "Ukjent sykdom" }
           ]
         }
       ]
