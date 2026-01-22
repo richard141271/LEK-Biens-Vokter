@@ -290,8 +290,28 @@ export default function DashboardPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Generate number (simplified)
-        const apiaryNumber = `BG-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+        // Generate sequential number for user
+        const { data: existingApiaries } = await supabase
+            .from('apiaries')
+            .select('apiary_number')
+            .eq('user_id', user.id);
+
+        let nextNum = 1;
+        if (existingApiaries && existingApiaries.length > 0) {
+            const maxNum = existingApiaries.reduce((max, apiary) => {
+                if (!apiary.apiary_number) return max;
+                // Handle both "BG-XXX" and potential legacy formats
+                const parts = apiary.apiary_number.split('-');
+                if (parts.length >= 2) {
+                    const num = parseInt(parts[parts.length - 1], 10);
+                    return !isNaN(num) && num > max ? num : max;
+                }
+                return max;
+            }, 0);
+            nextNum = maxNum + 1;
+        }
+
+        const apiaryNumber = `BG-${nextNum.toString().padStart(3, '0')}`;
 
         const { data, error } = await supabase
             .from('apiaries')
