@@ -566,7 +566,7 @@ export default function InnovationNorwayReport() {
         
         {/* Footer */}
         <div className="absolute bottom-0 w-full p-8 text-center text-gray-400 text-sm border-t border-gray-100">
-            LEK-Biens Vokter™️ - En del av Innovasjon Norge Pilotprogram 2024-2025
+            En del av LEK-Biens Vokters™️ Pilotprogram - 2026
         </div>
       </div>
     </div>
