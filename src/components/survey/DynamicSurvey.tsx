@@ -31,10 +31,12 @@ export function DynamicSurvey({ survey }: DynamicSurveyProps) {
     if (!question.visible_if || question.visible_if.length === 0) {
       return true;
     }
-    // All conditions must be met (AND logic implied by array, or OR? Usually AND)
-    // The requirement is "visible_if: [{...}]". Let's assume AND.
+    // All conditions must be met (AND logic implied by array)
     return question.visible_if.every((condition) => {
       const answer = answers[condition.question_id];
+      if (Array.isArray(condition.equals)) {
+        return condition.equals.includes(answer);
+      }
       return answer === condition.equals;
     });
   };

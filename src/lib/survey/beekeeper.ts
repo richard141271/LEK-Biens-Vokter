@@ -257,7 +257,7 @@ export const BeekeeperSurvey: Survey = {
            text: "E-post for invitasjon til pilot", 
            type: "EMAIL", 
            required: false, 
-           visible_if: [{ question_id: "pilot_interest", equals: "yes" }] 
+           visible_if: [{ question_id: "pilot_interest", equals: ["yes", "maybe"] }] 
          } 
        ] 
      } 

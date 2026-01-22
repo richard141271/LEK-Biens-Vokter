@@ -58,11 +58,7 @@ export const NonBeekeeperSurvey: Survey = {
           type: "DROPDOWN",
           required: false,
           visible_if: [
-            { question_id: "nb_rental_interest", equals: "ja" }
-            // Note: Our current simple logic only supports one condition. 
-            // Ideally we want visible if "ja" OR "kanskje". 
-            // For now, let's show it if "ja", or we need to upgrade the visible_if logic.
-            // Let's stick to "ja" for now or upgrade logic later.
+            { question_id: "nb_rental_interest", equals: ["ja", "kanskje"] }
           ],
           options: [
             { value: "199", label: "Inntil 199 kr per måned" },
@@ -186,7 +182,7 @@ export const NonBeekeeperSurvey: Survey = {
           type: "EMAIL",
           required: false,
           visible_if: [
-            { question_id: "nb_pilot_interest", equals: "ja" }
+            { question_id: "nb_pilot_interest", equals: ["ja", "kanskje"] }
           ]
         }
       ]

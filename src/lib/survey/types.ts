@@ -41,5 +41,5 @@ export interface Option {
 
 export interface Condition {
   question_id: string;
-  equals: string;
+  equals: string | string[];
 }
