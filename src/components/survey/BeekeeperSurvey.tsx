@@ -485,6 +485,10 @@ export function BeekeeperSurvey() {
                       </button>
                     ))}
                   </div>
+                  <div className="flex justify-between mt-1 px-1">
+                    <span className="text-xs text-gray-500">Liten verdi</span>
+                    <span className="text-xs text-gray-500">Svært høy verdi</span>
+                  </div>
                 </div>
               ))}
             </div>
