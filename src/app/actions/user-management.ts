@@ -118,16 +118,24 @@ export async function deleteUser(userId: string) {
         .update({ user_id: null })
         .eq('user_id', userId)
 
-      await adminClient
-        .from('inspections')
-        .update({ beekeeper_id: null })
-        .eq('beekeeper_id', userId)
+      try {
+        await adminClient
+          .from('inspections')
+          .update({ beekeeper_id: null })
+          .eq('beekeeper_id', userId)
+      } catch (e) {
+        // Ignore if column doesn't exist
+      }
 
       // Remove user as manager for apiaries
-      await adminClient
-        .from('apiaries')
-        .update({ managed_by: null })
-        .eq('managed_by', userId)
+      try {
+        await adminClient
+          .from('apiaries')
+          .update({ managed_by: null })
+          .eq('managed_by', userId)
+      } catch (e) {
+        // Ignore if column doesn't exist
+      }
 
       // Delete meeting notes
       await adminClient
