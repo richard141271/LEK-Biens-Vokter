@@ -105,19 +105,8 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
           } else {
             const json = (await res.json()) as { url?: string };
             if (json.url) {
-              try {
-                const audioRes = await fetch(json.url);
-                if (!audioRes.ok) {
-                  setAudioError('Kunne ikke laste lydfil fra lagring');
-                } else {
-                  const blob = await audioRes.blob();
-                  const objectUrl = URL.createObjectURL(blob);
-                  setAudioUrl(objectUrl);
-                }
-              } catch (e) {
-                console.error('Uventet feil ved nedlasting av lydfil', e);
-                setAudioError('Uventet feil ved nedlasting av lydfil');
-              }
+              // Use signed URL directly instead of fetching blob to avoid CORS/memory issues
+              setAudioUrl(json.url);
             } else {
               setAudioError('Mangler URL til lydfil');
             }
@@ -134,13 +123,8 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
     fetchNote();
   }, [params.id, router, supabase]);
 
-  useEffect(() => {
-    return () => {
-      if (audioUrl && audioUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(audioUrl);
-      }
-    };
-  }, [audioUrl]);
+  // Removed URL.revokeObjectURL effect since we're using direct URLs mostly now
+  // (Browser handles garbage collection for direct strings, and we aren't creating object URLs)
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50">Laster referat...</div>;

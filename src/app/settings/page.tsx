@@ -1161,7 +1161,7 @@ export default function SettingsPage() {
                                                 {lastInsp?.notes && (
                                                     <div className="mb-4">
                                                         <span className="block text-xs font-bold uppercase text-gray-500 mb-1">Siste Notat ({new Date(lastInsp.inspection_date).toLocaleDateString()})</span>
-                                                        <p className="text-sm bg-yellow-50 p-3 rounded border border-yellow-100 italic">"{lastInsp.notes}"</p>
+                                                        <p className="text-sm bg-yellow-50 p-3 rounded border border-yellow-100 italic">&quot;{lastInsp.notes}&quot;</p>
                                                     </div>
                                                 )}
                                             </div>
