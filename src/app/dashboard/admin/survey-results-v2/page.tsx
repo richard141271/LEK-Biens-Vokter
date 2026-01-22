@@ -19,28 +19,30 @@ export default function DynamicSurveyResultsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedSurveyType, setSelectedSurveyType] = useState<"BEEKEEPER" | "NON_BEEKEEPER">("BEEKEEPER");
   
-  const supabase = createClient();
   const survey = selectedSurveyType === "BEEKEEPER" ? BeekeeperSurvey : NonBeekeeperSurvey;
 
   useEffect(() => {
     const fetchSubmissions = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('survey_responses')
-        .select('*')
-        .eq('is_beekeeper', selectedSurveyType === "BEEKEEPER");
-      
-      if (error) {
-        console.error("Error fetching survey responses:", error);
-      }
+      try {
+        const res = await fetch('/api/admin/survey-responses');
+        if (!res.ok) throw new Error('Kunne ikke hente svar');
+        
+        const data = await res.json();
+        const allResponses = data.responses || [];
+        
+        const filteredData = allResponses.filter((row: any) => 
+          selectedSurveyType === "BEEKEEPER" ? row.is_beekeeper : !row.is_beekeeper
+        );
 
-      if (data) {
-        const mappedSubmissions = data.map((row: any) => ({
+        const mappedSubmissions = filteredData.map((row: any) => ({
           id: row.id,
           created_at: row.created_at,
           answers: mapResponseToAnswers(row, selectedSurveyType)
         }));
         setSubmissions(mappedSubmissions);
+      } catch (error) {
+        console.error("Error fetching survey responses:", error);
       }
       setLoading(false);
     };
