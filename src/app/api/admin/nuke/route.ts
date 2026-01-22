@@ -65,24 +65,8 @@ export async function POST(request: Request) {
 
     if (pilotError) console.error('Error nuking pilot_interest:', pilotError);
 
-    // 3. Truncate survey_pilot_interest (legacy)
-    const { error: legacyPilotError } = await client
-      .from('survey_pilot_interest')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
-    
-    if (legacyPilotError) console.error('Error nuking survey_pilot_interest:', legacyPilotError);
-
-    // 4. Truncate market_survey_responses (if exists)
-    const { error: marketError } = await client
-      .from('market_survey_responses')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
-
-    if (marketError) console.error('Error nuking market_survey_responses:', marketError);
-
     // Revalidate paths to ensure UI updates immediately
-    revalidatePath('/dashboard/admin/survey-results');
+    revalidatePath('/dashboard/admin/survey-results-v2');
     revalidatePath('/dashboard/admin/pilot-interesser');
     revalidatePath('/dashboard/admin');
 
@@ -92,8 +76,6 @@ export async function POST(request: Request) {
       details: {
         survey: !surveyError ? 'OK' : surveyError.message,
         pilot: !pilotError ? 'OK' : pilotError.message,
-        legacyPilot: !legacyPilotError ? 'OK' : legacyPilotError.message,
-        market: !marketError ? 'OK' : marketError.message
       }
     });
 

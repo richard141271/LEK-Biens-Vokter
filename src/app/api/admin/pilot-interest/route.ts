@@ -74,21 +74,10 @@ export async function GET() {
 
     if (error) {
       console.error('Feil ved henting av pilot-interesser (pilot_interest)', error);
-
-      const { data: legacyData, error: legacyError } = await adminClient
-        .from('survey_pilot_interest')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (legacyError) {
-        console.error('Feil ved henting av pilot-interesser (survey_pilot_interest)', legacyError);
-        return NextResponse.json(
-          { error: 'Kunne ikke hente pilot-interesser' },
-          { status: 500 }
-        );
-      }
-
-      interests = legacyData || [];
+      return NextResponse.json(
+        { error: 'Kunne ikke hente pilot-interesser' },
+        { status: 500 }
+      );
     } else {
       interests = data || [];
     }

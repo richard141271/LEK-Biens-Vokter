@@ -76,22 +76,10 @@ export async function DELETE(
         'Feil ved sletting av pilot-interesse (pilot_interest)',
         newError
       );
-
-      const { error: legacyError } = await adminClient
-        .from('survey_pilot_interest')
-        .delete()
-        .eq('id', params.id);
-
-      if (legacyError) {
-        console.error(
-          'Feil ved sletting av pilot-interesse (survey_pilot_interest)',
-          legacyError
-        );
-        return NextResponse.json(
-          { error: 'Kunne ikke slette pilot-interesse' },
-          { status: 500 }
-        );
-      }
+      return NextResponse.json(
+        { error: 'Kunne ikke slette pilot-interesse' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ ok: true }, { status: 200 });

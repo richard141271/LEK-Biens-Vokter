@@ -209,27 +209,6 @@ export default function AdminDashboard() {
             Behovsanalysen og oppfølging av pilotinteresserte birøktere.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Link href="/dashboard/admin/survey-results" className="group">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-honey-500 hover:shadow-md transition-all h-full">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 bg-honey-50 text-honey-600 rounded-lg group-hover:bg-honey-600 group-hover:text-white transition-colors">
-                    <BarChart2 className="w-6 h-6" />
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-honey-500" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">
-                  Behovsanalyse
-                </h3>
-                <p className="text-sm text-gray-500 mb-4">
-                  Se resultater, generer rapporter og rydde i svarene.
-                </p>
-                <div className="flex items-center gap-2 text-xs font-medium text-honey-700 bg-honey-50 px-3 py-2 rounded-lg">
-                  <Activity className="w-4 h-4" />
-                  <span>Spørreundersøkelse for LEK-Biens Vokter™️</span>
-                </div>
-              </div>
-            </Link>
-
             <Link href="/dashboard/admin/survey-results-v2" className="group">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-purple-500 hover:shadow-md transition-all h-full">
                 <div className="flex items-center justify-between mb-4">
@@ -239,10 +218,10 @@ export default function AdminDashboard() {
                   <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-purple-500" />
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 mb-2">
-                  Behovsanalyse (V2)
+                  Behovsanalyse
                 </h3>
                 <p className="text-sm text-gray-500 mb-4">
-                  Dynamisk visning av resultater basert på nytt skjema.
+                  Se resultater fra spørreundersøkelsen (anonymisert).
                 </p>
                 <div className="flex items-center gap-2 text-xs font-medium text-purple-700 bg-purple-50 px-3 py-2 rounded-lg">
                   <Activity className="w-4 h-4" />
