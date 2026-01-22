@@ -59,10 +59,15 @@ export async function POST() {
     const { error } = await adminClient
       .from('survey_responses')
       .delete()
-      .eq('is_test', true);
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Hack to delete all rows
 
-    if (error) {
-      console.error('Feil ved masse-sletting av testdata', error);
+    const { error: pilotError } = await adminClient
+      .from('pilot_interest')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000'); // Hack to delete all rows
+
+    if (error || pilotError) {
+      console.error('Feil ved masse-sletting av testdata', error, pilotError);
       return NextResponse.json(
         { error: 'Kunne ikke slette testdata' },
         { status: 500 }

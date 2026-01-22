@@ -5,8 +5,9 @@ import { createClient } from '@/utils/supabase/client';
 import { BeekeeperSurvey } from '@/lib/survey/beekeeper';
 import { NonBeekeeperSurvey } from '@/lib/survey/non-beekeeper';
 import { Survey, Question } from '@/lib/survey/types';
-import { Printer, ArrowLeft } from 'lucide-react';
+import { Printer, ArrowLeft, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Submission {
   id: string;
@@ -15,6 +16,7 @@ interface Submission {
 }
 
 export default function DynamicSurveyResultsPage() {
+  const router = useRouter();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,6 +98,28 @@ export default function DynamicSurveyResultsPage() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDeleteAll = async () => {
+    if (!window.confirm('Er du sikker på at du vil slette ALLE svar? Dette kan ikke angres.')) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/survey-responses/delete-test', {
+        method: 'POST',
+      });
+
+      if (!res.ok) {
+        throw new Error('Kunne ikke slette svar');
+      }
+
+      // Refresh page
+      window.location.reload();
+    } catch (error) {
+      alert('Feil ved sletting av svar');
+      console.error(error);
+    }
   };
 
   if (loading && !submissions.length) return <div className="p-8">Laster resultater...</div>;
@@ -228,6 +252,13 @@ export default function DynamicSurveyResultsPage() {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900">{survey.title}</h1>
           <div className="flex gap-4 no-print">
+            <button
+              onClick={handleDeleteAll}
+              className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 text-red-700 font-medium rounded-lg hover:bg-red-100 transition-colors shadow-sm"
+            >
+              <Trash2 size={18} />
+              Slett alle svar
+            </button>
             <button
               onClick={handlePrint}
               className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
