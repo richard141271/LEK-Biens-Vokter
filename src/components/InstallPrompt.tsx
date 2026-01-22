@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Download, Share, X } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
 interface InstallPromptProps {
   embedded?: boolean;
@@ -14,6 +15,8 @@ export default function InstallPrompt({ embedded = false }: InstallPromptProps) 
   const [isStandalone, setIsStandalone] = useState(false);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop' | 'unknown'>('unknown');
+  
+  const pathname = usePathname();
 
   useEffect(() => {
     // Check if running in browser
@@ -128,9 +131,12 @@ export default function InstallPrompt({ embedded = false }: InstallPromptProps) 
   }
 
   // Floating version (default)
+  const isPublicHeaderPage = pathname === '/' || pathname === '/shop' || pathname === '/about' || pathname === '/lei-en-kube' || pathname?.startsWith('/info');
+  const positionClass = isPublicHeaderPage ? 'top-24' : 'top-4';
+
   if (isInstructionsOpen) {
       return (
-        <div className="fixed top-20 right-4 z-[100] bg-white p-4 rounded-xl shadow-xl border border-gray-200 max-w-xs animate-in slide-in-from-right-5 print:hidden">
+        <div className={`fixed ${positionClass} right-4 z-[100] bg-white p-4 rounded-xl shadow-xl border border-gray-200 max-w-xs animate-in slide-in-from-right-5 print:hidden`}>
           <button 
             onClick={() => setIsInstructionsOpen(false)} 
             className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
@@ -167,7 +173,7 @@ export default function InstallPrompt({ embedded = false }: InstallPromptProps) 
   return (
       <button
         onClick={handleInstallClick}
-        className="fixed top-4 right-4 z-[100] bg-honey-500 hover:bg-honey-600 text-white font-bold py-2 px-4 rounded-full shadow-lg flex items-center gap-2 text-sm transition-all hover:scale-105 active:scale-95 print:hidden"
+        className={`fixed ${positionClass} right-4 z-[100] bg-honey-500 hover:bg-honey-600 text-white font-bold py-2 px-4 rounded-full shadow-lg flex items-center gap-2 text-sm transition-all hover:scale-105 active:scale-95 print:hidden`}
       >
         <Download size={16} />
         {deferredPrompt ? 'Installer App' : 'Installer'}
