@@ -15,7 +15,7 @@ interface Submission {
 
 // Components
 const ScoreCard = ({ title, value, subtext, icon: Icon, color }: any) => (
-  <div className={`bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start justify-between relative overflow-hidden group hover:shadow-md transition-all duration-300 break-inside-avoid`}>
+  <div className={`bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start justify-between relative overflow-hidden group hover:shadow-md transition-all duration-300 report-card`}>
     <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity`}>
       <Icon size={80} className={`text-${color}-500`} />
     </div>
@@ -353,10 +353,9 @@ export default function InnovationNorwayReport() {
             /* Hide all default headers/footers */
             header, footer, .no-print { display: none !important; }
             
-            .break-inside-avoid { 
+            .break-inside-avoid, .report-card { 
               break-inside: avoid; 
               page-break-inside: avoid; 
-              display: block; 
               position: relative;
             }
             
@@ -494,7 +493,7 @@ export default function InnovationNorwayReport() {
             
             {/* Left Column: Acceptance & Chart */}
             <div className="md:col-span-2 space-y-8">
-              <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm break-inside-avoid">
+              <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm report-card">
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -522,7 +521,7 @@ export default function InnovationNorwayReport() {
 
               {/* Feature Ratings (Only for Beekeepers) */}
               {activeTab === 'BEEKEEPER' && (
-                  <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                  <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm report-card">
                     <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                         <Target className="text-honey-500" />
                         Verdivurdering (1-5)
@@ -537,7 +536,7 @@ export default function InnovationNorwayReport() {
 
                {/* Qualitative Feedback */}
                {activeTab === 'BEEKEEPER' && challenges.length > 0 && (
-                  <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-200">
+                  <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-200 report-card">
                       <h2 className="text-lg font-bold text-gray-900 mb-4">Utvalgte utfordringer fra birøktere</h2>
                       <ul className="space-y-3">
                           {challenges.map((c, i) => (
@@ -553,7 +552,7 @@ export default function InnovationNorwayReport() {
 
             {/* Right Column: Key Stats & Pie */}
             <div className="space-y-8">
-                <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm break-inside-avoid" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm report-card">
                     <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
                         <PieIcon className="text-blue-500" />
                         Nøkkelstatistikk
@@ -577,7 +576,7 @@ export default function InnovationNorwayReport() {
                 </div>
 
                  {/* Growth Chart */}
-                 <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm break-inside-avoid" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                 <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm report-card">
                     <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                         <TrendingUp className="text-green-500" />
                         Interessevekst
