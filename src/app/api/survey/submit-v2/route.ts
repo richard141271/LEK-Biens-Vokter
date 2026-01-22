@@ -37,9 +37,9 @@ export async function POST(request: Request) {
 
     // 2. Handle Pilot Interest (Rule #5)
     // We look for known pilot question IDs. In a fully dynamic system, we'd use tags/metadata.
-    // Supports both Beekeeper (bk_) and Non-Beekeeper (nb_) prefixes.
-    const pilotInterest = answers['bk_pilot_interest'] || answers['nb_pilot_interest'];
-    const pilotEmail = answers['bk_pilot_email'] || answers['nb_pilot_email'];
+    // Supports Beekeeper (bk_), Non-Beekeeper (nb_) prefixes and generic (no prefix).
+    const pilotInterest = answers['bk_pilot_interest'] || answers['nb_pilot_interest'] || answers['pilot_interest'];
+    const pilotEmail = answers['bk_pilot_email'] || answers['nb_pilot_email'] || answers['pilot_email'];
 
     if (pilotEmail && (pilotInterest === 'yes' || pilotInterest === 'maybe' || pilotInterest === 'ja' || pilotInterest === 'kanskje')) {
       const { error: pilotError } = await supabase

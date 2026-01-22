@@ -170,6 +170,32 @@ export function DynamicSurvey({ survey }: DynamicSurveyProps) {
           </select>
         );
 
+      case 'SCALE_1_5':
+        return (
+          <div className="flex flex-col gap-2">
+            <div className="flex justify-between items-center gap-2 max-w-sm">
+              {[1, 2, 3, 4, 5].map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => updateAnswer(question.id, num)}
+                  className={`w-12 h-12 rounded-full font-bold text-lg transition-all ${
+                    answers[question.id] === num
+                      ? 'bg-honey-500 text-white shadow-md scale-110'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:border-honey-300 hover:bg-honey-50'
+                  }`}
+                >
+                  {num}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-between text-xs text-gray-400 px-2 max-w-sm">
+              <span>Lite viktig</span>
+              <span>Svært viktig</span>
+            </div>
+          </div>
+        );
+
       case 'TEXT':
       case 'EMAIL':
         return (
