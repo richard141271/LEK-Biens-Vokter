@@ -309,7 +309,7 @@ export default function DynamicSurveyResultsPage() {
                     Standard visning
                   </button>
                   <Link 
-                    href="/dashboard/admin/innovation-norway-report" 
+                    href="/dashboard/admin/professional-report" 
                     className="w-full text-left px-4 py-3 hover:bg-honey-50 text-sm text-gray-700 hover:text-honey-700 flex items-center gap-2 transition-colors border-t border-gray-50"
                   >
                     <User size={16} />

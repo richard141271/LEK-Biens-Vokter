@@ -341,9 +341,34 @@ export default function InnovationNorwayReport() {
     <div className="min-h-screen bg-gray-100 p-8 font-sans text-gray-800 print:p-0 print:bg-white">
       <style jsx global>{`
         @media print {
-            .no-print { display: none !important; }
-            .break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
-            body { background: white; }
+            @page {
+              margin: 0;
+              size: A4;
+            }
+            body { 
+              background: white; 
+              print-color-adjust: exact; 
+              -webkit-print-color-adjust: exact; 
+            }
+            /* Hide all default headers/footers */
+            header, footer, .no-print { display: none !important; }
+            
+            .break-inside-avoid { 
+              break-inside: avoid; 
+              page-break-inside: avoid; 
+              display: block; 
+              position: relative;
+            }
+            
+            /* Main container padding compensation for 0 margin */
+            .print-padding {
+                padding: 10mm;
+            }
+
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
         }
       `}</style>
       {/* Navigation & Controls */}
