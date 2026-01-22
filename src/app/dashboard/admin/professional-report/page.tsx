@@ -329,7 +329,9 @@ export default function InnovationNorwayReport() {
         .slice(0, 5)
     : [];
 
-  const handlePrint = () => window.print();
+  const handleDownloadPdf = () => {
+    window.location.href = `/api/admin/report/pdf?type=${activeTab}`;
+  };
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -338,41 +340,9 @@ export default function InnovationNorwayReport() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8 font-sans text-gray-800 print:p-0 print:bg-white">
-      <style jsx global>{`
-        @media print {
-            @page {
-              margin: 0;
-              size: A4;
-            }
-            body { 
-              background: white; 
-              print-color-adjust: exact; 
-              -webkit-print-color-adjust: exact; 
-            }
-            /* Hide all default headers/footers */
-            header, footer, .no-print { display: none !important; }
-            
-            .break-inside-avoid, .report-card { 
-              break-inside: avoid; 
-              page-break-inside: avoid; 
-              -webkit-break-inside: avoid;
-              position: relative;
-            }
-            
-            /* Main container padding compensation for 0 margin */
-            .print-padding {
-                padding: 10mm;
-            }
-
-            * {
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-        }
-      `}</style>
+    <div className="min-h-screen bg-gray-100 p-8 font-sans text-gray-800">
       {/* Navigation & Controls */}
-      <div className="max-w-[210mm] mx-auto mb-8 flex justify-between items-center no-print">
+      <div className="max-w-[210mm] mx-auto mb-8 flex justify-between items-center">
         <Link href="/dashboard/admin" className="flex items-center text-gray-500 hover:text-gray-900 transition-colors">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Tilbake
@@ -396,15 +366,15 @@ export default function InnovationNorwayReport() {
               Ikke-Birøktere
             </button>
           </div>
-          <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 font-medium rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50">
-            <Printer size={18} />
-            Skriv ut PDF
+          <button onClick={handleDownloadPdf} className="flex h-9 items-center gap-2 px-4 bg-white text-gray-700 font-medium rounded-lg shadow-sm border border-gray-200 hover:bg-gray-50">
+            <Download size={18} />
+            Last ned PDF-rapport
           </button>
         </div>
       </div>
 
       {/* A4 Page Container */}
-      <div className="max-w-[210mm] mx-auto bg-white shadow-2xl print:shadow-none print:w-[210mm] min-h-[297mm] relative overflow-hidden">
+      <div className="max-w-[210mm] mx-auto bg-white shadow-2xl min-h-[297mm] relative overflow-hidden">
         {/* Header Section */}
         <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-8 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full transform translate-x-1/3 -translate-y-1/3 blur-3xl"></div>

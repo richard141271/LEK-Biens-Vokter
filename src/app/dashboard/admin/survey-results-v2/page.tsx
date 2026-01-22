@@ -99,10 +99,6 @@ export default function DynamicSurveyResultsPage() {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const handleDelete = async (id: string) => {
     if (!window.confirm('Er du sikker på at du vil slette dette svaret?')) {
       return;
@@ -250,23 +246,9 @@ export default function DynamicSurveyResultsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8 print:p-0 print:bg-white">
-      <style jsx global>{`
-        @media print {
-          .no-print {
-            display: none !important;
-          }
-          body {
-            background: white;
-          }
-          .break-inside-avoid {
-            break-inside: avoid;
-          }
-        }
-      `}</style>
-
+    <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
-        <div className="mb-6 no-print">
+        <div className="mb-6">
           <Link 
             href="/dashboard/admin" 
             className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
@@ -293,28 +275,35 @@ export default function DynamicSurveyResultsPage() {
                 className="flex h-9 items-center gap-2 px-3 bg-white border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors shadow-sm whitespace-nowrap text-sm"
               >
                 <Printer size={16} />
-                Skriv ut rapport
+                Rapporter
               </button>
               
               {showPrintMenu && (
-                <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-2 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-2 overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-50">
                   <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Velg rapporttype
+                    Velg handling
                   </div>
-                  <button 
-                    onClick={() => { setShowPrintMenu(false); window.print(); }} 
-                    className="w-full text-left px-4 py-3 hover:bg-honey-50 text-sm text-gray-700 hover:text-honey-700 flex items-center gap-2 transition-colors"
-                  >
-                    <BarChart3 size={16} />
-                    Standard visning
-                  </button>
                   <Link 
                     href="/dashboard/admin/professional-report" 
-                    className="w-full text-left px-4 py-3 hover:bg-honey-50 text-sm text-gray-700 hover:text-honey-700 flex items-center gap-2 transition-colors border-t border-gray-50"
+                    className="w-full text-left px-4 py-3 hover:bg-honey-50 text-sm text-gray-700 hover:text-honey-700 flex items-center gap-2 transition-colors"
                   >
                     <User size={16} />
-                    Profesjonell Rapport
+                    Vis Rapport (Skjerm)
                   </Link>
+                  <a 
+                    href="/api/admin/report/pdf?type=BEEKEEPER" 
+                    className="w-full text-left px-4 py-3 hover:bg-honey-50 text-sm text-gray-700 hover:text-honey-700 flex items-center gap-2 transition-colors border-t border-gray-50"
+                  >
+                    <Printer size={16} />
+                    Last ned PDF (Birøkter)
+                  </a>
+                  <a 
+                    href="/api/admin/report/pdf?type=NON_BEEKEEPER" 
+                    className="w-full text-left px-4 py-3 hover:bg-honey-50 text-sm text-gray-700 hover:text-honey-700 flex items-center gap-2 transition-colors border-t border-gray-50"
+                  >
+                    <Printer size={16} />
+                    Last ned PDF (Samfunn)
+                  </a>
                 </div>
               )}
             </div>
