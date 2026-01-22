@@ -27,7 +27,7 @@ export default function PilotInterestPage() {
   useEffect(() => {
     const fetchInterests = async () => {
       try {
-        const res = await fetch('/api/admin/pilot-interest');
+        const res = await fetch('/api/admin/pilot-interest', { cache: 'no-store' });
         if (!res.ok) {
           const data = await res.json().catch(() => null);
           const message =
