@@ -528,7 +528,7 @@ export default function InnovationNorwayReport() {
 
             {/* Right Column: Key Stats & Pie */}
             <div className="space-y-8">
-                <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm break-inside-avoid" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                     <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
                         <PieIcon className="text-blue-500" />
                         Nøkkelstatistikk
@@ -552,7 +552,7 @@ export default function InnovationNorwayReport() {
                 </div>
 
                  {/* Growth Chart */}
-                 <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm break-inside-avoid">
+                 <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm break-inside-avoid" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                     <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                         <TrendingUp className="text-green-500" />
                         Interessevekst
