@@ -103,6 +103,16 @@ export async function deleteUser(userId: string) {
         .update({ assigned_beekeeper_id: null })
         .eq('assigned_beekeeper_id', userId)
       
+      // Also clear beekeeper_id if it exists (delivery tracking)
+      try {
+        await adminClient
+          .from('rentals')
+          .update({ beekeeper_id: null })
+          .eq('beekeeper_id', userId)
+      } catch (e) {
+        // Ignore if column doesn't exist
+      }
+
       await adminClient
         .from('rentals')
         .update({ user_id: null })
