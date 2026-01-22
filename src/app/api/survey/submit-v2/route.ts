@@ -16,16 +16,14 @@ export async function POST(request: Request) {
     const supabase = createClient();
 
     // 1. Save the main submission
-    const { data: submission, error: submissionError } = await supabase
+    const { error: submissionError } = await supabase
       .from('survey_submissions')
       .insert({
         survey_id: surveyId,
         survey_version: surveyVersion,
         answers: answers,
         // user_id will be handled by RLS if authenticated, or we can explicitly set it if we want
-      })
-      .select()
-      .single();
+      });
 
     if (submissionError) {
       console.error('Feil ved lagring av survey_submissions:', submissionError);
@@ -59,7 +57,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, id: submission.id });
+    return NextResponse.json({ success: true });
 
   } catch (e: any) {
     console.error('Uventet feil i submit-v2:', e);
