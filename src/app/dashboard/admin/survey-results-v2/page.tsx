@@ -5,7 +5,7 @@ import { createClient } from '@/utils/supabase/client';
 import { BeekeeperSurvey } from '@/lib/survey/beekeeper';
 import { NonBeekeeperSurvey } from '@/lib/survey/non-beekeeper';
 import { Survey, Question } from '@/lib/survey/types';
-import { Printer, ArrowLeft, Trash2 } from 'lucide-react';
+import { Printer, ArrowLeft, Trash2, List, BarChart3, Calendar, User } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -21,6 +21,8 @@ export default function DynamicSurveyResultsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSurveyType, setSelectedSurveyType] = useState<"BEEKEEPER" | "NON_BEEKEEPER">("BEEKEEPER");
+  const [viewMode, setViewMode] = useState<'stats' | 'list'>('stats');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   
   const survey = selectedSurveyType === "BEEKEEPER" ? BeekeeperSurvey : NonBeekeeperSurvey;
 
@@ -98,6 +100,30 @@ export default function DynamicSurveyResultsPage() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Er du sikker på at du vil slette dette svaret?')) {
+      return;
+    }
+
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/admin/survey-responses/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        throw new Error('Kunne ikke slette svaret');
+      }
+
+      setSubmissions((prev) => prev.filter((s) => s.id !== id));
+    } catch (error) {
+      alert('Feil ved sletting av svar');
+      console.error(error);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleDeleteAll = async () => {
@@ -288,18 +314,108 @@ export default function DynamicSurveyResultsPage() {
                 Ikke-birøktere
               </button>
             </div>
+            <div className="flex bg-white rounded-lg p-1 border border-gray-200">
+              <button
+                onClick={() => setViewMode("stats")}
+                className={`p-2 rounded-md transition-colors ${
+                  viewMode === "stats"
+                    ? "bg-gray-100 text-gray-900"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+                title="Statistikk"
+              >
+                <BarChart3 size={20} />
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-2 rounded-md transition-colors ${
+                  viewMode === "list"
+                    ? "bg-gray-100 text-gray-900"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+                title="Liste"
+              >
+                <List size={20} />
+              </button>
+            </div>
           </div>
         </div>
         <p className="text-gray-500 mb-8 print:mb-4">Versjon {survey.version} • {submissions.length} svar • {new Date().toLocaleDateString()}</p>
 
-        {survey.sections.map((section) => (
-          <div key={section.id} className="mb-10 break-inside-avoid">
-            <h2 className="text-xl font-bold text-gray-800 mb-6 border-b pb-2">{section.title}</h2>
-            <div className="grid grid-cols-1 gap-6">
-              {section.questions.map((q) => renderQuestionStats(q))}
-            </div>
+        {viewMode === 'list' ? (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4">ID</th>
+                  <th className="px-6 py-4">Dato</th>
+                  <th className="px-6 py-4">Pilot</th>
+                  <th className="px-6 py-4 text-right">Handlinger</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {submissions.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                      Ingen svar funnet.
+                    </td>
+                  </tr>
+                ) : (
+                  submissions.map((sub) => {
+                    const pilotAnswer = sub.answers.pilot_interest || sub.answers.nb_pilot_interest;
+                    return (
+                      <tr key={sub.id} className="hover:bg-gray-50/50">
+                        <td className="px-6 py-4 font-mono text-xs text-gray-500">
+                          {sub.id.slice(0, 8)}...
+                        </td>
+                        <td className="px-6 py-4 text-gray-900">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-gray-400" />
+                            {new Date(sub.created_at).toLocaleString('nb-NO')}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                           {pilotAnswer === 'ja' ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              Ja
+                            </span>
+                          ) : pilotAnswer === 'kanskje' ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              Kanskje
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              Nei
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => handleDelete(sub.id)}
+                            disabled={deletingId === sub.id}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Slett
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
-        ))}
+        ) : (
+          survey.sections.map((section) => (
+            <div key={section.id} className="mb-10 break-inside-avoid">
+              <h2 className="text-xl font-bold text-gray-800 mb-6 border-b pb-2">{section.title}</h2>
+              <div className="grid grid-cols-1 gap-6">
+                {section.questions.map((q) => renderQuestionStats(q))}
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

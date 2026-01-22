@@ -110,7 +110,7 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e) {
-    console.error('Uventet feil ved oppdatering av survey-respons', e);
+    console.error('Uventet feil ved oppdatering av svar', e);
     return NextResponse.json(
       { error: 'Uventet feil ved oppdatering av svar' },
       { status: 500 }
@@ -134,7 +134,7 @@ export async function DELETE(
       .eq('id', params.id);
 
     if (error) {
-      console.error('Feil ved sletting av survey-respons', error);
+      console.error('Feil ved sletting av svar', error);
       return NextResponse.json(
         { error: 'Kunne ikke slette svaret' },
         { status: 500 }
@@ -143,7 +143,7 @@ export async function DELETE(
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e) {
-    console.error('Uventet feil ved sletting av survey-respons', e);
+    console.error('Uventet feil ved sletting av svar', e);
     return NextResponse.json(
       { error: 'Uventet feil ved sletting av svar' },
       { status: 500 }
