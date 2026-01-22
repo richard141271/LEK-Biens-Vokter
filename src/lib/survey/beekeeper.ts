@@ -83,8 +83,8 @@ export const BeekeeperSurvey: Survey = {
        questions: [ 
          { 
            id: "disease_last_3y", 
-           text: "Har du opplevd sykdom i kubene de siste 3 årene?", 
-           type: "SINGLE_CHOICE", 
+          text: "Har du opplevd sykdom i egne, eller i andres kuber de siste 5 årene?", 
+          type: "SINGLE_CHOICE", 
            required: true, 
            options: [ 
              { value: "ja", label: "Ja" }, 

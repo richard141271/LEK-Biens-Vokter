@@ -303,7 +303,7 @@ export function BeekeeperSurvey() {
             <div className="space-y-5">
               <div>
                 <p className="block text-sm font-medium text-gray-800 mb-2">
-                  Har du opplevd sykdom i kubene de siste 3 årene?
+                  Har du opplevd sykdom i egne, eller i andres kuber de siste 5 årene?
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
