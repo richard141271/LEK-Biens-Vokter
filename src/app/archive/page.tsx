@@ -20,18 +20,22 @@ export default function ArchivePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Fetch archived hives (inactive OR specific statuses)
+    // Fetch all hives and filter in memory to be safe
     const { data, error } = await supabase
       .from('hives')
       .select('*, apiaries(name)')
       .eq('user_id', user.id)
-      .or('active.eq.false,status.in.(SOLGT,DESTRUERT,SYKDOM,DØD)')
       .order('updated_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching archived hives:', error);
+      console.error('Error fetching hives:', error);
     } else {
-      setHives(data || []);
+      // Filter for archived hives
+      const archived = (data || []).filter(h => 
+        h.active === false || 
+        ['SOLGT', 'DESTRUERT', 'SYKDOM', 'DØD'].includes(h.status)
+      );
+      setHives(archived);
     }
     setLoading(false);
   };
