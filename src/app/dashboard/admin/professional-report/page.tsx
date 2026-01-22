@@ -345,9 +345,7 @@ export default function InnovationNorwayReport() {
               margin: 0;
               size: A4;
             }
-            html, body {
-              height: auto !important;
-              overflow: visible !important;
+            body { 
               background: white; 
               print-color-adjust: exact; 
               -webkit-print-color-adjust: exact; 
@@ -355,38 +353,16 @@ export default function InnovationNorwayReport() {
             /* Hide all default headers/footers */
             header, footer, .no-print { display: none !important; }
             
-            /* FORCE SINGLE COLUMN LAYOUT */
-            .grid {
-              display: block !important;
-              width: 100% !important;
-            }
-            .col-span-2, .md\:col-span-2, .md\:grid-cols-3, .md\:grid-cols-4 {
-              width: 100% !important;
-              max-width: 100% !important;
-              grid-column: auto !important;
-              grid-template-columns: none !important;
-            }
-            
-            /* Break avoidance */
             .break-inside-avoid, .report-card { 
-              break-inside: avoid !important; 
-              page-break-inside: avoid !important; 
-              -webkit-break-inside: avoid !important;
+              break-inside: avoid; 
+              page-break-inside: avoid; 
+              -webkit-break-inside: avoid;
               position: relative;
-              display: block; /* Ensure block formatting context */
-              margin-bottom: 2rem; /* Spacing between stacked cards */
-              height: auto !important; /* Allow height to fit content */
-            }
-            
-            /* Reset any overflow hiding that might clip pages */
-            .overflow-hidden {
-              overflow: visible !important;
             }
             
             /* Main container padding compensation for 0 margin */
             .print-padding {
                 padding: 10mm;
-                min-h-0 !important; /* Remove min-height constraint */
             }
 
             * {
