@@ -32,13 +32,9 @@ export default function DesktopNav() {
   };
 
   const navItems = [
-    { href: '/dashboard', label: 'Oversikt', icon: Home },
-    { href: '/shop', label: 'Nettbutikk', icon: ShoppingBag },
-    { href: '/dashboard/smittevern', label: 'Smittevern', icon: ShieldAlert },
+    { href: '/dashboard', label: 'Min side', icon: Home },
     { href: '/apiaries', label: 'Bigårder', icon: Map },
     { href: '/hives', label: 'Bikuber', icon: Box },
-    { href: '/referater', label: 'Referater', icon: FileText },
-    { href: '/archive', label: 'Arkiv', icon: Archive },
     { href: '/settings', label: 'Innstillinger', icon: Settings },
   ];
 

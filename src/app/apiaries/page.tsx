@@ -49,6 +49,7 @@ export default function ApiariesPage() {
           *,
           hives (*)
         `)
+        .in('type', ['bigård', 'utleie']) // Filter to show only Bigård and Utleie
         .order('created_at', { ascending: false });
 
       if (error) throw error;

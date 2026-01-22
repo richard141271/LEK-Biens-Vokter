@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
-import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight, Archive, Briefcase, Printer, Link as LinkIcon, X, CreditCard, List, QrCode } from 'lucide-react';
+import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight, Archive, Briefcase, Printer, Link as LinkIcon, X, CreditCard, List, QrCode, FileText, ClipboardCheck } from 'lucide-react';
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -574,13 +574,46 @@ export default function SettingsPage() {
                 Endre/oppdatere profil
               </button>
               
-              <button 
-                onClick={() => router.push('/archive')}
-                className="w-full mt-4 bg-white text-gray-700 font-bold py-3 rounded-xl border border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-              >
-                <Archive className="w-5 h-5" />
-                Arkiv
-              </button>
+              {/* Mine Dokumenter */}
+              <div className="mt-6 border-t border-gray-100 pt-4">
+                  <h5 className="font-bold text-gray-900 text-sm mb-3">Mine Dokumenter & Oppdrag</h5>
+                  <div className="grid grid-cols-1 gap-3">
+                      <button 
+                        onClick={() => router.push('/referater')}
+                        className="w-full bg-white text-gray-700 font-bold py-3 rounded-xl border border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-between px-4"
+                      >
+                        <div className="flex items-center gap-3">
+                            <FileText className="w-5 h-5 text-gray-500" />
+                            <span>Referater</span>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                      </button>
+
+                      <button 
+                        onClick={() => router.push('/archive')}
+                        className="w-full bg-white text-gray-700 font-bold py-3 rounded-xl border border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-between px-4"
+                      >
+                        <div className="flex items-center gap-3">
+                            <Archive className="w-5 h-5 text-gray-500" />
+                            <span>Arkiv</span>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                      </button>
+
+                      {profile?.role === 'beekeeper' && (
+                          <button 
+                            onClick={() => router.push('/dashboard/beekeeper/rentals')}
+                            className="w-full bg-white text-gray-700 font-bold py-3 rounded-xl border border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-between px-4"
+                          >
+                            <div className="flex items-center gap-3">
+                                <ClipboardCheck className="w-5 h-5 text-gray-500" />
+                                <span>Mine Oppdrag</span>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                          </button>
+                      )}
+                  </div>
+              </div>
             </div>
 
             {/* Child Label Modal */}

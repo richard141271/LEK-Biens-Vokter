@@ -433,8 +433,8 @@ export default function DashboardPage() {
               </div>
           </div>
 
-          {/* Honningstatus (Only for Beekeepers) */}
-          {profile?.role !== 'tenant' && (
+          {/* Honningstatus (Only for Beekeepers) - HIDDEN FOR DEMO */}
+          {/* {profile?.role !== 'tenant' && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
               <div className="flex justify-between items-center mb-2">
                   <div className="flex items-center gap-1.5">
@@ -462,7 +462,7 @@ export default function DashboardPage() {
                   </button>
               </div>
           </div>
-          )}
+          )} */}
 
           {/* Tenant Hive Updates */}
           {profile?.role === 'tenant' && activeRental?.apiary_id && (
@@ -487,8 +487,8 @@ export default function DashboardPage() {
              </div>
           )}
 
-          {/* ALERTS SECTION (Pilot Firewall) */}
-          {nearbyAlerts.length > 0 && (
+          {/* ALERTS SECTION (Pilot Firewall) - HIDDEN FOR DEMO */}
+          {/* {nearbyAlerts.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-2 animate-pulse">
                 <div className="flex items-center gap-2 mb-2">
                     <Activity className="w-4 h-4 text-red-600" />
@@ -503,10 +503,10 @@ export default function DashboardPage() {
                     ))}
                 </div>
             </div>
-          )}
+          )} */}
 
-          {/* RENTAL STATUS */}
-          <div className="bg-white rounded-xl border border-honey-200 shadow-sm p-4 mb-2">
+          {/* RENTAL STATUS - HIDDEN PER USER REQUEST */}
+          {/* <div className="bg-white rounded-xl border border-honey-200 shadow-sm p-4 mb-2">
             <div className="flex justify-between items-start mb-2">
               <div>
                 <h3 className="font-bold text-gray-900 text-sm">Min Leieavtale</h3>
@@ -634,7 +634,7 @@ export default function DashboardPage() {
                 </div>
             </div>
             )}
-          </div>
+          </div> */}
 
           {/* MISSIONS ALERT (For Beekeepers) */}
           {pendingMissionsCount > 0 && profile?.role === 'beekeeper' && (
@@ -718,8 +718,8 @@ export default function DashboardPage() {
 
 
 
-          {/* Birøkter Checklist Promo */}
-          {profile?.role !== 'tenant' && profile?.role !== 'mattilsynet' && (
+          {/* Birøkter Checklist Promo - HIDDEN PER USER REQUEST */}
+          {/* {profile?.role !== 'tenant' && profile?.role !== 'mattilsynet' && (
           <Link href="/dashboard/beekeeper/rentals" className="block mt-2">
             <div className={`rounded-xl p-4 text-white shadow-lg flex items-center justify-between transition-colors
                 ${pendingMissionsCount > 0 ? 'bg-gradient-to-r from-red-600 to-red-500 animate-pulse' : 'bg-gradient-to-r from-gray-900 to-gray-800'}
@@ -740,7 +740,7 @@ export default function DashboardPage() {
                 </div>
             </div>
           </Link>
-          )}
+          )} */}
 
           {/* External Links (Moved Up) */}
           <div className="space-y-1 pt-1">

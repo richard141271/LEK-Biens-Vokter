@@ -20,17 +20,9 @@ export default function BottomNav() {
           className={`flex flex-col items-center justify-center w-full h-full ${isActive('/dashboard') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
           <Home className="w-6 h-6 mb-1" />
-          <span className="text-[10px] font-medium">Oversikt</span>
+          <span className="text-[10px] font-medium">Min side</span>
         </Link>
         
-        <Link 
-          href="/shop" 
-          className={`flex flex-col items-center justify-center w-full h-full ${isActive('/shop') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}
-        >
-          <ShoppingBag className="w-6 h-6 mb-1" />
-          <span className="text-[10px] font-medium">Butikk</span>
-        </Link>
-
         <Link 
           href="/apiaries" 
           className={`flex flex-col items-center justify-center w-full h-full ${isActive('/apiaries') ? 'text-honey-600' : 'text-gray-600 hover:text-gray-600'}`}
@@ -45,14 +37,6 @@ export default function BottomNav() {
         >
           <Box className="w-6 h-6 mb-1" />
           <span className="text-[10px] font-medium">Bikuber</span>
-        </Link>
-
-        <Link 
-          href="/referater" 
-          className={`flex flex-col items-center justify-center w-full h-full ${isActive('/referater') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}
-        >
-          <FileText className="w-6 h-6 mb-1" />
-          <span className="text-[10px] font-medium">Referater</span>
         </Link>
 
         <Link 

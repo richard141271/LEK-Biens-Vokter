@@ -88,7 +88,11 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
     }
     
     // Use hive.apiary_id which is on the hive object itself
-    const otherApiaries = data ? data.filter(a => a.id !== hive.apiary_id) : [];
+    // Filter to only allow moving to Bigård (or Utleie)
+    const otherApiaries = data ? data.filter(a => 
+      a.id !== hive.apiary_id && 
+      (!a.type || ['bigård', 'utleie'].includes(a.type))
+    ) : [];
 
     setApiaries(otherApiaries);
     setIsMoveModalOpen(true);
@@ -265,24 +269,40 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
+  const getStatusColor = (hive: any) => {
+    // Check specific statuses first, even if inactive
+    if (hive.status === 'SOLGT') return 'bg-blue-100 text-blue-800 border-blue-200';
+    if (hive.status === 'AVSLUTTET') return 'bg-gray-100 text-gray-800 border-gray-200';
+    
+    if (hive.active === false) return 'bg-gray-100 text-gray-500 border-gray-200';
+    
+    switch (hive.status) {
       case 'DØD':
+      case 'SYKDOM': // Case sensitive match fix
       case 'Sykdom':
         return 'bg-red-100 text-red-800 border-red-200';
+      case 'SVAK':
       case 'Svak':
       case 'Bytt dronning':
       case 'Sverming':
       case 'Varroa mistanke':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'AKTIV':
       case 'OK':
       case 'Mottatt fôr':
       case 'Skiftet rammer':
       case 'Byttet voks':
         return 'bg-green-100 text-green-800 border-green-200';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-green-100 text-green-800 border-green-200'; // Default to active green
     }
+  };
+
+  const getStatusText = (hive: any) => {
+    if (hive.status === 'SOLGT') return 'SOLGT';
+    if (hive.status === 'AVSLUTTET') return 'AVSLUTTET';
+    if (hive.active === false) return 'AVSLUTTET'; 
+    return hive.status || 'AKTIV';
   };
 
   const handleArchiveSubmit = async () => {
@@ -393,8 +413,8 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                 <div>
                   <h2 className="text-lg font-bold text-gray-900">Status: {hive.name}</h2>
                   <div className="flex gap-2 mt-1">
-                    <span className={`font-medium px-2 py-0.5 rounded-full text-sm border ${getStatusColor(hive.status || 'OK')}`}>
-                        {hive.status || 'OK'}
+                    <span className={`font-medium px-2 py-0.5 rounded-full text-sm border ${getStatusColor(hive)}`}>
+                        {getStatusText(hive)}
                     </span>
                     <button 
                         onClick={handleActiveToggle}
@@ -404,7 +424,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                                 : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
                         }`}
                     >
-                        {hive.active !== false ? 'Aktiv' : 'Inaktiv'}
+                        {hive.active !== false ? 'Aktiv' : 'Avsluttet'}
                     </button>
                   </div>
                 </div>

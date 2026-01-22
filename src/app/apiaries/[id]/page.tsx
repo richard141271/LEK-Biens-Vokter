@@ -140,6 +140,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       .from('apiaries')
       .select('id, name, type, apiary_number')
       .neq('id', params.id)
+      .in('type', ['bigård', 'utleie']) // Only allow moving to Bigård/Utleie
       .order('name');
     
     if (data) setAvailableApiaries(data);
