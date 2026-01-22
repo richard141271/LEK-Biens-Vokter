@@ -113,6 +113,18 @@ export async function deleteUser(userId: string) {
         .update({ beekeeper_id: null })
         .eq('beekeeper_id', userId)
 
+      // Remove user as manager for apiaries
+      await adminClient
+        .from('apiaries')
+        .update({ managed_by: null })
+        .eq('managed_by', userId)
+
+      // Delete meeting notes
+      await adminClient
+        .from('meeting_notes')
+        .delete()
+        .eq('user_id', userId)
+
       // 2) Delete logs linked to this user's hives and direct logs by user
       const { data: userHives } = await adminClient
         .from('hives')
@@ -121,12 +133,6 @@ export async function deleteUser(userId: string) {
 
       const hiveIds = (userHives || []).map(h => h.id)
       if (hiveIds.length > 0) {
-        // Delete inspections for these hives (in case ON DELETE CASCADE is missing)
-        await adminClient
-            .from('inspections')
-            .delete()
-            .in('hive_id', hiveIds)
-
         await adminClient
           .from('hive_logs')
           .delete()

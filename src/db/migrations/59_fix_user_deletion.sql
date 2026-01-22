@@ -21,6 +21,11 @@ BEGIN
   SET beekeeper_id = NULL
   WHERE beekeeper_id = target_user_id;
 
+  -- Ny: Fjern bruker som manager for bigårder
+  UPDATE apiaries
+  SET managed_by = NULL
+  WHERE managed_by = target_user_id;
+
   -- 2) Slett relaterte logger
   DELETE FROM hive_logs
   USING hives
@@ -34,11 +39,14 @@ BEGIN
   DELETE FROM hives WHERE user_id = target_user_id;
   DELETE FROM apiaries WHERE user_id = target_user_id;
 
-  -- 4) Slett survey og pilot data
+  -- 4) Slett survey, pilot data og møtenotater
   DELETE FROM survey_responses WHERE user_id = target_user_id;
   DELETE FROM pilot_interest WHERE user_id = target_user_id;
   DELETE FROM survey_pilot_interest WHERE user_id = target_user_id;
   DELETE FROM market_survey_responses WHERE user_id = target_user_id;
+  
+  -- Ny: Slett møtenotater (har cascade, men greit å være eksplisitt for rekkefølge)
+  DELETE FROM meeting_notes WHERE user_id = target_user_id;
 
   -- 5) Slett MLM data
   UPDATE profiles SET referrer_id = NULL WHERE referrer_id = target_user_id;
