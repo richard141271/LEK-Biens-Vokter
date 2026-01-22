@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from "react";
-import { BeekeeperSurvey } from "@/components/survey/BeekeeperSurvey";
+import { BeekeeperSurvey as BeekeeperSchema } from "@/lib/survey/beekeeper";
+import { DynamicSurvey } from "@/components/survey/DynamicSurvey";
 import { NonBeekeeperSurvey } from "@/components/survey/NonBeekeeperSurvey";
 
 export default function SurveyFormPage() {
@@ -33,11 +34,11 @@ export default function SurveyFormPage() {
             
             <button
               onClick={() => setIsBeekeeper(false)}
-              className="flex flex-col items-center justify-center p-6 bg-white border-2 border-gray-100 rounded-2xl shadow-sm hover:border-honey-500 hover:shadow-md transition-all group"
+              className="flex flex-col items-center justify-center p-6 bg-white border-2 border-gray-100 rounded-2xl shadow-sm hover:border-gray-400 hover:shadow-md transition-all group"
             >
-              <span className="text-4xl mb-3 group-hover:scale-110 transition-transform">🏡</span>
+              <span className="text-4xl mb-3 group-hover:scale-110 transition-transform">👋</span>
               <span className="text-lg font-bold text-gray-900">NEI</span>
-              <span className="text-sm text-gray-500 mt-1">Jeg er ikke birøkter</span>
+              <span className="text-sm text-gray-500 mt-1">Jeg er interessert</span>
             </button>
           </div>
         </div>
@@ -45,9 +46,9 @@ export default function SurveyFormPage() {
     );
   }
 
-  return (
-    <main className="min-h-screen bg-gray-50 pb-16">
-      {isBeekeeper ? <BeekeeperSurvey /> : <NonBeekeeperSurvey />}
-    </main>
+  return isBeekeeper ? (
+    <DynamicSurvey survey={BeekeeperSchema} />
+  ) : (
+    <NonBeekeeperSurvey />
   );
 }
