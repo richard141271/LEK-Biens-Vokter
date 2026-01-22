@@ -15,7 +15,7 @@ interface Submission {
 
 // Components
 const ScoreCard = ({ title, value, subtext, icon: Icon, color }: any) => (
-  <div className={`bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start justify-between relative overflow-hidden group hover:shadow-md transition-all duration-300`}>
+  <div className={`bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start justify-between relative overflow-hidden group hover:shadow-md transition-all duration-300 break-inside-avoid`}>
     <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity`}>
       <Icon size={80} className={`text-${color}-500`} />
     </div>
@@ -339,6 +339,13 @@ export default function InnovationNorwayReport() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-8 font-sans text-gray-800 print:p-0 print:bg-white">
+      <style jsx global>{`
+        @media print {
+            .no-print { display: none !important; }
+            .break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
+            body { background: white; }
+        }
+      `}</style>
       {/* Navigation & Controls */}
       <div className="max-w-[210mm] mx-auto mb-8 flex justify-between items-center no-print">
         <Link href="/dashboard/admin" className="flex items-center text-gray-500 hover:text-gray-900 transition-colors">
@@ -462,7 +469,7 @@ export default function InnovationNorwayReport() {
             
             {/* Left Column: Acceptance & Chart */}
             <div className="md:col-span-2 space-y-8">
-              <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+              <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm break-inside-avoid">
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -545,7 +552,7 @@ export default function InnovationNorwayReport() {
                 </div>
 
                  {/* Growth Chart */}
-                 <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                 <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm break-inside-avoid">
                     <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                         <TrendingUp className="text-green-500" />
                         Interessevekst

@@ -23,6 +23,7 @@ export default function DynamicSurveyResultsPage() {
   const [selectedSurveyType, setSelectedSurveyType] = useState<"BEEKEEPER" | "NON_BEEKEEPER">("BEEKEEPER");
   const [viewMode, setViewMode] = useState<'stats' | 'list'>('stats');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showPrintMenu, setShowPrintMenu] = useState(false);
   
   const survey = selectedSurveyType === "BEEKEEPER" ? BeekeeperSurvey : NonBeekeeperSurvey;
 
@@ -280,22 +281,48 @@ export default function DynamicSurveyResultsPage() {
           <div className="flex gap-4 no-print">
             <button
               onClick={handleDeleteAll}
-              className="flex items-center gap-2 px-4 py-2 bg-red-50 border border-red-200 text-red-700 font-medium rounded-lg hover:bg-red-100 transition-colors shadow-sm"
+              className="flex h-10 items-center gap-2 px-4 bg-red-50 border border-red-200 text-red-700 font-medium rounded-lg hover:bg-red-100 transition-colors shadow-sm whitespace-nowrap"
             >
               <Trash2 size={18} />
               Slett alle svar
             </button>
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-            >
-              <Printer size={18} />
-              Skriv ut rapport
-            </button>
-            <div className="flex bg-white rounded-lg p-1 border border-gray-200">
+            
+            <div className="relative z-20 no-print">
+              <button
+                onClick={() => setShowPrintMenu(!showPrintMenu)}
+                className="flex h-10 items-center gap-2 px-4 bg-white border border-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors shadow-sm whitespace-nowrap"
+              >
+                <Printer size={18} />
+                Skriv ut rapport
+              </button>
+              
+              {showPrintMenu && (
+                <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-2 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                  <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Velg rapporttype
+                  </div>
+                  <button 
+                    onClick={() => { setShowPrintMenu(false); window.print(); }} 
+                    className="w-full text-left px-4 py-3 hover:bg-honey-50 text-sm text-gray-700 hover:text-honey-700 flex items-center gap-2 transition-colors"
+                  >
+                    <BarChart3 size={16} />
+                    Standard visning
+                  </button>
+                  <Link 
+                    href="/dashboard/admin/innovation-norway-report" 
+                    className="w-full text-left px-4 py-3 hover:bg-honey-50 text-sm text-gray-700 hover:text-honey-700 flex items-center gap-2 transition-colors border-t border-gray-50"
+                  >
+                    <User size={16} />
+                    Innovasjon Norge Rapport
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            <div className="flex bg-white rounded-lg p-1 border border-gray-200 h-10 items-center">
               <button
                 onClick={() => setSelectedSurveyType("BEEKEEPER")}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors h-full flex items-center ${
                   selectedSurveyType === "BEEKEEPER"
                     ? "bg-honey-100 text-honey-700"
                     : "text-gray-600 hover:text-gray-900"
@@ -305,7 +332,7 @@ export default function DynamicSurveyResultsPage() {
               </button>
               <button
                 onClick={() => setSelectedSurveyType("NON_BEEKEEPER")}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors h-full flex items-center ${
                   selectedSurveyType === "NON_BEEKEEPER"
                     ? "bg-honey-100 text-honey-700"
                     : "text-gray-600 hover:text-gray-900"
@@ -314,7 +341,7 @@ export default function DynamicSurveyResultsPage() {
                 Ikke-birøktere
               </button>
             </div>
-            <div className="flex bg-white rounded-lg p-1 border border-gray-200">
+            <div className="flex bg-white rounded-lg p-1 border border-gray-200 h-10 items-center">
               <button
                 onClick={() => setViewMode("stats")}
                 className={`p-2 rounded-md transition-colors ${
