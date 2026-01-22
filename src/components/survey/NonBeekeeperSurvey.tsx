@@ -58,7 +58,7 @@ export function NonBeekeeperSurvey() {
 
   const [form, setForm] = useState({
     eatsHoney: "" as "ja" | "nei" | "vet_ikke" | "",
-    rentalInterest: "" as "ja" | "kanskje" | "nei" | "",
+    rentalInterest: "" as "ja" | "kanskje" | "nei" | "ja_hjelp" | "",
     rentalPrice: "",
     pollinatorImportance: "" as "ja" | "nei" | "vet_ikke" | "",
     county: "",

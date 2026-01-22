@@ -35,7 +35,7 @@ type Body = {
 
   // Non-beekeeper specific
   eatsHoney?: 'ja' | 'nei' | 'vet_ikke' | '';
-  rentalInterest?: 'ja' | 'nei' | 'vet_ikke' | 'kanskje' | '';
+  rentalInterest?: 'ja' | 'nei' | 'vet_ikke' | 'kanskje' | 'ja_hjelp' | '';
   rentalPrice?: string | null;
   pollinatorImportance?: 'ja' | 'nei' | 'vet_ikke' | '';
   digitalToolInterest?: string | null;

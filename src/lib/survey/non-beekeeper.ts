@@ -48,6 +48,7 @@ export const NonBeekeeperSurvey: Survey = {
           required: true,
           options: [
             { value: "ja", label: "Ja" },
+            { value: "ja_hjelp", label: "Ja, hvis jeg får hjelp til birøkten" },
             { value: "kanskje", label: "Kanskje" },
             { value: "nei", label: "Nei" }
           ]
