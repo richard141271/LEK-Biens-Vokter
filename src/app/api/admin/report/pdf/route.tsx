@@ -277,6 +277,8 @@ export async function GET(request: Request) {
     </div>
   ) : '';
 
+  const growthChartHtml = renderToStaticMarkup(<GrowthChart submissions={currentData} />);
+
   const challengesHtml = challenges.length > 0 ? renderToStaticMarkup(
     <ul className="space-y-3">
         {challenges.map((c, i) => (
@@ -311,12 +313,13 @@ export async function GET(request: Request) {
         @page { size: A4; margin: 15mm; }
         body { font-family: ui-sans-serif, system-ui, sans-serif; -webkit-print-color-adjust: exact; }
         .break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
+        .page-break { page-break-before: always; }
       </style>
     </head>
     <body class="bg-white text-gray-800">
       
       <!-- Header -->
-      <div class="bg-gray-900 text-white p-8 rounded-2xl mb-8 relative overflow-hidden">
+      <div class="bg-gray-900 text-white p-8 rounded-2xl mb-8 relative overflow-hidden break-inside-avoid">
         <div class="flex justify-between items-center relative z-10">
           <div>
             <h1 class="text-3xl font-bold tracking-tight mb-1">Behovsanalyse</h1>
@@ -331,17 +334,12 @@ export async function GET(request: Request) {
         </div>
       </div>
 
-      <!-- Score Cards -->
+      <!-- Score Cards Row -->
       ${scoreCardsHtml}
 
-      <!-- Main Grid -->
-      <div class="grid grid-cols-3 gap-8">
-        
-        <!-- Left Column -->
-        <div class="col-span-2 space-y-8">
-          
-          <!-- Acceptance -->
-          <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm break-inside-avoid">
+      <!-- Acceptance & Stats Row -->
+      <div class="grid grid-cols-1 gap-8 mb-8 break-inside-avoid">
+        <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
              <div class="flex items-center justify-between mb-6">
                 <div>
                     <h2 class="text-xl font-bold text-gray-900">Aksept: Ville du brukt systemet?</h2>
@@ -352,52 +350,65 @@ export async function GET(request: Request) {
                 </div>
             </div>
             ${barChartHtml}
-          </div>
+        </div>
+      </div>
 
-          <!-- Ratings (Beekeeper) -->
-          ${type === 'BEEKEEPER' ? `
-          <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm break-inside-avoid">
+      <!-- Ratings & Growth Row -->
+      ${type === 'BEEKEEPER' ? `
+      <div class="grid grid-cols-2 gap-8 mb-8 break-inside-avoid">
+          <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
              <h2 class="text-xl font-bold text-gray-900 mb-4">Verdivurdering (1-5)</h2>
              ${ratingsHtml}
           </div>
-          ` : ''}
-
-          <!-- Challenges -->
-          ${challenges.length > 0 ? `
-          <div class="bg-gray-50 rounded-2xl p-6 border border-gray-200 break-inside-avoid">
-             <h2 class="text-lg font-bold text-gray-900 mb-4">Utvalgte utfordringer</h2>
-             ${challengesHtml}
+          <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between">
+             <h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-500"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
+                Interessevekst
+             </h2>
+             <div class="mt-4">
+               ${growthChartHtml}
+             </div>
+             <div class="text-xs text-gray-400 mt-2">Akkumulert antall svar over tid</div>
           </div>
-          ` : ''}
+      </div>
+      ` : ''}
 
+      <!-- Bottom Row: Challenges & Key Stats -->
+      <div class="grid grid-cols-3 gap-8 break-inside-avoid">
+        
+        <!-- Challenges (2/3 width) -->
+        <div class="col-span-2">
+            ${challenges.length > 0 ? `
+            <div class="bg-gray-50 rounded-2xl p-6 border border-gray-200 h-full">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">Utvalgte utfordringer</h2>
+                ${challengesHtml}
+            </div>
+            ` : ''}
         </div>
 
-        <!-- Right Column -->
-        <div class="space-y-8">
-          
-          <!-- Key Stats -->
-          <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm break-inside-avoid">
-            <h2 class="text-lg font-bold text-gray-900 mb-6">Nøkkelstatistikk</h2>
-            <div class="mb-8">
-              ${donutChartHtml}
-            </div>
-            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                <div>
-                    <div class="text-xs text-gray-500 uppercase font-bold">Snitt Verdi</div>
-                    <div class="text-2xl font-bold text-gray-900">${overallAvg} <span class="text-sm text-gray-400 font-normal">/ 5.0</span></div>
+        <!-- Key Stats / Donut (1/3 width) -->
+        <div class="col-span-1">
+            <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm h-full flex flex-col justify-center">
+                <h2 class="text-lg font-bold text-gray-900 mb-6 text-center">Nøkkelstatistikk</h2>
+                <div class="mb-6">
+                ${donutChartHtml}
                 </div>
-                <div class="h-10 w-10 bg-honey-100 rounded-full flex items-center justify-center text-honey-600 font-bold">
-                    ${overallAvg}
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                    <div>
+                        <div class="text-xs text-gray-500 uppercase font-bold">Snitt Verdi</div>
+                        <div class="text-2xl font-bold text-gray-900">${overallAvg} <span class="text-sm text-gray-400 font-normal">/ 5.0</span></div>
+                    </div>
+                    <div class="h-10 w-10 bg-honey-100 rounded-full flex items-center justify-center text-honey-600 font-bold">
+                        ${overallAvg}
+                    </div>
                 </div>
             </div>
-          </div>
-
         </div>
 
       </div>
 
       <!-- Footer -->
-      <div class="mt-12 text-center text-gray-400 text-sm pt-8 border-t border-gray-100">
+      <div class="mt-12 text-center text-gray-400 text-sm pt-8 border-t border-gray-100 break-inside-avoid">
         En del av LEK-Biens Vokters™️ Pilotprogram - 2026
       </div>
 
