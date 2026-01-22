@@ -76,6 +76,23 @@ export default function NewMeetingRecordingPage() {
     return `${hrs}:${mins}:${secs}`;
   };
 
+  const getSupportedMimeType = () => {
+    const types = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/mp4',
+      'audio/aac',
+      'audio/ogg;codecs=opus',
+      'audio/ogg'
+    ];
+    for (const type of types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        return type;
+      }
+    }
+    return ''; // Let browser choose default if none match
+  };
+
   const handleStartRecording = async () => {
     setError(null);
 
@@ -86,11 +103,14 @@ export default function NewMeetingRecordingPage() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const mimeType = getSupportedMimeType();
+      const options = mimeType ? { mimeType } : undefined;
+      
+      const recorder = new MediaRecorder(stream, options);
       chunksRef.current = [];
 
       recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
+        if (event.data && event.data.size > 0) {
           chunksRef.current.push(event.data);
         }
       };
@@ -98,18 +118,16 @@ export default function NewMeetingRecordingPage() {
       recorder.onstop = () => {
         stream.getTracks().forEach((track) => track.stop());
         const firstChunk = chunksRef.current[0] as Blob | undefined;
-        const mimeType =
-          firstChunk && firstChunk.type && firstChunk.type.length > 0
-            ? firstChunk.type
-            : 'audio/webm';
-        const blob = new Blob(chunksRef.current, { type: mimeType });
+        // Prefer explicit mimeType from init, fallback to chunk type, then default
+        const finalMimeType = mimeType || (firstChunk?.type) || 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type: finalMimeType });
         setRecordedBlob(blob);
         setRecording(false);
         stopTimer();
       };
 
       mediaRecorderRef.current = recorder;
-      recorder.start();
+      recorder.start(1000); // Record in 1s chunks for better stability
       setRecording(true);
       setRecordedBlob(null);
       startTimer();

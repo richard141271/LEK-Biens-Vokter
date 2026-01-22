@@ -2,10 +2,12 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Archive, AlertCircle, ArrowRight, Calendar } from 'lucide-react';
+import { Search, Archive, AlertCircle, ArrowRight, Calendar, ArrowLeft } from 'lucide-react';
 
 export default function ArchivePage() {
+  const router = useRouter();
   const [hives, setHives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -76,6 +78,9 @@ export default function ArchivePage() {
     <div className="min-h-screen bg-gray-50 pb-20">
       <div className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10">
         <div className="flex items-center gap-3 mb-4">
+            <button onClick={() => router.back()} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
+                <ArrowLeft className="w-6 h-6 text-gray-600" />
+            </button>
             <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600">
                 <Archive className="w-6 h-6" />
             </div>
