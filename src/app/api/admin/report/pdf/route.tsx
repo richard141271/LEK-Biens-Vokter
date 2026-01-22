@@ -120,6 +120,57 @@ const FeatureRating = ({ label, score }: any) => {
   );
 };
 
+const GrowthChart = ({ submissions }: { submissions: any[] }) => {
+  const sorted = [...submissions].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  if (sorted.length < 2) return null;
+  
+  const points: {x: number, y: number}[] = [];
+  let count = 0;
+  const startTime = new Date(sorted[0].created_at).getTime();
+  const endTime = new Date().getTime();
+  const timeRange = endTime - startTime || 1;
+  
+  sorted.forEach((sub, i) => {
+    count++;
+    const time = new Date(sub.created_at).getTime();
+    const x = ((time - startTime) / timeRange) * 100;
+    points.push({ x, y: count });
+  });
+  points.push({ x: 100, y: count });
+  
+  const maxVal = count;
+  const getY = (val: number) => 100 - ((val / maxVal) * 80);
+  let pathD = `M 0 ${100}`;
+  points.forEach(p => pathD += ` L ${p.x} ${getY(p.y)}`);
+  pathD += ` L 100 100 Z`;
+  
+  let lineD = `M 0 ${getY(0)}`;
+  if (points.length > 0) {
+    lineD = `M ${points[0].x} ${getY(points[0].y)}`;
+    points.forEach(p => lineD += ` L ${p.x} ${getY(p.y)}`);
+  }
+  
+  return (
+    <div className="w-full h-32 relative">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+        <defs>
+          <linearGradient id="growthGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.3"/>
+            <stop offset="100%" stopColor="#F59E0B" stopOpacity="0"/>
+          </linearGradient>
+        </defs>
+        <path d={pathD} fill="url(#growthGradient)" />
+        <path d={lineD} fill="none" stroke="#F59E0B" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+        {points.filter((_, i) => i % Math.ceil(points.length / 5) === 0).map((p, i) => (
+          <circle key={i} cx={p.x} cy={getY(p.y)} r="1.5" fill="white" stroke="#F59E0B" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        ))}
+      </svg>
+      <div className="absolute bottom-0 left-0 text-[10px] text-gray-400">Start</div>
+      <div className="absolute bottom-0 right-0 text-[10px] text-gray-400">Nå</div>
+    </div>
+  );
+};
+
 // --- Auth Helper ---
 async function requireAdmin() {
   const supabase = createClient();
@@ -436,7 +487,7 @@ export async function GET(request: Request) {
 
     await browser.close();
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(pdfBuffer as any, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
