@@ -76,19 +76,19 @@ export default function SmittevernPage() {
           onClick={() => setIsModalOpen(true)}
           className="group text-left"
         >
-          <div className="bg-white p-6 rounded-xl border border-gray-200 hover:border-red-500 hover:shadow-md transition-all h-full">
+          <div className="bg-red-500 p-6 rounded-xl border border-red-600 hover:bg-red-600 hover:shadow-md transition-all h-full">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-red-50 text-red-600 rounded-lg group-hover:bg-red-600 group-hover:text-white transition-colors">
+              <div className="p-3 bg-white/20 text-white rounded-lg transition-colors">
                 <AlertTriangle className="w-8 h-8" />
               </div>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
+            <h3 className="text-xl font-bold text-white mb-2">
               Meld fra om smitte
             </h3>
-            <p className="text-gray-500 mb-4">
+            <p className="text-red-100 mb-4">
               Oppdaget sykdom? Send inn en offisiell rapport til Mattilsynet direkte fra bigården.
             </p>
-            <div className="flex items-center text-red-600 font-medium">
+            <div className="flex items-center text-white font-medium">
               Opprett rapport <ChevronRight className="w-4 h-4 ml-1" />
             </div>
           </div>

@@ -694,13 +694,6 @@ export default function DashboardPage() {
                 <span className="font-bold text-[10px] text-center leading-tight">SKANN</span>
               </Link>
 
-              <button
-                onClick={() => setIsSicknessModalOpen(true)}
-                className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-xl shadow-md flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20"
-              >
-                <Activity className="w-5 h-5" />
-                <span className="font-bold text-[10px] text-center leading-tight">MELD SMITTE</span>
-              </button>
 
               <Link
                 href="/dashboard/smittevern"
