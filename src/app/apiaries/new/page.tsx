@@ -176,9 +176,9 @@ export default function NewApiaryPage() {
 
   const types = [
     { id: 'bigård', label: 'Bigård', icon: MapPin },
-    { id: 'lager', label: 'Lager', icon: Warehouse },
-    { id: 'bil', label: 'Bil', icon: Truck },
-    { id: 'oppstart', label: 'Oppstart', icon: Store }, // Added 'Oppstart'
+    // { id: 'lager', label: 'Lager', icon: Warehouse }, // Hidden per user request
+    // { id: 'bil', label: 'Bil', icon: Truck }, // Hidden per user request
+    // { id: 'oppstart', label: 'Oppstart', icon: Store }, // Hidden per user request
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
