@@ -22,9 +22,6 @@ export default function InstallPrompt({ embedded = false, mode = 'floating' }: I
   // Determine if we are on a page where the inline button is used
   const isPublicHeaderPage = pathname === '/' || pathname === '/shop' || pathname === '/about' || pathname === '/lei-en-kube' || pathname?.startsWith('/info');
   
-  // If this is a floating instance on a public page, don't render it (let the inline one handle it)
-  if (mode === 'floating' && isPublicHeaderPage) return null;
-
   useEffect(() => {
     // Check if running in browser
     if (typeof window === 'undefined') return;
@@ -75,6 +72,9 @@ export default function InstallPrompt({ embedded = false, mode = 'floating' }: I
         }
     }
   };
+
+  // If this is a floating instance on a public page, don't render it (let the inline one handle it)
+  if (mode === 'floating' && isPublicHeaderPage) return null;
 
   // If already installed, don't show anything
   if (isStandalone) return null;
