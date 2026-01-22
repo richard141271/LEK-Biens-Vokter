@@ -17,6 +17,7 @@ interface Submission {
 export default function DynamicSurveyResultsPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedSurveyType, setSelectedSurveyType] = useState<"BEEKEEPER" | "NON_BEEKEEPER">("BEEKEEPER");
   
   const survey = selectedSurveyType === "BEEKEEPER" ? BeekeeperSurvey : NonBeekeeperSurvey;
@@ -24,9 +25,13 @@ export default function DynamicSurveyResultsPage() {
   useEffect(() => {
     const fetchSubmissions = async () => {
       setLoading(true);
+      setError(null);
       try {
-        const res = await fetch('/api/admin/survey-responses');
-        if (!res.ok) throw new Error('Kunne ikke hente svar');
+        const res = await fetch('/api/admin/survey-responses', { cache: 'no-store' });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Feil: ${res.status} ${res.statusText}`);
+        }
         
         const data = await res.json();
         const allResponses = data.responses || [];
@@ -41,8 +46,9 @@ export default function DynamicSurveyResultsPage() {
           answers: mapResponseToAnswers(row, selectedSurveyType)
         }));
         setSubmissions(mappedSubmissions);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching survey responses:", error);
+        setError(error.message || "En ukjent feil oppstod");
       }
       setLoading(false);
     };
@@ -93,6 +99,26 @@ export default function DynamicSurveyResultsPage() {
   };
 
   if (loading && !submissions.length) return <div className="p-8">Laster resultater...</div>;
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <div className="mb-6">
+          <Link 
+            href="/dashboard/admin" 
+            className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Tilbake til Admin
+          </Link>
+        </div>
+        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">
+          <h3 className="font-bold">Feil ved henting av data</h3>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   const renderQuestionStats = (question: Question) => {
     // Skip text/email fields for stats view, but allow TEXT for open questions if needed (maybe just list them?)
