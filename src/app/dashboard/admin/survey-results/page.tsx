@@ -199,18 +199,21 @@ export default function SurveyResultsAdminPage() {
       }
 
       if (activeTab === 'beekeeper') {
-        if (r.experienced_disease) experiencedDisease += 1;
-        if (r.is_member_norwegian_beekeepers) memberCount += 1;
-        if (r.value_warning_system != null) { sumWarning += r.value_warning_system; countWarning += 1; }
-        if (r.value_nearby_alert != null) { sumNearby += r.value_nearby_alert; countNearby += 1; }
-        if (r.value_reporting != null) { sumReporting += r.value_reporting; countReporting += 1; }
-        if (r.value_better_overview != null) { sumOverview += r.value_better_overview; countOverview += 1; }
+        // Beekeeper Stats
+        if (r.experienced_disease === true) experiencedDisease++;
+        if (r.is_member_norwegian_beekeepers === true) memberCount++;
 
-        const choice = (r.would_use_system_choice || '').toLowerCase();
-        if (choice === 'ja') wouldUse.yes += 1;
-        else if (choice.startsWith('ja, hvis')) wouldUse.yesIfEasy += 1;
-        else if (choice.startsWith('vet')) wouldUse.unsure += 1;
-        else if (choice === 'nei') wouldUse.no += 1;
+        if (r.value_warning_system) { sumWarning += r.value_warning_system; countWarning++; }
+        if (r.value_nearby_alert) { sumNearby += r.value_nearby_alert; countNearby++; }
+        if (r.value_reporting) { sumReporting += r.value_reporting; countReporting++; }
+        if (r.value_better_overview) { sumOverview += r.value_better_overview; countOverview++; }
+
+        const usage = (r.would_use_system_choice || '').toLowerCase();
+        if (usage === 'ja') wouldUse.yes++;
+        else if (usage.includes('enkelt') || usage === 'kanskje') wouldUse.yesIfEasy++; // Handle both old 'kanskje' and new 'enkelt'
+        else if (usage === 'usikker' || usage === 'vet ikke') wouldUse.unsure++;
+        else if (usage === 'nei') wouldUse.no++;
+
       } else {
         // Non-beekeeper
         const eats = (r.eats_honey || '').toLowerCase();
@@ -782,30 +785,31 @@ export default function SurveyResultsAdminPage() {
 
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
               <div className="bg-white p-5 rounded-xl border border-gray-200">
-                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-4">
-                  <Activity className="w-4 h-4 text-honey-600" />
-                  Ville du brukt systemet?
+                <h2 className="text-sm font-bold text-gray-900 mb-4">
+                  Hvis det fantes et digitalt verktøy som gjorde birøktere i stand til å oppdage smitte tidlig – synes du de burde bruke dette?
                 </h2>
                 <div className="space-y-3">
                   {[
                     { label: 'Ja', value: stats.wouldUse.yes, color: 'bg-honey-500' },
-                    { label: 'Ja, hvis enkelt', value: stats.wouldUse.yesIfEasy, color: 'bg-green-500' },
-                    { label: 'Vet ikke', value: stats.wouldUse.unsure, color: 'bg-yellow-500' },
+                    { label: 'Ja, hvis det er enkelt å bruke', value: stats.wouldUse.yesIfEasy, color: 'bg-green-500' },
+                    { label: 'Usikker', value: stats.wouldUse.unsure, color: 'bg-yellow-500' },
                     { label: 'Nei', value: stats.wouldUse.no, color: 'bg-red-500' },
                   ].map((item) => {
-                     const total = stats.wouldUse.yes + stats.wouldUse.yesIfEasy + stats.wouldUse.unsure + stats.wouldUse.no;
-                     const percent = total ? Math.round((item.value / total) * 100) : 0;
-                     return (
-                      <div key={item.label}>
-                        <div className="flex justify-between mb-1 text-sm">
-                          <span>{item.label}</span>
-                          <span className="text-gray-500">{item.value} ({percent}%)</span>
+                    const percentage = stats.total ? Math.round((item.value / stats.total) * 100) : 0;
+                    return (
+                      <div key={item.label} className="relative">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="font-medium text-gray-700">{item.label}</span>
+                          <span className="text-gray-500">{item.value} ({percentage}%)</span>
                         </div>
-                        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div className={`h-full ${item.color}`} style={{ width: `${percent}%` }} />
+                        <div className="w-full bg-gray-100 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${item.color}`}
+                            style={{ width: `${percentage}%` }}
+                          />
                         </div>
                       </div>
-                     );
+                    );
                   })}
                 </div>
               </div>

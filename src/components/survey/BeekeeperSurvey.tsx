@@ -504,26 +504,24 @@ export function BeekeeperSurvey() {
             </div>
 
             <div className="space-y-4">
-              <p className="block text-sm font-medium text-gray-800 mb-2">
-                Ville du brukt et slikt system?
-              </p>
+              <label className="block text-sm font-medium text-gray-800 mb-2">
+                Hvis det fantes et digitalt verktøy som gjorde birøktere i stand til å oppdage smitte tidlig – synes du de burde bruke dette?
+              </label>
               <div className="grid grid-cols-1 gap-3">
                 {[
                   "Ja",
                   "Ja, hvis det er enkelt å bruke",
-                  "Vet ikke",
-                  "Nei",
+                  "Usikker",
+                  "Nei"
                 ].map((option) => (
                   <button
                     key={option}
                     type="button"
-                    onClick={() =>
-                      updateField("wouldUseSystemChoice", option)
-                    }
-                    className={`w-full px-5 py-4 rounded-2xl text-base font-semibold border text-left ${
+                    onClick={() => updateField("wouldUseSystemChoice", option)}
+                    className={`px-4 py-3 rounded-xl text-left text-sm font-medium border transition-all ${
                       form.wouldUseSystemChoice === option
-                        ? "border-honey-500 bg-honey-50 text-honey-800"
-                        : "border-gray-200 bg-white text-gray-800"
+                        ? "border-honey-500 bg-honey-50 text-honey-700 shadow-sm"
+                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
                     }`}
                   >
                     {option}

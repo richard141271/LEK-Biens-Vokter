@@ -138,18 +138,36 @@ export async function POST(request: Request) {
 
     // Save to pilot_interest if applicable
     if (pilotPositive && body.pilotEmail) {
+      // Create separate entries for better debugging and data integrity
+      const pilotData = {
+        email: body.pilotEmail,
+        interested: true,
+        status: body.pilotAnswer === 'ja' ? 'Interessert' : 'Kanskje',
+        source: body.isBeekeeper ? 'survey_beekeeper' : 'survey_non_beekeeper',
+      };
+
       const { error: pilotError } = await client
         .from('pilot_interest')
-        .insert({
-          email: body.pilotEmail,
-          interested: true,
-          status: body.pilotAnswer === 'ja' ? 'Interessert' : 'Kanskje',
-          source: body.isBeekeeper ? 'survey_beekeeper' : 'survey_non_beekeeper',
-        });
+        .insert(pilotData);
 
       if (pilotError) {
-        console.error('Feil ved lagring av pilot-interesse', pilotError);
+        console.error('Feil ved lagring av pilot-interesse (pilot_interest):', pilotError);
         // We don't fail the request if this part fails, as the main survey is saved
+      }
+      
+      // Also try legacy table just in case admin panel still relies on it
+      const { error: legacyError } = await client
+        .from('survey_pilot_interest')
+        .insert({
+           email: body.pilotEmail,
+           interested: true
+        });
+        
+      if (legacyError) {
+         // Ignore unique constraint errors on legacy table
+         if (legacyError.code !== '23505') {
+            console.error('Feil ved lagring av pilot-interesse (legacy):', legacyError);
+         }
       }
     }
 
