@@ -9,10 +9,11 @@ interface InstallPromptProps {
 
 export default function InstallPrompt({ embedded = false }: InstallPromptProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [showIOSPrompt, setShowIOSPrompt] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
-  const [isIOSOpen, setIsIOSOpen] = useState(false);
+  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+  const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop' | 'unknown'>('unknown');
 
   useEffect(() => {
     // Check if running in browser
@@ -23,25 +24,24 @@ export default function InstallPrompt({ embedded = false }: InstallPromptProps) 
                          (window.navigator as any).standalone === true;
     setIsStandalone(standalone);
     
-    // Handle Android/Desktop
+    // Detect Platform
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    if (/iphone|ipad|ipod/.test(userAgent)) {
+        setPlatform('ios');
+    } else if (/android/.test(userAgent)) {
+        setPlatform('android');
+    } else {
+        setPlatform('desktop');
+    }
+
+    // Handle Android/Desktop Install Prompt
     const handleBeforeInstallPrompt = (e: any) => {
-      // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
-      // Stash the event so it can be triggered later.
       setDeferredPrompt(e);
       setIsInstallable(true);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    // Handle iOS detection
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIOS = /iphone|ipad|ipod/.test(userAgent);
-    
-    if (isIOS && !standalone) {
-        setIsInstallable(true);
-        setShowIOSPrompt(true);
-    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -50,20 +50,24 @@ export default function InstallPrompt({ embedded = false }: InstallPromptProps) 
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
-      // Show the install prompt
       deferredPrompt.prompt();
-      // Wait for the user to respond to the prompt
       const { outcome } = await deferredPrompt.userChoice;
-      // We've used the prompt, and can't use it again, discard it
       setDeferredPrompt(null);
       if (outcome === 'accepted') {
         setIsInstallable(false);
       }
+    } else {
+        // If no prompt available (iOS or Desktop Safari/Chrome without event), show instructions
+        if (embedded) {
+            setShowInstructions(!showInstructions);
+        } else {
+            setIsInstructionsOpen(true);
+        }
     }
   };
 
-  // If already installed or not installable yet (and not iOS), don't show anything
-  if (isStandalone || !isInstallable) return null;
+  // If already installed, don't show anything
+  if (isStandalone) return null;
 
   if (embedded) {
     return (
@@ -79,13 +83,35 @@ export default function InstallPrompt({ embedded = false }: InstallPromptProps) 
             </div>
           </div>
 
-          {showIOSPrompt ? (
-            <div className="text-xs text-gray-600 space-y-2">
-              <p>For iPhone:</p>
-              <ol className="list-decimal list-inside space-y-1 ml-1 bg-white/50 p-2 rounded">
-                <li>Trykk på <Share className="inline w-3 h-3 mx-1 text-blue-500" /></li>
-                <li>Velg <strong>&quot;Legg til på Hjem-skjerm&quot;</strong></li>
-              </ol>
+          {showInstructions ? (
+            <div className="text-xs text-gray-600 space-y-2 bg-white/50 p-3 rounded-lg">
+               {platform === 'ios' && (
+                  <>
+                    <p>For iPhone:</p>
+                    <ol className="list-decimal list-inside space-y-1 ml-1">
+                        <li>Trykk på <Share className="inline w-3 h-3 mx-1 text-blue-500" /></li>
+                        <li>Velg <strong>&quot;Legg til på Hjem-skjerm&quot;</strong></li>
+                    </ol>
+                  </>
+               )}
+               {platform === 'android' && (
+                   <>
+                    <p>For Android:</p>
+                    <ol className="list-decimal list-inside space-y-1 ml-1">
+                        <li>Trykk på menyen (tre prikker)</li>
+                        <li>Velg <strong>&quot;Installer app&quot;</strong> eller <strong>&quot;Legg til på startskjerm&quot;</strong></li>
+                    </ol>
+                   </>
+               )}
+               {platform === 'desktop' && (
+                   <>
+                    <p>For PC/Mac:</p>
+                    <ul className="list-disc list-inside space-y-1 ml-1">
+                        <li><strong>Chrome/Edge:</strong> Klikk på installeringsikonet i adressefeltet.</li>
+                        <li><strong>Safari:</strong> Del &rarr; Legg til i Dock.</li>
+                    </ul>
+                   </>
+               )}
             </div>
           ) : (
             <button
@@ -93,7 +119,7 @@ export default function InstallPrompt({ embedded = false }: InstallPromptProps) 
               className="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm shadow-sm flex items-center justify-center gap-2"
             >
               <Download size={16} />
-              Installer LEK-Appen
+              {deferredPrompt ? 'Installer LEK-Appen' : 'Slik installerer du appen'}
             </button>
           )}
         </div>
@@ -101,43 +127,50 @@ export default function InstallPrompt({ embedded = false }: InstallPromptProps) 
     );
   }
 
-  // Floating version (default, but hidden if embedded is preferred)
-  if (showIOSPrompt) {
-    if (isIOSOpen) {
+  // Floating version (default)
+  if (isInstructionsOpen) {
       return (
         <div className="fixed top-20 right-4 z-[100] bg-white p-4 rounded-xl shadow-xl border border-gray-200 max-w-xs animate-in slide-in-from-right-5 print:hidden">
           <button 
-            onClick={() => setIsIOSOpen(false)} 
+            onClick={() => setIsInstructionsOpen(false)} 
             className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
           >
             <X size={16} />
           </button>
-          <h3 className="font-bold text-gray-900 mb-2">Installer på iPhone</h3>
-          <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
-            <li>Trykk på dele-knappen <Share className="inline w-4 h-4 mx-1 text-blue-500" /></li>
-            <li>Scroll ned og velg <strong>&quot;Legg til på Hjem-skjerm&quot;</strong></li>
-          </ol>
+          <h3 className="font-bold text-gray-900 mb-2">Slik installerer du appen</h3>
+          
+          {platform === 'ios' && (
+              <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
+                <li>Trykk på dele-knappen <Share className="inline w-4 h-4 mx-1 text-blue-500" /></li>
+                <li>Scroll ned og velg <strong>&quot;Legg til på Hjem-skjerm&quot;</strong></li>
+              </ol>
+          )}
+
+          {platform === 'android' && (
+              <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
+                <li>Trykk på menyen (tre prikker)</li>
+                <li>Velg <strong>&quot;Installer app&quot;</strong> eller <strong>&quot;Legg til på startskjerm&quot;</strong></li>
+              </ol>
+          )}
+
+          {platform === 'desktop' && (
+              <ul className="text-sm text-gray-600 space-y-2 list-disc list-inside">
+                  <li><strong>Chrome/Edge:</strong> Klikk på installeringsikonet i adressefeltet (til høyre).</li>
+                  <li><strong>Safari:</strong> Trykk på dele-knappen og velg &quot;Legg til i Dock&quot;.</li>
+              </ul>
+          )}
         </div>
       );
-    }
-    return (
-      <button
-        onClick={() => setIsIOSOpen(true)}
-        className="fixed top-4 right-4 z-[100] bg-white/90 backdrop-blur-sm text-gray-800 font-bold py-2 px-3 rounded-full shadow-md border border-gray-200 flex items-center gap-2 text-xs hover:bg-white transition-all hover:scale-105 active:scale-95 print:hidden"
-      >
-        <Download size={14} />
-        Installer App
-      </button>
-    );
   }
 
+  // Always show the button if not standalone (user requirement)
   return (
-    <button
-      onClick={handleInstallClick}
-      className="fixed top-4 right-4 z-[100] bg-honey-500 hover:bg-honey-600 text-white font-bold py-2 px-4 rounded-full shadow-lg flex items-center gap-2 text-sm transition-all hover:scale-105 active:scale-95 print:hidden"
-    >
-      <Download size={16} />
-      Installer App
-    </button>
+      <button
+        onClick={handleInstallClick}
+        className="fixed top-4 right-4 z-[100] bg-honey-500 hover:bg-honey-600 text-white font-bold py-2 px-4 rounded-full shadow-lg flex items-center gap-2 text-sm transition-all hover:scale-105 active:scale-95 print:hidden"
+      >
+        <Download size={16} />
+        {deferredPrompt ? 'Installer App' : 'Installer'}
+      </button>
   );
 }
