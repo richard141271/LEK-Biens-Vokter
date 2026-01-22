@@ -61,13 +61,13 @@ export const NonBeekeeperSurvey: Survey = {
             { question_id: "nb_rental_interest", equals: ["ja", "kanskje"] }
           ],
           options: [
-            { value: "199", label: "Inntil 199 kr per måned" },
-            { value: "299", label: "Inntil 299 kr per måned" },
-            { value: "399", label: "Inntil 399 kr per måned" },
-            { value: "599", label: "Inntil 599 kr per måned" },
-            { value: "999", label: "Inntil 999 kr per måned" },
-            { value: "1000_plus", label: "Over 1000 kr per måned" },
-            { value: "free", label: "Kun hvis det er gratis" }
+            { value: "Inntil 199 kr per måned", label: "Inntil 199 kr per måned" },
+            { value: "Inntil 299 kr per måned", label: "Inntil 299 kr per måned" },
+            { value: "Inntil 399 kr per måned", label: "Inntil 399 kr per måned" },
+            { value: "Inntil 599 kr per måned", label: "Inntil 599 kr per måned" },
+            { value: "Inntil 999 kr per måned", label: "Inntil 999 kr per måned" },
+            { value: "Over 1000 kr per måned", label: "Over 1000 kr per måned" },
+            { value: "Kun hvis det er gratis", label: "Kun hvis det er gratis" }
           ]
         },
         {
@@ -128,18 +128,19 @@ export const NonBeekeeperSurvey: Survey = {
             { question_id: "nb_disease_awareness", equals: ["ja", "usikker"] }
           ],
           options: [
-            { value: "varroa", label: "Varroa" },
-            { value: "open_brood", label: "Åpen yngelråte" },
-            { value: "closed_brood", label: "Lukket yngelråte" },
-            { value: "nosema", label: "Nosema" },
-            { value: "chalkbrood", label: "Kalkyngel" },
-            { value: "stonebrood", label: "Steinyngel" },
-            { value: "tracheal_mite", label: "Trakémidd" },
-            { value: "deformed_wing", label: "Vingedeformitetsvirus" },
-            { value: "american_foulbrood", label: "Amerikansk yngelråte" },
-            { value: "european_foulbrood", label: "Europeisk yngelråte" },
-            { value: "black_mold", label: "Svartesopp" },
-            { value: "unknown", label: "Ukjent sykdom" }
+            { value: "Varroa", label: "Varroa" },
+            { value: "Åpen yngelråte", label: "Åpen yngelråte" },
+            { value: "Lukket yngelråte", label: "Lukket yngelråte" },
+            { value: "Nosema", label: "Nosema" },
+            { value: "Kalkyngel", label: "Kalkyngel" },
+            { value: "Stein-yngel", label: "Stein-yngel" },
+            { value: "Trakémidd", label: "Trakémidd" },
+            { value: "Vingedeformitetsvirus", label: "Vingedeformitetsvirus" },
+            { value: "Amerikansk yngelråte", label: "Amerikansk yngelråte" },
+            { value: "Europeisk yngelråte", label: "Europeisk yngelråte" },
+            { value: "Svertesopp", label: "Svertesopp" },
+            { value: "Ukjent sykdom", label: "Ukjent sykdom" },
+            { value: "Ingen sykdom observert", label: "Ingen sykdom observert" }
           ]
         }
       ]

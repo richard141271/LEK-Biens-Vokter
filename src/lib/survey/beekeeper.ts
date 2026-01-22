@@ -36,10 +36,11 @@ export const BeekeeperSurvey: Survey = {
            type: "DROPDOWN", 
            required: true, 
            options: [ 
-             { value: "1_4", label: "1–4 kuber" }, 
-             { value: "5_10", label: "5–10 kuber" }, 
-             { value: "11_30", label: "11–30 kuber" }, 
-             { value: "30_plus", label: "Over 30 kuber" } 
+             { value: "1–4 kuber", label: "1–4 kuber" }, 
+             { value: "5–9 kuber", label: "5–9 kuber" }, 
+             { value: "10–24 kuber", label: "10–24 kuber" }, 
+             { value: "25–49 kuber", label: "25–49 kuber" }, 
+             { value: "50 kuber eller flere", label: "50 kuber eller flere" } 
            ] 
          }, 
          { 
@@ -48,9 +49,11 @@ export const BeekeeperSurvey: Survey = {
            type: "DROPDOWN", 
            required: true, 
            options: [ 
-             { value: "1_3", label: "1–3 år" }, 
-             { value: "3_10", label: "3–10 år" }, 
-             { value: "10_plus", label: "Over 10 år" } 
+             { value: "Mindre enn 1 år", label: "Mindre enn 1 år" }, 
+             { value: "1–3 år", label: "1–3 år" }, 
+             { value: "4–10 år", label: "4–10 år" }, 
+             { value: "11–20 år", label: "11–20 år" }, 
+             { value: "Mer enn 20 år", label: "Mer enn 20 år" } 
            ] 
          }, 
          { 
@@ -59,8 +62,8 @@ export const BeekeeperSurvey: Survey = {
            type: "SINGLE_CHOICE", 
            required: true, 
            options: [ 
-             { value: "yes", label: "Ja" }, 
-             { value: "no", label: "Nei" } 
+             { value: "ja", label: "Ja" }, 
+             { value: "nei", label: "Nei" } 
            ] 
          }, 
          { 
@@ -84,9 +87,9 @@ export const BeekeeperSurvey: Survey = {
            type: "SINGLE_CHOICE", 
            required: true, 
            options: [ 
-             { value: "yes", label: "Ja" }, 
-             { value: "no", label: "Nei" }, 
-             { value: "unsure", label: "Usikker" } 
+             { value: "ja", label: "Ja" }, 
+             { value: "nei", label: "Nei" }, 
+             { value: "usikker", label: "Usikker" } 
            ] 
          }, 
          { 
@@ -94,20 +97,21 @@ export const BeekeeperSurvey: Survey = {
            text: "Hvilke sykdommer har du erfart?", 
            type: "MULTI_CHOICE", 
            required: false, 
-           visible_if: [{ question_id: "disease_last_3y", equals: ["yes", "unsure"] }], 
+           visible_if: [{ question_id: "disease_last_3y", equals: ["ja", "usikker"] }], 
            options: [ 
-             { value: "varroa", label: "Varroa" }, 
-             { value: "open_brood", label: "Åpen yngelråte" }, 
-             { value: "closed_brood", label: "Lukket yngelråte" }, 
-             { value: "nosema", label: "Nosema" }, 
-             { value: "chalkbrood", label: "Kalkyngel" }, 
-             { value: "stonebrood", label: "Steinyngel" }, 
-             { value: "tracheal_mite", label: "Trakémidd" }, 
-             { value: "deformed_wing", label: "Vingedeformitetsvirus" }, 
-             { value: "american_foulbrood", label: "Amerikansk yngelråte" }, 
-             { value: "european_foulbrood", label: "Europeisk yngelråte" }, 
-             { value: "black_mold", label: "Svartesopp" }, 
-             { value: "unknown", label: "Ukjent sykdom" } 
+             { value: "Varroa", label: "Varroa" }, 
+             { value: "Åpen yngelråte", label: "Åpen yngelråte" }, 
+             { value: "Lukket yngelråte", label: "Lukket yngelråte" }, 
+             { value: "Nosema", label: "Nosema" }, 
+             { value: "Kalkyngel", label: "Kalkyngel" }, 
+             { value: "Stein-yngel", label: "Stein-yngel" }, 
+             { value: "Trakémidd", label: "Trakémidd" }, 
+             { value: "Vingedeformitetsvirus", label: "Vingedeformitetsvirus" }, 
+             { value: "Amerikansk yngelråte", label: "Amerikansk yngelråte" }, 
+             { value: "Europeisk yngelråte", label: "Europeisk yngelråte" }, 
+             { value: "Svertesopp", label: "Svertesopp" }, 
+             { value: "Ukjent sykdom", label: "Ukjent sykdom" },
+             { value: "Ingen sykdom observert", label: "Ingen sykdom observert" } 
            ] 
          } 
        ] 
@@ -124,10 +128,12 @@ export const BeekeeperSurvey: Survey = {
            type: "DROPDOWN", 
            required: true, 
            options: [ 
-             { value: "none", label: "Ingen systematisk registrering" }, 
-             { value: "paper", label: "Papir / notater" }, 
-             { value: "excel", label: "Excel / regneark" }, 
-             { value: "app", label: "Digital løsning / app" } 
+             { value: "Notatbok/papir", label: "Notatbok/papir" }, 
+             { value: "Excel eller egne lister", label: "Excel eller egne lister" }, 
+             { value: "Digital app", label: "Digital app" }, 
+             { value: "Egen metode", label: "Egen metode" },
+             { value: "Ingen systematisk registrering", label: "Ingen systematisk registrering" },
+             { value: "Annet", label: "Annet" } 
            ] 
          }, 
          { 
@@ -136,10 +142,11 @@ export const BeekeeperSurvey: Survey = {
            type: "DROPDOWN", 
            required: true, 
            options: [ 
-             { value: "0_15", label: "0–15 minutter" }, 
-             { value: "15_30", label: "15–30 minutter" }, 
-             { value: "30_60", label: "30–60 minutter" }, 
-             { value: "60_plus", label: "Over 1 time" } 
+             { value: "Mindre enn 15 minutter", label: "Mindre enn 15 minutter" }, 
+             { value: "15–30 minutter", label: "15–30 minutter" }, 
+             { value: "30–60 minutter", label: "30–60 minutter" }, 
+             { value: "1–2 timer", label: "1–2 timer" },
+             { value: "Mer enn 2 timer", label: "Mer enn 2 timer" } 
            ] 
          } 
        ] 
@@ -188,10 +195,9 @@ export const BeekeeperSurvey: Survey = {
            type: "SINGLE_CHOICE", 
            required: true, 
            options: [ 
-             { value: "yes", label: "Ja" }, 
-             { value: "yes_simple", label: "Ja, hvis det er enkelt å bruke" }, 
-             { value: "unsure", label: "Vet ikke" }, 
-             { value: "no", label: "Nei" } 
+             { value: "ja", label: "Ja" }, 
+             { value: "kanskje", label: "Kanskje" }, 
+             { value: "nei", label: "Nei" } 
            ] 
          } 
        ] 
@@ -208,10 +214,11 @@ export const BeekeeperSurvey: Survey = {
            type: "DROPDOWN", 
            required: true, 
            options: [ 
-             { value: "500", label: "Inntil 500 kr" }, 
-             { value: "1000", label: "Inntil 1000 kr" }, 
-             { value: "2000", label: "Inntil 2000 kr" }, 
-             { value: "3000", label: "Over 2000 kr" } 
+             { value: "Inntil 500 kr per år", label: "Inntil 500 kr per år" }, 
+             { value: "Inntil 1000 kr per år", label: "Inntil 1000 kr per år" }, 
+             { value: "Inntil 1500 kr per år", label: "Inntil 1500 kr per år" }, 
+             { value: "Avhengig av antall kuber", label: "Avhengig av antall kuber" },
+             { value: "Gratis", label: "Gratis" } 
            ] 
          } 
        ] 
@@ -247,9 +254,9 @@ export const BeekeeperSurvey: Survey = {
            type: "SINGLE_CHOICE", 
            required: true, 
            options: [ 
-             { value: "yes", label: "Ja" }, 
-             { value: "maybe", label: "Kanskje" }, 
-             { value: "no", label: "Nei" } 
+             { value: "ja", label: "Ja" }, 
+             { value: "kanskje", label: "Kanskje" }, 
+             { value: "nei", label: "Nei" } 
            ] 
          }, 
          { 
@@ -257,7 +264,7 @@ export const BeekeeperSurvey: Survey = {
            text: "E-post for invitasjon til pilot", 
            type: "EMAIL", 
            required: false, 
-           visible_if: [{ question_id: "pilot_interest", equals: ["yes", "maybe"] }] 
+           visible_if: [{ question_id: "pilot_interest", equals: ["ja", "kanskje"] }] 
          } 
        ] 
      } 
