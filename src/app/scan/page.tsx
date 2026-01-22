@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
@@ -10,30 +10,44 @@ export default function ScanPage() {
   const router = useRouter();
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const hasScannedRef = useRef(false);
 
   useEffect(() => {
     // Initialize scanner
-    const scanner = new Html5QrcodeScanner(
-      "reader",
-      { 
-        fps: 10, 
-        qrbox: { width: 250, height: 250 },
-        aspectRatio: 1.0
-      },
-      /* verbose= */ false
-    );
+    // Use Html5Qrcode directly to force environment camera and skip selection UI
+    const scanner = new Html5Qrcode("reader");
+    scannerRef.current = scanner;
+    hasScannedRef.current = false;
 
-    scanner.render(onScanSuccess, onScanFailure);
+    const config = { 
+      fps: 10, 
+      qrbox: { width: 250, height: 250 },
+      aspectRatio: 1.0
+    };
+
+    scanner.start(
+      { facingMode: "environment" }, 
+      config, 
+      onScanSuccess, 
+      onScanFailure
+    ).catch(err => {
+      console.error("Error starting scanner", err);
+      setError("Kunne ikke starte kamera. Sjekk at du har gitt tillatelse.");
+    });
 
     function onScanSuccess(decodedText: string, decodedResult: any) {
-      if (scanResult) return; // Prevent multiple scans
+      if (hasScannedRef.current) return; // Prevent multiple scans
+      hasScannedRef.current = true;
 
       // Handle the scanned code
       console.log(`Scan result: ${decodedText}`, decodedResult);
       setScanResult(decodedText);
       
       // Stop scanning
-      scanner.clear().catch(console.error);
+      if (scanner.isScanning) {
+        scanner.stop().catch(console.error);
+      }
 
       // Check if it's a valid internal URL
       if (decodedText.includes('/apiaries/') || decodedText.includes('/hives/')) {
@@ -67,9 +81,15 @@ export default function ScanPage() {
     }
 
     return () => {
-      scanner.clear().catch(error => {
-        console.error("Failed to clear html5-qrcode scanner. ", error);
-      });
+      if (scanner.isScanning) {
+        scanner.stop().then(() => {
+          scanner.clear();
+        }).catch(err => {
+          console.error("Failed to stop scanner during cleanup", err);
+        });
+      } else {
+        scanner.clear();
+      }
     };
   }, [router]);
 
