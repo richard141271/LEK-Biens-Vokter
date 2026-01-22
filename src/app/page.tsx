@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, Zap, ShieldCheck, CheckCircle, Heart, Users, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import InstallPrompt from "@/components/InstallPrompt";
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);
@@ -26,6 +27,7 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-6">
+            <InstallPrompt mode="inline" />
             <Link 
               href="/shop"
               className="text-gray-900 font-medium hover:text-orange-600 transition-colors"

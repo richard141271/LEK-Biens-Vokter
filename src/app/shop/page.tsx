@@ -7,6 +7,7 @@ import { createClient } from '@/utils/supabase/client';
 import { Product } from '@/types/shop';
 import { MOCK_PRODUCTS, PRODUCT_IMAGES } from '@/utils/shop-constants';
 import { useCart } from '@/context/CartContext';
+import InstallPrompt from '@/components/InstallPrompt';
 
 const CATEGORIES = ['Alle', 'Honning', 'Såpe', 'Bivoks', 'Tavlehonning', 'Gavepakker'];
 
@@ -66,6 +67,7 @@ export default function ShopPage() {
           </div>
           
           <div className="flex items-center gap-4">
+             <InstallPrompt mode="inline" />
              {/* Simple cart placeholder */}
              <button 
                 onClick={() => setIsOpen(true)}

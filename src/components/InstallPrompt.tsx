@@ -6,9 +6,10 @@ import { usePathname } from 'next/navigation';
 
 interface InstallPromptProps {
   embedded?: boolean;
+  mode?: 'floating' | 'inline';
 }
 
-export default function InstallPrompt({ embedded = false }: InstallPromptProps) {
+export default function InstallPrompt({ embedded = false, mode = 'floating' }: InstallPromptProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstructions, setShowInstructions] = useState(false);
   const [isInstallable, setIsInstallable] = useState(false);
@@ -17,6 +18,12 @@ export default function InstallPrompt({ embedded = false }: InstallPromptProps) 
   const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop' | 'unknown'>('unknown');
   
   const pathname = usePathname();
+
+  // Determine if we are on a page where the inline button is used
+  const isPublicHeaderPage = pathname === '/' || pathname === '/shop' || pathname === '/about' || pathname === '/lei-en-kube' || pathname?.startsWith('/info');
+  
+  // If this is a floating instance on a public page, don't render it (let the inline one handle it)
+  if (mode === 'floating' && isPublicHeaderPage) return null;
 
   useEffect(() => {
     // Check if running in browser
@@ -131,42 +138,58 @@ export default function InstallPrompt({ embedded = false }: InstallPromptProps) 
   }
 
   // Floating version (default)
-  const isPublicHeaderPage = pathname === '/' || pathname === '/shop' || pathname === '/about' || pathname === '/lei-en-kube' || pathname?.startsWith('/info');
-  const positionClass = isPublicHeaderPage ? 'top-24' : 'top-4';
+  const positionClass = (mode === 'floating' && isPublicHeaderPage) ? 'top-24' : 'top-4';
+
+  const Instructions = () => (
+    <div className={`fixed ${positionClass} right-4 z-[100] bg-white p-4 rounded-xl shadow-xl border border-gray-200 max-w-xs animate-in slide-in-from-right-5 print:hidden text-left`}>
+      <button 
+        onClick={() => setIsInstructionsOpen(false)} 
+        className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+      >
+        <X size={16} />
+      </button>
+      <h3 className="font-bold text-gray-900 mb-2">Slik installerer du appen</h3>
+      
+      {platform === 'ios' && (
+          <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
+            <li>Trykk på dele-knappen <Share className="inline w-4 h-4 mx-1 text-blue-500" /></li>
+            <li>Scroll ned og velg <strong>&quot;Legg til på Hjem-skjerm&quot;</strong></li>
+          </ol>
+      )}
+
+      {platform === 'android' && (
+          <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
+            <li>Trykk på menyen (tre prikker)</li>
+            <li>Velg <strong>&quot;Installer app&quot;</strong> eller <strong>&quot;Legg til på startskjerm&quot;</strong></li>
+          </ol>
+      )}
+
+      {platform === 'desktop' && (
+          <div className="text-sm text-gray-600 space-y-2">
+              <p><strong>Chrome/Edge:</strong> Klikk på installeringsikonet i adressefeltet (til høyre).</p>
+              <p><strong>Safari:</strong> Trykk på dele-knappen og velg &quot;Legg til i Dock&quot;.</p>
+          </div>
+      )}
+    </div>
+  );
+
+  if (mode === 'inline') {
+    return (
+      <>
+        <button
+          onClick={handleInstallClick}
+          className="bg-honey-500 hover:bg-honey-600 text-white font-bold py-2 px-4 rounded-full flex items-center gap-2 transition-colors text-sm shadow-sm"
+        >
+          <Download size={16} />
+          {deferredPrompt ? 'Installer' : 'Installer'}
+        </button>
+        {isInstructionsOpen && <Instructions />}
+      </>
+    );
+  }
 
   if (isInstructionsOpen) {
-      return (
-        <div className={`fixed ${positionClass} right-4 z-[100] bg-white p-4 rounded-xl shadow-xl border border-gray-200 max-w-xs animate-in slide-in-from-right-5 print:hidden`}>
-          <button 
-            onClick={() => setIsInstructionsOpen(false)} 
-            className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
-          >
-            <X size={16} />
-          </button>
-          <h3 className="font-bold text-gray-900 mb-2">Slik installerer du appen</h3>
-          
-          {platform === 'ios' && (
-              <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
-                <li>Trykk på dele-knappen <Share className="inline w-4 h-4 mx-1 text-blue-500" /></li>
-                <li>Scroll ned og velg <strong>&quot;Legg til på Hjem-skjerm&quot;</strong></li>
-              </ol>
-          )}
-
-          {platform === 'android' && (
-              <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
-                <li>Trykk på menyen (tre prikker)</li>
-                <li>Velg <strong>&quot;Installer app&quot;</strong> eller <strong>&quot;Legg til på startskjerm&quot;</strong></li>
-              </ol>
-          )}
-
-          {platform === 'desktop' && (
-              <ul className="text-sm text-gray-600 space-y-2 list-disc list-inside">
-                  <li><strong>Chrome/Edge:</strong> Klikk på installeringsikonet i adressefeltet (til høyre).</li>
-                  <li><strong>Safari:</strong> Trykk på dele-knappen og velg &quot;Legg til i Dock&quot;.</li>
-              </ul>
-          )}
-        </div>
-      );
+      return <Instructions />;
   }
 
   // Always show the button if not standalone (user requirement)
