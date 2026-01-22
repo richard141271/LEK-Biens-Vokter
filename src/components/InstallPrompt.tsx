@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Download, Share, X } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { usePWA } from '@/context/PWAContext';
 
 interface InstallPromptProps {
   embedded?: boolean;
@@ -10,71 +11,27 @@ interface InstallPromptProps {
 }
 
 export default function InstallPrompt({ embedded = false, mode = 'floating' }: InstallPromptProps) {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const { installApp, isInstallable, isStandalone, platform } = usePWA();
   const [showInstructions, setShowInstructions] = useState(false);
-  const [isInstallable, setIsInstallable] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
-  const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop' | 'unknown'>('unknown');
   
   const pathname = usePathname();
 
   // Determine if we are on a page where the inline button is used
   const isPublicHeaderPage = pathname === '/' || pathname === '/shop' || pathname === '/about' || pathname === '/lei-en-kube' || pathname?.startsWith('/info');
   
-  useEffect(() => {
-    // Check if running in browser
-    if (typeof window === 'undefined') return;
-
-    // Check if already in standalone mode
-    const standalone = window.matchMedia('(display-mode: standalone)').matches || 
-                         (window.navigator as any).standalone === true;
-    setIsStandalone(standalone);
-    
-    // Detect Platform
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    if (/iphone|ipad|ipod/.test(userAgent)) {
-        setPlatform('ios');
-    } else if (/android/.test(userAgent)) {
-        setPlatform('android');
-    } else {
-        setPlatform('desktop');
-    }
-
-    // Handle Android/Desktop Install Prompt
-    const handleBeforeInstallPrompt = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setIsInstallable(true);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
-  }, []);
-
   const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      setDeferredPrompt(null);
-      if (outcome === 'accepted') {
-        setIsInstallable(false);
-      }
+    if (isInstallable) {
+      await installApp();
     } else {
-        // If no prompt available (iOS or Desktop Safari/Chrome without event), show instructions
-        if (embedded) {
-            setShowInstructions(!showInstructions);
-        } else {
-            setIsInstructionsOpen(true);
-        }
+      // If no prompt available (iOS or Desktop Safari/Chrome without event), show instructions
+      if (embedded) {
+        setShowInstructions(!showInstructions);
+      } else {
+        setIsInstructionsOpen(true);
+      }
     }
   };
-
-  // If this is a floating instance on a public page, don't render it (let the inline one handle it)
-  if (mode === 'floating' && isPublicHeaderPage) return null;
 
   // If already installed, don't show anything
   if (isStandalone) return null;
@@ -129,7 +86,7 @@ export default function InstallPrompt({ embedded = false, mode = 'floating' }: I
               className="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm shadow-sm flex items-center justify-center gap-2"
             >
               <Download size={16} />
-              {deferredPrompt ? 'Installer LEK-Appen' : 'Slik installerer du appen'}
+              {isInstallable ? 'Installer LEK-Appen' : 'Slik installerer du appen'}
             </button>
           )}
         </div>
@@ -181,7 +138,7 @@ export default function InstallPrompt({ embedded = false, mode = 'floating' }: I
           className="bg-honey-500 hover:bg-honey-600 text-white font-bold py-2 px-4 rounded-full flex items-center gap-2 transition-colors text-sm shadow-sm"
         >
           <Download size={16} />
-          {deferredPrompt ? 'Installer' : 'Installer'}
+          {isInstallable ? 'Installer' : 'Installer'}
         </button>
         {isInstructionsOpen && <Instructions />}
       </>
@@ -199,7 +156,7 @@ export default function InstallPrompt({ embedded = false, mode = 'floating' }: I
         className={`fixed ${positionClass} right-4 z-[100] bg-honey-500 hover:bg-honey-600 text-white font-bold py-2 px-4 rounded-full shadow-lg flex items-center gap-2 text-sm transition-all hover:scale-105 active:scale-95 print:hidden`}
       >
         <Download size={16} />
-        {deferredPrompt ? 'Installer App' : 'Installer'}
+        {isInstallable ? 'Installer App' : 'Installer'}
       </button>
   );
 }

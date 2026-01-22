@@ -26,7 +26,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import MainLayout from "@/components/MainLayout";
 import { CartProvider } from "@/context/CartContext";
 import CartSidebar from "@/components/shop/CartSidebar";
-import InstallPrompt from "@/components/InstallPrompt";
+import { PWAProvider } from "@/context/PWAContext";
 
 export default function RootLayout({
   children,
@@ -40,25 +40,25 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon.png" />
       </head>
       <body className={`${inter.className} bg-gray-50`}>
-        <CartProvider>
-          <DesktopNav />
-          <CartSidebar />
-          
-          <MainLayout>
-            <Header />
-            {children}
-          </MainLayout>
-          
-          <div className="md:hidden print:hidden">
-            <BottomNav />
-          </div>
-          
-          <InstallPrompt />
-          
-          <footer className="py-4 text-center text-xs text-gray-400 pb-20 md:pl-64 print:hidden">
-            v0.1.0
-          </footer>
-        </CartProvider>
+        <PWAProvider>
+          <CartProvider>
+            <DesktopNav />
+            <CartSidebar />
+            
+            <MainLayout>
+              <Header />
+              {children}
+            </MainLayout>
+            
+            <div className="md:hidden print:hidden">
+              <BottomNav />
+            </div>
+            
+            <footer className="py-4 text-center text-xs text-gray-400 pb-20 md:pl-64 print:hidden">
+              v0.1.0
+            </footer>
+          </CartProvider>
+        </PWAProvider>
       </body>
     </html>
   );
