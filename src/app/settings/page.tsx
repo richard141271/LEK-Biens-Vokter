@@ -244,6 +244,72 @@ export default function SettingsPage() {
     setShowLabelModal(false);
   };
 
+  const generateHiveLabelsPDF = async (hives: any[]) => {
+    const doc = new jsPDF();
+    const cols = 3;
+    const rows = 8;
+    const labelWidth = 70;
+    const labelHeight = 37;
+    const startX = 0;
+    const startY = 0;
+
+    for (let i = 0; i < hives.length; i++) {
+        const hive = hives[i];
+        const indexOnPage = i % (cols * rows);
+        
+        if (i > 0 && indexOnPage === 0) {
+            doc.addPage();
+        }
+
+        const col = indexOnPage % cols;
+        const row = Math.floor(indexOnPage / cols);
+        
+        const x = startX + col * labelWidth;
+        const y = startY + row * labelHeight;
+        
+        // Border (same as honey label)
+        doc.setDrawColor(210, 180, 140);
+        doc.setLineWidth(0.2);
+        doc.rect(x + 1.5, y + 1.5, labelWidth - 3, labelHeight - 3);
+        
+        // QR Code generation
+        const qrUrl = `${window.location.origin}/hives/${hive.id}`;
+        const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 0, width: 200, errorCorrectionLevel: 'H' });
+        
+        // Add QR Image (Right side)
+        doc.addImage(qrDataUrl, 'PNG', x + labelWidth - 30, y + 4.5, 28, 28);
+        
+        // Text (Left side)
+        const textX = x + 4;
+        
+        // Header
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6);
+        doc.setTextColor(100, 100, 100);
+        doc.text("LEK-BIENS VOKTER", textX, y + 8);
+        
+        // Hive Number
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.setTextColor(0, 0, 0);
+        doc.text(hive.hive_number, textX, y + 16);
+        
+        // Hive Name
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.text(hive.name || '', textX, y + 20);
+
+        // Apiary Name (Red)
+        const apiaryName = hive.apiaries?.name || 'Ukjent Bigård';
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(220, 38, 38); // Red
+        doc.text(apiaryName, textX, y + 28);
+    }
+    
+    doc.save(`bikube_etiketter_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   const handlePrint = async (layout: 'cards' | 'list' | 'qr') => {
     setLoadingPrintData(true);
     setIsPrintModalOpen(false);
@@ -262,6 +328,13 @@ export default function SettingsPage() {
         
         if (error) throw error;
         setAllHives(hives || []);
+
+        // If QR layout, generate PDF directly and return
+        if (layout === 'qr') {
+          await generateHiveLabelsPDF(hives || []);
+          setLoadingPrintData(false);
+          return;
+        }
 
         const hiveIds = hives?.map(h => h.id) || [];
         let fetchedData: any = {};
@@ -288,7 +361,7 @@ export default function SettingsPage() {
         }
 
         // Generate QR codes
-        if (layout === 'qr' || layout === 'cards') {
+        if (layout === 'cards') {
             await Promise.all((hives || []).map(async (h) => {
                 try {
                     const qrUrl = `${window.location.origin}/hives/${h.id}`;
