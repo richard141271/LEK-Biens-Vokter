@@ -507,19 +507,24 @@ export function BeekeeperSurvey() {
               <label className="block text-sm font-medium text-gray-800 mb-2">
                 Ville du brukt et system for tidlig varsling av smitte?
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {["ja", "kanskje", "nei"].map((value) => (
+              <div className="grid grid-cols-1 gap-3">
+                {[
+                  { value: "ja", label: "Ja" },
+                  { value: "ja_enkelt", label: "Ja, hvis det er enkelt å bruke" },
+                  { value: "kanskje", label: "Kanskje" },
+                  { value: "nei", label: "Nei" }
+                ].map((option) => (
                   <button
-                    key={value}
+                    key={option.value}
                     type="button"
-                    onClick={() => updateField("wouldUseSystemChoice", value)}
+                    onClick={() => updateField("wouldUseSystemChoice", option.value)}
                     className={`px-4 py-3 rounded-xl text-sm font-medium border ${
-                      form.wouldUseSystemChoice === value
+                      form.wouldUseSystemChoice === option.value
                         ? "border-honey-500 bg-honey-50 text-honey-700"
                         : "border-gray-200 bg-white text-gray-700"
                     }`}
                   >
-                    {value === "ja" ? "Ja" : value === "kanskje" ? "Kanskje" : "Nei"}
+                    {option.label}
                   </button>
                 ))}
               </div>

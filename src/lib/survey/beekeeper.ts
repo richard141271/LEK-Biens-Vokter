@@ -195,10 +195,11 @@ export const BeekeeperSurvey: Survey = {
            type: "SINGLE_CHOICE", 
            required: true, 
            options: [ 
-             { value: "ja", label: "Ja" }, 
-             { value: "kanskje", label: "Kanskje" }, 
-             { value: "nei", label: "Nei" } 
-           ] 
+            { value: "ja", label: "Ja" }, 
+            { value: "ja_enkelt", label: "Ja, hvis det er enkelt å bruke" },
+            { value: "kanskje", label: "Kanskje" }, 
+            { value: "nei", label: "Nei" } 
+          ] 
          } 
        ] 
      }, 
