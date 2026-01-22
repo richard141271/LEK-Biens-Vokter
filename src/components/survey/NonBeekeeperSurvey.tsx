@@ -201,9 +201,10 @@ export function NonBeekeeperSurvey() {
                 <p className="block text-sm font-medium text-gray-800 mb-2">
                   Hvis du kunne leie en bikube og ha den i din egen hage, der en erfaren birøkter tar seg av alt stell – ville du vurdert dette?
                 </p>
-                <div className="flex gap-3">
+                <div className="grid grid-cols-1 gap-3">
                   {[
                     { label: "Ja", value: "ja" },
+                    { label: "Ja, hvis jeg får hjelp til birøkten", value: "ja_hjelp" },
                     { label: "Kanskje", value: "kanskje" },
                     { label: "Nei", value: "nei" },
                   ].map((option) => (
@@ -211,10 +212,10 @@ export function NonBeekeeperSurvey() {
                       key={option.value}
                       type="button"
                       onClick={() => updateField("rentalInterest", option.value)}
-                      className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium border ${
+                      className={`px-4 py-3 rounded-xl text-left text-sm font-medium border transition-all ${
                         form.rentalInterest === option.value
-                          ? "border-honey-500 bg-honey-50 text-honey-700"
-                          : "border-gray-200 bg-white text-gray-700"
+                          ? "border-honey-500 bg-honey-50 text-honey-700 shadow-sm"
+                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
                       }`}
                     >
                       {option.label}
