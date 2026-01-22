@@ -5,7 +5,8 @@ import { createClient } from '@/utils/supabase/client';
 import { BeekeeperSurvey } from '@/lib/survey/beekeeper';
 import { NonBeekeeperSurvey } from '@/lib/survey/non-beekeeper';
 import { Survey, Question } from '@/lib/survey/types';
-import { Printer } from 'lucide-react';
+import { Printer, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
 interface Submission {
   id: string;
@@ -199,6 +200,16 @@ export default function DynamicSurveyResultsPage() {
       `}</style>
 
       <div className="max-w-4xl mx-auto">
+        <div className="mb-6 no-print">
+          <Link 
+            href="/dashboard/admin" 
+            className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Tilbake til Admin
+          </Link>
+        </div>
+
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900">{survey.title}</h1>
           <div className="flex gap-4 no-print">

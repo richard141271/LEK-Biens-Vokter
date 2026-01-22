@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, Mail, Calendar, Trash2, CheckSquare, Square, Copy, Send, Bug, Users } from 'lucide-react';
+import { Loader2, Mail, Calendar, Trash2, CheckSquare, Square, Copy, Send, Bug, Users, ArrowLeft } from 'lucide-react';
 
 type PilotInterest = {
   id: string;
@@ -235,6 +235,16 @@ export default function PilotInterestPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6">
+        <div className="mb-6">
+          <Link 
+            href="/dashboard/admin" 
+            className="flex items-center text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Tilbake til Admin
+          </Link>
+        </div>
+
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Pilot-interesser</h1>
