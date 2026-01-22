@@ -109,7 +109,7 @@ export default function AdminUsersPage() {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Er du sikker på at du vil slette denne brukeren? Dette kan ikke angres.')) return;
+    if (!confirm('Er du sikker på at du vil deaktivere denne brukeren? Brukeren vil miste tilgang, men data beholdes.')) return;
 
     try {
         setUpdatingId(userId);
@@ -118,15 +118,15 @@ export default function AdminUsersPage() {
         const result = await deleteUser(userId);
         
         if (result.error) {
-            setMessage({ text: 'Feil ved sletting: ' + result.error, type: 'error' });
+            setMessage({ text: 'Feil ved deaktivering: ' + result.error, type: 'error' });
         } else {
-            setMessage({ text: 'Bruker slettet', type: 'success' });
+            setMessage({ text: 'Bruker deaktivert', type: 'success' });
             setUsers(users.filter(u => u.id !== userId));
             setFilteredUsers(filteredUsers.filter(u => u.id !== userId));
         }
     } catch (e: any) {
         console.error(e);
-        setMessage({ text: 'Noe gikk galt under sletting: ' + e.message, type: 'error' });
+        setMessage({ text: 'Noe gikk galt under deaktivering: ' + e.message, type: 'error' });
     } finally {
         setUpdatingId(null);
     }
@@ -245,7 +245,7 @@ export default function AdminUsersPage() {
                             onClick={() => handleDeleteUser(user.id)}
                             disabled={updatingId === user.id}
                             className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                            title="Slett bruker"
+                            title="Deaktiver bruker"
                         >
                             <Trash2 className="w-4 h-4" />
                         </button>
@@ -336,15 +336,15 @@ export default function AdminUsersPage() {
               <div className="flex justify-end pt-2">
                  <button 
                     onClick={() => {
-                        if (confirm('Er du sikker på at du vil slette denne brukeren?')) {
+                        if (confirm('Er du sikker på at du vil deaktivere denne brukeren?')) {
                             handleDeleteUser(selectedUser.id);
                             setSelectedUser(null);
                         }
                     }}
                     className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium text-sm"
-                >
+                  >
                     <Trash2 className="w-4 h-4" />
-                    Slett bruker
+                    Deaktiver bruker
                 </button>
               </div>
             </div>
