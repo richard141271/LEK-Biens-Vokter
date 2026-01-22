@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { BeekeeperSurvey } from '@/lib/survey/beekeeper';
+import { NonBeekeeperSurvey } from '@/lib/survey/non-beekeeper';
 import { Survey, Question } from '@/lib/survey/types';
 
 interface Submission {
@@ -14,11 +15,14 @@ interface Submission {
 export default function DynamicSurveyResultsPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSurveyType, setSelectedSurveyType] = useState<"BEEKEEPER" | "NON_BEEKEEPER">("BEEKEEPER");
+  
   const supabase = createClient();
-  const survey = BeekeeperSurvey; // In a multi-survey system, we'd select this
+  const survey = selectedSurveyType === "BEEKEEPER" ? BeekeeperSurvey : NonBeekeeperSurvey;
 
   useEffect(() => {
     const fetchSubmissions = async () => {
+      setLoading(true);
       const { data, error } = await supabase
         .from('survey_submissions')
         .select('*')
@@ -33,7 +37,7 @@ export default function DynamicSurveyResultsPage() {
     fetchSubmissions();
   }, [survey.id]);
 
-  if (loading) return <div className="p-8">Laster resultater...</div>;
+  if (loading && !submissions.length) return <div className="p-8">Laster resultater...</div>;
 
   const renderQuestionStats = (question: Question) => {
     // Skip text/email fields for stats view
@@ -90,7 +94,31 @@ export default function DynamicSurveyResultsPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">{survey.title}</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-gray-900">{survey.title}</h1>
+          <div className="flex bg-white rounded-lg p-1 border border-gray-200">
+            <button
+              onClick={() => setSelectedSurveyType("BEEKEEPER")}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                selectedSurveyType === "BEEKEEPER"
+                  ? "bg-honey-100 text-honey-700"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Birøktere
+            </button>
+            <button
+              onClick={() => setSelectedSurveyType("NON_BEEKEEPER")}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                selectedSurveyType === "NON_BEEKEEPER"
+                  ? "bg-honey-100 text-honey-700"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Ikke-birøktere
+            </button>
+          </div>
+        </div>
         <p className="text-gray-500 mb-8">Versjon {survey.version} • {submissions.length} svar</p>
 
         {survey.sections.map((section) => (

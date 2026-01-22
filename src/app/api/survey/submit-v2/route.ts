@@ -37,16 +37,17 @@ export async function POST(request: Request) {
 
     // 2. Handle Pilot Interest (Rule #5)
     // We look for known pilot question IDs. In a fully dynamic system, we'd use tags/metadata.
-    const pilotInterest = answers['bk_pilot_interest'];
-    const pilotEmail = answers['bk_pilot_email'];
+    // Supports both Beekeeper (bk_) and Non-Beekeeper (nb_) prefixes.
+    const pilotInterest = answers['bk_pilot_interest'] || answers['nb_pilot_interest'];
+    const pilotEmail = answers['bk_pilot_email'] || answers['nb_pilot_email'];
 
-    if (pilotEmail && (pilotInterest === 'yes' || pilotInterest === 'maybe')) {
+    if (pilotEmail && (pilotInterest === 'yes' || pilotInterest === 'maybe' || pilotInterest === 'ja' || pilotInterest === 'kanskje')) {
       const { error: pilotError } = await supabase
         .from('pilot_interest')
         .insert({
           email: pilotEmail,
           interested: true,
-          status: pilotInterest === 'yes' ? 'Interessert' : 'Kanskje',
+          status: (pilotInterest === 'yes' || pilotInterest === 'ja') ? 'Interessert' : 'Kanskje',
           source: surveyId
         });
 

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { BeekeeperSurvey as BeekeeperSchema } from "@/lib/survey/beekeeper";
+import { NonBeekeeperSurvey as NonBeekeeperSchema } from "@/lib/survey/non-beekeeper";
 import { DynamicSurvey } from "@/components/survey/DynamicSurvey";
-import { NonBeekeeperSurvey } from "@/components/survey/NonBeekeeperSurvey";
 
 export default function SurveyFormPage() {
   const [isBeekeeper, setIsBeekeeper] = useState<boolean | null>(null);
@@ -46,9 +46,9 @@ export default function SurveyFormPage() {
     );
   }
 
-  return isBeekeeper ? (
-    <DynamicSurvey survey={BeekeeperSchema} />
-  ) : (
-    <NonBeekeeperSurvey />
+  return (
+    <DynamicSurvey 
+      survey={isBeekeeper ? BeekeeperSchema : NonBeekeeperSchema} 
+    />
   );
 }
