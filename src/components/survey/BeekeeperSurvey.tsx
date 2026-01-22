@@ -624,7 +624,7 @@ export function BeekeeperSurvey() {
                 Seksjon 8 – Pilotprogram
               </h2>
               <p className="text-sm text-gray-600">
-                Her kan du melde interesse for å teste LEK-Honning™️ 2.0 før
+                Her kan du melde interesse for å teste LEK-Biens Vokter™️ før
                 lansering.
               </p>
             </div>
@@ -632,7 +632,7 @@ export function BeekeeperSurvey() {
             <div className="space-y-4">
               <div>
                 <p className="block text-sm font-medium text-gray-800 mb-2">
-                  Ønsker du å få mulighet til å teste LEK-Honning™️ 2.0 før
+                  Ønsker du å få mulighet til å teste LEK-Biens Vokter™️ før
                   lansering?
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
