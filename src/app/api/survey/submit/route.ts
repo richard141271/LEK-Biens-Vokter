@@ -38,7 +38,7 @@ type Body = {
   rentalInterest?: 'ja' | 'nei' | 'vet_ikke' | 'kanskje' | '';
   rentalPrice?: string | null;
   pollinatorImportance?: 'ja' | 'nei' | 'vet_ikke' | '';
-  digitalToolInterest?: 'ja' | 'nei' | 'vet_ikke' | '';
+  digitalToolInterest?: string | null;
   diseaseAwareness?: 'ja' | 'nei' | 'usikker' | '';
   knowledgeAboutBeekeeping?: string | null;
   consideredStartingBeekeeping?: string | null;

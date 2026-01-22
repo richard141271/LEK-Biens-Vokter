@@ -63,7 +63,7 @@ export function NonBeekeeperSurvey() {
     pollinatorImportance: "" as "ja" | "nei" | "vet_ikke" | "",
     county: "",
     
-    digitalToolInterest: "" as "ja" | "nei" | "vet_ikke" | "",
+    digitalToolInterest: "" as string,
     diseaseAwareness: "" as "ja" | "nei" | "usikker" | "",
     diseaseTypes: [] as string[],
     
@@ -309,23 +309,19 @@ export function NonBeekeeperSurvey() {
                 <p className="block text-sm font-medium text-gray-800 mb-2">
                   Hvis det fantes et digitalt verktøy som gjorde birøktere i stand til å oppdage smitte tidlig – synes du de burde bruke dette?
                 </p>
-                <div className="flex gap-3">
-                  {[
-                    { label: "Ja", value: "ja" },
-                    { label: "Nei", value: "nei" },
-                    { label: "Vet ikke", value: "vet_ikke" },
-                  ].map((option) => (
+                <div className="grid grid-cols-1 gap-3">
+                  {["Ja", "Ja, hvis det er enkelt å bruke", "Usikker", "Nei"].map((option) => (
                     <button
-                      key={option.value}
+                      key={option}
                       type="button"
-                      onClick={() => updateField("digitalToolInterest", option.value)}
-                      className={`flex-1 px-4 py-3 rounded-xl text-sm font-medium border ${
-                        form.digitalToolInterest === option.value
-                          ? "border-honey-500 bg-honey-50 text-honey-700"
-                          : "border-gray-200 bg-white text-gray-700"
+                      onClick={() => updateField("digitalToolInterest", option)}
+                      className={`px-4 py-3 rounded-xl text-left text-sm font-medium border transition-all ${
+                        form.digitalToolInterest === option
+                          ? "border-honey-500 bg-honey-50 text-honey-700 shadow-sm"
+                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
                       }`}
                     >
-                      {option.label}
+                      {option}
                     </button>
                   ))}
                 </div>

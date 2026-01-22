@@ -183,7 +183,7 @@ export default function SurveyResultsAdminPage() {
     const eatsHoney = { yes: 0, no: 0, unsure: 0 };
     const rentalInterest = { yes: 0, no: 0, unsure: 0, maybe: 0 };
     const pollinatorImportance = { yes: 0, no: 0, unsure: 0 };
-    const digitalToolInterest = { yes: 0, no: 0, unsure: 0 };
+    const digitalToolInterest = { yes: 0, yesIfEasy: 0, unsure: 0, no: 0 };
 
     validResponses.forEach((r) => {
       // Pilot Interest Calculation
@@ -210,9 +210,9 @@ export default function SurveyResultsAdminPage() {
 
         const usage = (r.would_use_system_choice || '').toLowerCase();
         if (usage === 'ja') wouldUse.yes++;
-        else if (usage.includes('enkelt') || usage === 'kanskje') wouldUse.yesIfEasy++; // Handle both old 'kanskje' and new 'enkelt'
-        else if (usage === 'usikker' || usage === 'vet ikke') wouldUse.unsure++;
+        else if (usage.includes('kanskje')) wouldUse.yesIfEasy++;
         else if (usage === 'nei') wouldUse.no++;
+        else if (usage === 'vet ikke') wouldUse.unsure++;
 
       } else {
         // Non-beekeeper
@@ -235,7 +235,8 @@ export default function SurveyResultsAdminPage() {
         const dig = (r.digital_tool_interest || '').toLowerCase();
         if (dig === 'ja') digitalToolInterest.yes++;
         else if (dig === 'nei') digitalToolInterest.no++;
-        else if (dig.includes('vet')) digitalToolInterest.unsure++;
+        else if (dig.includes('enkelt')) digitalToolInterest.yesIfEasy++;
+        else if (dig === 'usikker' || dig.includes('vet')) digitalToolInterest.unsure++;
       }
     });
 
@@ -574,8 +575,9 @@ export default function SurveyResultsAdminPage() {
 
         drawBarChart("Interesse for digitalt verktøy", [
             { label: "Ja", value: stats.digitalToolInterest.yes, total: stats.total },
+            { label: "Ja, hvis enkelt", value: stats.digitalToolInterest.yesIfEasy, total: stats.total },
             { label: "Nei", value: stats.digitalToolInterest.no, total: stats.total },
-            { label: "Vet ikke", value: stats.digitalToolInterest.unsure, total: stats.total },
+            { label: "Usikker", value: stats.digitalToolInterest.unsure, total: stats.total },
         ]);
     }
 
@@ -920,6 +922,32 @@ export default function SurveyResultsAdminPage() {
                     { label: 'Vet ikke', value: stats.pollinatorImportance.unsure, color: 'bg-yellow-500' },
                   ].map((item) => {
                      const total = stats.pollinatorImportance.yes + stats.pollinatorImportance.no + stats.pollinatorImportance.unsure;
+                     const percent = total ? Math.round((item.value / total) * 100) : 0;
+                     return (
+                      <div key={item.label}>
+                        <div className="flex justify-between mb-1 text-sm">
+                          <span>{item.label}</span>
+                          <span className="text-gray-500">{item.value} ({percent}%)</span>
+                        </div>
+                        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full ${item.color}`} style={{ width: `${percent}%` }} />
+                        </div>
+                      </div>
+                     );
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-white p-5 rounded-xl border border-gray-200">
+                <h2 className="text-sm font-bold text-gray-900 mb-4">Interesse for digitalt verktøy</h2>
+                 <div className="space-y-3">
+                  {[
+                    { label: 'Ja', value: stats.digitalToolInterest.yes, color: 'bg-honey-500' },
+                    { label: 'Ja, hvis enkelt', value: stats.digitalToolInterest.yesIfEasy, color: 'bg-green-500' },
+                    { label: 'Usikker', value: stats.digitalToolInterest.unsure, color: 'bg-yellow-500' },
+                    { label: 'Nei', value: stats.digitalToolInterest.no, color: 'bg-red-500' },
+                  ].map((item) => {
+                     const total = stats.digitalToolInterest.yes + stats.digitalToolInterest.yesIfEasy + stats.digitalToolInterest.unsure + stats.digitalToolInterest.no;
                      const percent = total ? Math.round((item.value / total) * 100) : 0;
                      return (
                       <div key={item.label}>
