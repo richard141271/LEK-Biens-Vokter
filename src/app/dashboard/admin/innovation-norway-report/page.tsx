@@ -19,8 +19,8 @@ const ScoreCard = ({ title, value, subtext, icon: Icon, color }: any) => (
     <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity`}>
       <Icon size={80} className={`text-${color}-500`} />
     </div>
-    <div className="relative z-10">
-      <h3 className="text-gray-500 font-medium text-sm uppercase tracking-wider mb-1">{title}</h3>
+    <div className="relative z-10 max-w-[80%]">
+      <h3 className="text-gray-500 font-medium text-xs uppercase tracking-wider mb-1 break-words">{title}</h3>
       <div className="text-4xl font-bold text-gray-900 mb-2">{value}</div>
       <p className={`text-sm text-${color}-600 font-medium flex items-center gap-1`}>
         {subtext}
