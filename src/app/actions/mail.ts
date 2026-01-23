@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { getMailService } from '@/services/mail';
 
 export async function getMyMessages() {
   const supabase = createClient();
@@ -20,15 +21,9 @@ export async function getMyMessages() {
     return { error: 'E-post er ikke aktivert' };
   }
 
-  const { data: messages, error } = await supabase
-    .from('mail_messages')
-    .select('*')
-    .eq('to_alias', profile.email_alias)
-    .order('created_at', { ascending: false });
-
-  if (error) return { error: error.message };
-
-  return { data: messages };
+  // Use MailService instead of direct DB access
+  const mailService = getMailService();
+  return await mailService.getInbox(profile.email_alias);
 }
 
 export async function sendMessage(to: string, subject: string, body: string) {
@@ -48,31 +43,22 @@ export async function sendMessage(to: string, subject: string, body: string) {
     return { error: 'E-post er ikke aktivert' };
   }
 
-  const { error } = await supabase
-    .from('mail_messages')
-    .insert({
-      to_alias: to,
-      from_alias: profile.email_alias,
-      subject: subject,
-      body: body,
-      user_id: user.id
-    });
+  // Use MailService instead of direct DB access
+  const mailService = getMailService();
+  const result = await mailService.sendMail(profile.email_alias, to, subject, body, user.id);
 
-  if (error) return { error: error.message };
+  if (result.error) return { error: result.error };
 
   revalidatePath('/dashboard/mail');
   return { success: true };
 }
 
 export async function markAsRead(messageId: string) {
-    const supabase = createClient();
+    // Use MailService instead of direct DB access
+    const mailService = getMailService();
+    const result = await mailService.markAsRead(messageId);
     
-    const { error } = await supabase
-        .from('mail_messages')
-        .update({ read: true })
-        .eq('id', messageId);
-
-    if (error) return { error: error.message };
+    if (result.error) return { error: result.error };
     
     revalidatePath('/dashboard/mail');
     return { success: true };
