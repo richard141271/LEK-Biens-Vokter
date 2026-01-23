@@ -68,13 +68,20 @@ export async function markAsRead(messageId: string) {
 
 // Admin / Advanced Features
 
+// Helper to check admin role securely bypassing RLS
+async function getRequesterRole(userId: string) {
+    const adminClient = createAdminClient();
+    const { data } = await adminClient.from('profiles').select('role').eq('id', userId).single();
+    return data?.role;
+}
+
 export async function getAdminUserProfile(userId: string) {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Ikke logget inn' };
 
-    const { data: requesterProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    if (requesterProfile?.role !== 'admin' && requesterProfile?.role !== 'superadmin') {
+    const role = await getRequesterRole(user.id);
+    if (role !== 'admin' && role !== 'superadmin') {
         return { error: 'Ingen tilgang' };
     }
 
@@ -91,9 +98,8 @@ export async function getUserFolders(userId: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Ikke logget inn' };
     
-    // Simple admin check (should be more robust in real app)
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    const isAdmin = profile?.role === 'admin' || profile?.role === 'superadmin';
+    const role = await getRequesterRole(user.id);
+    const isAdmin = role === 'admin' || role === 'superadmin';
     
     if (user.id !== userId && !isAdmin) {
         return { error: 'Ingen tilgang' };
@@ -109,8 +115,8 @@ export async function createUserFolder(userId: string, name: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Ikke logget inn' };
 
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    const isAdmin = profile?.role === 'admin' || profile?.role === 'superadmin';
+    const role = await getRequesterRole(user.id);
+    const isAdmin = role === 'admin' || role === 'superadmin';
 
     if (user.id !== userId && !isAdmin) {
         return { error: 'Ingen tilgang' };
@@ -132,8 +138,8 @@ export async function deleteUserFolder(userId: string, folderId: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Ikke logget inn' };
 
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    const isAdmin = profile?.role === 'admin' || profile?.role === 'superadmin';
+    const role = await getRequesterRole(user.id);
+    const isAdmin = role === 'admin' || role === 'superadmin';
 
     if (user.id !== userId && !isAdmin) {
         return { error: 'Ingen tilgang' };
@@ -155,8 +161,8 @@ export async function getUserSignature(userId: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Ikke logget inn' };
 
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    const isAdmin = profile?.role === 'admin' || profile?.role === 'superadmin';
+    const role = await getRequesterRole(user.id);
+    const isAdmin = role === 'admin' || role === 'superadmin';
 
     if (user.id !== userId && !isAdmin) {
         return { error: 'Ingen tilgang' };
@@ -172,8 +178,8 @@ export async function updateUserSignature(userId: string, signature: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Ikke logget inn' };
 
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    const isAdmin = profile?.role === 'admin' || profile?.role === 'superadmin';
+    const role = await getRequesterRole(user.id);
+    const isAdmin = role === 'admin' || role === 'superadmin';
 
     if (user.id !== userId && !isAdmin) {
         return { error: 'Ingen tilgang' };
@@ -195,8 +201,8 @@ export async function getAdminUserInbox(userId: string, folder: string = 'inbox'
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Ikke logget inn' };
 
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-    const isAdmin = profile?.role === 'admin' || profile?.role === 'superadmin';
+    const role = await getRequesterRole(user.id);
+    const isAdmin = role === 'admin' || role === 'superadmin';
 
     if (!isAdmin) {
         return { error: 'Ingen tilgang' };
