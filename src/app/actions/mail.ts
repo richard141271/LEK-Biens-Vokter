@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { getMailService } from '@/services/mail';
 
-export async function getMyMessages() {
+export async function getMyMessages(folder: string = 'inbox') {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -23,7 +23,7 @@ export async function getMyMessages() {
 
   // Use MailService instead of direct DB access
   const mailService = getMailService();
-  return await mailService.getInbox(profile.email_alias);
+  return await mailService.getInbox(profile.email_alias, folder);
 }
 
 export async function sendMessage(to: string, subject: string, body: string) {
