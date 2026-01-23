@@ -28,7 +28,8 @@ import {
   createUserFolder, 
   deleteUserFolder, 
   getUserSignature, 
-  updateUserSignature 
+  updateUserSignature,
+  getAdminUserProfile
 } from '@/app/actions/mail';
 import { MailFolder, MailMessage } from '@/services/mail/types';
 
@@ -61,16 +62,10 @@ export default function AdminUserEmailPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const supabase = createClient();
+      // Fetch user profile using server action to bypass RLS if needed
+      const { data: profile, error: profileError } = await getAdminUserProfile(userId);
       
-      // Fetch user profile
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      if (profileError) throw new Error('Kunne ikke hente brukerprofil');
+      if (profileError || !profile) throw new Error('Kunne ikke hente brukerprofil: ' + (profileError || 'Fant ikke bruker'));
       setUserProfile(profile);
 
       // Fetch initial data based on tab (or all)

@@ -1,12 +1,17 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { MailService, MailMessage, MailFolder } from './types';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export class MockMailService implements MailService {
+    private supabase: SupabaseClient;
+
+    constructor(client?: SupabaseClient) {
+        this.supabase = client || createClient();
+    }
+
     async getInbox(emailAlias: string, folder: string = 'inbox'): Promise<{ data?: MailMessage[]; error?: string }> {
-        const supabase = createClient();
-        
-        let query = supabase
+        let query = this.supabase
             .from('mail_messages')
             .select('*')
             .order('created_at', { ascending: false });
@@ -37,9 +42,7 @@ export class MockMailService implements MailService {
     }
 
     async sendMail(fromAlias: string, toAlias: string, subject: string, body: string, userId: string): Promise<{ success?: boolean; error?: string }> {
-        const supabase = createClient();
-
-        const { error } = await supabase
+        const { error } = await this.supabase
             .from('mail_messages')
             .insert({
                 to_alias: toAlias,
@@ -55,9 +58,7 @@ export class MockMailService implements MailService {
     }
 
     async markAsRead(messageId: string): Promise<{ success?: boolean; error?: string }> {
-        const supabase = createClient();
-
-        const { error } = await supabase
+        const { error } = await this.supabase
             .from('mail_messages')
             .update({ read: true })
             .eq('id', messageId);
@@ -68,8 +69,7 @@ export class MockMailService implements MailService {
 
     // Folder Management
     async getFolders(userId: string): Promise<{ data?: MailFolder[]; error?: string }> {
-        const supabase = createClient();
-        const { data, error } = await supabase
+        const { data, error } = await this.supabase
             .from('mail_folders')
             .select('*')
             .eq('user_id', userId)
@@ -124,8 +124,7 @@ export class MockMailService implements MailService {
     }
 
     async updateSignature(userId: string, signature: string): Promise<{ success?: boolean; error?: string }> {
-        const supabase = createClient();
-        const { error } = await supabase
+        const { error } = await this.supabase
             .from('profiles')
             .update({ email_signature: signature })
             .eq('id', userId);
