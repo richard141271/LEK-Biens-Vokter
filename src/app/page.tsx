@@ -56,27 +56,20 @@ export default function Home() {
       {/* Hero Section */}
       <section className="bg-gradient-to-b from-honey-100 to-white pt-32 pb-20 px-4 text-center">
         <div className="max-w-4xl mx-auto">
-          <span className="inline-block py-1 px-3 rounded-full bg-honey-100 text-honey-700 text-sm font-bold mb-4">
-            Behovsanalyse
-          </span>
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
-            LEK-Biens Vokter™️ 2.0 <br/>
-            <span className="text-orange-600">Nasjonalt smittevernverktøy for birøkt</span>
+          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+            Bier, Honning og Teknologi <br/>
+            <span className="text-orange-600">- for Alle</span>
           </h1>
-          <p className="text-xl text-gray-700 mb-6 max-w-2xl mx-auto leading-relaxed">
-            Hjelp oss å stoppe bisykdommer før de sprer seg.
-          </p>
-          <p className="text-sm text-gray-500 mb-12 max-w-xl mx-auto">
-            Vi utvikler neste generasjon digitale verktøy for smittevern i norsk
-            birøkt. Dine erfaringer og innspill er avgjørende for at løsningen
-            skal treffe hverdagen til ekte birøktere.
+          <p className="text-xl text-gray-700 mb-12 max-w-2xl mx-auto leading-relaxed">
+            Enten du vil leie din egen bikube, drive profesjonelt birøkt, 
+            eller jobber med mattrygghet - vi har løsningen for deg.
           </p>
         </div>
       </section>
 
-      {/* Segmentation Section - The 2 Cards */}
+      {/* Segmentation Section - The 3 Cards */}
       <section className="pb-24 px-4 -mt-10">
-        <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-8">
+        <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-8">
           
           {/* Card 1: Leietaker */}
           <div className="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 group">
@@ -112,17 +105,47 @@ export default function Home() {
             <div className="p-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-3">Er du birøkter?</h2>
               <p className="text-gray-600 mb-6 min-h-[80px]">
-                Delta i behovsanalysen og vær med å forme fremtidens smittevernverktøy.
-                Dine innspill er viktige for oss.
+                Effektiviser driften med stemmestyrt inspeksjon og AI-innsikt. 
+                Full kontroll over bigårdene dine, rett fra lomma.
               </p>
               <div className="flex gap-3">
                 <Link 
-                  href="/survey/form"
-                  className="w-full block text-center bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-xl transition-colors"
+                  href="/signin"
+                  className="flex-1 text-center bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-xl transition-colors"
                 >
-                  Delta i undersøkelsen
+                  Logg inn
+                </Link>
+                <Link 
+                  href="/register"
+                  className="flex-1 text-center bg-white border-2 border-orange-500 text-orange-600 hover:bg-orange-50 font-bold py-3 px-4 rounded-xl transition-colors"
+                >
+                  Registrer
                 </Link>
               </div>
+            </div>
+          </div>
+
+          {/* Card 3: Mattilsynet */}
+          <div className="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 group">
+            <div className="h-48 bg-white flex items-center justify-center relative overflow-hidden p-8">
+                <img 
+                  src="/BILDER/446d4ea1-a638-458b-97f1-109a7177d3da.png" 
+                  alt="Mattilsynet Logo" 
+                  className="w-full h-full object-contain relative z-10"
+                />
+            </div>
+            <div className="p-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">Mattilsynet</h2>
+              <p className="text-gray-600 mb-6 min-h-[80px]">
+                Sanntidsovervåkning av sykdom og bikubehelse. 
+                Effektivt verktøy for forvaltning og smittesporing.
+              </p>
+              <Link 
+                href="/mattilsynet"
+                className="w-full block text-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors"
+              >
+                Gå til Mattilsynet-portalen
+              </Link>
             </div>
           </div>
 
