@@ -11,10 +11,11 @@ import {
   X,
   Loader2,
   ArrowLeft,
-  Trash2
+  Trash2,
+  Mail
 } from 'lucide-react';
 import Link from 'next/link';
-import { deleteUser, updateUserRole as updateUserRoleAction, getUsers } from '@/app/actions/user-management';
+import { deleteUser, updateUserRole as updateUserRoleAction, getUsers, assignEmail, toggleEmailAccess } from '@/app/actions/user-management';
 
 export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
@@ -25,6 +26,13 @@ export default function AdminUsersPage() {
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [userStats, setUserStats] = useState<{ apiaries: number, hives: number } | null>(null);
+
+  // Email Modal State
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailUser, setEmailUser] = useState<any | null>(null);
+  const [emailAliasInput, setEmailAliasInput] = useState('');
+  const [emailDomainInput, setEmailDomainInput] = useState('kias.no');
+  const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);
 
   const supabase = createClient();
 
@@ -143,6 +151,68 @@ export default function AdminUsersPage() {
     }
   };
 
+  // Email Functions
+  const openEmailModal = (user: any) => {
+    setEmailUser(user);
+    if (user.email_alias) {
+        const [alias, domain] = user.email_alias.split('@');
+        setEmailAliasInput(alias);
+        setEmailDomainInput(domain || 'kias.no');
+    } else {
+        // Suggest alias
+        const nameParts = (user.full_name || '').toLowerCase().split(' ');
+        const suggested = nameParts.length > 1 
+            ? `${nameParts[0]}.${nameParts[nameParts.length - 1]}`
+            : (nameParts[0] || 'bruker');
+        setEmailAliasInput(suggested.replace(/[^a-z0-9.]/g, ''));
+        setEmailDomainInput('kias.no');
+    }
+    setEmailModalOpen(true);
+  };
+
+  const handleEmailSubmit = async () => {
+    if (!emailUser || !emailAliasInput) return;
+    
+    setIsEmailSubmitting(true);
+    const fullAlias = `${emailAliasInput}@${emailDomainInput}`;
+    
+    try {
+        const result = await assignEmail(emailUser.id, fullAlias);
+        if (result.error) {
+            setMessage({ text: result.error, type: 'error' });
+        } else {
+            setMessage({ text: 'E-postadresse tildelt', type: 'success' });
+            setUsers(users.map(u => u.id === emailUser.id ? { ...u, email_alias: fullAlias, email_enabled: true } : u));
+            setEmailModalOpen(false);
+        }
+    } catch (e) {
+        setMessage({ text: 'En feil oppstod', type: 'error' });
+    } finally {
+        setIsEmailSubmitting(false);
+    }
+  };
+
+  const handleToggleEmail = async (user: any) => {
+    const newState = !user.email_enabled;
+    const confirmMsg = newState 
+        ? 'Vil du aktivere e-post for denne brukeren?' 
+        : 'Vil du deaktivere e-post for denne brukeren?';
+        
+    if (!confirm(confirmMsg)) return;
+    
+    try {
+        const result = await toggleEmailAccess(user.id, newState);
+        if (result.error) {
+            setMessage({ text: result.error, type: 'error' });
+        } else {
+            setMessage({ text: newState ? 'E-post aktivert' : 'E-post deaktivert', type: 'success' });
+            setUsers(users.map(u => u.id === user.id ? { ...u, email_enabled: newState } : u));
+        }
+    } catch (e) {
+        setMessage({ text: 'En feil oppstod', type: 'error' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto">
@@ -238,20 +308,27 @@ export default function AdminUsersPage() {
                             <option value="mattilsynet">Mattilsynet</option>
                           </select>
                           {updatingId === user.id && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
-                        <button 
-                            onClick={() => handleDeleteUser(user.id)}
-                            disabled={updatingId === user.id}
-                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                            title="Deaktiver bruker"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => openEmailModal(user)}
+                        className={`p-2 rounded-lg transition-colors ${user.email_enabled ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}
+                        title={user.email_enabled ? 'Administrer e-post' : 'Tildel e-post'}
+                      >
+                        <Mail className="w-4 h-4" />
+                      </button>
+                      <button 
+                          onClick={() => handleDeleteUser(user.id)}
+                          disabled={updatingId === user.id}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                          title="Deaktiver bruker"
+                      >
+                          <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
                 )}
               </tbody>
             </table>
@@ -345,6 +422,101 @@ export default function AdminUsersPage() {
                   >
                     <Trash2 className="w-4 h-4" />
                     Deaktiver bruker
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Email Administration Modal */}
+      {emailModalOpen && emailUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setEmailModalOpen(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-900">
+                {emailUser.email_enabled ? 'Administrer e-post' : 'Tildel e-post'}
+              </h3>
+              <button onClick={() => setEmailModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-honey-100 flex items-center justify-center text-honey-600 font-bold">
+                  {emailUser.full_name?.[0]?.toUpperCase() || 'U'}
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">{emailUser.full_name}</p>
+                  <p className="text-xs text-gray-500">ID: {emailUser.id.substring(0, 8)}...</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">E-postadresse</label>
+                <div className="flex rounded-md shadow-sm">
+                  <input
+                    type="text"
+                    value={emailAliasInput}
+                    onChange={(e) => setEmailAliasInput(e.target.value.toLowerCase().replace(/[^a-z0-9.]/g, ''))}
+                    className="flex-1 min-w-0 block w-full px-3 py-2 rounded-l-md border border-gray-300 focus:ring-honey-500 focus:border-honey-500 sm:text-sm"
+                    placeholder="fornavn.etternavn"
+                  />
+                  <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
+                    @
+                  </span>
+                  <select
+                    value={emailDomainInput}
+                    onChange={(e) => setEmailDomainInput(e.target.value)}
+                    className="rounded-none rounded-r-md border border-l-0 border-gray-300 bg-white px-3 py-2 focus:ring-honey-500 focus:border-honey-500 sm:text-sm"
+                  >
+                    <option value="kias.no">kias.no</option>
+                    <option value="jornskalesje.no">jornskalesje.no</option>
+                    <option value="aiinnovate.online">aiinnovate.online</option>
+                  </select>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  {emailAliasInput}@{emailDomainInput}
+                </p>
+              </div>
+
+              {emailUser.email_enabled && (
+                <div className="pt-4 border-t border-gray-100">
+                  <button
+                    onClick={() => handleToggleEmail(emailUser)}
+                    className={`w-full py-2 px-4 rounded-lg border flex items-center justify-center gap-2 transition-colors ${
+                      emailUser.email_enabled 
+                        ? 'border-red-200 text-red-600 hover:bg-red-50' 
+                        : 'border-green-200 text-green-600 hover:bg-green-50'
+                    }`}
+                  >
+                    {emailUser.email_enabled ? (
+                      <>
+                        <Trash2 className="w-4 h-4" /> Deaktiver e-posttilgang
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" /> Aktiver e-posttilgang
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              <div className="pt-4 flex justify-end gap-3">
+                <button
+                  onClick={() => setEmailModalOpen(false)}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Avbryt
+                </button>
+                <button
+                  onClick={handleEmailSubmit}
+                  disabled={isEmailSubmitting || !emailAliasInput}
+                  className="px-4 py-2 bg-honey-500 text-white rounded-lg hover:bg-honey-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isEmailSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {emailUser.email_enabled ? 'Lagre endringer' : 'Opprett e-post'}
                 </button>
               </div>
             </div>

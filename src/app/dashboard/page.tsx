@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { jsPDF } from 'jspdf';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert, Mail } from 'lucide-react';
 import WeatherWidget from '@/components/WeatherWidget';
 import SicknessRegistrationModal from '@/components/SicknessRegistrationModal';
 import InspectionModal from '@/components/InspectionModal';
@@ -431,6 +431,26 @@ export default function DashboardPage() {
                   <div className="w-8 h-8 bg-honey-100 rounded-full flex items-center justify-center text-honey-600">
                       <User className="w-4 h-4" />
                   </div>
+
+          {/* KIAS Mail Card */}
+          {profile?.email_enabled && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 relative mt-2">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                        <Mail className="w-4 h-4" />
+                    </div>
+                    <div>
+                        <h2 className="text-sm font-bold text-gray-900">Min e-post</h2>
+                        <p className="text-[10px] text-gray-500">{profile.email_alias}</p>
+                    </div>
+                </div>
+                <div className="mt-2">
+                    <Link href="/dashboard/mail" className="block w-full text-center py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-bold transition-colors">
+                        Åpne webmail
+                    </Link>
+                </div>
+            </div>
+          )}
                   <div>
                       <h2 className="text-sm font-bold text-gray-900">{profile?.full_name || 'Laster...'}</h2>
                       <p className="text-[10px] text-gray-500">Medlem #{profile?.member_number || 'Ikke registrert'}</p>
@@ -452,6 +472,26 @@ export default function DashboardPage() {
                   </div>
               </div>
           </div>
+
+          {/* KIAS Mail Card */}
+          {profile?.email_enabled && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 relative">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                        <Mail className="w-4 h-4" />
+                    </div>
+                    <div>
+                        <h2 className="text-sm font-bold text-gray-900">Min e-post</h2>
+                        <p className="text-[10px] text-gray-500">{profile.email_alias}</p>
+                    </div>
+                </div>
+                <div className="mt-2">
+                    <Link href="/dashboard/mail" className="block w-full text-center py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-bold transition-colors">
+                        Åpne webmail
+                    </Link>
+                </div>
+            </div>
+          )}
 
           {/* Honningstatus (Only for Beekeepers) - HIDDEN FOR DEMO */}
           {/* {profile?.role !== 'tenant' && (

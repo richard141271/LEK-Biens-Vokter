@@ -156,3 +156,83 @@ export async function getUsers() {
   const activeUsers = (data || []).filter((u: any) => u.is_active !== false);
   return { users: activeUsers }
 }
+
+export async function assignEmail(userId: string, emailAlias: string) {
+  const supabase = createClient()
+  
+  // 1. Check permissions
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Ikke logget inn' }
+
+  const adminVerifier = createAdminClient()
+  const { data: adminProfile } = await adminVerifier
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isVip = user.email === 'richard141271@gmail.com';
+  const isAdmin = adminProfile?.role === 'admin';
+
+  if (!isAdmin && !isVip) {
+    return { error: 'Ingen tilgang' }
+  }
+
+  // 2. Check if alias is taken
+  const { data: existing } = await adminVerifier
+    .from('profiles')
+    .select('id')
+    .eq('email_alias', emailAlias)
+    .single()
+
+  if (existing && existing.id !== userId) {
+    return { error: 'E-postadressen er allerede i bruk' }
+  }
+
+  // 3. Update profile
+  const { error } = await adminVerifier
+    .from('profiles')
+    .update({ 
+      email_alias: emailAlias,
+      email_enabled: true 
+    })
+    .eq('id', userId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/admin/users')
+  return { success: true }
+}
+
+export async function toggleEmailAccess(userId: string, enabled: boolean) {
+  const supabase = createClient()
+  
+  // 1. Check permissions
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Ikke logget inn' }
+
+  const adminVerifier = createAdminClient()
+  const { data: adminProfile } = await adminVerifier
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isVip = user.email === 'richard141271@gmail.com';
+  const isAdmin = adminProfile?.role === 'admin';
+
+  if (!isAdmin && !isVip) {
+    return { error: 'Ingen tilgang' }
+  }
+
+  // 2. Update profile
+  const { error } = await adminVerifier
+    .from('profiles')
+    .update({ email_enabled: enabled })
+    .eq('id', userId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/admin/users')
+  return { success: true }
+}
