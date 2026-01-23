@@ -1,16 +1,35 @@
 
 import { createClient } from '@/utils/supabase/server';
-import { MailService, MailMessage } from './types';
+import { MailService, MailMessage, MailFolder } from './types';
 
 export class MockMailService implements MailService {
-    async getInbox(emailAlias: string): Promise<{ data?: MailMessage[]; error?: string }> {
+    async getInbox(emailAlias: string, folder: string = 'inbox'): Promise<{ data?: MailMessage[]; error?: string }> {
         const supabase = createClient();
         
-        const { data: messages, error } = await supabase
+        let query = supabase
             .from('mail_messages')
             .select('*')
-            .eq('to_alias', emailAlias)
             .order('created_at', { ascending: false });
+
+        if (folder === 'sent') {
+            query = query.eq('from_alias', emailAlias);
+        } else {
+            query = query.eq('to_alias', emailAlias);
+            // Only filter by folder if column exists (it should now)
+            // But for backward compatibility with existing data that might be null:
+            if (folder !== 'inbox') {
+                 // For custom folders, we assume we update the 'folder' column
+                 query = query.eq('folder', folder);
+            } else {
+                // For inbox, we accept 'inbox' or null (legacy)
+                // Actually, let's just not filter by folder for inbox yet to show everything received
+                // UNLESS we explicitly moved it.
+                // Simplified: Show all received in Inbox for now unless we implement "move".
+                // TODO: Implement folder filtering once 'folder' column is populated
+            }
+        }
+
+        const { data: messages, error } = await query;
 
         if (error) return { error: error.message };
 
@@ -27,7 +46,8 @@ export class MockMailService implements MailService {
                 from_alias: fromAlias,
                 subject: subject,
                 body: body,
-                user_id: userId
+                user_id: userId,
+                folder: 'inbox' // Default for recipient
             });
 
         if (error) return { error: error.message };
@@ -41,6 +61,74 @@ export class MockMailService implements MailService {
             .from('mail_messages')
             .update({ read: true })
             .eq('id', messageId);
+
+        if (error) return { error: error.message };
+        return { success: true };
+    }
+
+    // Folder Management
+    async getFolders(userId: string): Promise<{ data?: MailFolder[]; error?: string }> {
+        const supabase = createClient();
+        const { data, error } = await supabase
+            .from('mail_folders')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: true });
+
+        if (error) return { error: error.message };
+        return { data: data as MailFolder[] };
+    }
+
+    async createFolder(userId: string, name: string): Promise<{ data?: MailFolder; error?: string }> {
+        const supabase = createClient();
+        const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        
+        const { data, error } = await supabase
+            .from('mail_folders')
+            .insert({
+                user_id: userId,
+                name,
+                slug,
+                type: 'custom'
+            })
+            .select()
+            .single();
+
+        if (error) return { error: error.message };
+        return { data: data as MailFolder };
+    }
+
+    async deleteFolder(userId: string, folderId: string): Promise<{ success?: boolean; error?: string }> {
+        const supabase = createClient();
+        const { error } = await supabase
+            .from('mail_folders')
+            .delete()
+            .eq('id', folderId)
+            .eq('user_id', userId); // Extra safety
+
+        if (error) return { error: error.message };
+        return { success: true };
+    }
+
+    // Signature
+    async getSignature(userId: string): Promise<{ data?: string; error?: string }> {
+        const supabase = createClient();
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('email_signature')
+            .eq('id', userId)
+            .single();
+
+        if (error) return { error: error.message };
+        return { data: data.email_signature };
+    }
+
+    async updateSignature(userId: string, signature: string): Promise<{ success?: boolean; error?: string }> {
+        const supabase = createClient();
+        const { error } = await supabase
+            .from('profiles')
+            .update({ email_signature: signature })
+            .eq('id', userId);
 
         if (error) return { error: error.message };
         return { success: true };

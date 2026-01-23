@@ -15,7 +15,8 @@ import {
   Edit2,
   Plus,
   Shield,
-  Ban
+  Ban,
+  ExternalLink
 } from 'lucide-react';
 import Link from 'next/link';
 import { getUsers, assignEmail, toggleEmailAccess, removeEmail } from '@/app/actions/user-management';
@@ -301,6 +302,13 @@ export default function AdminEmailPage() {
                           <div className="flex items-center justify-end gap-2">
                             {hasEmail ? (
                                 <>
+                                    <Link 
+                                        href={`/dashboard/admin/email/${user.id}`}
+                                        className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded-full transition-colors"
+                                        title="Åpne innboks"
+                                    >
+                                        <ExternalLink className="w-4 h-4" />
+                                    </Link>
                                     <button 
                                         onClick={() => openEmailModal(user)}
                                         className="text-indigo-600 hover:text-indigo-900 p-2 hover:bg-indigo-50 rounded-full transition-colors"
