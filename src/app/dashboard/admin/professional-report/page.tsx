@@ -343,7 +343,7 @@ export default function InnovationNorwayReport() {
     <div className="min-h-screen bg-gray-100 p-8 font-sans text-gray-800">
       {/* Navigation & Controls */}
       <div className="max-w-[210mm] mx-auto mb-8 flex justify-between items-center">
-        <Link href="/dashboard/admin" className="flex items-center text-gray-500 hover:text-gray-900 transition-colors">
+        <Link href="/dashboard/admin/survey-results-v2" className="flex items-center text-gray-500 hover:text-gray-900 transition-colors">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Tilbake
         </Link>

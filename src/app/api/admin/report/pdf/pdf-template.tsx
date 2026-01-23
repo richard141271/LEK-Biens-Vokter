@@ -215,7 +215,7 @@ export function generatePdfHtml(currentData: any[], totalAnswers: number, type: 
 
   // --- Render HTML Parts ---
   const scoreCardsHtml = ReactDOMServer.renderToStaticMarkup(
-    <div className="grid grid-cols-4 gap-4 mb-8">
+    <div className="grid grid-cols-4 gap-4 mb-8 break-inside-avoid" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
       <ScoreCard title="Antall Svar" value={totalAnswers} subtext="Verifiserte respondenter" iconName="Users" color="blue" />
       <ScoreCard title="Pilotinteresse" value={pilotInterestCount} subtext={`${pilotInterestPercent}% ønsker å delta`} iconName="Award" color="green" />
       {type === 'BEEKEEPER' ? (
@@ -307,8 +307,8 @@ export function generatePdfHtml(currentData: any[], totalAnswers: number, type: 
       ${scoreCardsHtml}
 
       <!-- Acceptance & Stats Row -->
-      <div class="grid grid-cols-1 gap-8 mb-8 break-inside-avoid">
-        <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+      <div class="grid grid-cols-1 gap-8 mb-8 break-inside-avoid" style="page-break-inside: avoid; break-inside: avoid;">
+        <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm break-inside-avoid" style="page-break-inside: avoid; break-inside: avoid;">
              <div class="flex items-center justify-between mb-6">
                 <div>
                     <h2 class="text-xl font-bold text-gray-900">Aksept: Ville du brukt systemet?</h2>
@@ -324,12 +324,12 @@ export function generatePdfHtml(currentData: any[], totalAnswers: number, type: 
 
       <!-- Ratings & Growth Row -->
       ${type === 'BEEKEEPER' ? `
-      <div class="grid grid-cols-2 gap-8 mb-8 break-inside-avoid">
-          <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+      <div class="grid grid-cols-2 gap-8 mb-8 break-inside-avoid" style="page-break-inside: avoid; break-inside: avoid;">
+          <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm break-inside-avoid" style="page-break-inside: avoid; break-inside: avoid;">
              <h2 class="text-xl font-bold text-gray-900 mb-4">Verdivurdering (1-5)</h2>
              ${ratingsHtml}
           </div>
-          <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between">
+          <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between break-inside-avoid" style="page-break-inside: avoid; break-inside: avoid;">
              <h2 class="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-green-500"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
                 Interessevekst
@@ -343,10 +343,10 @@ export function generatePdfHtml(currentData: any[], totalAnswers: number, type: 
       ` : ''}
 
       <!-- Bottom Row: Challenges & Key Stats -->
-      <div class="grid grid-cols-3 gap-8 break-inside-avoid">
+      <div class="grid grid-cols-3 gap-8 break-inside-avoid" style="page-break-inside: avoid; break-inside: avoid;">
         
         <!-- Challenges (2/3 width) -->
-        <div class="col-span-2">
+        <div class="col-span-2 break-inside-avoid" style="page-break-inside: avoid; break-inside: avoid;">
             ${challenges.length > 0 ? `
             <div class="bg-gray-50 rounded-2xl p-6 border border-gray-200 h-full">
                 <h2 class="text-lg font-bold text-gray-900 mb-4">Utvalgte utfordringer</h2>
@@ -356,7 +356,7 @@ export function generatePdfHtml(currentData: any[], totalAnswers: number, type: 
         </div>
 
         <!-- Key Stats / Donut (1/3 width) -->
-        <div class="col-span-1">
+        <div class="col-span-1 break-inside-avoid" style="page-break-inside: avoid; break-inside: avoid;">
             <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm h-full flex flex-col justify-center">
                 <h2 class="text-lg font-bold text-gray-900 mb-6 text-center">Nøkkelstatistikk</h2>
                 <div class="mb-6">
