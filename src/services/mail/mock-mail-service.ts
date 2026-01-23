@@ -1,6 +1,6 @@
 
 import { createClient } from '@/utils/supabase/server';
-import { MailService, MailMessage, MailFolder } from './types';
+import { MailService, MailMessage, MailFolder, MailAttachment } from './types';
 import { SupabaseClient } from '@supabase/supabase-js';
 
 export class MockMailService implements MailService {
@@ -41,7 +41,7 @@ export class MockMailService implements MailService {
         return { data: messages as MailMessage[] };
     }
 
-    async sendMail(fromAlias: string, toAlias: string, subject: string, body: string, userId: string): Promise<{ success?: boolean; error?: string }> {
+    async sendMail(fromAlias: string, toAlias: string, subject: string, body: string, userId: string, attachments?: MailAttachment[]): Promise<{ success?: boolean; error?: string }> {
         const { error } = await this.supabase
             .from('mail_messages')
             .insert({
@@ -50,7 +50,8 @@ export class MockMailService implements MailService {
                 subject: subject,
                 body: body,
                 user_id: userId,
-                folder: 'inbox' // Default for recipient
+                folder: 'inbox', // Default for recipient
+                attachments: attachments || []
             });
 
         if (error) return { error: error.message };
@@ -61,6 +62,16 @@ export class MockMailService implements MailService {
         const { error } = await this.supabase
             .from('mail_messages')
             .update({ read: true })
+            .eq('id', messageId);
+
+        if (error) return { error: error.message };
+        return { success: true };
+    }
+
+    async deleteMessage(messageId: string): Promise<{ success?: boolean; error?: string }> {
+        const { error } = await this.supabase
+            .from('mail_messages')
+            .delete()
             .eq('id', messageId);
 
         if (error) return { error: error.message };

@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { getMailService } from '@/services/mail';
+import { MailAttachment } from '@/services/mail/types';
 
 export async function getMyMessages(folder: string = 'inbox') {
   const supabase = createClient();
@@ -27,7 +28,7 @@ export async function getMyMessages(folder: string = 'inbox') {
   return await mailService.getInbox(profile.email_alias, folder);
 }
 
-export async function sendMessage(to: string, subject: string, body: string) {
+export async function sendMessage(to: string, subject: string, body: string, attachments: MailAttachment[] = []) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -46,7 +47,7 @@ export async function sendMessage(to: string, subject: string, body: string) {
 
   // Use MailService instead of direct DB access
   const mailService = getMailService(supabase);
-  const result = await mailService.sendMail(profile.email_alias, to, subject, body, user.id);
+  const result = await mailService.sendMail(profile.email_alias, to, subject, body, user.id, attachments);
 
   if (result.error) return { error: result.error };
 
@@ -64,6 +65,17 @@ export async function markAsRead(messageId: string) {
     
     revalidatePath('/dashboard/mail');
     return { success: true };
+}
+
+export async function deleteMessage(messageId: string) {
+    const supabase = createClient();
+    const mailService = getMailService(supabase);
+    const result = await mailService.deleteMessage(messageId);
+    
+    if (result.success) {
+        revalidatePath('/dashboard/mail');
+    }
+    return result;
 }
 
 // Admin / Advanced Features

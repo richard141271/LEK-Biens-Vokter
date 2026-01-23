@@ -20,21 +20,24 @@ import {
   Copy,
   Check,
   X,
-  RefreshCw
+  RefreshCw,
+  Paperclip
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { 
   getMyMessages, 
   sendMessage, 
   markAsRead,
+  deleteMessage,
   getUserFolders, 
   createUserFolder, 
   deleteUserFolder, 
   getUserSignature, 
   updateUserSignature 
 } from '@/app/actions/mail';
-import { MailFolder, MailMessage } from '@/services/mail/types';
+import { MailFolder, MailMessage, MailAttachment } from '@/services/mail/types';
 import { useRouter } from 'next/navigation';
+import { MessageDetail } from '@/components/mail/MessageDetail';
 
 type Tab = 'inbox' | 'folders' | 'signature' | 'connection';
 
@@ -46,6 +49,7 @@ export default function MailPage() {
   
   // Data states
   const [messages, setMessages] = useState<MailMessage[]>([]);
+  const [selectedMessage, setSelectedMessage] = useState<MailMessage | null>(null);
   const [folders, setFolders] = useState<MailFolder[]>([]);
   const [signature, setSignature] = useState('');
   
@@ -60,6 +64,8 @@ export default function MailPage() {
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [attachments, setAttachments] = useState<MailAttachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
@@ -165,10 +171,54 @@ export default function MailPage() {
     }
   };
 
+  const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0 || !userProfile) return;
+    
+    setIsUploading(true);
+    const files = Array.from(e.target.files);
+    const newAttachments: MailAttachment[] = [];
+    const supabase = createClient();
+
+    try {
+        for (const file of files) {
+            const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+            const filePath = `${userProfile.id}/${fileName}`;
+            
+            const { error: uploadError } = await supabase.storage
+                .from('mail-attachments')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('mail-attachments')
+                .getPublicUrl(filePath);
+
+            newAttachments.push({
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                url: publicUrl
+            });
+        }
+        setAttachments(prev => [...prev, ...newAttachments]);
+    } catch (error: any) {
+        setMessageState({ text: 'Feil ved opplasting av vedlegg: ' + error.message, type: 'error' });
+    } finally {
+        setIsUploading(false);
+        // Reset input
+        e.target.value = '';
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSend = async () => {
     if (!to || !subject || !body) return;
     setSending(true);
-    const res = await sendMessage(to, subject, body);
+    const res = await sendMessage(to, subject, body, attachments);
     setSending(false);
     
     if (res.error) {
@@ -178,17 +228,29 @@ export default function MailPage() {
         setTo('');
         setSubject('');
         setBody('');
+        setAttachments([]);
         setMessageState({ text: 'Melding sendt!', type: 'success' });
         fetchInbox(); 
     }
   };
 
   const handleOpenMessage = async (msg: any) => {
-    // Basic expand/collapse logic or modal could be added here
-    // For now we just mark as read
     if (!msg.read) {
         await markAsRead(msg.id);
         setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, read: true } : m));
+    }
+    setSelectedMessage(msg);
+  };
+
+  const handleDeleteMessage = async (id: string) => {
+    if (!confirm('Er du sikker på at du vil slette denne meldingen?')) return;
+    const res = await deleteMessage(id);
+    if (res.success) {
+        setSelectedMessage(null);
+        setMessageState({ text: 'Melding slettet', type: 'success' });
+        fetchInbox();
+    } else {
+        setMessageState({ text: 'Kunne ikke slette melding: ' + res.error, type: 'error' });
     }
   };
 
@@ -291,6 +353,26 @@ export default function MailPage() {
 
         {/* Inbox View */}
         {activeTab === 'inbox' && (
+          selectedMessage ? (
+             <div className="h-[calc(100vh-16rem)]">
+                <MessageDetail 
+                    message={selectedMessage}
+                    onBack={() => setSelectedMessage(null)}
+                    onDelete={handleDeleteMessage}
+                    onReply={(msg) => {
+                        setIsComposing(true);
+                        setTo(msg.from_alias);
+                        setSubject(`SV: ${msg.subject}`);
+                        setBody(`\n\n> ${msg.body}`);
+                    }}
+                    onForward={(msg) => {
+                        setIsComposing(true);
+                        setSubject(`VS: ${msg.subject}`);
+                        setBody(`\n\n---------- Videresendt melding ----------\nFra: ${msg.from_alias}\nDato: ${msg.created_at}\nEmne: ${msg.subject}\n\n${msg.body}`);
+                    }}
+                />
+             </div>
+          ) : (
           <div className="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
             <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
                 <h3 className="font-medium text-gray-900">Innboks</h3>
@@ -333,6 +415,7 @@ export default function MailPage() {
               )}
             </div>
           </div>
+          )
         )}
 
         {/* Folders View */}
@@ -543,6 +626,44 @@ export default function MailPage() {
                             className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
                             placeholder="Skriv din melding her..."
                         />
+                    </div>
+                    
+                    {/* Attachments Section */}
+                    <div>
+                        <div className="flex items-center gap-2 mb-2">
+                            <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors">
+                                <Paperclip className="w-4 h-4" />
+                                Legg til vedlegg
+                                <input 
+                                    type="file" 
+                                    multiple 
+                                    className="hidden" 
+                                    onChange={handleAttachmentUpload}
+                                    disabled={isUploading}
+                                />
+                            </label>
+                            {isUploading && <span className="text-xs text-gray-500 animate-pulse">Laster opp...</span>}
+                        </div>
+                        
+                        {attachments.length > 0 && (
+                            <div className="grid grid-cols-2 gap-2">
+                                {attachments.map((att, i) => (
+                                    <div key={i} className="flex items-center justify-between p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+                                        <div className="flex items-center gap-2 overflow-hidden">
+                                            <FileText className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                                            <span className="truncate">{att.name}</span>
+                                            <span className="text-xs text-gray-400">({(att.size / 1024).toFixed(1)} KB)</span>
+                                        </div>
+                                        <button 
+                                            onClick={() => removeAttachment(i)}
+                                            className="text-gray-400 hover:text-red-500 p-1"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">

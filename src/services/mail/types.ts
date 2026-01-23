@@ -1,4 +1,11 @@
 
+export interface MailAttachment {
+    name: string;
+    size: number;
+    type: string;
+    url: string;
+}
+
 export interface MailMessage {
     id: string;
     to_alias: string;
@@ -9,6 +16,7 @@ export interface MailMessage {
     read: boolean;
     folder: string; // slug
     user_id?: string;
+    attachments?: MailAttachment[];
 }
 
 export interface MailFolder {
@@ -22,8 +30,9 @@ export interface MailFolder {
 
 export interface MailService {
     getInbox(emailAlias: string, folder?: string): Promise<{ data?: MailMessage[]; error?: string }>;
-    sendMail(fromAlias: string, toAlias: string, subject: string, body: string, userId: string): Promise<{ success?: boolean; error?: string }>;
+    sendMail(fromAlias: string, toAlias: string, subject: string, body: string, userId: string, attachments?: MailAttachment[]): Promise<{ success?: boolean; error?: string }>;
     markAsRead(messageId: string): Promise<{ success?: boolean; error?: string }>;
+    deleteMessage(messageId: string): Promise<{ success?: boolean; error?: string }>;
     
     // Folder Management
     getFolders(userId: string): Promise<{ data?: MailFolder[]; error?: string }>;
