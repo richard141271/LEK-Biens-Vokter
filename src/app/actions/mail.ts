@@ -75,13 +75,18 @@ async function getRequesterRole(userId: string) {
     return data?.role;
 }
 
+function isAuthorizedAdmin(email: string | undefined, role: string | undefined) {
+    const isVip = email === 'richard141271@gmail.com';
+    return role === 'admin' || role === 'superadmin' || isVip;
+}
+
 export async function getAdminUserProfile(userId: string) {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Ikke logget inn' };
 
     const role = await getRequesterRole(user.id);
-    if (role !== 'admin' && role !== 'superadmin') {
+    if (!isAuthorizedAdmin(user.email, role)) {
         return { error: 'Ingen tilgang' };
     }
 
@@ -99,7 +104,7 @@ export async function getUserFolders(userId: string) {
     if (!user) return { error: 'Ikke logget inn' };
     
     const role = await getRequesterRole(user.id);
-    const isAdmin = role === 'admin' || role === 'superadmin';
+    const isAdmin = isAuthorizedAdmin(user.email, role);
     
     if (user.id !== userId && !isAdmin) {
         return { error: 'Ingen tilgang' };
@@ -116,7 +121,7 @@ export async function createUserFolder(userId: string, name: string) {
     if (!user) return { error: 'Ikke logget inn' };
 
     const role = await getRequesterRole(user.id);
-    const isAdmin = role === 'admin' || role === 'superadmin';
+    const isAdmin = isAuthorizedAdmin(user.email, role);
 
     if (user.id !== userId && !isAdmin) {
         return { error: 'Ingen tilgang' };
@@ -139,7 +144,7 @@ export async function deleteUserFolder(userId: string, folderId: string) {
     if (!user) return { error: 'Ikke logget inn' };
 
     const role = await getRequesterRole(user.id);
-    const isAdmin = role === 'admin' || role === 'superadmin';
+    const isAdmin = isAuthorizedAdmin(user.email, role);
 
     if (user.id !== userId && !isAdmin) {
         return { error: 'Ingen tilgang' };
@@ -162,7 +167,7 @@ export async function getUserSignature(userId: string) {
     if (!user) return { error: 'Ikke logget inn' };
 
     const role = await getRequesterRole(user.id);
-    const isAdmin = role === 'admin' || role === 'superadmin';
+    const isAdmin = isAuthorizedAdmin(user.email, role);
 
     if (user.id !== userId && !isAdmin) {
         return { error: 'Ingen tilgang' };
@@ -179,7 +184,7 @@ export async function updateUserSignature(userId: string, signature: string) {
     if (!user) return { error: 'Ikke logget inn' };
 
     const role = await getRequesterRole(user.id);
-    const isAdmin = role === 'admin' || role === 'superadmin';
+    const isAdmin = isAuthorizedAdmin(user.email, role);
 
     if (user.id !== userId && !isAdmin) {
         return { error: 'Ingen tilgang' };
@@ -202,7 +207,7 @@ export async function getAdminUserInbox(userId: string, folder: string = 'inbox'
     if (!user) return { error: 'Ikke logget inn' };
 
     const role = await getRequesterRole(user.id);
-    const isAdmin = role === 'admin' || role === 'superadmin';
+    const isAdmin = isAuthorizedAdmin(user.email, role);
 
     if (!isAdmin) {
         return { error: 'Ingen tilgang' };
