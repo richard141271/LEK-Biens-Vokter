@@ -163,6 +163,9 @@ export default function AdminUserEmailPage() {
     return (
       <div className="p-8 text-center">
         <h2 className="text-xl font-bold text-gray-900">Bruker ikke funnet</h2>
+        {messageState?.type === 'error' && (
+          <p className="text-red-600 mt-2">{messageState.text}</p>
+        )}
         <Link href="/dashboard/admin/email" className="text-purple-600 hover:underline mt-4 block">
           Tilbake til oversikt
         </Link>

@@ -80,10 +80,9 @@ export class MockMailService implements MailService {
     }
 
     async createFolder(userId: string, name: string): Promise<{ data?: MailFolder; error?: string }> {
-        const supabase = createClient();
         const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
         
-        const { data, error } = await supabase
+        const { data, error } = await this.supabase
             .from('mail_folders')
             .insert({
                 user_id: userId,
@@ -99,8 +98,7 @@ export class MockMailService implements MailService {
     }
 
     async deleteFolder(userId: string, folderId: string): Promise<{ success?: boolean; error?: string }> {
-        const supabase = createClient();
-        const { error } = await supabase
+        const { error } = await this.supabase
             .from('mail_folders')
             .delete()
             .eq('id', folderId)
@@ -112,8 +110,7 @@ export class MockMailService implements MailService {
 
     // Signature
     async getSignature(userId: string): Promise<{ data?: string; error?: string }> {
-        const supabase = createClient();
-        const { data, error } = await supabase
+        const { data, error } = await this.supabase
             .from('profiles')
             .select('email_signature')
             .eq('id', userId)
