@@ -12,7 +12,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   experimental: {
-    serverComponentsExternalPackages: ['puppeteer'],
+    serverComponentsExternalPackages: ['puppeteer', '@sparticuz/chromium'],
   },
   async redirects() {
     return [

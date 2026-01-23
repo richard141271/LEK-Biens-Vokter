@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import puppeteer from 'puppeteer';
 import { generatePdfHtml } from '@/utils/pdf-template';
 
 export const runtime = 'nodejs';
