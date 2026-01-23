@@ -1,5 +1,5 @@
 
-import { MailService, MailMessage, MailFolder } from './types';
+import { MailService, MailMessage, MailFolder, MailAttachment } from './types';
 
 export class DomeneshopMailService implements MailService {
     async getInbox(emailAlias: string, folder: string = 'inbox'): Promise<{ data?: MailMessage[]; error?: string }> {
@@ -8,7 +8,7 @@ export class DomeneshopMailService implements MailService {
         return { data: [] };
     }
 
-    async sendMail(fromAlias: string, toAlias: string, subject: string, body: string, userId: string): Promise<{ success?: boolean; error?: string }> {
+    async sendMail(fromAlias: string, toAlias: string, subject: string, body: string, userId: string, attachments?: MailAttachment[]): Promise<{ success?: boolean; error?: string }> {
         // TODO: Implement SMTP sending via Domeneshop
         console.warn('DomeneshopMailService.sendMail not implemented yet');
         return { success: true };
@@ -17,6 +17,12 @@ export class DomeneshopMailService implements MailService {
     async markAsRead(messageId: string): Promise<{ success?: boolean; error?: string }> {
         // TODO: Implement IMAP mark as read
         console.warn('DomeneshopMailService.markAsRead not implemented yet');
+        return { success: true };
+    }
+
+    async deleteMessage(messageId: string): Promise<{ success?: boolean; error?: string }> {
+        // TODO: Implement IMAP delete
+        console.warn('DomeneshopMailService.deleteMessage not implemented yet');
         return { success: true };
     }
 
