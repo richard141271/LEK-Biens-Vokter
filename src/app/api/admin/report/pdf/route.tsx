@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import puppeteer from 'puppeteer';
-import { generatePdfHtml } from './pdf-template';
+import { generatePdfHtml } from '@/utils/pdf-template';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -75,6 +75,7 @@ export async function GET(request: Request) {
   // --- Process Data ---
   const submissions = allResponses.map((row: any) => ({
     id: row.id,
+    created_at: row.created_at,
     is_beekeeper: row.is_beekeeper,
     answers: mapResponseToAnswers(row, row.is_beekeeper ? "BEEKEEPER" : "NON_BEEKEEPER")
   }));

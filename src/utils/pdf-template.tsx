@@ -1,124 +1,117 @@
-import React from 'react';
-import ReactDOMServer from 'react-dom/server';
 
-// --- Icons (Simplified SVGs) ---
+// --- Icons (Simplified SVGs as strings) ---
 const Icons = {
-  Users: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
-  Award: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>,
-  ShieldCheck: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>,
-  Target: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
-  TrendingUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>,
-  BarChart3: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>,
-  PieIcon: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>,
+  Users: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  Award: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg>`,
+  ShieldCheck: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>`,
+  Target: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`,
+  TrendingUp: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>`,
+  BarChart3: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>`,
+  PieIcon: () => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>`,
 };
 
-// --- Components for Server Rendering ---
-const ScoreCard = ({ title, value, subtext, iconName, color }: any) => {
+// --- Components for Server Rendering (now pure strings) ---
+const renderScoreCard = ({ title, value, subtext, iconName, color }: any) => {
   const Icon = Icons[iconName as keyof typeof Icons];
-  return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start justify-between relative overflow-hidden break-inside-avoid" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-      <div className="relative z-10 max-w-[80%]">
-        <h3 className="text-gray-500 font-medium text-xs uppercase tracking-wider mb-1 break-words">{title}</h3>
-        <div className="text-4xl font-bold text-gray-900 mb-2">{value}</div>
-        <p className={`text-sm text-${color}-600 font-medium flex items-center gap-1`}>
-          {subtext}
+  return `
+    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start justify-between relative overflow-hidden break-inside-avoid" style="break-inside: avoid; page-break-inside: avoid;">
+      <div class="relative z-10 max-w-[80%]">
+        <h3 class="text-gray-500 font-medium text-xs uppercase tracking-wider mb-1 break-words">${title}</h3>
+        <div class="text-4xl font-bold text-gray-900 mb-2">${value}</div>
+        <p class="text-sm text-${color}-600 font-medium flex items-center gap-1">
+          ${subtext}
         </p>
       </div>
-      <div className={`p-3 bg-${color}-50 rounded-xl text-${color}-600`}>
-        <Icon />
+      <div class="p-3 bg-${color}-50 rounded-xl text-${color}-600">
+        ${Icon()}
       </div>
     </div>
-  );
+  `;
 };
 
-const SimpleBarChart = ({ data }: any) => {
+const renderSimpleBarChart = ({ data }: any) => {
   const max = Math.max(...data.map((d: any) => d.value));
-  return (
-    <div className="space-y-4">
-      {data.map((item: any, idx: number) => (
-        <div key={idx} className="group">
-          <div className="flex justify-between text-sm mb-1">
-            <span className="font-medium text-gray-700">{item.label}</span>
-            <span className="text-gray-500 font-mono">{item.value} ({item.percentage}%)</span>
+  return `
+    <div class="space-y-4">
+      ${data.map((item: any) => `
+        <div class="group">
+          <div class="flex justify-between text-sm mb-1">
+            <span class="font-medium text-gray-700">${item.label}</span>
+            <span class="text-gray-500 font-mono">${item.value} (${item.percentage}%)</span>
           </div>
-          <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+          <div class="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
             <div 
-              className="h-full rounded-full"
-              style={{ 
-                width: `${(item.value / max) * 100}%`,
-                backgroundColor: item.color 
-              }}
+              class="h-full rounded-full"
+              style="width: ${(item.value / max) * 100}%; background-color: ${item.color};"
             ></div>
           </div>
         </div>
-      ))}
+      `).join('')}
     </div>
-  );
+  `;
 };
 
-const DonutChart = ({ data, total }: any) => {
+const renderDonutChart = ({ data, total }: any) => {
   let accumulatedAngle = 0;
   const r = 40;
   const C = 2 * Math.PI * r;
 
-  return (
-    <div className="relative w-48 h-48 mx-auto">
-      <svg viewBox="0 0 100 100" className="transform -rotate-90 w-full h-full">
-        {data.map((item: any, idx: number) => {
+  return `
+    <div class="relative w-48 h-48 mx-auto">
+      <svg viewBox="0 0 100 100" class="transform -rotate-90 w-full h-full">
+        ${data.map((item: any) => {
           const percentage = item.value / total;
           const strokeDasharray = `${percentage * C} ${C}`;
           const strokeDashoffset = -accumulatedAngle * C;
           accumulatedAngle += percentage;
           
-          return (
+          return `
             <circle
-              key={idx}
               cx="50"
               cy="50"
-              r={r}
+              r="${r}"
               fill="transparent"
-              stroke={item.color}
-              strokeWidth="20"
-              strokeDasharray={strokeDasharray}
-              strokeDashoffset={strokeDashoffset}
+              stroke="${item.color}"
+              stroke-width="20"
+              stroke-dasharray="${strokeDasharray}"
+              stroke-dashoffset="${strokeDashoffset}"
             />
-          );
-        })}
+          `;
+        }).join('')}
       </svg>
-      <div className="absolute inset-0 flex items-center justify-center flex-col">
-        <span className="text-3xl font-bold text-gray-900">{total}</span>
-        <span className="text-xs text-gray-500 uppercase font-medium">Svar</span>
+      <div class="absolute inset-0 flex items-center justify-center flex-col">
+        <span class="text-3xl font-bold text-gray-900">${total}</span>
+        <span class="text-xs text-gray-500 uppercase font-medium">Svar</span>
       </div>
     </div>
-  );
+  `;
 };
 
-const FeatureRating = ({ label, score }: any) => {
-  return (
-    <div className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0 px-2">
-      <span className="text-sm font-medium text-gray-700">{label}</span>
-      <div className="flex items-center gap-3">
-        <div className="flex gap-0.5">
-          {[1, 2, 3, 4, 5].map((star) => (
+const renderFeatureRating = ({ label, score }: any) => {
+  return `
+    <div class="flex items-center justify-between py-3 border-b border-gray-50 last:border-0 px-2">
+      <span class="text-sm font-medium text-gray-700">${label}</span>
+      <div class="flex items-center gap-3">
+        <div class="flex gap-0.5">
+          ${[1, 2, 3, 4, 5].map((star) => `
             <svg 
-              key={star}
-              className={`w-4 h-4 ${star <= score ? 'text-yellow-500' : 'text-gray-200'}`} 
+              class="w-4 h-4 ${star <= score ? 'text-yellow-500' : 'text-gray-200'}" 
               fill="currentColor" 
               viewBox="0 0 20 20"
             >
               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
             </svg>
-          ))}
+          `).join('')}
         </div>
-        <span className="text-sm font-bold text-gray-900 w-8 text-right">{score.toFixed(1)}</span>
+        <span class="text-sm font-bold text-gray-900 w-8 text-right">${score.toFixed(1)}</span>
       </div>
     </div>
-  );
+  `;
 };
 
-const GrowthChart = ({ submissions }: { submissions: any[] }) => {
+const renderGrowthChart = ({ submissions }: { submissions: any[] }) => {
   const sorted = [...submissions].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-  if (sorted.length < 2) return null;
+  if (sorted.length < 2) return '';
   
   const points: {x: number, y: number}[] = [];
   let count = 0;
@@ -126,7 +119,7 @@ const GrowthChart = ({ submissions }: { submissions: any[] }) => {
   const endTime = new Date().getTime();
   const timeRange = endTime - startTime || 1;
   
-  sorted.forEach((sub, i) => {
+  sorted.forEach((sub) => {
     count++;
     const time = new Date(sub.created_at).getTime();
     const x = ((time - startTime) / timeRange) * 100;
@@ -146,25 +139,25 @@ const GrowthChart = ({ submissions }: { submissions: any[] }) => {
     points.forEach(p => lineD += ` L ${p.x} ${getY(p.y)}`);
   }
   
-  return (
-    <div className="w-full h-32 relative">
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full overflow-visible">
+  return `
+    <div class="w-full h-32 relative">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="w-full h-full overflow-visible">
         <defs>
           <linearGradient id="growthGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.3"/>
-            <stop offset="100%" stopColor="#F59E0B" stopOpacity="0"/>
+            <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
           </linearGradient>
         </defs>
-        <path d={pathD} fill="url(#growthGradient)" />
-        <path d={lineD} fill="none" stroke="#F59E0B" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-        {points.filter((_, i) => i % Math.ceil(points.length / 5) === 0).map((p, i) => (
-          <circle key={i} cx={p.x} cy={getY(p.y)} r="1.5" fill="white" stroke="#F59E0B" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-        ))}
+        <path d="${pathD}" fill="url(#growthGradient)" />
+        <path d="${lineD}" fill="none" stroke="#F59E0B" stroke-width="2" vector-effect="non-scaling-stroke" />
+        ${points.filter((_, i) => i % Math.ceil(points.length / 5) === 0).map((p) => `
+          <circle cx="${p.x}" cy="${getY(p.y)}" r="1.5" fill="white" stroke="#F59E0B" stroke-width="1" vector-effect="non-scaling-stroke" />
+        `).join('')}
       </svg>
-      <div className="absolute bottom-0 left-0 text-[10px] text-gray-400">Start</div>
-      <div className="absolute bottom-0 right-0 text-[10px] text-gray-400">Nå</div>
+      <div class="absolute bottom-0 left-0 text-[10px] text-gray-400">Start</div>
+      <div class="absolute bottom-0 right-0 text-[10px] text-gray-400">Nå</div>
     </div>
-  );
+  `;
 };
 
 export function generatePdfHtml(currentData: any[], totalAnswers: number, type: 'BEEKEEPER' | 'NON_BEEKEEPER') {
@@ -214,51 +207,47 @@ export function generatePdfHtml(currentData: any[], totalAnswers: number, type: 
   const challenges = type === 'BEEKEEPER' ? currentData.map(s => s.answers.biggest_challenge).filter(s => s && s.length > 3).slice(0, 5) : [];
 
   // --- Render HTML Parts ---
-  const scoreCardsHtml = ReactDOMServer.renderToStaticMarkup(
-    <div className="grid grid-cols-4 gap-4 mb-8 break-inside-avoid" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-      <ScoreCard title="Antall Svar" value={totalAnswers} subtext="Verifiserte respondenter" iconName="Users" color="blue" />
-      <ScoreCard title="Pilotinteresse" value={pilotInterestCount} subtext={`${pilotInterestPercent}% ønsker å delta`} iconName="Award" color="green" />
-      {type === 'BEEKEEPER' ? (
-        <>
-          <ScoreCard title="Sykdomserfaring" value={`${diseasePercent}%`} subtext="Har opplevd sykdom" iconName="ShieldCheck" color="red" />
-          <ScoreCard title="NBL Medlemmer" value={`${nblMemberPercent}%`} subtext="Er organisert" iconName="Target" color="yellow" />
-        </>
-      ) : (
-        <>
-           <ScoreCard title="Positiv Holdning" value={`${positivePercent}%`} subtext="Ville brukt systemet" iconName="TrendingUp" color="purple" />
-           <ScoreCard title="Honning-elskere" value={`${Math.round((currentData.filter(s => s.answers.nb_eats_honey === 'ja').length / totalAnswers) * 100)}%`} subtext="Spiser mye honning" iconName="Target" color="yellow" />
-        </>
-      )}
+  const scoreCardsHtml = `
+    <div class="grid grid-cols-4 gap-4 mb-8 break-inside-avoid" style="break-inside: avoid; page-break-inside: avoid;">
+      ${renderScoreCard({ title: "Antall Svar", value: totalAnswers, subtext: "Verifiserte respondenter", iconName: "Users", color: "blue" })}
+      ${renderScoreCard({ title: "Pilotinteresse", value: pilotInterestCount, subtext: `${pilotInterestPercent}% ønsker å delta`, iconName: "Award", color: "green" })}
+      ${type === 'BEEKEEPER' ? `
+          ${renderScoreCard({ title: "Sykdomserfaring", value: `${diseasePercent}%`, subtext: "Har opplevd sykdom", iconName: "ShieldCheck", color: "red" })}
+          ${renderScoreCard({ title: "NBL Medlemmer", value: `${nblMemberPercent}%`, subtext: "Er organisert", iconName: "Target", color: "yellow" })}
+      ` : `
+           ${renderScoreCard({ title: "Positiv Holdning", value: `${positivePercent}%`, subtext: "Ville brukt systemet", iconName: "TrendingUp", color: "purple" })}
+           ${renderScoreCard({ title: "Honning-elskere", value: `${Math.round((currentData.filter(s => s.answers.nb_eats_honey === 'ja').length / totalAnswers) * 100)}%`, subtext: "Spiser mye honning", iconName: "Target", color: "yellow" })}
+      `}
     </div>
-  );
+  `;
 
-  const barChartHtml = ReactDOMServer.renderToStaticMarkup(<SimpleBarChart data={[
+  const barChartHtml = renderSimpleBarChart({ data: [
     { label: "Ja, absolutt", value: wouldUseCounts.ja, percentage: Math.round((wouldUseCounts.ja/totalAnswers)*100), color: "#059669" },
     { label: "Ja, hvis enkelt / med hjelp", value: wouldUseCounts.ja_enkelt, percentage: Math.round((wouldUseCounts.ja_enkelt/totalAnswers)*100), color: "#3B82F6" },
     { label: "Kanskje / Usikker", value: wouldUseCounts.kanskje, percentage: Math.round((wouldUseCounts.kanskje/totalAnswers)*100), color: "#E5E7EB" },
     { label: "Nei", value: wouldUseCounts.nei, percentage: Math.round((wouldUseCounts.nei/totalAnswers)*100), color: "#EF4444" },
-  ]} />);
+  ]});
 
-  const donutChartHtml = ReactDOMServer.renderToStaticMarkup(<DonutChart data={pieData} total={totalAnswers} />);
+  const donutChartHtml = renderDonutChart({ data: pieData, total: totalAnswers });
   
-  const ratingsHtml = type === 'BEEKEEPER' ? ReactDOMServer.renderToStaticMarkup(
-    <div className="space-y-1">
-      {avgScores.map((item, idx) => <FeatureRating key={idx} label={item.label} score={item.score} />)}
+  const ratingsHtml = type === 'BEEKEEPER' ? `
+    <div class="space-y-1">
+      ${avgScores.map((item) => renderFeatureRating({ label: item.label, score: item.score })).join('')}
     </div>
-  ) : '';
+  ` : '';
 
-  const growthChartHtml = ReactDOMServer.renderToStaticMarkup(<GrowthChart submissions={currentData} />);
+  const growthChartHtml = renderGrowthChart({ submissions: currentData });
 
-  const challengesHtml = challenges.length > 0 ? ReactDOMServer.renderToStaticMarkup(
-    <ul className="space-y-3">
-        {challenges.map((c, i) => (
-            <li key={i} className="flex gap-3 text-sm text-gray-700 italic bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
-                <span className="text-yellow-400 font-serif text-xl">"</span>
-                {c}
+  const challengesHtml = challenges.length > 0 ? `
+    <ul class="space-y-3">
+        ${challenges.map((c, i) => `
+            <li class="flex gap-3 text-sm text-gray-700 italic bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                <span class="text-yellow-400 font-serif text-xl">"</span>
+                ${c}
             </li>
-        ))}
+        `).join('')}
     </ul>
-  ) : '';
+  ` : '';
 
   return `
     <!DOCTYPE html>
