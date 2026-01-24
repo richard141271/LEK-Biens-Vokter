@@ -44,6 +44,9 @@ export default function FranchiseAdminDashboard() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [potentialOwners, setPotentialOwners] = useState<Profile[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
   const [stats, setStats] = useState({
     signatures: 0,
     reportsThisWeek: 0
@@ -60,13 +63,23 @@ export default function FranchiseAdminDashboard() {
   const supabase = createClient();
 
   useEffect(() => {
+    checkUser();
     fetchUnits();
     fetchStats();
   }, []);
 
+  const checkUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+        setCurrentUser({ ...user, role: profile?.role });
+    }
+  };
+
   useEffect(() => {
     if (isCreateModalOpen) {
         fetchProfiles();
+        setFormError(null);
     }
   }, [isCreateModalOpen]);
 
@@ -129,25 +142,35 @@ export default function FranchiseAdminDashboard() {
   const handleCreateUnit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setFormError(null);
     try {
         const payload = {
             ...newUnit,
             owner_id: newUnit.owner_id || null // Handle empty string as null
         };
         
-        const { error } = await supabase
-            .from('franchise_units')
-            .insert([payload]);
+        console.log('Attempting to create unit with payload:', payload);
 
-        if (error) throw error;
+        const { data, error } = await supabase
+            .from('franchise_units')
+            .insert([payload])
+            .select();
+
+        if (error) {
+            console.error('Supabase error:', error);
+            throw error;
+        }
+
+        console.log('Unit created successfully:', data);
         
         setIsCreateModalOpen(false);
         setNewUnit({ name: '', org_number: '', address: '', owner_id: '', status: 'active' });
         fetchUnits();
+        alert('Enhet opprettet!');
     } catch (error: any) {
-                alert(`Kunne ikke opprette enhet: ${error.message || 'Ukjent feil'}`);
-                console.error(error);
-            } finally {
+        console.error('Detailed error:', error);
+        setFormError(`Feil: ${error.message || JSON.stringify(error)}`);
+    } finally {
         setSubmitting(false);
     }
   };
@@ -308,6 +331,15 @@ export default function FranchiseAdminDashboard() {
         </div>
       </main>
 
+      {/* Debug Info Footer */}
+      <div className="fixed bottom-0 left-0 right-0 bg-gray-900 text-white p-2 text-xs font-mono opacity-75 hover:opacity-100 transition-opacity z-50">
+        <div className="max-w-7xl mx-auto flex justify-between">
+            <span>Logged in as: {currentUser?.email} (ID: {currentUser?.id})</span>
+            <span>Role: {currentUser?.role || 'None'}</span>
+            <span>Stats: {JSON.stringify(stats)}</span>
+        </div>
+      </div>
+
       {/* Create Unit Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -323,6 +355,11 @@ export default function FranchiseAdminDashboard() {
                 </div>
                 
                 <form onSubmit={handleCreateUnit} className="p-6 space-y-4">
+                    {formError && (
+                        <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm border border-red-200">
+                            {formError}
+                        </div>
+                    )}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Navn på enhet *
