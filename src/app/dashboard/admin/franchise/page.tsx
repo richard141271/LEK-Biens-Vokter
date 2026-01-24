@@ -152,6 +152,11 @@ export default function FranchiseAdminDashboard() {
     }
   };
 
+  // Add this to debug
+  useEffect(() => {
+    console.log('Units loaded:', units);
+  }, [units]);
+
   const filteredUnits = units.filter(unit => 
     unit.name.toLowerCase().includes(search.toLowerCase()) ||
     unit.owner?.full_name?.toLowerCase().includes(search.toLowerCase())

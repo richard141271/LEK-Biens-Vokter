@@ -1,8 +1,11 @@
 
--- Grant admin role to the main user (VIP)
+-- Grant admin role to the main user (VIP) using auth.users lookup
+-- This avoids the "column email does not exist" error in profiles table
 UPDATE profiles 
 SET role = 'admin' 
-WHERE email = 'richard141271@gmail.com';
+WHERE id IN (
+    SELECT id FROM auth.users WHERE email = 'richard141271@gmail.com'
+);
 
 -- Update RLS policies to explicitly allow the VIP email as a fallback
 -- This ensures that even if the role update fails or profiles RLS is tricky, the specific user can access.
