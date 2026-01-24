@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { jsPDF } from 'jspdf';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert, Mail } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert, Mail, Building } from 'lucide-react';
 import WeatherWidget from '@/components/WeatherWidget';
 import SicknessRegistrationModal from '@/components/SicknessRegistrationModal';
 import InspectionModal from '@/components/InspectionModal';
@@ -81,6 +81,7 @@ Da det er levende dyr, som klargjøres spesielt til hver enkelt leietaker, er de
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
+  const [isFranchiseOwner, setIsFranchiseOwner] = useState(false);
   const [honeyStatus, setHoneyStatus] = useState('Ikke klar');
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -153,6 +154,16 @@ export default function DashboardPage() {
         .single();
         
         setProfile(profileData || { full_name: user.user_metadata?.full_name || user.email });
+
+        // Check if franchise owner (role or actual ownership)
+        const { count: franchiseCount } = await supabase
+            .from('franchise_units')
+            .select('*', { count: 'exact', head: true })
+            .eq('owner_id', user.id);
+
+        if (profileData?.role === 'franchisee' || (franchiseCount || 0) > 0) {
+            setIsFranchiseOwner(true);
+        }
 
         // Fetch Stats
         const { count: apiaryCount } = await supabase
@@ -470,6 +481,26 @@ export default function DashboardPage() {
                 <div className="mt-2">
                     <Link href="/dashboard/mail" className="block w-full text-center py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-bold transition-colors">
                         Åpne webmail
+                    </Link>
+                </div>
+            </div>
+          )}
+
+          {/* Franchise Portal Card */}
+          {isFranchiseOwner && (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 relative">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600">
+                        <Building className="w-4 h-4" />
+                    </div>
+                    <div>
+                        <h2 className="text-sm font-bold text-gray-900">Franchise-portal</h2>
+                        <p className="text-[10px] text-gray-500">Administrer din enhet</p>
+                    </div>
+                </div>
+                <div className="mt-2">
+                    <Link href="/dashboard/franchise" className="block w-full text-center py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-colors">
+                        Åpne portal
                     </Link>
                 </div>
             </div>

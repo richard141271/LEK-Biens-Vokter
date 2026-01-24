@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft, 
   Plus, 
@@ -38,6 +39,7 @@ interface Profile {
 }
 
 export default function FranchiseAdminDashboard() {
+  const router = useRouter();
   const [units, setUnits] = useState<FranchiseUnit[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -311,13 +313,16 @@ export default function FranchiseAdminDashboard() {
             ) : filteredUnits.length > 0 ? (
                 <div className="divide-y divide-gray-200">
                     {filteredUnits.map((unit) => (
-                        <div key={unit.id} className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between group">
-                            <div className="flex items-center gap-4">
+                        <div 
+                            key={unit.id} 
+                            className="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between group"
+                        >
+                            <Link href={`/dashboard/admin/franchise/${unit.id}`} className="flex-1 flex items-center gap-4 cursor-pointer">
                                 <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-700 font-bold">
                                     {unit.name.substring(0, 2).toUpperCase()}
                                 </div>
                                 <div>
-                                    <h4 className="text-sm font-bold text-gray-900">{unit.name}</h4>
+                                    <h4 className="text-sm font-bold text-gray-900 group-hover:text-yellow-600 transition-colors">{unit.name}</h4>
                                     <div className="flex items-center gap-2 text-xs text-gray-500">
                                         <Users className="w-3 h-3" />
                                         {unit.owner?.full_name || 'Ingen eier'}
@@ -326,7 +331,7 @@ export default function FranchiseAdminDashboard() {
                                         Org: {unit.org_number || '-'} • {unit.address || '-'}
                                     </div>
                                 </div>
-                            </div>
+                            </Link>
                             <div className="flex items-center gap-6">
                                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                     unit.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
@@ -338,7 +343,10 @@ export default function FranchiseAdminDashboard() {
                                     <p>{new Date(unit.created_at).toLocaleDateString()}</p>
                                 </div>
                                 <button 
-                                    onClick={() => handleDeleteUnit(unit.id)}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteUnit(unit.id);
+                                    }}
                                     className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full"
                                     title="Slett enhet"
                                 >
