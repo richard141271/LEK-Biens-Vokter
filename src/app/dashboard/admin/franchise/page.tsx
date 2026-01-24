@@ -27,14 +27,14 @@ interface FranchiseUnit {
   created_at: string;
   owner?: {
     full_name: string;
-    email: string;
+    email?: string;
   };
 }
 
 interface Profile {
     id: string;
     full_name: string;
-    email: string;
+    email?: string;
 }
 
 export default function FranchiseAdminDashboard() {
@@ -120,7 +120,7 @@ export default function FranchiseAdminDashboard() {
         .from('franchise_units')
         .select(`
           *,
-          owner:profiles(full_name, email)
+          owner:profiles(full_name)
         `)
         .order('created_at', { ascending: false });
 
@@ -137,9 +137,28 @@ export default function FranchiseAdminDashboard() {
   const fetchProfiles = async () => {
     const { data } = await supabase
         .from('profiles')
-        .select('id, full_name, email')
+        .select('id, full_name')
         .order('full_name');
     setPotentialOwners(data || []);
+  };
+
+  const handleDeleteUnit = async (id: string) => {
+    if (!confirm('Er du sikker på at du vil slette denne enheten? Dette kan ikke angres.')) return;
+    
+    try {
+        const { error } = await supabase
+            .from('franchise_units')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        
+        setUnits(units.filter(u => u.id !== id));
+        alert('Enhet slettet.');
+    } catch (error: any) {
+        console.error('Error deleting unit:', error);
+        alert(`Kunne ikke slette enhet: ${error.message}`);
+    }
   };
 
   const handleCreateUnit = async (e: React.FormEvent) => {
@@ -302,8 +321,6 @@ export default function FranchiseAdminDashboard() {
                                     <div className="flex items-center gap-2 text-xs text-gray-500">
                                         <Users className="w-3 h-3" />
                                         {unit.owner?.full_name || 'Ingen eier'}
-                                        <span className="text-gray-300">•</span>
-                                        {unit.owner?.email}
                                     </div>
                                     <div className="text-xs text-gray-400 mt-1">
                                         Org: {unit.org_number || '-'} • {unit.address || '-'}
@@ -320,8 +337,13 @@ export default function FranchiseAdminDashboard() {
                                     <p>Opprettet</p>
                                     <p>{new Date(unit.created_at).toLocaleDateString()}</p>
                                 </div>
-                                <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full">
-                                    <MoreVertical className="w-5 h-5" />
+                                <button 
+                                    onClick={() => handleDeleteUnit(unit.id)}
+                                    className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full"
+                                    title="Slett enhet"
+                                >
+                                    <span className="sr-only">Slett</span>
+                                    <X className="w-5 h-5" />
                                 </button>
                             </div>
                         </div>
