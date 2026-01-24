@@ -74,6 +74,40 @@ export async function deleteUser(userId: string) {
   return { success: true }
 }
 
+export async function updateUserPassword(userId: string, newPassword: string) {
+  const supabase = createClient()
+  
+  // 1. Check permissions
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Ikke logget inn' }
+
+  const adminVerifier = createAdminClient()
+  const { data: adminProfile } = await adminVerifier
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isVip = user.email === 'richard141271@gmail.com';
+  const isAdmin = adminProfile?.role === 'admin';
+
+  if (!isAdmin && !isVip) {
+    return { error: 'Ingen tilgang' }
+  }
+
+  // 2. Update password
+  const { error } = await adminVerifier.auth.admin.updateUserById(userId, {
+    password: newPassword
+  })
+
+  if (error) {
+    console.error('Error updating password:', error)
+    return { error: error.message }
+  }
+
+  return { success: true }
+}
+
 export async function updateUserRole(userId: string, newRole: string) {
   const supabase = createClient()
   

@@ -12,10 +12,11 @@ import {
   Loader2,
   ArrowLeft,
   Trash2,
-  Mail
+  Mail,
+  Key
 } from 'lucide-react';
 import Link from 'next/link';
-import { deleteUser, updateUserRole as updateUserRoleAction, getUsers, assignEmail, toggleEmailAccess } from '@/app/actions/user-management';
+import { deleteUser, updateUserRole as updateUserRoleAction, getUsers, assignEmail, toggleEmailAccess, updateUserPassword } from '@/app/actions/user-management';
 
 export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
@@ -33,6 +34,12 @@ export default function AdminUsersPage() {
   const [emailAliasInput, setEmailAliasInput] = useState('');
   const [emailDomainInput, setEmailDomainInput] = useState('kias.no');
   const [isEmailSubmitting, setIsEmailSubmitting] = useState(false);
+
+  // Password Modal State
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [passwordUser, setPasswordUser] = useState<any | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
 
   const supabase = createClient();
 
@@ -215,6 +222,35 @@ export default function AdminUsersPage() {
     }
   };
 
+  const openPasswordModal = (user: any) => {
+    setPasswordUser(user);
+    setNewPassword('');
+    setPasswordModalOpen(true);
+  };
+
+  const handlePasswordSubmit = async () => {
+    if (!passwordUser || !newPassword) return;
+    if (newPassword.length < 6) {
+        alert('Passordet må være minst 6 tegn.');
+        return;
+    }
+
+    setIsPasswordSubmitting(true);
+    try {
+        const result = await updateUserPassword(passwordUser.id, newPassword);
+        if (result.error) {
+            setMessage({ text: result.error, type: 'error' });
+        } else {
+            setMessage({ text: 'Passord oppdatert for ' + passwordUser.full_name, type: 'success' });
+            setPasswordModalOpen(false);
+        }
+    } catch (e) {
+        setMessage({ text: 'En feil oppstod ved endring av passord', type: 'error' });
+    } finally {
+        setIsPasswordSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto">
@@ -320,6 +356,13 @@ export default function AdminUsersPage() {
                         title={user.email_enabled ? 'Administrer e-post' : 'Tildel e-post'}
                       >
                         <Mail className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openPasswordModal(user)}
+                        className="p-2 text-gray-400 hover:bg-gray-100 hover:text-yellow-600 rounded-lg transition-colors"
+                        title="Endre passord"
+                      >
+                        <Key className="w-4 h-4" />
                       </button>
                       <button 
                           onClick={() => handleDeleteUser(user.id)}
@@ -431,6 +474,67 @@ export default function AdminUsersPage() {
           </div>
         </div>
       )}
+      {/* Password Modal */}
+      {passwordModalOpen && passwordUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setPasswordModalOpen(false)}>
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+                <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+                    <h3 className="text-lg font-bold text-gray-900">
+                        Endre passord
+                    </h3>
+                    <button onClick={() => setPasswordModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-4">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 font-bold">
+                            <Key className="w-5 h-5" />
+                        </div>
+                        <div>
+                            <p className="font-medium text-gray-900">{passwordUser.full_name}</p>
+                            <p className="text-xs text-gray-500">{passwordUser.email}</p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Nytt passord
+                        </label>
+                        <input 
+                            type="text" 
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all"
+                            placeholder="Minst 6 tegn"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                            Dette vil overskrive brukerens eksisterende passord umiddelbart.
+                        </p>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-4">
+                        <button 
+                            onClick={() => setPasswordModalOpen(false)}
+                            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors"
+                        >
+                            Avbryt
+                        </button>
+                        <button 
+                            onClick={handlePasswordSubmit}
+                            disabled={isPasswordSubmitting || newPassword.length < 6}
+                            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                        >
+                            {isPasswordSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                            Lagre passord
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
       {/* Email Administration Modal */}
       {emailModalOpen && emailUser && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setEmailModalOpen(false)}>

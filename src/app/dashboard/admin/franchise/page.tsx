@@ -15,7 +15,8 @@ import {
   MoreVertical,
   Building,
   BarChart2,
-  X
+  X,
+  ChevronDown
 } from 'lucide-react';
 import { updateUserRole } from '@/app/actions/user-management';
 
@@ -47,6 +48,8 @@ export default function FranchiseAdminDashboard() {
   const [search, setSearch] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [potentialOwners, setPotentialOwners] = useState<Profile[]>([]);
+  const [ownerSearch, setOwnerSearch] = useState('');
+  const [showOwnerDropdown, setShowOwnerDropdown] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -205,6 +208,7 @@ export default function FranchiseAdminDashboard() {
         
         setIsCreateModalOpen(false);
         setNewUnit({ name: '', org_number: '', address: '', owner_id: '', status: 'active' });
+        setOwnerSearch('');
         fetchUnits();
         alert('Enhet opprettet, og eier har fått rollen "Franchisetaker"!');
     } catch (error: any) {
@@ -477,22 +481,78 @@ export default function FranchiseAdminDashboard() {
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             Eier / Kontaktperson *
                         </label>
-                        <select 
-                            required
-                            value={newUnit.owner_id}
-                            onChange={e => setNewUnit({...newUnit, owner_id: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all"
-                        >
-                            <option value="">-- Velg eier (påkrevd) --</option>
-                            {potentialOwners.map(profile => (
-                                <option key={profile.id} value={profile.id}>
-                                    {profile.full_name} ({profile.email})
-                                </option>
-                            ))}
-                        </select>
-                        <p className="text-xs text-gray-500 mt-1">
-                            Velg brukeren som skal administrere denne enheten.
-                        </p>
+                        <div className="relative">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                                <input 
+                                    type="text"
+                                    placeholder="Søk etter navn eller e-post..."
+                                    value={ownerSearch}
+                                    onChange={(e) => {
+                                        setOwnerSearch(e.target.value);
+                                        setShowOwnerDropdown(true);
+                                        // Clear selection if typing
+                                        if (newUnit.owner_id) {
+                                            setNewUnit({...newUnit, owner_id: ''});
+                                        }
+                                    }}
+                                    onFocus={() => setShowOwnerDropdown(true)}
+                                    className={`w-full pl-9 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all ${
+                                        !newUnit.owner_id && ownerSearch ? 'border-yellow-300 bg-yellow-50' : 'border-gray-300'
+                                    }`}
+                                />
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                    {newUnit.owner_id && (
+                                        <CheckCircle className="w-4 h-4 text-green-500" />
+                                    )}
+                                    <button 
+                                        type="button"
+                                        onClick={() => setShowOwnerDropdown(!showOwnerDropdown)}
+                                        className="text-gray-400 hover:text-gray-600"
+                                    >
+                                        <ChevronDown className={`w-4 h-4 transition-transform ${showOwnerDropdown ? 'rotate-180' : ''}`} />
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {showOwnerDropdown && (
+                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                    {potentialOwners.filter(p => 
+                                        p.full_name?.toLowerCase().includes(ownerSearch.toLowerCase()) || 
+                                        p.email?.toLowerCase().includes(ownerSearch.toLowerCase())
+                                    ).length > 0 ? (
+                                        potentialOwners.filter(p => 
+                                            p.full_name?.toLowerCase().includes(ownerSearch.toLowerCase()) || 
+                                            p.email?.toLowerCase().includes(ownerSearch.toLowerCase())
+                                        ).map(profile => (
+                                            <button
+                                                key={profile.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setNewUnit({...newUnit, owner_id: profile.id});
+                                                    setOwnerSearch(profile.full_name);
+                                                    setShowOwnerDropdown(false);
+                                                }}
+                                                className="w-full text-left px-4 py-3 hover:bg-yellow-50 transition-colors border-b border-gray-50 last:border-0"
+                                            >
+                                                <p className="font-bold text-gray-900 text-sm">{profile.full_name}</p>
+                                                <p className="text-xs text-gray-500">{profile.email}</p>
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <div className="p-4 text-center text-gray-500 text-sm">
+                                            Ingen brukere funnet
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        {newUnit.owner_id && (
+                            <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
+                                <CheckCircle className="w-3 h-3" />
+                                Valgt eier er registrert
+                            </p>
+                        )}
                     </div>
 
                     <div className="pt-4 flex justify-end gap-3">
