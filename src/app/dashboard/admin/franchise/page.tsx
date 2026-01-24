@@ -144,10 +144,10 @@ export default function FranchiseAdminDashboard() {
         setIsCreateModalOpen(false);
         setNewUnit({ name: '', org_number: '', address: '', owner_id: '', status: 'active' });
         fetchUnits();
-    } catch (error) {
-        alert('Kunne ikke opprette enhet. Sjekk at du har rettigheter.');
-        console.error(error);
-    } finally {
+    } catch (error: any) {
+                alert(`Kunne ikke opprette enhet: ${error.message || 'Ukjent feil'}`);
+                console.error(error);
+            } finally {
         setSubmitting(false);
     }
   };
@@ -189,39 +189,47 @@ export default function FranchiseAdminDashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-gray-500">Totalt antall enheter</h3>
-                    <Building className="w-5 h-5 text-yellow-500" />
-                </div>
-                <p className="text-2xl font-bold text-gray-900">{units.length}</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-gray-500 text-sm font-medium">Totalt Enheter</h3>
+              <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                <Building className="w-5 h-5" />
+              </div>
             </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-gray-500">Aktive enheter</h3>
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                </div>
-                <p className="text-2xl font-bold text-gray-900">
-                    {units.filter(u => u.status === 'active').length}
-                </p>
+            <p className="text-3xl font-bold text-gray-900">{units.length}</p>
+            <p className="text-sm text-green-600 mt-2 flex items-center gap-1">
+              <CheckCircle className="w-3 h-3" />
+              {units.filter(u => u.status === 'active').length} aktive
+            </p>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-gray-500 text-sm font-medium">Signerte avtaler</h3>
+              <div className="p-2 bg-green-50 text-green-600 rounded-lg">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
             </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-gray-500">Signerte avtaler</h3>
-                    <FileText className="w-5 h-5 text-blue-500" />
+            <p className="text-3xl font-bold text-gray-900">{stats.signatures}</p>
+            <p className="text-sm text-gray-500 mt-2">Totalt antall signaturer</p>
+          </div>
+
+          <Link href="/dashboard/admin/franchise/reports" className="block group">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 group-hover:border-indigo-300 transition-all cursor-pointer h-full">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-gray-500 text-sm font-medium group-hover:text-indigo-600">Innsendte rapporter</h3>
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-100">
+                  <FileText className="w-5 h-5" />
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{stats.signatures}</p>
-                <p className="text-xs text-gray-400 mt-1">Av totalt {units.length} enheter</p>
+              </div>
+              <p className="text-3xl font-bold text-gray-900 group-hover:text-indigo-700">{stats.reportsThisWeek}</p>
+              <p className="text-sm text-gray-500 mt-2 flex items-center gap-1">
+                Denne uken
+                <ArrowLeft className="w-3 h-3 rotate-180 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </p>
             </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-gray-500">Innsendte rapporter</h3>
-                    <BarChart2 className="w-5 h-5 text-purple-500" />
-                </div>
-                <p className="text-2xl font-bold text-gray-900">{stats.reportsThisWeek}</p>
-                <p className="text-xs text-gray-400 mt-1">Denne uken</p>
-            </div>
+          </Link>
         </div>
 
         {/* Units List */}
