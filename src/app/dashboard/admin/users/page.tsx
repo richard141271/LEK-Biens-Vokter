@@ -146,6 +146,8 @@ export default function AdminUsersPage() {
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800"><Shield className="w-3 h-3 mr-1" /> Admin</span>;
       case 'mattilsynet':
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"><Briefcase className="w-3 h-3 mr-1" /> Mattilsynet</span>;
+      case 'franchisee':
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800"><Shield className="w-3 h-3 mr-1" /> Franchisetaker</span>;
       default:
         return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><User className="w-3 h-3 mr-1" /> Birøkter</span>;
     }
@@ -304,6 +306,7 @@ export default function AdminUsersPage() {
                             className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-honey-500 outline-none"
                           >
                             <option value="beekeeper">Birøkter</option>
+                            <option value="franchisee">Franchisetaker</option>
                             <option value="admin">Admin</option>
                             <option value="mattilsynet">Mattilsynet</option>
                           </select>

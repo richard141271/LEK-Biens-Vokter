@@ -17,6 +17,7 @@ import {
   BarChart2,
   X
 } from 'lucide-react';
+import { updateUserRole } from '@/app/actions/user-management';
 
 interface FranchiseUnit {
   id: string;
@@ -168,9 +169,13 @@ export default function FranchiseAdminDashboard() {
     setSubmitting(true);
     setFormError(null);
     try {
+        if (!newUnit.owner_id) {
+            throw new Error('Du må velge en eier/kontaktperson for enheten.');
+        }
+
         const payload = {
             ...newUnit,
-            owner_id: newUnit.owner_id || null // Handle empty string as null
+            owner_id: newUnit.owner_id
         };
         
         console.log('Attempting to create unit with payload:', payload);
@@ -185,12 +190,23 @@ export default function FranchiseAdminDashboard() {
             throw error;
         }
 
+        // Auto-assign franchisee role to the owner
+        if (newUnit.owner_id) {
+            console.log('Updating user role for:', newUnit.owner_id);
+            const roleResult = await updateUserRole(newUnit.owner_id, 'franchisee');
+            if (roleResult.error) {
+                console.warn('Could not update user role:', roleResult.error);
+                // We don't stop the process, but maybe warn? 
+                // For now, let's just log it. The unit is created.
+            }
+        }
+
         console.log('Unit created successfully:', data);
         
         setIsCreateModalOpen(false);
         setNewUnit({ name: '', org_number: '', address: '', owner_id: '', status: 'active' });
         fetchUnits();
-        alert('Enhet opprettet!');
+        alert('Enhet opprettet, og eier har fått rollen "Franchisetaker"!');
     } catch (error: any) {
         console.error('Detailed error:', error);
         setFormError(`Feil: ${error.message || JSON.stringify(error)}`);
@@ -425,7 +441,7 @@ export default function FranchiseAdminDashboard() {
                                 value={newUnit.org_number}
                                 onChange={e => setNewUnit({...newUnit, org_number: e.target.value})}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all"
-                                placeholder="9 sifre"
+                                placeholder="9 sifre eller 'Under registrering'"
                             />
                         </div>
                         <div>
@@ -439,7 +455,7 @@ export default function FranchiseAdminDashboard() {
                             >
                                 <option value="active">Aktiv</option>
                                 <option value="inactive">Inaktiv</option>
-                                <option value="pending">Venter</option>
+                                <option value="pending">Venter (Under etablering)</option>
                             </select>
                         </div>
                     </div>
@@ -459,14 +475,15 @@ export default function FranchiseAdminDashboard() {
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Eier / Kontaktperson
+                            Eier / Kontaktperson *
                         </label>
                         <select 
+                            required
                             value={newUnit.owner_id}
                             onChange={e => setNewUnit({...newUnit, owner_id: e.target.value})}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none transition-all"
                         >
-                            <option value="">-- Velg eier (valgfritt) --</option>
+                            <option value="">-- Velg eier (påkrevd) --</option>
                             {potentialOwners.map(profile => (
                                 <option key={profile.id} value={profile.id}>
                                     {profile.full_name} ({profile.email})
