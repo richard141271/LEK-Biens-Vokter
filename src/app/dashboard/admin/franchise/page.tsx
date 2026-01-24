@@ -40,6 +40,7 @@ interface Profile {
 export default function FranchiseAdminDashboard() {
   const [units, setUnits] = useState<FranchiseUnit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [potentialOwners, setPotentialOwners] = useState<Profile[]>([]);
@@ -114,6 +115,7 @@ export default function FranchiseAdminDashboard() {
 
   const fetchUnits = async () => {
     try {
+      setFetchError(null);
       const { data, error } = await supabase
         .from('franchise_units')
         .select(`
@@ -124,8 +126,9 @@ export default function FranchiseAdminDashboard() {
 
       if (error) throw error;
       setUnits(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching units:', error);
+      setFetchError(error.message || 'Ukjent feil ved henting av enheter');
     } finally {
       setLoading(false);
     }
@@ -276,6 +279,14 @@ export default function FranchiseAdminDashboard() {
                 </div>
             </div>
             
+            {fetchError && (
+                <div className="p-4 bg-red-50 border-b border-red-200 text-red-700 text-sm">
+                    <p className="font-bold">Feil ved henting av data:</p>
+                    <p>{fetchError}</p>
+                    <p className="mt-2 text-xs">Dette skyldes sannsynligvis manglende SQL-oppdatering i databasen.</p>
+                </div>
+            )}
+
             {loading ? (
                 <div className="p-12 text-center text-gray-500">Laster enheter...</div>
             ) : filteredUnits.length > 0 ? (
@@ -336,7 +347,7 @@ export default function FranchiseAdminDashboard() {
         <div className="max-w-7xl mx-auto flex justify-between">
             <span>Logged in as: {currentUser?.email} (ID: {currentUser?.id})</span>
             <span>Role: {currentUser?.role || 'None'}</span>
-            <span>Stats: {JSON.stringify(stats)}</span>
+            <span>Units: {units.length} | Error: {fetchError || 'None'}</span>
         </div>
       </div>
 
