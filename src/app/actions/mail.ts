@@ -242,3 +242,56 @@ export async function getAdminUserInbox(userId: string, folder: string = 'inbox'
     const mailService = getMailService(adminClient);
     return await mailService.getInbox(targetProfile.email_alias, folder);
 }
+
+export async function adminSendMessage(senderId: string, to: string, subject: string, body: string, attachments: MailAttachment[] = []) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Ikke logget inn' };
+
+    const role = await getRequesterRole(user.id);
+    if (!isAuthorizedAdmin(user.email, role)) {
+        return { error: 'Ingen tilgang' };
+    }
+
+    const adminClient = createAdminClient();
+    
+    // Get sender's profile (the user we are managing)
+    const { data: senderProfile } = await adminClient
+        .from('profiles')
+        .select('email_alias, email_enabled')
+        .eq('id', senderId)
+        .single();
+
+    if (!senderProfile?.email_enabled || !senderProfile?.email_alias) {
+        return { error: 'Avsenders e-post er ikke aktivert' };
+    }
+
+    const mailService = getMailService(adminClient);
+    const result = await mailService.sendMail(senderProfile.email_alias, to, subject, body, senderId, attachments);
+
+    if (result.error) return { error: result.error };
+
+    revalidatePath(`/dashboard/admin/email/${senderId}`);
+    return { success: true };
+}
+
+export async function adminDeleteMessage(userId: string, messageId: string) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Ikke logget inn' };
+
+    const role = await getRequesterRole(user.id);
+    if (!isAuthorizedAdmin(user.email, role)) {
+        return { error: 'Ingen tilgang' };
+    }
+
+    const adminClient = createAdminClient();
+    const mailService = getMailService(adminClient);
+    
+    const result = await mailService.deleteMessage(messageId);
+    
+    if (result.success) {
+        revalidatePath(`/dashboard/admin/email/${userId}`);
+    }
+    return result;
+}

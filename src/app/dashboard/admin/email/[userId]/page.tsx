@@ -19,7 +19,10 @@ import {
   FileText,
   AlertCircle,
   Copy,
-  Check
+  Check,
+  RefreshCw,
+  X,
+  Paperclip
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { 
@@ -29,9 +32,12 @@ import {
   deleteUserFolder, 
   getUserSignature, 
   updateUserSignature,
-  getAdminUserProfile
+  getAdminUserProfile,
+  adminSendMessage,
+  adminDeleteMessage
 } from '@/app/actions/mail';
-import { MailFolder, MailMessage } from '@/services/mail/types';
+import { MailFolder, MailMessage, MailAttachment } from '@/services/mail/types';
+import { MessageDetail } from '@/components/mail/MessageDetail';
 
 type Tab = 'inbox' | 'folders' | 'signature' | 'connection';
 
@@ -54,6 +60,16 @@ export default function AdminUserEmailPage() {
   const [isSavingSignature, setIsSavingSignature] = useState(false);
   const [messageState, setMessageState] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Compose states
+  const [selectedMessage, setSelectedMessage] = useState<MailMessage | null>(null);
+  const [isComposing, setIsComposing] = useState(false);
+  const [to, setTo] = useState('');
+  const [subject, setSubject] = useState('');
+  const [body, setBody] = useState('');
+  const [attachments, setAttachments] = useState<MailAttachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -96,6 +112,80 @@ export default function AdminUserEmailPage() {
   const fetchSignature = async () => {
     const result = await getUserSignature(userId);
     if (result.data) setSignature(result.data);
+  };
+
+  const handleOpenMessage = async (message: MailMessage) => {
+    // Mark as read logic if needed, but for now just open
+    setSelectedMessage(message);
+    // Optionally mark as read
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm('Er du sikker på at du vil slette denne meldingen?')) return;
+    
+    try {
+        const result = await adminDeleteMessage(userId, messageId);
+        if (result.error) throw new Error(result.error);
+        
+        setMessages(messages.filter(m => m.id !== messageId));
+        if (selectedMessage?.id === messageId) {
+            setSelectedMessage(null);
+        }
+        setMessageState({ text: 'Melding slettet', type: 'success' });
+    } catch (error: any) {
+        setMessageState({ text: error.message, type: 'error' });
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!to || !subject || !body) {
+        setMessageState({ text: 'Vennligst fyll ut alle felt', type: 'error' });
+        return;
+    }
+
+    setSending(true);
+    try {
+        // Send using admin action on behalf of user
+        const result = await adminSendMessage(userId, to, subject, body, attachments);
+        if (result.error) throw new Error(result.error);
+
+        setIsComposing(false);
+        setTo('');
+        setSubject('');
+        setBody('');
+        setAttachments([]);
+        setMessageState({ text: 'E-post sendt', type: 'success' });
+        
+        // Refresh inbox to show sent message if we were showing sent folder (not implemented yet)
+        await fetchInbox();
+    } catch (error: any) {
+        setMessageState({ text: error.message, type: 'error' });
+    } finally {
+        setSending(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    const newAttachments: MailAttachment[] = [];
+
+    // Simple mock upload for now or base64 conversion if needed
+    // In a real app, you'd upload to Supabase Storage and get a URL
+    // For now, let's just pretend or use a simple implementation if MailService supports it
+    // The current MailService expects { name, size, type, url }
+    
+    // Since we don't have a full upload endpoint ready here, we'll skip implementation details 
+    // or just alert that it's not fully supported in this view yet if complex.
+    // But let's try to support it if we can.
+    
+    // For now, just a placeholder as I don't want to overcomplicate the admin view 
+    // without a proper upload mechanism in place for admin context.
+    // We'll skip file upload logic for now or just log it.
+    console.log('File upload not fully implemented in admin view yet');
+    setIsUploading(false);
   };
 
   const handleCreateFolder = async (e: React.FormEvent) => {
@@ -189,20 +279,33 @@ export default function AdminUserEmailPage() {
                   {userProfile.full_name}
                 </h1>
                 <p className="text-xs text-gray-500">{userProfile.email_alias || 'Ingen e-post alias'}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                userProfile.email_enabled 
-                ? 'bg-green-100 text-green-800' 
-                : 'bg-red-100 text-red-800'
-              }`}>
-                {userProfile.email_enabled ? 'Aktiv' : 'Deaktivert'}
-              </span>
             </div>
           </div>
-          
-          {/* Tabs */}
+          <div className="flex items-center gap-2">
+            <button 
+                onClick={() => {
+                  setIsComposing(true);
+                  setTo('');
+                  setSubject('');
+                  setBody('');
+                  setAttachments([]);
+                }}
+                className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            >
+                <PenTool className="w-4 h-4" />
+                Ny melding
+            </button>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              userProfile.email_enabled 
+              ? 'bg-green-100 text-green-800' 
+              : 'bg-red-100 text-red-800'
+            }`}>
+              {userProfile.email_enabled ? 'Aktiv' : 'Deaktivert'}
+            </span>
+          </div>
+        </div>
+        
+        {/* Tabs */}
           <div className="flex space-x-8 -mb-px overflow-x-auto">
             <button
               onClick={() => setActiveTab('inbox')}
@@ -262,15 +365,46 @@ export default function AdminUserEmailPage() {
 
         {/* Inbox View */}
         {activeTab === 'inbox' && (
+          selectedMessage ? (
+             <div className="h-[calc(100vh-16rem)]">
+                <MessageDetail 
+                    message={selectedMessage}
+                    onBack={() => setSelectedMessage(null)}
+                    onDelete={handleDeleteMessage}
+                    onReply={(msg) => {
+                        setIsComposing(true);
+                        setTo(msg.from_alias);
+                        setSubject(`SV: ${msg.subject}`);
+                        setBody(`\n\n> ${msg.body}`);
+                        setAttachments([]);
+                    }}
+                    onForward={(msg) => {
+                        setIsComposing(true);
+                        setSubject(`VS: ${msg.subject}`);
+                        setBody(`\n\n---------- Videresendt melding ----------\nFra: ${msg.from_alias}\nDato: ${msg.created_at}\nEmne: ${msg.subject}\n\n${msg.body}`);
+                        setAttachments([]);
+                    }}
+                />
+             </div>
+          ) : (
           <div className="bg-white shadow-sm rounded-xl border border-gray-200 overflow-hidden">
             <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
                 <h3 className="font-medium text-gray-900">Innboks for {userProfile.email_alias}</h3>
-                <span className="text-xs text-gray-500">{messages.length} meldinger</span>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => fetchInbox()} className="p-1 hover:bg-gray-200 rounded-full text-gray-500">
+                        <RefreshCw className="w-4 h-4" />
+                    </button>
+                    <span className="text-xs text-gray-500">{messages.length} meldinger</span>
+                </div>
             </div>
             <div className="divide-y divide-gray-200">
               {messages.length > 0 ? (
                 messages.map((msg) => (
-                  <div key={msg.id} className={`p-4 hover:bg-gray-50 transition-colors ${!msg.read ? 'bg-blue-50/50' : ''}`}>
+                  <div 
+                    key={msg.id} 
+                    onClick={() => handleOpenMessage(msg)}
+                    className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${!msg.read ? 'bg-blue-50/50' : ''}`}
+                  >
                     <div className="flex justify-between items-start mb-1">
                       <span className={`text-sm font-medium ${!msg.read ? 'text-blue-900' : 'text-gray-900'}`}>
                         {msg.from_alias}
@@ -295,6 +429,7 @@ export default function AdminUserEmailPage() {
               )}
             </div>
           </div>
+          )
         )}
 
         {/* Folders View */}
@@ -465,6 +600,94 @@ export default function AdminUserEmailPage() {
           </div>
         )}
       </main>
+
+      {/* Compose Modal */}
+      {isComposing && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
+                <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                    <h3 className="font-bold text-gray-900">Ny melding (som {userProfile.email_alias})</h3>
+                    <button onClick={() => setIsComposing(false)} className="p-1 hover:bg-gray-200 rounded-full text-gray-500">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Til:</label>
+                        <input 
+                            type="email" 
+                            value={to}
+                            onChange={(e) => setTo(e.target.value)}
+                            className="w-full px-3 py-2 border-b border-gray-200 focus:border-purple-500 outline-none transition-colors"
+                            placeholder="mottaker@kias.no"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Emne:</label>
+                        <input 
+                            type="text" 
+                            value={subject}
+                            onChange={(e) => setSubject(e.target.value)}
+                            className="w-full px-3 py-2 border-b border-gray-200 focus:border-purple-500 outline-none transition-colors"
+                            placeholder="Emne"
+                        />
+                    </div>
+                    <div>
+                        <textarea 
+                            value={body}
+                            onChange={(e) => setBody(e.target.value)}
+                            rows={8}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
+                            placeholder="Skriv din melding her..."
+                        />
+                    </div>
+                    
+                    {/* Attachments Section */}
+                    <div>
+                        <div className="flex items-center gap-2 mb-2">
+                            <label className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg cursor-pointer text-sm font-medium text-gray-700 transition-colors">
+                                <Paperclip className="w-4 h-4" />
+                                Legg til vedlegg
+                                <input type="file" className="hidden" multiple onChange={handleFileUpload} />
+                            </label>
+                            {isUploading && <Loader2 className="w-4 h-4 animate-spin text-purple-600" />}
+                        </div>
+                        {attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {attachments.map((file, i) => (
+                                    <div key={i} className="flex items-center gap-2 bg-gray-50 border border-gray-200 px-3 py-1 rounded-full text-xs">
+                                        <span className="truncate max-w-[150px]">{file.name}</span>
+                                        <button 
+                                            onClick={() => setAttachments(attachments.filter((_, idx) => idx !== i))}
+                                            className="text-gray-400 hover:text-red-600"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+                    <button 
+                        onClick={() => setIsComposing(false)}
+                        className="px-4 py-2 text-gray-700 font-medium hover:bg-gray-200 rounded-lg transition-colors"
+                    >
+                        Avbryt
+                    </button>
+                    <button 
+                        onClick={handleSendMessage}
+                        disabled={sending || !to || !subject || !body}
+                        className="flex items-center gap-2 px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        Send melding
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
     </div>
   );
 }

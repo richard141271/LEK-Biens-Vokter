@@ -42,17 +42,22 @@ export class MockMailService implements MailService {
     }
 
     async sendMail(fromAlias: string, toAlias: string, subject: string, body: string, userId: string, attachments?: MailAttachment[]): Promise<{ success?: boolean; error?: string }> {
+        const payload: any = {
+            to_alias: toAlias,
+            from_alias: fromAlias,
+            subject: subject,
+            body: body,
+            user_id: userId,
+            folder: 'inbox', // Default for recipient
+        };
+
+        if (attachments && attachments.length > 0) {
+            payload.attachments = attachments;
+        }
+
         const { error } = await this.supabase
             .from('mail_messages')
-            .insert({
-                to_alias: toAlias,
-                from_alias: fromAlias,
-                subject: subject,
-                body: body,
-                user_id: userId,
-                folder: 'inbox', // Default for recipient
-                attachments: attachments || []
-            });
+            .insert(payload);
 
         if (error) return { error: error.message };
         return { success: true };
