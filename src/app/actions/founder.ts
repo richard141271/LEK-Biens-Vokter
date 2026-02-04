@@ -292,17 +292,21 @@ export async function repairFounderProfiles() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
 
-    const { data: profile } = await supabase
+    // Use Admin Client for ALL database operations to bypass RLS
+    const adminClient = createAdminClient();
+
+    // Verify admin role using admin client (safer against RLS)
+    const { data: profile } = await adminClient
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single();
 
-    if (profile?.role !== 'admin' && user.email !== 'richard141271@gmail.com') {
+    if (profile?.role !== 'admin' && user.email?.toLowerCase() !== 'richard141271@gmail.com') {
+        console.error('Unauthorized access attempt (repair):', user.id, user.email, profile?.role);
         return { error: 'Unauthorized' };
     }
 
-    const adminClient = createAdminClient();
     let fixedCount = 0;
 
     // 1. Find users with logs but no profile
@@ -334,19 +338,20 @@ export async function getAllFoundersData() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Not authenticated' };
 
+  // Use Admin Client for ALL database operations to bypass RLS
+  const adminClient = createAdminClient();
+
   // Verify admin role
-  const { data: profile } = await supabase
+  const { data: profile } = await adminClient
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single();
 
-  if (profile?.role !== 'admin' && user.email !== 'richard141271@gmail.com') {
+  if (profile?.role !== 'admin' && user.email?.toLowerCase() !== 'richard141271@gmail.com') {
+      console.error('Unauthorized access attempt:', user.id, user.email, profile?.role);
       return { error: 'Unauthorized' };
   }
-
-  // Use Admin Client to bypass RLS for visibility
-  const adminClient = createAdminClient();
 
   // FIX: Check if we need to auto-create profiles for users who have logs but no profile
   // This can happen if they started before the founder module was fully strict

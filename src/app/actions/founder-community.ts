@@ -12,22 +12,39 @@ export async function getCommunityMessages() {
   // Use Admin Client to bypass RLS for reading messages (ensures Admin sees all)
   const adminClient = createAdminClient();
   
+  // 1. Fetch messages first (without joining to avoid relationship errors)
   const { data: messages, error } = await adminClient
     .from('founder_messages')
-    .select(`
-        *,
-        founder_profiles (
-            profiles (
-                full_name,
-                avatar_url
-            )
-        )
-    `)
+    .select('*')
     .order('created_at', { ascending: false });
 
   if (error) return { error: error.message };
+  if (!messages || messages.length === 0) return { messages: [] };
+
+  // 2. Fetch profiles manually
+  const founderIds = Array.from(new Set(messages.map(m => m.founder_id)));
   
-  return { messages };
+  const { data: founders } = await adminClient
+    .from('founder_profiles')
+    .select(`
+        id,
+        profiles (
+            full_name,
+            avatar_url
+        )
+    `)
+    .in('id', founderIds);
+
+  // 3. Map profiles to messages
+  const messagesWithProfiles = messages.map(msg => {
+      const founder = founders?.find(f => f.id === msg.founder_id);
+      return {
+          ...msg,
+          founder_profiles: founder || null
+      };
+  });
+  
+  return { messages: messagesWithProfiles };
 }
 
 export async function postCommunityMessage(content: string) {
