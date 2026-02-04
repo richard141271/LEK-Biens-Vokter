@@ -66,7 +66,7 @@ export default function AdminFoundersPage() {
                             {isRepairing ? 'Fikser...' : 'Synkroniser'}
                         </button>
                         <Link 
-                            href="/dashboard/founder/community"
+                            href="/dashboard/admin/community"
                             className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-900 rounded-lg hover:bg-amber-200 font-medium text-sm transition-colors"
                         >
                             <MessageSquare className="w-4 h-4" />
