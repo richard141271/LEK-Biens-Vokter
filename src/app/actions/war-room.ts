@@ -38,11 +38,16 @@ export async function getWarRoomFeed() {
             if (authUser) {
                 profile = {
                     id: authUser.id,
-                    full_name: authUser.user_metadata?.full_name || 'Ukjent (Auth)',
+                    full_name: authUser.email === 'richard141271@gmail.com' ? 'Admin' : (authUser.user_metadata?.full_name || 'Ukjent (Auth)'),
                     email: authUser.email,
                     avatar_url: authUser.user_metadata?.avatar_url || null
                 };
             }
+        }
+        
+        // Ensure Admin is always shown as Admin
+        if (profile?.email === 'richard141271@gmail.com') {
+            profile.full_name = 'Admin';
         }
 
         return {
@@ -177,12 +182,18 @@ export async function getUserStatuses() {
              if (authUser) {
                  profile = {
                      id: authUser.id,
-                     full_name: authUser.user_metadata?.full_name || 'Ukjent (Auth)',
+                     full_name: authUser.email === 'richard141271@gmail.com' ? 'Admin' : (authUser.user_metadata?.full_name || 'Ukjent (Auth)'),
                      email: authUser.email,
                      avatar_url: authUser.user_metadata?.avatar_url
                  };
              }
         }
+        
+        // Ensure Admin is always shown as Admin
+        if (profile?.email === 'richard141271@gmail.com') {
+            profile.full_name = 'Admin';
+        }
+        
         return {
             ...status,
             profile: {
