@@ -13,10 +13,12 @@ import {
   ArrowLeft,
   Trash2,
   Mail,
-  Key
+  Key,
+  RefreshCw,
+  Ban
 } from 'lucide-react';
 import Link from 'next/link';
-import { deleteUser, updateUserRole as updateUserRoleAction, getUsers, assignEmail, toggleEmailAccess, updateUserPassword } from '@/app/actions/user-management';
+import { deleteUser, reactivateUser, updateUserRole as updateUserRoleAction, getUsers, assignEmail, toggleEmailAccess, updateUserPassword } from '@/app/actions/user-management';
 
 export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
@@ -136,12 +138,37 @@ export default function AdminUsersPage() {
             setMessage({ text: 'Feil ved deaktivering: ' + result.error, type: 'error' });
         } else {
             setMessage({ text: 'Bruker deaktivert', type: 'success' });
-            setUsers(users.filter(u => u.id !== userId));
-            setFilteredUsers(filteredUsers.filter(u => u.id !== userId));
+            // Instead of removing, just update the local state to show as inactive
+            setUsers(users.map(u => u.id === userId ? { ...u, is_active: false } : u));
+            setFilteredUsers(filteredUsers.map(u => u.id === userId ? { ...u, is_active: false } : u));
         }
     } catch (e: any) {
         console.error(e);
         setMessage({ text: 'Noe gikk galt under deaktivering: ' + e.message, type: 'error' });
+    } finally {
+        setUpdatingId(null);
+    }
+  };
+
+  const handleReactivateUser = async (userId: string) => {
+    if (!confirm('Er du sikker på at du vil gjenaktivere denne brukeren?')) return;
+
+    try {
+        setUpdatingId(userId);
+        setMessage(null);
+        
+        const result = await reactivateUser(userId);
+        
+        if (result.error) {
+            setMessage({ text: 'Feil ved gjenaktivering: ' + result.error, type: 'error' });
+        } else {
+            setMessage({ text: 'Bruker gjenaktivert', type: 'success' });
+            setUsers(users.map(u => u.id === userId ? { ...u, is_active: true } : u));
+            setFilteredUsers(filteredUsers.map(u => u.id === userId ? { ...u, is_active: true } : u));
+        }
+    } catch (e: any) {
+        console.error(e);
+        setMessage({ text: 'Noe gikk galt under gjenaktivering: ' + e.message, type: 'error' });
     } finally {
         setUpdatingId(null);
     }
@@ -318,14 +345,19 @@ export default function AdminUsersPage() {
                   </tr>
                 ) : (
                   filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => openUserDetails(user)}>
+                    <tr key={user.id} className={`hover:bg-gray-50 transition-colors cursor-pointer ${user.is_active === false ? 'bg-gray-100 opacity-75' : ''}`} onClick={() => openUserDetails(user)}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="h-10 w-10 flex-shrink-0 rounded-full bg-honey-100 flex items-center justify-center text-honey-600 font-bold">
+                          <div className={`h-10 w-10 flex-shrink-0 rounded-full flex items-center justify-center font-bold ${user.is_active === false ? 'bg-gray-200 text-gray-500' : 'bg-honey-100 text-honey-600'}`}>
                             {user.full_name?.[0]?.toUpperCase() || 'U'}
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{user.full_name || 'Ukjent navn'}</div>
+                            <div className="flex items-center gap-2">
+                                <div className="text-sm font-medium text-gray-900">{user.full_name || 'Ukjent navn'}</div>
+                                {user.is_active === false && (
+                                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">Inaktiv</span>
+                                )}
+                            </div>
                             <div className="text-xs text-gray-500">ID: {user.id.substring(0, 8)}...</div>
                           </div>
                         </div>
@@ -336,10 +368,10 @@ export default function AdminUsersPage() {
                       <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
                           <select
-                            disabled={updatingId === user.id}
+                            disabled={updatingId === user.id || user.is_active === false}
                             value={user.role || 'beekeeper'}
                             onChange={(e) => updateUserRole(user.id, e.target.value)}
-                            className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-honey-500 outline-none"
+                            className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-honey-500 outline-none disabled:opacity-50"
                           >
                             <option value="beekeeper">Birøkter</option>
                             <option value="franchisee">Franchisetaker</option>
@@ -352,26 +384,39 @@ export default function AdminUsersPage() {
                     <td className="px-6 py-4 whitespace-nowrap text-right flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => openEmailModal(user)}
-                        className={`p-2 rounded-lg transition-colors ${user.email_enabled ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}
+                        disabled={user.is_active === false}
+                        className={`p-2 rounded-lg transition-colors ${user.email_enabled ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'} disabled:opacity-50`}
                         title={user.email_enabled ? 'Administrer e-post' : 'Tildel e-post'}
                       >
                         <Mail className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => openPasswordModal(user)}
-                        className="p-2 text-gray-400 hover:bg-gray-100 hover:text-yellow-600 rounded-lg transition-colors"
+                        disabled={user.is_active === false}
+                        className="p-2 text-gray-400 hover:bg-gray-100 hover:text-yellow-600 rounded-lg transition-colors disabled:opacity-50"
                         title="Endre passord"
                       >
                         <Key className="w-4 h-4" />
                       </button>
-                      <button 
-                          onClick={() => handleDeleteUser(user.id)}
-                          disabled={updatingId === user.id}
-                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                          title="Deaktiver bruker"
-                      >
-                          <Trash2 className="w-4 h-4" />
-                      </button>
+                      {user.is_active === false ? (
+                          <button 
+                            onClick={() => handleReactivateUser(user.id)}
+                            disabled={updatingId === user.id}
+                            className="p-2 text-green-500 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                            title="Gjenaktiver bruker"
+                        >
+                            <RefreshCw className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <button 
+                            onClick={() => handleDeleteUser(user.id)}
+                            disabled={updatingId === user.id}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                            title="Deaktiver bruker"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))

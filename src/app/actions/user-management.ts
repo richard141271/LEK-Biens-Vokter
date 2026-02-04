@@ -74,6 +74,56 @@ export async function deleteUser(userId: string) {
   return { success: true }
 }
 
+export async function reactivateUser(userId: string) {
+  const supabase = createClient()
+  
+  // 1. Check permissions
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Ikke logget inn' }
+
+  const adminVerifier = createAdminClient()
+  const { data: adminProfile } = await adminVerifier
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isVip = user.email === 'richard141271@gmail.com';
+  const isAdmin = adminProfile?.role === 'admin';
+
+  if (!isAdmin && !isVip) {
+    return { error: 'Ingen tilgang' }
+  }
+
+  // 2. Reactivate profile
+  const { error: profileError } = await adminVerifier
+    .from('profiles')
+    .update({ is_active: true })
+    .eq('id', userId)
+
+  if (profileError) {
+    console.error('Error reactivating user profile:', profileError)
+    return { error: profileError.message }
+  }
+
+  // 3. Unban user in Auth
+  try {
+    const { error: unbanError } = await adminVerifier.auth.admin.updateUserById(userId, {
+      ban_duration: 'none'
+    })
+
+    if (unbanError) {
+      console.warn('Could not unban user in auth:', unbanError)
+      return { error: 'Kunne ikke oppheve utestengelse: ' + unbanError.message }
+    }
+  } catch (e) {
+    console.warn('Error attempting to unban user:', e)
+  }
+
+  revalidatePath('/dashboard/admin/users')
+  return { success: true }
+}
+
 export async function updateUserPassword(userId: string, newPassword: string) {
   const supabase = createClient()
   
@@ -187,8 +237,26 @@ export async function getUsers() {
     return { error: error.message, users: [] }
   }
 
-  const activeUsers = (data || []).filter((u: any) => u.is_active !== false);
-  return { users: activeUsers }
+  // Return all users for admin, so they can see inactive ones too
+  // Also fetch emails from Auth Admin API to ensure we display the login email
+  const { data: authUsers, error: authError } = await adminClient.auth.admin.listUsers({
+    perPage: 1000
+  });
+  
+  if (authError) {
+    console.warn('Could not fetch auth users to sync emails:', authError);
+  }
+
+  // Map auth emails to profiles
+  const profilesWithEmail = (data || []).map((profile: any) => {
+    const authUser = authUsers?.users.find((u: any) => u.id === profile.id);
+    return {
+      ...profile,
+      email: authUser?.email || profile.email // Fallback to profile.email if exists, otherwise auth email
+    };
+  });
+
+  return { users: profilesWithEmail }
 }
 
 export async function assignEmail(userId: string, emailAlias: string) {
