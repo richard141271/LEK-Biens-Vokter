@@ -1,6 +1,7 @@
 'use client';
 
 import { createClient } from '@/utils/supabase/client';
+import { ensureMemberNumber } from '@/app/actions/profile';
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -145,6 +146,9 @@ export default function DashboardPage() {
             router.push('/login');
             return;
         }
+
+        // Ensure member number exists
+        await ensureMemberNumber();
 
         // Fetch Profile Data
         const { data: profileData } = await supabase

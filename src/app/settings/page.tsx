@@ -1,6 +1,7 @@
 'use client';
 
 import { createClient } from '@/utils/supabase/client';
+import { ensureMemberNumber } from '@/app/actions/profile';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { jsPDF } from 'jspdf';
@@ -86,6 +87,8 @@ export default function SettingsPage() {
       router.push('/login');
       return;
     }
+
+    await ensureMemberNumber();
 
     const { data, error } = await supabase
       .from('profiles')

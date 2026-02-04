@@ -12,9 +12,9 @@ export default async function FounderPage() {
     }
 
     // Get user details for name
-    const { data: userDetails } = await supabase
-        .from('users')
-        .select('full_name, email')
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
         .eq('id', user.id)
         .single();
 
@@ -41,7 +41,7 @@ export default async function FounderPage() {
             checks={status.checks} 
             ambitions={status.ambitions}
             logs={logs}
-            userName={userDetails?.full_name || user.email || 'Deltaker'}
+            userName={profile?.full_name || user.email || 'Deltaker'}
         />
     );
 }
