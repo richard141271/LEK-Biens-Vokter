@@ -100,12 +100,13 @@ function FounderAgreement({ profile, initialChecks, initialAmbitions }: { profil
   };
 
   const allChecksDone = [
-    'no_salary_guarantee', 
-    'may_work_without_pay', 
+    'no_salary_job', 
+    'work_without_pay', 
+    'use_own_money', 
     'voluntary_participation', 
-    'friendship_first', 
+    'not_employment',
     'read_full_agreement'
-  ].every(k => checks.includes(k));
+  ].every(k => checks.includes(k)) && (checks.includes('role_shareholder') || checks.includes('role_contractor'));
 
   const cooldownPassed = !profile.cooldown_until || new Date(profile.cooldown_until) < new Date();
   const ambitionsFilled = ambitions.contribution && ambitions.goal_30_days;
@@ -114,55 +115,149 @@ function FounderAgreement({ profile, initialChecks, initialAmbitions }: { profil
     <div className="max-w-2xl mx-auto space-y-8 pb-24">
       <div className="text-center space-y-4">
         <img src="/BILDER/LEK-Biens vokter våpen.png" alt="Våpenskjold" className="w-24 h-24 mx-auto" />
-        <h1 className="text-3xl font-serif font-bold text-gray-900">Venne- og familiebeskyttelsesavtale</h1>
-        <p className="text-gray-600 italic">"Vennskapet foran alt"</p>
+        <h1 className="text-3xl font-serif font-bold text-gray-900">Medgründer- og samarbeidsavtale</h1>
+        <p className="text-gray-600 italic">(Relasjonsbeskyttelse – ikke arbeidsforhold)</p>
       </div>
 
       <div className="bg-white border-2 border-amber-100 rounded-xl shadow-sm p-6 max-h-[400px] overflow-y-auto space-y-6 prose prose-amber text-sm">
-        <h3>1. Formål</h3>
-        <p>Denne avtalen finnes av én grunn: Å sikre at vi kan fortsette å være venner/familie uansett hva som skjer i samarbeidet i LEK-systemet.</p>
+        <p>Denne avtalen er inngått mellom LEK-SYSTEMET / [Selskapets navn] (heretter kalt Selskapet) og [Navn] (heretter kalt Deltakeren).</p>
 
-        <h3>2. Forståelse av risiko</h3>
-        <p>Dette er ikke en jobb med lønn eller garantier. Jeg forstår at jeg kan komme til å legge ned hundrevis av arbeidstimer uten å tjene penger. Min økonomiske fremgang er utelukkende avhengig av min egen innsats, ideer og resultater.</p>
+        <h3>1. Avtalens formål</h3>
+        <p>Formålet med denne avtalen er å muliggjøre samarbeid uten at det går på bekostning av vennskap eller familierelasjon. Avtalen er en relasjonsbeskyttelse og en tydeliggjøring av risiko, ansvar og roller.</p>
 
-        <h3>3. Frivillig deltakelse</h3>
-        <p>Jeg bekrefter at jeg deltar av egen fri vilje, uten press, forventning eller påvirkning.</p>
+        <h3>2. Ikke arbeidsforhold (svært viktig)</h3>
+        <p>Partene er uttrykkelig enige om at denne avtalen ikke etablerer:</p>
+        <ul>
+            <li>ansettelsesforhold</li>
+            <li>arbeidsgiveransvar</li>
+            <li>rettigheter etter arbeidsmiljøloven</li>
+            <li>krav på lønn, feriepenger eller oppsigelsesvern</li>
+        </ul>
+        <p>All innsats skjer på eget initiativ og på egen risiko.</p>
 
-        <h3>4. Arbeidstid vs privat tid</h3>
-        <p>I arbeidstiden representerer vi LEK-systemet. I privat tid representerer vi kun vårt vennskap/familieforhold. Begge parter kan når som helst stoppe jobbprat i sosiale settinger.</p>
+        <h3>3. Økonomisk realitet og risiko (må bekreftes)</h3>
+        <p>Deltakeren forstår og aksepterer at:</p>
+        <ul>
+            <li>dette ikke er en jobb med lønn</li>
+            <li>man kan legge ned hundrevis av arbeidstimer uten betaling</li>
+            <li>man kan bruke egne penger, tid og ressurser uten å få dette tilbake</li>
+            <li>all økonomisk gevinst er avhengig av at Selskapet faktisk lykkes økonomisk</li>
+        </ul>
 
-        <h3>5. Ingen særfordeler</h3>
-        <p>Å være venn eller familie gir ingen fordeler i systemet. Det stilles tvert imot høyere krav til ryddighet og profesjonalitet.</p>
+        <h3>4. Valg av rolle (må krysses av digitalt)</h3>
+        <p>Deltakeren velger én av følgende samarbeidsformer:</p>
+        <p><strong>A – Medgründer med aksjepost</strong><br/>
+        Deltakeren kjøper aksjer i Selskapet (inntil 40 % eierskap). Arbeidsinnsats skjer som del av egen investering. Eventuell gevinst skjer gjennom utbytte og verdistigning.</p>
+        <p><strong>B – Selvstendig næringsdrivende</strong><br/>
+        Deltakeren driver eget foretak og fakturerer Selskapet prosentvis basert på dokumentert omsetning/resultat. Ingen fast betaling, kun resultatbasert oppgjør.</p>
 
-        <h3>6. Loggføring i gründermodulen</h3>
-        <p>Alt arbeid, ideer, planer og fremdrift skal loggføres i gründermodulen. Dette er for å sikre åpenhet og for å fange opp gnisninger tidlig.</p>
+        <h3>5. Resultatbasert for alle</h3>
+        <p>Ingen mottar lønn. All kompensasjon skjer kun gjennom:</p>
+        <ul>
+            <li>utbytte (eiere)</li>
+            <li>fakturering av dokumentert resultat (selvstendig næringsdrivende)</li>
+        </ul>
+        <p>Aldri på bekostning av Selskapets økonomi.</p>
 
-        <h3>7. Vennskapet foran alt-regelen</h3>
-        <p>Dersom en av partene opplever at samarbeidet påvirker relasjonen negativt, skal samarbeidet avsluttes samme dag. Uten konflikt. Uten diskusjon. Kun for å bevare relasjonen.</p>
+        <h3>6. Sak foran person</h3>
+        <p>I arbeidstid representerer partene Selskapets interesser – ikke det personlige forholdet. I privat tid kan begge parter stoppe jobbprat umiddelbart.</p>
 
-        <h3>8. Refleksjon før signering</h3>
-        <p>Denne avtalen kan ikke signeres før 48 timer etter at den er lest.</p>
+        <h3>7. Loggføring i gründermodulen</h3>
+        <p>Alt arbeid, ideer, fremdrift og planer skal loggføres i systemets gründermodul for å sikre åpenhet og tidlig oppdagelse av gnisninger.</p>
+
+        <h3>8. Taushetserklæring (NDA)</h3>
+        <p>Deltakeren forplikter seg til full taushet om:</p>
+        <ul>
+            <li>forretningsmodeller</li>
+            <li>ideer og konsepter</li>
+            <li>teknologi, kode og systemer</li>
+            <li>kunder og samarbeidspartnere</li>
+            <li>all intern informasjon</li>
+        </ul>
+        <p>Dette gjelder også etter at samarbeidet er avsluttet. All immateriell verdi tilhører Selskapet.</p>
+
+        <h3>9. Evalueringsperiode – 30 dager</h3>
+        <p>Begge parter kan avslutte samarbeidet uten begrunnelse de første 30 dagene.</p>
+
+        <h3>10. «Vennskapet foran alt»-regelen</h3>
+        <p>Dersom samarbeidet begynner å påvirke relasjonen negativt, skal samarbeidet avsluttes umiddelbart – samme dag. Kun dokumentert opptjent kompensasjon utbetales.</p>
+
+        <h3>11. Selvdefinerte ambisjoner (fylles ut digitalt)</h3>
+        <p>Deltakeren skal selv beskrive:</p>
+        <ul>
+            <li>Hva de ønsker å bidra med</li>
+            <li>Mål 30 dager</li>
+            <li>Mål 1 år</li>
+            <li>5 års visjon</li>
+        </ul>
+
+        <h3>12. Refleksjon før signering</h3>
+        <p>Avtalen kan ikke signeres før 2 minutter (test) etter at den er lest.</p>
       </div>
 
-      <div className="space-y-4 bg-gray-50 p-6 rounded-xl border border-gray-200">
-        <h3 className="font-bold text-gray-900">Bekreftelser</h3>
-        {[
-          { k: 'no_salary_guarantee', t: 'Jeg forstår at dette ikke er en jobb med lønnsgaranti' },
-          { k: 'may_work_without_pay', t: 'Jeg forstår at jeg kan jobbe mye uten betaling' },
-          { k: 'voluntary_participation', t: 'Jeg deltar frivillig' },
-          { k: 'friendship_first', t: 'Vennskapet er viktigere enn samarbeidet' },
-          { k: 'read_full_agreement', t: 'Jeg har lest og forstått hele avtalen' }
-        ].map(({ k, t }) => (
-          <label key={k} className="flex items-start gap-3 cursor-pointer">
-            <input 
-              type="checkbox" 
-              checked={checks.includes(k)} 
-              onChange={(e) => handleCheck(k, e.target.checked)}
-              className="mt-1 w-4 h-4 text-amber-600 rounded border-gray-300 focus:ring-amber-500"
-            />
-            <span className="text-sm text-gray-700">{t}</span>
-          </label>
-        ))}
+      <div className="space-y-6 bg-gray-50 p-6 rounded-xl border border-gray-200">
+        <div>
+            <h3 className="font-bold text-gray-900 mb-4">4. Valg av rolle (må krysses av)</h3>
+            <div className="space-y-3">
+                <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${checks.includes('role_shareholder') ? 'bg-amber-50 border-amber-500 ring-1 ring-amber-500' : 'bg-white border-gray-200 hover:border-amber-300'}`}>
+                    <input 
+                        type="radio" 
+                        name="role"
+                        checked={checks.includes('role_shareholder')}
+                        onChange={() => {
+                            handleCheck('role_contractor', false);
+                            handleCheck('role_shareholder', true);
+                        }}
+                        className="mt-1 w-4 h-4 text-amber-600 border-gray-300 focus:ring-amber-500"
+                    />
+                    <div>
+                        <span className="font-bold text-gray-900 block">A – Medgründer med aksjepost</span>
+                        <span className="text-sm text-gray-600">Deltakeren kjøper aksjer i Selskapet (inntil 40 % eierskap). Arbeidsinnsats skjer som del av egen investering. Eventuell gevinst skjer gjennom utbytte og verdistigning.</span>
+                    </div>
+                </label>
+
+                <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${checks.includes('role_contractor') ? 'bg-amber-50 border-amber-500 ring-1 ring-amber-500' : 'bg-white border-gray-200 hover:border-amber-300'}`}>
+                    <input 
+                        type="radio" 
+                        name="role"
+                        checked={checks.includes('role_contractor')}
+                        onChange={() => {
+                            handleCheck('role_shareholder', false);
+                            handleCheck('role_contractor', true);
+                        }}
+                        className="mt-1 w-4 h-4 text-amber-600 border-gray-300 focus:ring-amber-500"
+                    />
+                    <div>
+                        <span className="font-bold text-gray-900 block">B – Selvstendig næringsdrivende</span>
+                        <span className="text-sm text-gray-600">Deltakeren driver eget foretak og fakturerer Selskapet prosentvis basert på dokumentert omsetning/resultat. Ingen fast betaling, kun resultatbasert oppgjør.</span>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <div>
+            <h3 className="font-bold text-gray-900 mb-4">13. Bekreftelser før signering</h3>
+            <div className="space-y-3">
+                {[
+                { k: 'no_salary_job', t: 'Jeg forstår at dette ikke er en jobb med lønn' },
+                { k: 'work_without_pay', t: 'Jeg kan jobbe mye uten å tjene penger' },
+                { k: 'use_own_money', t: 'Jeg kan bruke egne penger uten å få dem tilbake' },
+                { k: 'voluntary_participation', t: 'Jeg deltar frivillig' },
+                { k: 'not_employment', t: 'Jeg forstår at dette ikke er et arbeidsforhold' },
+                { k: 'read_full_agreement', t: 'Jeg har lest hele avtalen' }
+                ].map(({ k, t }) => (
+                <label key={k} className="flex items-start gap-3 cursor-pointer">
+                    <input 
+                    type="checkbox" 
+                    checked={checks.includes(k)} 
+                    onChange={(e) => handleCheck(k, e.target.checked)}
+                    className="mt-1 w-4 h-4 text-amber-600 rounded border-gray-300 focus:ring-amber-500"
+                    />
+                    <span className="text-sm text-gray-700">{t}</span>
+                </label>
+                ))}
+            </div>
+        </div>
       </div>
 
       {allChecksDone && (
@@ -177,11 +272,11 @@ function FounderAgreement({ profile, initialChecks, initialAmbitions }: { profil
             ) : (
                <p className="text-green-700 font-bold">Tenkepausen er over. Du kan nå fylle ut ambisjoner og signere.</p>
             )}
-            <p className="text-xs text-amber-700 mt-2">Du må vente 48 timer etter at du har lest og krysset av punktene før du kan signere.</p>
+            <p className="text-xs text-amber-700 mt-2">Du må vente 2 minutter etter at du har lest og valgt rolle/bekreftelser før du kan signere.</p>
           </div>
 
           <div className="space-y-4">
-            <h3 className="font-bold text-gray-900">Mine ambisjoner</h3>
+            <h3 className="font-bold text-gray-900">11. Mine ambisjoner</h3>
             <div className="space-y-3">
                 <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Hva vil du bidra med?</label>
@@ -208,6 +303,14 @@ function FounderAgreement({ profile, initialChecks, initialAmbitions }: { profil
                         className="w-full rounded-lg border-gray-300 text-sm" rows={2}
                     />
                 </div>
+                <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">5 års visjon</label>
+                    <textarea 
+                        value={ambitions.goal_5_years}
+                        onChange={(e) => handleAmbitionChange('goal_5_years', e.target.value)}
+                        className="w-full rounded-lg border-gray-300 text-sm" rows={2}
+                    />
+                </div>
                 <button 
                     onClick={handleSaveAmbitions}
                     className="text-xs text-gray-500 flex items-center gap-1 hover:text-gray-900"
@@ -216,6 +319,7 @@ function FounderAgreement({ profile, initialChecks, initialAmbitions }: { profil
                 </button>
             </div>
           </div>
+
 
           <button
             onClick={handleSign}

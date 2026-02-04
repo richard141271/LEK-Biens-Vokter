@@ -68,12 +68,14 @@ export async function updateAgreementCheck(key: string, checked: boolean) {
   }
 
   // Check if all checks are done to start cooldown
-  // Keys: no_salary_guarantee, may_work_without_pay, voluntary_participation, friendship_first, read_full_agreement
+  // Keys: no_salary_job, work_without_pay, use_own_money, voluntary_participation, not_employment, read_full_agreement
+  // AND one of role_shareholder or role_contractor
   const requiredKeys = [
-    'no_salary_guarantee', 
-    'may_work_without_pay', 
+    'no_salary_job', 
+    'work_without_pay', 
+    'use_own_money', 
     'voluntary_participation', 
-    'friendship_first', 
+    'not_employment',
     'read_full_agreement'
   ];
 
@@ -83,9 +85,10 @@ export async function updateAgreementCheck(key: string, checked: boolean) {
     .eq('founder_id', user.id);
   
   const checkedKeys = allChecks?.map(c => c.check_key) || [];
-  const allDone = requiredKeys.every(k => checkedKeys.includes(k));
+  const basicChecksDone = requiredKeys.every(k => checkedKeys.includes(k));
+  const roleSelected = checkedKeys.includes('role_shareholder') || checkedKeys.includes('role_contractor');
 
-  if (allDone) {
+  if (basicChecksDone && roleSelected) {
     // Check if cooldown is already set
     const { data: profile } = await supabase
       .from('founder_profiles')
@@ -94,9 +97,9 @@ export async function updateAgreementCheck(key: string, checked: boolean) {
       .single();
 
     if (!profile?.cooldown_until) {
-      // Set cooldown 48h from now
+      // Set cooldown 2 minutes from now (TEST MODE)
       const cooldownUntil = new Date();
-      cooldownUntil.setHours(cooldownUntil.getHours() + 48);
+      cooldownUntil.setMinutes(cooldownUntil.getMinutes() + 2);
       
       await supabase
         .from('founder_profiles')
@@ -152,7 +155,7 @@ export async function signAgreement() {
         .eq('founder_id', user.id)
         .single();
     
-    if (!ambitions?.contribution || !ambitions?.goal_30_days) {
+    if (!ambitions?.contribution || !ambitions?.goal_30_days || !ambitions?.goal_1_year || !ambitions?.goal_5_years) {
         return { error: 'Ambitions missing' };
     }
 

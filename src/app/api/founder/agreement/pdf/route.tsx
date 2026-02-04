@@ -38,13 +38,22 @@ export async function GET(request: Request) {
     .eq('id', user.id)
     .single();
 
+  // Fetch checks to determine role
+  const { data: checks } = await supabase
+    .from('founder_agreement_checks')
+    .select('check_key')
+    .eq('founder_id', user.id);
+  
+  const checkedKeys = checks?.map(c => c.check_key) || [];
+  const role = checkedKeys.includes('role_shareholder') ? 'Medgründer med aksjepost' : 'Selvstendig næringsdrivende';
+
   // Read Coat of Arms
   const imagePath = path.join(process.cwd(), 'public', 'BILDER', 'LEK-Biens vokter våpen.png');
   const imageBuffer = await fs.promises.readFile(imagePath);
   const base64Image = imageBuffer.toString('base64');
 
   // Generate HTML
-  const html = generateFounderAgreementHtml(profile, userDetails || { email: user.email }, ambitions || {}, base64Image);
+  const html = generateFounderAgreementHtml(profile, userDetails || { email: user.email }, ambitions || {}, base64Image, role);
 
   // Generate PDF
   try {
