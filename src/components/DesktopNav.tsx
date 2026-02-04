@@ -43,7 +43,7 @@ export default function DesktopNav() {
       <div className="p-6 border-b border-gray-100">
         <div className="flex items-center gap-3">
           <img src="/icon.png" alt="Logo" className="w-8 h-8 object-contain" />
-          <Link href="/dashboard/admin" className="cursor-default text-gray-900 hover:text-gray-900">
+          <Link href="/dashboard" className="cursor-default text-gray-900 hover:text-gray-900">
             <span className="font-bold text-lg text-gray-900">Biens Vokter</span>
           </Link>
         </div>

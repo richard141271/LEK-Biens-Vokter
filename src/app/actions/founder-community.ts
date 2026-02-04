@@ -26,17 +26,23 @@ export async function getCommunityMessages() {
   
   const { data: profiles } = await adminClient
     .from('profiles')
-    .select('id, full_name, avatar_url')
+    .select('id, full_name, email, avatar_url')
     .in('id', founderIds);
 
   // 3. Map profiles to messages
   const messagesWithProfiles = messages.map(msg => {
       const profile = profiles?.find(p => p.id === msg.founder_id);
+      // Fallback to email if full_name is missing, or a partial ID if nothing found
+      const displayName = profile?.full_name || profile?.email || `Ukjent (${msg.founder_id.slice(0, 4)})`;
+      
       return {
           ...msg,
           // Reconstruct the nested structure the UI expects (founder_profiles.profiles.full_name)
           founder_profiles: {
-              profiles: profile || null
+              profiles: {
+                  full_name: displayName,
+                  avatar_url: profile?.avatar_url || null
+              }
           }
       };
   });

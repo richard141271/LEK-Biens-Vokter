@@ -375,26 +375,29 @@ export async function getAllFoundersData() {
 
   if (error) return { error: error.message };
 
-  // AUTO-REPAIR: If list is empty (or Anita missing), try to find her in 'profiles' and create a founder entry
-  if (!founders || founders.length === 0) {
-      // Try to find users with existing logs
-      const { data: logs } = await adminClient.from('founder_logs').select('founder_id');
-      if (logs && logs.length > 0) {
-          const uniqueFounderIds = Array.from(new Set(logs.map(l => l.founder_id)));
-          for (const fid of uniqueFounderIds) {
-             // Check if profile exists
-             const { data: exists } = await adminClient.from('founder_profiles').select('id').eq('id', fid).single();
-             if (!exists) {
-                 await adminClient.from('founder_profiles').insert({ id: fid, status: 'active' });
-             }
-          }
-          // Refetch
-          const { data: refetched } = await adminClient
+  // AUTO-REPAIR: Always check for missing founders from logs
+  // This ensures that if a user creates a log, they appear in the list even if they don't have a founder_profile yet
+  const { data: logs } = await adminClient.from('founder_logs').select('founder_id');
+  
+  if (logs && logs.length > 0) {
+      const uniqueFounderIds = Array.from(new Set(logs.map(l => l.founder_id)));
+      const existingFounderIds = founders?.map(f => f.id) || [];
+      const missingIds = uniqueFounderIds.filter(id => !existingFounderIds.includes(id));
+      
+      if (missingIds.length > 0) {
+         console.log('Found missing founders from logs, creating profiles:', missingIds);
+         // Insert missing profiles
+         for (const fid of missingIds) {
+             await adminClient.from('founder_profiles').insert({ id: fid, status: 'active' });
+         }
+         
+         // Refetch
+         const { data: refetched } = await adminClient
             .from('founder_profiles')
             .select('*')
             .order('created_at', { ascending: false });
             
-          founders = refetched;
+         founders = refetched;
       }
   }
 
