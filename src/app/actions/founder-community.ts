@@ -21,26 +21,23 @@ export async function getCommunityMessages() {
   if (error) return { error: error.message };
   if (!messages || messages.length === 0) return { messages: [] };
 
-  // 2. Fetch profiles manually
+  // 2. Fetch profiles manually (direct from profiles table to avoid relationship issues)
   const founderIds = Array.from(new Set(messages.map(m => m.founder_id)));
   
-  const { data: founders } = await adminClient
-    .from('founder_profiles')
-    .select(`
-        id,
-        profiles (
-            full_name,
-            avatar_url
-        )
-    `)
+  const { data: profiles } = await adminClient
+    .from('profiles')
+    .select('id, full_name, avatar_url')
     .in('id', founderIds);
 
   // 3. Map profiles to messages
   const messagesWithProfiles = messages.map(msg => {
-      const founder = founders?.find(f => f.id === msg.founder_id);
+      const profile = profiles?.find(p => p.id === msg.founder_id);
       return {
           ...msg,
-          founder_profiles: founder || null
+          // Reconstruct the nested structure the UI expects (founder_profiles.profiles.full_name)
+          founder_profiles: {
+              profiles: profile || null
+          }
       };
   });
   
