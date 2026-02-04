@@ -5,8 +5,6 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 export async function getFounderStatus() {
-export async function getAllFoundersData() {
-export async function getAllFoundersData() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Not authenticated' };
@@ -310,7 +308,7 @@ export async function repairFounderProfiles() {
     // 1. Find users with logs but no profile
     const { data: logs } = await adminClient.from('founder_logs').select('founder_id');
     if (logs && logs.length > 0) {
-        const uniqueFounderIds = [...new Set(logs.map(l => l.founder_id))];
+        const uniqueFounderIds = Array.from(new Set(logs.map(l => l.founder_id)));
         for (const fid of uniqueFounderIds) {
             const { data: exists } = await adminClient.from('founder_profiles').select('id').eq('id', fid).single();
             if (!exists) {
@@ -383,7 +381,7 @@ export async function getAllFoundersData() {
       // Try to find users with existing logs
       const { data: logs } = await adminClient.from('founder_logs').select('founder_id');
       if (logs && logs.length > 0) {
-          const uniqueFounderIds = [...new Set(logs.map(l => l.founder_id))];
+          const uniqueFounderIds = Array.from(new Set(logs.map(l => l.founder_id)));
           for (const fid of uniqueFounderIds) {
              // Check if profile exists
              const { data: exists } = await adminClient.from('founder_profiles').select('id').eq('id', fid).single();
@@ -403,7 +401,7 @@ export async function getAllFoundersData() {
 
 
   // For each founder, get their latest logs and check status
-  const foundersWithData = await Promise.all(founders.map(async (founder) => {
+  const foundersWithData = await Promise.all((founders || []).map(async (founder) => {
       // Get role choice
       const { data: checks } = await adminClient
         .from('founder_agreement_checks')
