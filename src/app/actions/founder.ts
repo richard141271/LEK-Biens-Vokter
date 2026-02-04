@@ -23,12 +23,15 @@ export async function getFounderStatus() {
     .select('check_key')
     .eq('founder_id', user.id);
 
-  // Get ambitions
-  const { data: ambitions } = await supabase
+  // Get ambitions (handle duplicates gracefully by taking the latest)
+  const { data: ambitionsData } = await supabase
     .from('founder_ambitions')
     .select('*')
     .eq('founder_id', user.id)
-    .single();
+    .order('updated_at', { ascending: false })
+    .limit(1);
+
+  const ambitions = ambitionsData?.[0] || null;
 
   return { 
     profile, 
@@ -124,15 +127,51 @@ export async function saveAmbitions(ambitions: any) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
 
-    const { error } = await supabase
+    // Manual upsert logic to handle potential duplicates (since unique constraint might be missing)
+    const { data: existingRows, error: fetchError } = await supabase
         .from('founder_ambitions')
-        .upsert({
-            founder_id: user.id,
-            ...ambitions,
-            updated_at: new Date().toISOString()
-        });
+        .select('id')
+        .eq('founder_id', user.id)
+        .order('updated_at', { ascending: false });
 
-    if (error) return { error: error.message };
+    if (fetchError) return { error: fetchError.message };
+
+    if (existingRows && existingRows.length > 0) {
+        // Use the most recent one as target
+        const targetId = existingRows[0].id;
+
+        // Cleanup: Delete duplicates if they exist
+        if (existingRows.length > 1) {
+            const idsToDelete = existingRows.slice(1).map(r => r.id);
+            if (idsToDelete.length > 0) {
+                await supabase.from('founder_ambitions').delete().in('id', idsToDelete);
+            }
+        }
+
+        // Update the target record
+        const { error: updateError } = await supabase
+            .from('founder_ambitions')
+            .update({
+                ...ambitions,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', targetId);
+
+        if (updateError) return { error: updateError.message };
+
+    } else {
+        // Insert new record
+        const { error: insertError } = await supabase
+            .from('founder_ambitions')
+            .insert({
+                founder_id: user.id,
+                ...ambitions,
+                updated_at: new Date().toISOString()
+            });
+            
+        if (insertError) return { error: insertError.message };
+    }
+
     revalidatePath('/dashboard/founder');
     return { success: true };
 }
@@ -153,11 +192,14 @@ export async function signAgreement() {
         return { error: 'Cooldown not finished' };
     }
 
-    const { data: ambitions } = await supabase
+    const { data: ambitionsData } = await supabase
         .from('founder_ambitions')
         .select('*')
         .eq('founder_id', user.id)
-        .single();
+        .order('updated_at', { ascending: false })
+        .limit(1);
+    
+    const ambitions = ambitionsData?.[0] || null;
     
     if (!ambitions?.contribution || !ambitions?.goal_30_days || !ambitions?.goal_1_year || !ambitions?.goal_5_years) {
         return { error: 'Ambitions missing' };
