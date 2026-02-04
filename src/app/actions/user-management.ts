@@ -74,6 +74,60 @@ export async function deleteUser(userId: string) {
   return { success: true }
 }
 
+export async function toggleFounderStatus(userId: string, isFounder: boolean) {
+  const supabase = createClient()
+  
+  // 1. Check permissions
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Ikke logget inn' }
+
+  const adminVerifier = createAdminClient()
+  const { data: adminProfile } = await adminVerifier
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isVip = user.email === 'richard141271@gmail.com';
+  const isAdmin = adminProfile?.role === 'admin';
+
+  if (!isAdmin && !isVip) {
+    return { error: 'Ingen tilgang' }
+  }
+
+  // 2. Update profile
+  const adminClient = createAdminClient()
+  const { error } = await adminClient
+    .from('profiles')
+    .update({ is_founder: isFounder })
+    .eq('id', userId)
+
+  if (error) return { error: error.message }
+
+  // 3. Initialize founder profile if setting to true and it doesn't exist
+  if (isFounder) {
+    const { data: existingFounder } = await adminClient
+      .from('founder_profiles')
+      .select('id')
+      .eq('id', userId)
+      .single()
+      
+    if (!existingFounder) {
+      const { error: createError } = await adminClient
+        .from('founder_profiles')
+        .insert({
+          id: userId,
+          status: 'invited'
+        })
+      
+      if (createError) console.error('Error creating founder profile:', createError)
+    }
+  }
+
+  revalidatePath('/dashboard/admin/users')
+  return { success: true }
+}
+
 export async function reactivateUser(userId: string) {
   const supabase = createClient()
   

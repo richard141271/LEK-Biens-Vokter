@@ -15,10 +15,11 @@ import {
   Mail,
   Key,
   RefreshCw,
-  Ban
+  Ban,
+  HeartHandshake
 } from 'lucide-react';
 import Link from 'next/link';
-import { deleteUser, reactivateUser, updateUserRole as updateUserRoleAction, getUsers, assignEmail, toggleEmailAccess, updateUserPassword } from '@/app/actions/user-management';
+import { deleteUser, reactivateUser, updateUserRole as updateUserRoleAction, getUsers, assignEmail, toggleEmailAccess, updateUserPassword, toggleFounderStatus } from '@/app/actions/user-management';
 
 export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
@@ -174,6 +175,31 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleToggleFounder = async (user: any) => {
+    const newState = !user.is_founder;
+    const confirmMsg = newState 
+        ? 'Vil du markere denne brukeren som en del av gründer-teamet (V/F)?' 
+        : 'Vil du fjerne denne brukeren fra gründer-teamet?';
+        
+    if (!confirm(confirmMsg)) return;
+    
+    try {
+        setUpdatingId(user.id);
+        const result = await toggleFounderStatus(user.id, newState);
+        if (result.error) {
+            setMessage({ text: result.error, type: 'error' });
+        } else {
+            setMessage({ text: newState ? 'Markert som gründer (V/F)' : 'Fjernet fra gründer-teamet', type: 'success' });
+            setUsers(users.map(u => u.id === user.id ? { ...u, is_founder: newState } : u));
+            setFilteredUsers(filteredUsers.map(u => u.id === user.id ? { ...u, is_founder: newState } : u));
+        }
+    } catch (e) {
+        setMessage({ text: 'En feil oppstod', type: 'error' });
+    } finally {
+        setUpdatingId(null);
+    }
+  };
+
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'admin':
@@ -324,6 +350,7 @@ export default function AdminUsersPage() {
                 <tr>
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Navn</th>
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nåværende Rolle</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">V/F</th>
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Handlinger</th>
                 </tr>
               </thead>
