@@ -156,6 +156,25 @@ export default function AdminDashboard() {
               </div>
             </Link>
 
+            <Link href="/dashboard/admin/founders" className="group">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-amber-500 hover:shadow-md transition-all h-full">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-amber-50 text-amber-600 rounded-lg group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                    <Shield className="w-6 h-6" />
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-amber-500" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Gründer-oppfølging</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Se avtaler, valgte roller, ambisjoner og loggføring fra deltakere.
+                </p>
+                <div className="flex items-center gap-2 text-xs font-medium text-gray-400 bg-gray-50 px-3 py-2 rounded-lg">
+                  <Activity className="w-4 h-4" />
+                  <span>Logg og status</span>
+                </div>
+              </div>
+            </Link>
+
             <Link href="/dashboard/admin/shop" className="group">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-orange-500 hover:shadow-md transition-all h-full">
                 <div className="flex items-center justify-between mb-4">

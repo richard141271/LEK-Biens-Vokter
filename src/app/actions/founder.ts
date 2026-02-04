@@ -285,3 +285,72 @@ export async function getFounderLogs() {
         
     return data || [];
 }
+
+export async function getAllFoundersData() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  // Verify admin role
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (profile?.role !== 'admin' && user.email !== 'richard141271@gmail.com') {
+      return { error: 'Unauthorized' };
+  }
+
+  // Fetch all founder profiles
+  const { data: founders, error } = await supabase
+    .from('founder_profiles')
+    .select(`
+        *,
+        profiles (
+            full_name,
+            email,
+            avatar_url
+        )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) return { error: error.message };
+
+  // For each founder, get their latest logs and check status
+  const foundersWithData = await Promise.all(founders.map(async (founder) => {
+      // Get role choice
+      const { data: checks } = await supabase
+        .from('founder_agreement_checks')
+        .select('check_key')
+        .eq('founder_id', founder.id);
+      
+      const checkKeys = checks?.map(c => c.check_key) || [];
+      const role = checkKeys.includes('role_shareholder') ? 'Medgründer (Aksjer)' : 
+                   checkKeys.includes('role_contractor') ? 'Selvstendig (Faktura)' : 'Ikke valgt';
+
+      // Get latest logs
+      const { data: logs } = await supabase
+        .from('founder_logs')
+        .select('*')
+        .eq('founder_id', founder.id)
+        .order('created_at', { ascending: false });
+
+      // Get ambitions
+      const { data: ambitionsData } = await supabase
+        .from('founder_ambitions')
+        .select('*')
+        .eq('founder_id', founder.id)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+      return {
+          ...founder,
+          role_choice: role,
+          logs: logs || [],
+          ambitions: ambitionsData?.[0] || null
+      };
+  }));
+
+  return { founders: foundersWithData };
+}
