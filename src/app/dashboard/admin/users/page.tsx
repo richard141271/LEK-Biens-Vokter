@@ -16,7 +16,8 @@ import {
   Key,
   RefreshCw,
   Ban,
-  HeartHandshake
+  HeartHandshake,
+  Filter
 } from 'lucide-react';
 import Link from 'next/link';
 import { deleteUser, reactivateUser, updateUserRole as updateUserRoleAction, getUsers, assignEmail, toggleEmailAccess, updateUserPassword, toggleFounderStatus } from '@/app/actions/user-management';
@@ -26,6 +27,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortOption, setSortOption] = useState('newest');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
@@ -79,13 +81,47 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     if (users.length > 0) {
-      const filtered = users.filter(user => 
+      let result = users.filter(user => 
         user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.role?.toLowerCase().includes(searchTerm.toLowerCase())
       );
-      setFilteredUsers(filtered);
+
+      // Sorting logic
+      switch (sortOption) {
+        case 'active_first':
+          result.sort((a, b) => (a.is_active === b.is_active ? 0 : a.is_active ? -1 : 1));
+          break;
+        case 'inactive_first':
+          result.sort((a, b) => (a.is_active === b.is_active ? 0 : a.is_active ? 1 : -1));
+          break;
+        case 'franchisee_first':
+          result.sort((a, b) => {
+              if (a.role === 'franchisee' && b.role !== 'franchisee') return -1;
+              if (a.role !== 'franchisee' && b.role === 'franchisee') return 1;
+              return 0;
+          });
+          break;
+        case 'beekeeper_first':
+          result.sort((a, b) => {
+              if (a.role === 'beekeeper' && b.role !== 'beekeeper') return -1;
+              if (a.role !== 'beekeeper' && b.role === 'beekeeper') return 1;
+              return 0;
+          });
+          break;
+        case 'alphabetical':
+          result.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+          break;
+        case 'newest':
+          result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          break;
+        case 'oldest':
+          result.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          break;
+      }
+
+      setFilteredUsers(result);
     }
-  }, [searchTerm, users]);
+  }, [searchTerm, users, sortOption]);
 
   const fetchUsers = async () => {
     try {
@@ -328,17 +364,35 @@ export default function AdminUsersPage() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {/* Toolbar */}
           <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row gap-4 justify-between items-center">
-            <div className="relative w-full sm:w-96">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Søk etter navn eller rolle..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-honey-500 outline-none transition-all"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <div className="flex flex-col sm:flex-row gap-4 w-full">
+                <div className="relative w-full sm:w-96">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                    type="text"
+                    placeholder="Søk etter navn eller rolle..."
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-honey-500 outline-none transition-all"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                </div>
+                <div className="relative w-full sm:w-64">
+                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <select
+                        value={sortOption}
+                        onChange={(e) => setSortOption(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-honey-500 outline-none transition-all appearance-none bg-white"
+                    >
+                        <option value="newest">Sist innmeldt</option>
+                        <option value="oldest">Først innmeldt</option>
+                        <option value="active_first">Aktive øverst</option>
+                        <option value="inactive_first">Inaktive øverst</option>
+                        <option value="franchisee_first">Franchisetakere øverst</option>
+                        <option value="beekeeper_first">Birøktere øverst</option>
+                        <option value="alphabetical">Alfabetisk A-Å</option>
+                    </select>
+                </div>
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-gray-500 whitespace-nowrap">
               Viser {filteredUsers.length} av {users.length} brukere
             </div>
           </div>
@@ -351,13 +405,14 @@ export default function AdminUsersPage() {
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Navn</th>
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nåværende Rolle</th>
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">V/F</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Endre Rolle</th>
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Handlinger</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <Loader2 className="w-8 h-8 animate-spin text-honey-500" />
                         <p>Laster brukere...</p>
@@ -366,7 +421,7 @@ export default function AdminUsersPage() {
                   </tr>
                 ) : filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
                       Ingen brukere funnet
                     </td>
                   </tr>
@@ -391,6 +446,18 @@ export default function AdminUsersPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getRoleBadge(user.role)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2">
+                            <input 
+                                type="checkbox" 
+                                checked={user.is_founder || false} 
+                                onChange={() => handleToggleFounder(user)}
+                                disabled={updatingId === user.id}
+                                className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500 cursor-pointer disabled:opacity-50"
+                            />
+                            {user.is_founder && <HeartHandshake className="w-4 h-4 text-amber-600" />}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
