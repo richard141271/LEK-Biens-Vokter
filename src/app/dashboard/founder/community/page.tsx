@@ -1,8 +1,8 @@
-import WarRoomChat from '@/components/WarRoomChat';
+import WarRoomDashboard from '@/components/WarRoomDashboard';
 
 export default function WarRoomPage() {
     return (
-        <WarRoomChat 
+        <WarRoomDashboard 
             backLink="/dashboard/founder"
             backText="Tilbake"
         />
