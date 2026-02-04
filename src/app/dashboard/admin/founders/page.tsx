@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getAllFoundersData } from '@/app/actions/founder';
-import { Shield, ChevronDown, ChevronUp, History, Target } from 'lucide-react';
+import { Shield, ChevronDown, ChevronUp, History, Target, MessageSquare } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import Link from 'next/link';
@@ -40,6 +40,13 @@ export default function AdminFoundersPage() {
                             <p className="text-gray-500 text-sm">Oversikt over avtaler, roller og loggføring</p>
                         </div>
                     </div>
+                    <Link 
+                        href="/dashboard/founder/community"
+                        className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-900 rounded-lg hover:bg-amber-200 font-medium text-sm transition-colors"
+                    >
+                        <MessageSquare className="w-4 h-4" />
+                        War Room
+                    </Link>
                 </div>
             </header>
 

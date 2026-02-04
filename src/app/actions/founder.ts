@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 export async function getFounderStatus() {
@@ -302,8 +303,11 @@ export async function getAllFoundersData() {
       return { error: 'Unauthorized' };
   }
 
+  // Use Admin Client to bypass RLS for visibility
+  const adminClient = createAdminClient();
+
   // Fetch all founder profiles
-  const { data: founders, error } = await supabase
+  const { data: founders, error } = await adminClient
     .from('founder_profiles')
     .select(`
         *,
@@ -320,7 +324,7 @@ export async function getAllFoundersData() {
   // For each founder, get their latest logs and check status
   const foundersWithData = await Promise.all(founders.map(async (founder) => {
       // Get role choice
-      const { data: checks } = await supabase
+      const { data: checks } = await adminClient
         .from('founder_agreement_checks')
         .select('check_key')
         .eq('founder_id', founder.id);
@@ -330,14 +334,14 @@ export async function getAllFoundersData() {
                    checkKeys.includes('role_contractor') ? 'Selvstendig (Faktura)' : 'Ikke valgt';
 
       // Get latest logs
-      const { data: logs } = await supabase
+      const { data: logs } = await adminClient
         .from('founder_logs')
         .select('*')
         .eq('founder_id', founder.id)
         .order('created_at', { ascending: false });
 
       // Get ambitions
-      const { data: ambitionsData } = await supabase
+      const { data: ambitionsData } = await adminClient
         .from('founder_ambitions')
         .select('*')
         .eq('founder_id', founder.id)

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateAgreementCheck, saveAmbitions, signAgreement, exitFounder, logActivity } from '@/app/actions/founder';
-import { HeartHandshake, FileText, Clock, CheckCircle, AlertTriangle, LogOut, Download, Save, History, Plus } from 'lucide-react';
+import { HeartHandshake, FileText, Clock, CheckCircle, AlertTriangle, LogOut, Download, Save, History, Plus, MessageSquare } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { nb } from 'date-fns/locale';
 
@@ -375,6 +375,8 @@ function FounderDashboard({ profile, ambitions, logs }: { profile: any, ambition
         window.open('/api/founder/agreement/pdf', '_blank');
     };
 
+    const router = useRouter();
+
     return (
         <div className="max-w-3xl mx-auto pb-24 space-y-8">
             {/* Header */}
@@ -389,6 +391,13 @@ function FounderDashboard({ profile, ambitions, logs }: { profile: any, ambition
                     </p>
                 </div>
                 <div className="flex flex-col gap-2">
+                    <button 
+                        onClick={() => router.push('/dashboard/founder/community')}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 border border-amber-200 rounded-lg text-xs font-medium text-amber-900 hover:bg-amber-200"
+                    >
+                        <MessageSquare className="w-3 h-3" />
+                        War Room (Chat)
+                    </button>
                     <button 
                         onClick={handleDownloadPDF}
                         className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50"
