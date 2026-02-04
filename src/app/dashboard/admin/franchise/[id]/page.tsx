@@ -141,7 +141,7 @@ export default function AdminFranchiseUnitPage() {
         }
 
         // 3. Refresh
-        await fetchUnit();
+        await fetchData();
         setIsEditing(false);
     } catch (error: any) {
         console.error('Error updating unit:', error);

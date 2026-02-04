@@ -449,18 +449,3 @@ export async function getAllFoundersData() {
 
   return { founders: foundersWithData };
 }
-        .select('*')
-        .eq('founder_id', founder.id)
-        .order('updated_at', { ascending: false })
-        .limit(1);
-
-      return {
-          ...founder,
-          role_choice: role,
-          logs: logs || [],
-          ambitions: ambitionsData?.[0] || null
-      };
-  }));
-
-  return { founders: foundersWithData };
-}
