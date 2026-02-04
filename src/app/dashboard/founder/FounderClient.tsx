@@ -91,6 +91,15 @@ function FounderAgreement({ profile, initialChecks, initialAmbitions, userName }
   const handleSign = async () => {
     if (!confirm('Er du helt sikker? Dette er en juridisk bindende avtale.')) return;
     setIsSigning(true);
+    
+    // Save ambitions first to ensure DB is up to date
+    const saveRes = await saveAmbitions(ambitions);
+    if (saveRes.error) {
+        alert('Kunne ikke lagre ambisjoner: ' + saveRes.error);
+        setIsSigning(false);
+        return;
+    }
+
     const res = await signAgreement();
     if (res.error) {
         alert(res.error);
