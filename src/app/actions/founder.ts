@@ -5,6 +5,8 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 export async function getFounderStatus() {
+export async function getAllFoundersData() {
+export async function getAllFoundersData() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Not authenticated' };
@@ -287,8 +289,50 @@ export async function getFounderLogs() {
     return data || [];
 }
 
+export async function repairFounderProfiles() {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+    if (profile?.role !== 'admin' && user.email !== 'richard141271@gmail.com') {
+        return { error: 'Unauthorized' };
+    }
+
+    const adminClient = createAdminClient();
+    let fixedCount = 0;
+
+    // 1. Find users with logs but no profile
+    const { data: logs } = await adminClient.from('founder_logs').select('founder_id');
+    if (logs && logs.length > 0) {
+        const uniqueFounderIds = [...new Set(logs.map(l => l.founder_id))];
+        for (const fid of uniqueFounderIds) {
+            const { data: exists } = await adminClient.from('founder_profiles').select('id').eq('id', fid).single();
+            if (!exists) {
+                await adminClient.from('founder_profiles').insert({ id: fid, status: 'active' });
+                fixedCount++;
+            }
+        }
+    }
+
+    // 2. Ensure Admin (Richard) has a profile for chat
+    const { data: meExists } = await adminClient.from('founder_profiles').select('id').eq('id', user.id).single();
+    if (!meExists) {
+        await adminClient.from('founder_profiles').insert({ id: user.id, status: 'active' });
+        fixedCount++;
+    }
+
+    revalidatePath('/dashboard/admin/founders');
+    return { success: true, count: fixedCount };
+}
+
 export async function getAllFoundersData() {
-  const supabase = createClient();
+    const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Not authenticated' };
 
@@ -306,8 +350,17 @@ export async function getAllFoundersData() {
   // Use Admin Client to bypass RLS for visibility
   const adminClient = createAdminClient();
 
+  // FIX: Check if we need to auto-create profiles for users who have logs but no profile
+  // This can happen if they started before the founder module was fully strict
+  // We can't easily query "users with logs but no profile" efficiently without raw SQL or complex joins.
+  // Instead, let's just fetch ALL profiles with 'founder' role or similar? No, role is in profiles.
+  
+  // Alternative: Fetch ALL profiles, then check if they have logs.
+  // Or just rely on the user to click a "Repair" button.
+  // Let's implement a repair function separately and call it if list is empty?
+  
   // Fetch all founder profiles
-  const { data: founders, error } = await adminClient
+  let { data: founders, error } = await adminClient
     .from('founder_profiles')
     .select(`
         *,
@@ -320,6 +373,34 @@ export async function getAllFoundersData() {
     .order('created_at', { ascending: false });
 
   if (error) return { error: error.message };
+
+  // AUTO-REPAIR: If list is empty (or Anita missing), try to find her in 'profiles' and create a founder entry
+  // This is a bit aggressive but necessary since we can't run SQL manually.
+  // Let's assume anyone with email 'anita...' should be a founder? No.
+  // Let's check if we can find profiles that SHOULD be founders.
+  
+  if (!founders || founders.length === 0) {
+      // Try to find users with existing logs
+      const { data: logs } = await adminClient.from('founder_logs').select('founder_id');
+      if (logs && logs.length > 0) {
+          const uniqueFounderIds = [...new Set(logs.map(l => l.founder_id))];
+          for (const fid of uniqueFounderIds) {
+             // Check if profile exists
+             const { data: exists } = await adminClient.from('founder_profiles').select('id').eq('id', fid).single();
+             if (!exists) {
+                 await adminClient.from('founder_profiles').insert({ id: fid, status: 'active' });
+             }
+          }
+          // Refetch
+          const { data: refetched } = await adminClient
+            .from('founder_profiles')
+            .select(`*, profiles(full_name, email, avatar_url)`)
+            .order('created_at', { ascending: false });
+            
+          founders = refetched;
+      }
+  }
+
 
   // For each founder, get their latest logs and check status
   const foundersWithData = await Promise.all(founders.map(async (founder) => {

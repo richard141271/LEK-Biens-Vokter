@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { getAllFoundersData } from '@/app/actions/founder';
-import { Shield, ChevronDown, ChevronUp, History, Target, MessageSquare } from 'lucide-react';
+import { useEffect, useState, useTransition } from 'react';
+import { getAllFoundersData, repairFounderProfiles } from '@/app/actions/founder';
+import { Shield, ChevronDown, ChevronUp, History, Target, MessageSquare, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import Link from 'next/link';
@@ -11,21 +11,37 @@ export default function AdminFoundersPage() {
     const [founders, setFounders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const [isRepairing, startRepair] = useTransition();
+
+    const loadData = async () => {
+        setLoading(true);
+        const res = await getAllFoundersData();
+        if ('founders' in res) {
+            setFounders(res.founders || []);
+        } else {
+            console.error(res.error);
+        }
+        setLoading(false);
+    };
 
     useEffect(() => {
-        const loadData = async () => {
-            const res = await getAllFoundersData();
-            if ('founders' in res) {
-                setFounders(res.founders || []);
-            } else {
-                console.error(res.error);
-            }
-            setLoading(false);
-        };
         loadData();
     }, []);
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">Laster gründerdata...</div>;
+    const handleRepair = () => {
+        startRepair(async () => {
+            const res = await repairFounderProfiles();
+            if (res.success) {
+                // Reload data
+                await loadData();
+                alert(`Reparerte ${res.count} profiler.`);
+            } else {
+                alert('Feil under reparasjon: ' + (res.error || 'Ukjent feil'));
+            }
+        });
+    };
+
+    if (loading && !founders.length) return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">Laster gründerdata...</div>;
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans">
@@ -40,13 +56,23 @@ export default function AdminFoundersPage() {
                             <p className="text-gray-500 text-sm">Oversikt over avtaler, roller og loggføring</p>
                         </div>
                     </div>
-                    <Link 
-                        href="/dashboard/founder/community"
-                        className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-900 rounded-lg hover:bg-amber-200 font-medium text-sm transition-colors"
-                    >
-                        <MessageSquare className="w-4 h-4" />
-                        War Room
-                    </Link>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={handleRepair}
+                            disabled={isRepairing}
+                            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium text-sm transition-colors disabled:opacity-50"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${isRepairing ? 'animate-spin' : ''}`} />
+                            {isRepairing ? 'Fikser...' : 'Synkroniser'}
+                        </button>
+                        <Link 
+                            href="/dashboard/founder/community"
+                            className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-900 rounded-lg hover:bg-amber-200 font-medium text-sm transition-colors"
+                        >
+                            <MessageSquare className="w-4 h-4" />
+                            War Room
+                        </Link>
+                    </div>
                 </div>
             </header>
 
