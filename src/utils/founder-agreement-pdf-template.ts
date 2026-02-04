@@ -33,12 +33,12 @@ export function generateFounderAgreementHtml(profile: any, userDetails: any, amb
         <h2>(Relasjonsbeskyttelse – ikke arbeidsforhold)</h2>
       </div>
   
-      <p>Denne avtalen er inngått mellom <strong>LEK-SYSTEMET / [Selskapets navn]</strong> (heretter kalt Selskapet) og <strong>${name}</strong> (heretter kalt Deltakeren).</p>
+      <p>Denne avtalen er inngått mellom <strong>LEK-SYSTEMET / AI Innovate AS©</strong> (heretter kalt Selskapet) og <strong>${name}</strong> (heretter kalt Deltakeren).</p>
   
       <h3>1. Avtalens formål</h3>
       <p>Formålet med denne avtalen er å muliggjøre samarbeid uten at det går på bekostning av vennskap eller familierelasjon. Avtalen er en relasjonsbeskyttelse og en tydeliggjøring av risiko, ansvar og roller.</p>
   
-      <h3>2. Ikke arbeidsforhold (svært viktig)</h3>
+      <h3>2. Ikke arbeidsforhold</h3>
       <p>Partene er uttrykkelig enige om at denne avtalen ikke etablerer:</p>
       <ul>
         <li>ansettelsesforhold</li>
@@ -48,7 +48,7 @@ export function generateFounderAgreementHtml(profile: any, userDetails: any, amb
       </ul>
       <p>All innsats skjer på eget initiativ og på egen risiko.</p>
   
-      <h3>3. Økonomisk realitet og risiko (må bekreftes)</h3>
+      <h3>3. Økonomisk realitet og risiko</h3>
       <p>Deltakeren forstår og aksepterer at:</p>
       <ul>
         <li>dette ikke er en jobb med lønn</li>
@@ -57,7 +57,7 @@ export function generateFounderAgreementHtml(profile: any, userDetails: any, amb
         <li>all økonomisk gevinst er avhengig av at Selskapet faktisk lykkes økonomisk</li>
       </ul>
   
-      <h3>4. Valg av rolle (må krysses av digitalt)</h3>
+      <h3>4. Valg av rolle</h3>
       <p>Deltakeren har valgt følgende samarbeidsform:</p>
       <div class="role-box">
         <strong>${role}</strong>
@@ -95,7 +95,7 @@ export function generateFounderAgreementHtml(profile: any, userDetails: any, amb
       <h3>10. «Vennskapet foran alt»-regelen</h3>
       <p>Dersom samarbeidet begynner å påvirke relasjonen negativt, skal samarbeidet avsluttes umiddelbart – samme dag. Kun dokumentert opptjent kompensasjon utbetales.</p>
 
-      <h3>11. Selvdefinerte ambisjoner (fylles ut digitalt)</h3>
+      <h3>11. Selvdefinerte ambisjoner</h3>
       <p>Deltakeren skal selv beskrive:</p>
       <ul>
           <li>Hva de ønsker å bidra med</li>

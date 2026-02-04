@@ -96,11 +96,15 @@ export async function updateAgreementCheck(key: string, checked: boolean) {
       .eq('id', user.id)
       .single();
 
-    if (!profile?.cooldown_until) {
-      // Set cooldown 2 minutes from now (TEST MODE)
-      const cooldownUntil = new Date();
-      cooldownUntil.setMinutes(cooldownUntil.getMinutes() + 2);
-      
+    const cooldownUntil = new Date();
+    cooldownUntil.setMinutes(cooldownUntil.getMinutes() + 2);
+
+    // If cooldown is unreasonably far in the future (e.g. > 1 hour) or not set, reset it to 2 mins
+    // This fixes the issue where user might have gotten a 24h/48h cooldown from previous logic
+    const existingCooldown = profile?.cooldown_until ? new Date(profile.cooldown_until) : null;
+    const isUnreasonable = existingCooldown && (existingCooldown.getTime() - new Date().getTime() > 1000 * 60 * 60);
+
+    if (!existingCooldown || isUnreasonable) {
       await supabase
         .from('founder_profiles')
         .update({ 

@@ -1,8 +1,23 @@
 import { getFounderStatus, getFounderLogs } from '@/app/actions/founder';
 import FounderClient from './FounderClient';
 import { redirect } from 'next/navigation';
+import { createClient } from '@/utils/supabase/server';
 
 export default async function FounderPage() {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+        redirect('/login');
+    }
+
+    // Get user details for name
+    const { data: userDetails } = await supabase
+        .from('users')
+        .select('full_name, email')
+        .eq('id', user.id)
+        .single();
+
     const status = await getFounderStatus();
     
     if ('error' in status) {
@@ -26,6 +41,7 @@ export default async function FounderPage() {
             checks={status.checks} 
             ambitions={status.ambitions}
             logs={logs}
+            userName={userDetails?.full_name || user.email || 'Deltaker'}
         />
     );
 }
