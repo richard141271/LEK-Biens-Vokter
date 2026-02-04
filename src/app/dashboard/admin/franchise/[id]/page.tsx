@@ -16,9 +16,13 @@ import {
   X,
   CheckCircle,
   ChevronDown,
-  Search
+  Search,
+  MessageSquare,
+  Clock,
+  Send
 } from 'lucide-react';
 import { updateUserRole } from '@/app/actions/user-management';
+import { getFranchiseUnitById, getFranchiseMessages } from '@/app/actions/franchise';
 
 interface FranchiseUnit {
   id: string;
@@ -34,12 +38,26 @@ interface FranchiseUnit {
   };
 }
 
+interface Message {
+    id: string;
+    subject: string;
+    content: string;
+    is_read: boolean;
+    created_at: string;
+    sender_id: string;
+    sender?: {
+        full_name: string;
+        email: string;
+    };
+}
+
 export default function AdminFranchiseUnitPage() {
   const params = useParams();
   const router = useRouter();
   const id = params?.id as string;
   
   const [unit, setUnit] = useState<FranchiseUnit | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Edit Mode State
@@ -55,34 +73,32 @@ export default function AdminFranchiseUnitPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    fetchUnit();
+    fetchData();
   }, [id]);
 
-  useEffect(() => {
-    if (isEditing) {
-        fetchProfiles();
-    }
-  }, [isEditing]);
-
-  const fetchUnit = async () => {
+  const fetchData = async () => {
     if (!id) return;
-    
-    const { data, error } = await supabase
-      .from('franchise_units')
-      .select(`
-        *,
-        owner:profiles(full_name, email)
-      `)
-      .eq('id', id)
-      .single();
+    setLoading(true);
 
-    if (error) {
-      console.error('Error fetching unit:', error);
-    } else {
-      setUnit(data);
-      setEditForm(data);
-      setOwnerSearch(data.owner?.full_name || '');
+    // Fetch Unit via Server Action (Admin Client)
+    const { data: unitData, error: unitError } = await getFranchiseUnitById(id);
+    
+    if (unitError) {
+        console.error('Error fetching unit:', unitError);
+    } else if (unitData) {
+        setUnit(unitData);
+        setEditForm(unitData);
+        setOwnerSearch(unitData.owner?.full_name || '');
     }
+
+    // Fetch Messages via Server Action (Admin Client)
+    const { data: messagesData, error: msgError } = await getFranchiseMessages(id);
+    if (msgError) {
+        console.error('Error fetching messages:', msgError);
+    } else if (messagesData) {
+        setMessages(messagesData);
+    }
+
     setLoading(false);
   };
 
@@ -93,6 +109,12 @@ export default function AdminFranchiseUnitPage() {
         .order('full_name');
     setPotentialOwners(data || []);
   };
+
+  useEffect(() => {
+    if (isEditing) {
+        fetchProfiles();
+    }
+  }, [isEditing]);
 
   const handleSave = async () => {
     if (!editForm || !unit) return;
@@ -323,6 +345,41 @@ export default function AdminFranchiseUnitPage() {
                             <p className="font-medium">{unit.address}</p>
                         </div>
                     </div>
+                )}
+            </div>
+        </div>
+
+        {/* Messages */}
+        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-blue-600" />
+                    Meldinger fra enheten
+                </h3>
+                <span className="text-sm text-gray-500">{messages.length} meldinger</span>
+            </div>
+            <div className="divide-y divide-gray-100">
+                {messages.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">
+                        Ingen meldinger funnet.
+                    </div>
+                ) : (
+                    messages.map((msg) => (
+                        <div key={msg.id} className="p-4 hover:bg-gray-50 transition-colors">
+                            <div className="flex justify-between items-start mb-2">
+                                <h4 className="font-medium text-gray-900">{msg.subject}</h4>
+                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                    <Clock className="w-3 h-3" />
+                                    {new Date(msg.created_at).toLocaleDateString('nb-NO')}
+                                </div>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-2">{msg.content}</p>
+                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                                <Users className="w-3 h-3" />
+                                <span>{msg.sender?.full_name || 'Ukjent avsender'} ({msg.sender?.email})</span>
+                            </div>
+                        </div>
+                    ))
                 )}
             </div>
         </div>
