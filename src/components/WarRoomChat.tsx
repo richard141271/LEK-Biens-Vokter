@@ -26,6 +26,9 @@ export default function WarRoomChat({
     const [sending, setSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const isUserAtBottomRef = useRef(true);
+    const lastMessageIdRef = useRef<string | null>(null);
 
     const loadMessages = async () => {
         try {
@@ -34,8 +37,15 @@ export default function WarRoomChat({
                 console.error('Error loading messages:', res.error);
                 setError(res.error);
             } else if (res.messages) {
-                setMessages(res.messages.reverse());
-                setError(null);
+                // Check if we have new messages by comparing last ID
+                const newMessages = res.messages.reverse(); // Server returns desc, we want asc
+                const lastMsg = newMessages[newMessages.length - 1];
+                
+                if (lastMsg?.id !== lastMessageIdRef.current || newMessages.length !== messages.length) {
+                    setMessages(newMessages);
+                    lastMessageIdRef.current = lastMsg?.id || null;
+                    setError(null);
+                }
             }
         } catch (e) {
             console.error('Exception loading messages:', e);
@@ -47,26 +57,42 @@ export default function WarRoomChat({
 
     useEffect(() => {
         loadMessages();
-        // Poll for new messages every 10 seconds
-        const interval = setInterval(loadMessages, 10000);
+        // Poll for new messages every 5 seconds
+        const interval = setInterval(loadMessages, 5000);
         return () => clearInterval(interval);
     }, []);
 
     useEffect(() => {
-        // Scroll to bottom on new messages
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        // Only scroll if user is at bottom OR it's the first load
+        if (isUserAtBottomRef.current) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
     }, [messages]);
+
+    const handleScroll = () => {
+        if (!scrollContainerRef.current) return;
+        
+        const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+        // User is at bottom if they are within 100px of the bottom
+        const isAtBottom = scrollHeight - scrollTop - clientHeight < 100;
+        isUserAtBottomRef.current = isAtBottom;
+    };
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newMessage.trim() || sending) return;
 
         setSending(true);
+        // Optimistically scroll to bottom when sending
+        isUserAtBottomRef.current = true;
+        
         try {
             const res = await postCommunityMessage(newMessage);
             if (res.success) {
                 setNewMessage('');
                 await loadMessages();
+                // Ensure scroll happens
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
             } else {
                 alert('Kunne ikke sende melding: ' + res.error);
             }
@@ -99,7 +125,11 @@ export default function WarRoomChat({
             </header>
 
             {/* Chat Area */}
-            <main className="flex-1 overflow-y-auto p-4">
+            <main 
+                ref={scrollContainerRef}
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto p-4"
+            >
                 <div className="max-w-4xl mx-auto space-y-4 pb-4">
                     {loading ? (
                         <div className="text-center py-12 text-gray-500">Laster meldinger...</div>
