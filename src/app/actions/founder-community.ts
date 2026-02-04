@@ -30,8 +30,22 @@ export async function getCommunityMessages() {
     .in('id', founderIds);
 
   // 3. Map profiles to messages
-  const messagesWithProfiles = messages.map(msg => {
-      const profile = profiles?.find(p => p.id === msg.founder_id);
+  const messagesWithProfiles = await Promise.all(messages.map(async (msg) => {
+      let profile = profiles?.find(p => p.id === msg.founder_id);
+      
+      // Fallback: If missing in profiles table, try Auth Admin
+      if (!profile) {
+          const { data: { user: authUser } } = await adminClient.auth.admin.getUserById(msg.founder_id);
+          if (authUser) {
+              profile = {
+                  id: authUser.id,
+                  full_name: authUser.user_metadata?.full_name || 'Ukjent (Auth)',
+                  email: authUser.email,
+                  avatar_url: authUser.user_metadata?.avatar_url || null
+              };
+          }
+      }
+
       // Fallback to email if full_name is missing, or a partial ID if nothing found
       const displayName = profile?.full_name || profile?.email || `Ukjent (${msg.founder_id.slice(0, 4)})`;
       
@@ -45,7 +59,7 @@ export async function getCommunityMessages() {
               }
           }
       };
-  });
+  }));
   
   return { messages: messagesWithProfiles };
 }

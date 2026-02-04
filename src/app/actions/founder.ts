@@ -318,10 +318,37 @@ export async function repairFounderProfiles() {
     if (logs && logs.length > 0) {
         const uniqueFounderIds = Array.from(new Set(logs.map(l => l.founder_id)));
         for (const fid of uniqueFounderIds) {
+            // Check if exists in founder_profiles
             const { data: exists } = await adminClient.from('founder_profiles').select('id').eq('id', fid).single();
             if (!exists) {
                 await adminClient.from('founder_profiles').insert({ id: fid, status: 'active' });
                 fixedCount++;
+            }
+
+            // Check if exists in public.profiles (and repair if missing)
+            const { data: profileExists } = await adminClient.from('profiles').select('id').eq('id', fid).single();
+            if (!profileExists) {
+                // Fetch from Auth to get email/name
+                const { data: { user: authUser }, error: authError } = await adminClient.auth.admin.getUserById(fid);
+                
+                if (authUser) {
+                    const name = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Ukjent';
+                    const email = authUser.email || 'Ingen e-post';
+                    
+                    console.log(`Reparing missing public.profile for ${fid} (${email})`);
+                    
+                    const { error: insertError } = await adminClient.from('profiles').insert({
+                        id: fid,
+                        email: email,
+                        full_name: name,
+                        avatar_url: authUser.user_metadata?.avatar_url,
+                        role: 'user'
+                    });
+                    
+                    if (!insertError) fixedCount++;
+                } else {
+                    console.warn(`Could not find auth user for ID ${fid}, likely deleted from Auth but logs remain.`);
+                }
             }
         }
     }
@@ -411,7 +438,20 @@ export async function getAllFoundersData() {
   // For each founder, get their latest logs and check status
   const foundersWithData = await Promise.all((founders || []).map(async (founder) => {
       // Get profile info
-      const profile = profiles?.find(p => p.id === founder.id);
+      let profile = profiles?.find(p => p.id === founder.id);
+
+      // Fallback: If profile missing from public table, try Auth Admin
+      if (!profile) {
+          const { data: { user: authUser } } = await adminClient.auth.admin.getUserById(founder.id);
+          if (authUser) {
+              profile = {
+                  id: authUser.id,
+                  full_name: authUser.user_metadata?.full_name || 'Ukjent (Auth)',
+                  email: authUser.email,
+                  avatar_url: authUser.user_metadata?.avatar_url || null
+              };
+          }
+      }
 
       // Get role choice
       const { data: checks } = await adminClient
