@@ -170,20 +170,6 @@ export async function deleteWarRoomPost(postId: string) {
 
     if (error) return { error: error.message };
     
-    if (user.email !== ADMIN_EMAIL) {
-        const statusLabel: Record<string, string> = {
-            green: '🟢 Tilgjengelig',
-            yellow: '🟡 Opptatt',
-            red: '🔴 Ikke forstyrr'
-        };
-        const label = statusLabel[statusColor] || statusColor;
-
-        await notifyAdmin(
-            `War Room: Status endret av ${user.email}`,
-            `Ny status: ${label}\nArbeider med: ${workingOn}`
-        );
-    }
-
     revalidatePath('/dashboard/war-room');
     return { success: true };
 }
