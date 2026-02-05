@@ -44,7 +44,7 @@ export async function submitSicknessReport(data: SicknessReportData) {
     const { data: otherBeekeepers, error: userError } = await adminClient
         .from('profiles')
         .select('id, full_name')
-        .eq('role', 'beekeeper')
+        // .eq('role', 'beekeeper') // Removed to ensure all pilot users get alerts
         .neq('id', user.id); // Exclude self
 
     if (userError) {

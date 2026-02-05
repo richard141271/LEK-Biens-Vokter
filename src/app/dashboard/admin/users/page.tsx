@@ -17,10 +17,11 @@ import {
   RefreshCw,
   Ban,
   HeartHandshake,
+  GraduationCap,
   Filter
 } from 'lucide-react';
 import Link from 'next/link';
-import { deleteUser, reactivateUser, updateUserRole as updateUserRoleAction, getUsers, assignEmail, toggleEmailAccess, updateUserPassword, toggleFounderStatus } from '@/app/actions/user-management';
+import { deleteUser, reactivateUser, updateUserRole as updateUserRoleAction, getUsers, assignEmail, toggleEmailAccess, updateUserPassword, toggleFounderStatus, toggleCourseFriendStatus } from '@/app/actions/user-management';
 
 export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
@@ -236,6 +237,31 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleToggleCourseFriend = async (user: any) => {
+    const newState = !user.is_course_friend;
+    const confirmMsg = newState 
+        ? 'Vil du markere denne brukeren som Kursvenn (K/V)? De vil få tilgang til War Room.' 
+        : 'Vil du fjerne Kursvenn-status (K/V)? De vil miste tilgang til War Room.';
+        
+    if (!confirm(confirmMsg)) return;
+    
+    try {
+        setUpdatingId(user.id);
+        const result = await toggleCourseFriendStatus(user.id, newState);
+        if (result.error) {
+            setMessage({ text: result.error, type: 'error' });
+        } else {
+            setMessage({ text: newState ? 'Markert som Kursvenn (K/V)' : 'Fjernet Kursvenn-status', type: 'success' });
+            setUsers(users.map(u => u.id === user.id ? { ...u, is_course_friend: newState } : u));
+            setFilteredUsers(filteredUsers.map(u => u.id === user.id ? { ...u, is_course_friend: newState } : u));
+        }
+    } catch (e) {
+        setMessage({ text: 'En feil oppstod', type: 'error' });
+    } finally {
+        setUpdatingId(null);
+    }
+  };
+
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'admin':
@@ -405,6 +431,7 @@ export default function AdminUsersPage() {
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Navn</th>
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nåværende Rolle</th>
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">V/F</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">K/V</th>
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Endre Rolle</th>
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Handlinger</th>
                 </tr>
@@ -457,6 +484,18 @@ export default function AdminUsersPage() {
                                 className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500 cursor-pointer disabled:opacity-50"
                             />
                             {user.is_founder && <HeartHandshake className="w-4 h-4 text-amber-600" />}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-2">
+                            <input 
+                                type="checkbox" 
+                                checked={user.is_course_friend || false} 
+                                onChange={() => handleToggleCourseFriend(user)}
+                                disabled={updatingId === user.id}
+                                className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500 cursor-pointer disabled:opacity-50"
+                            />
+                            {user.is_course_friend && <GraduationCap className="w-4 h-4 text-amber-600" />}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>

@@ -7,7 +7,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { jsPDF } from 'jspdf';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert, Mail, Building, HeartHandshake, Calendar } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert, Mail, Building, HeartHandshake, Calendar, GraduationCap } from 'lucide-react';
 import WeatherWidget from '@/components/WeatherWidget';
 import SicknessRegistrationModal from '@/components/SicknessRegistrationModal';
 import InspectionModal from '@/components/InspectionModal';
@@ -499,12 +499,12 @@ export default function DashboardPage() {
               </div>
           </div>
 
-          {/* Mail & Founder Grid */}
-          {(profile?.email_enabled || profile?.is_founder) && (
+          {/* Mail & Founder/Kursvenn Grid */}
+          {(profile?.email_enabled || profile?.is_founder || profile?.is_course_friend) && (
             <div className="grid grid-cols-2 gap-2">
               {/* KIAS Mail Card */}
               {profile?.email_enabled && (
-                <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-3 relative ${!profile?.is_founder ? 'col-span-2' : ''}`}>
+                <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-3 relative ${(!profile?.is_founder && !profile?.is_course_friend) ? 'col-span-2' : ''}`}>
                     <div className="flex items-center gap-3 mb-2">
                         <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
                             <Mail className="w-4 h-4" />
@@ -537,6 +537,26 @@ export default function DashboardPage() {
                     <div className="mt-2">
                         <Link href="/dashboard/founder" className="block w-full text-center py-2 px-4 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-colors">
                             Åpne modul
+                        </Link>
+                    </div>
+                </div>
+              )}
+
+              {/* Kursvenn Card (Only if not Founder) */}
+              {profile?.is_course_friend && !profile?.is_founder && (
+                <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-3 relative ${!profile?.email_enabled ? 'col-span-2' : ''}`}>
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
+                            <GraduationCap className="w-4 h-4" />
+                        </div>
+                        <div>
+                            <h2 className="text-sm font-bold text-gray-900">Kursvenner</h2>
+                            <p className="text-[10px] text-gray-500">Tilgang til War Room</p>
+                        </div>
+                    </div>
+                    <div className="mt-2">
+                        <Link href="/dashboard/founder/community" className="block w-full text-center py-2 px-4 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-colors">
+                            Åpne War Room
                         </Link>
                     </div>
                 </div>

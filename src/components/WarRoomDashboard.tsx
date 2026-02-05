@@ -247,13 +247,6 @@ export default function WarRoomDashboard({
                         <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
                         <p className="text-sm text-gray-500">{subtitle}</p>
                     </div>
-                    <button 
-                        onClick={handleRelationshipAlert}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-700 text-xs font-medium rounded-full border border-red-100 hover:bg-red-100 transition-colors"
-                    >
-                        <HeartHandshake className="w-4 h-4" />
-                        Relasjonsvarsel
-                    </button>
                 </div>
 
                 {/* Daily Focus */}
@@ -331,6 +324,13 @@ export default function WarRoomDashboard({
                         >
                             <Lightbulb className="w-4 h-4 inline-block mr-2" />
                             Idébank
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('status')}
+                            className={`flex-1 py-3 text-sm font-medium border-b-2 md:hidden ${activeTab === 'status' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <Users className="w-4 h-4 inline-block mr-2" />
+                            Status
                         </button>
                     </div>
 
@@ -475,7 +475,7 @@ export default function WarRoomDashboard({
                                     )}
                                 </div>
                             </>
-                        ) : (
+                        ) : activeTab === 'ideas' ? (
                             <div className="space-y-3">
                                 {/* Ideas List */}
                                 {ideas.map(idea => (
@@ -497,6 +497,78 @@ export default function WarRoomDashboard({
                                     </div>
                                 )}
                             </div>
+                        ) : (
+                             /* Status Tab (Mobile Only) */
+                             <div className="space-y-4 md:hidden">
+                                <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2 mb-4">
+                                    <Users className="w-4 h-4" />
+                                    Status Nå
+                                </h2>
+                                
+                                {/* My Status Update (Mobile) */}
+                                <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm mb-4">
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">Hva jobber du med?</label>
+                                    <div className="flex gap-2 mb-2">
+                                        <button 
+                                            onClick={() => setMyStatusColor('green')}
+                                            className={`w-6 h-6 rounded-full border-2 ${myStatusColor === 'green' ? 'bg-green-500 border-green-600 ring-2 ring-offset-1 ring-green-500' : 'bg-green-100 border-gray-200'}`}
+                                        />
+                                        <button 
+                                            onClick={() => setMyStatusColor('yellow')}
+                                            className={`w-6 h-6 rounded-full border-2 ${myStatusColor === 'yellow' ? 'bg-yellow-500 border-yellow-600 ring-2 ring-offset-1 ring-yellow-500' : 'bg-yellow-100 border-gray-200'}`}
+                                        />
+                                        <button 
+                                            onClick={() => setMyStatusColor('red')}
+                                            className={`w-6 h-6 rounded-full border-2 ${myStatusColor === 'red' ? 'bg-red-500 border-red-600 ring-2 ring-offset-1 ring-red-500' : 'bg-red-100 border-gray-200'}`}
+                                        />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="text" 
+                                            value={myWorkingOn}
+                                            onChange={(e) => setMyWorkingOn(e.target.value)}
+                                            placeholder="Koding, møter, etc..."
+                                            className="flex-1 text-sm rounded-md border-gray-300"
+                                        />
+                                        <button 
+                                            onClick={handleUpdateStatus}
+                                            disabled={updatingStatus}
+                                            className="px-3 py-1 bg-gray-900 text-white text-xs rounded-md"
+                                        >
+                                            {updatingStatus ? '...' : 'Oppdater'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Status List (Mobile) */}
+                                <div className="space-y-3">
+                                    {statuses.map(status => (
+                                        <div key={status.id} className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-100 shadow-sm">
+                                            <div className="relative">
+                                                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600">
+                                                    {status.full_name?.substring(0, 1)}
+                                                </div>
+                                                <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                                                    status.status_color === 'green' ? 'bg-green-500' :
+                                                    status.status_color === 'yellow' ? 'bg-yellow-500' :
+                                                    'bg-red-500'
+                                                }`} />
+                                            </div>
+                                            <div>
+                                                <div className="flex items-baseline gap-2">
+                                                    <span className="text-sm font-medium text-gray-900">{status.full_name}</span>
+                                                    <span className="text-[10px] text-gray-400">
+                                                        {formatDistanceToNow(new Date(status.updated_at), { addSuffix: true, locale: nb })}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-gray-600 mt-0.5">
+                                                    {status.current_task || 'Ingen status satt'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                             </div>
                         )}
                     </div>
                 </div>

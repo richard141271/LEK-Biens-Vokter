@@ -19,14 +19,6 @@ export async function deleteUser(userId: string) {
     .eq('id', user.id)
     .single()
 
-  // Use optional chaining and default to checking if we have a profile
-  // The fact that we're on the admin page means we passed client-side checks,
-  // but let's be robust. If role is missing, we might want to double check logic.
-  // For now, let's relax this check slightly or ensure RLS lets us read it.
-  
-  // Actually, the issue is likely that "supabase" (the regular client) 
-  // cannot read the profile because of RLS policies if they aren't fully propagated or correct.
-  // Let's use the admin client to verify the requester's role to be 100% sure and bypass RLS.
   const adminVerifier = createAdminClient()
   const { data: adminProfile } = await adminVerifier
     .from('profiles')
@@ -56,7 +48,6 @@ export async function deleteUser(userId: string) {
   }
 
   // 3. Block login in Auth (Ban user)
-  // This requires the service_role key which createAdminClient uses
   try {
     const { error: banError } = await adminClient.auth.admin.updateUserById(userId, {
       ban_duration: '876600h' // ~100 years
@@ -123,6 +114,40 @@ export async function toggleFounderStatus(userId: string, isFounder: boolean) {
       if (createError) console.error('Error creating founder profile:', createError)
     }
   }
+
+  revalidatePath('/dashboard/admin/users')
+  return { success: true }
+}
+
+export async function toggleCourseFriendStatus(userId: string, isCourseFriend: boolean) {
+  const supabase = createClient()
+  
+  // 1. Check permissions
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Ikke logget inn' }
+
+  const adminVerifier = createAdminClient()
+  const { data: adminProfile } = await adminVerifier
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isVip = user.email === 'richard141271@gmail.com';
+  const isAdmin = adminProfile?.role === 'admin';
+
+  if (!isAdmin && !isVip) {
+    return { error: 'Ingen tilgang' }
+  }
+
+  // 2. Update profile
+  const adminClient = createAdminClient()
+  const { error } = await adminClient
+    .from('profiles')
+    .update({ is_course_friend: isCourseFriend })
+    .eq('id', userId)
+
+  if (error) return { error: error.message }
 
   revalidatePath('/dashboard/admin/users')
   return { success: true }
@@ -199,66 +224,26 @@ export async function updateUserPassword(userId: string, newPassword: string) {
     return { error: 'Ingen tilgang' }
   }
 
-  // 2. Update password
-  const { error } = await adminVerifier.auth.admin.updateUserById(userId, {
-    password: newPassword
-  })
+  // 2. Update password in Auth
+  try {
+    const { error } = await adminVerifier.auth.admin.updateUserById(userId, {
+      password: newPassword
+    })
 
-  if (error) {
+    if (error) throw error
+
+    return { success: true }
+  } catch (error: any) {
     console.error('Error updating password:', error)
     return { error: error.message }
   }
-
-  return { success: true }
-}
-
-export async function updateUserRole(userId: string, newRole: string) {
-  const supabase = createClient()
-  
-  // 1. Check if current user is admin OR is the specific VIP user
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: 'Ikke logget inn' }
-  }
-
-  const adminVerifier = createAdminClient()
-  const { data: adminProfile } = await adminVerifier
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  const isVip = user.email === 'richard141271@gmail.com';
-  const isAdmin = adminProfile?.role === 'admin';
-
-  if (!isAdmin && !isVip) {
-    return { error: 'Ingen tilgang: Krever admin-rettigheter' }
-  }
-
-  // 2. Update role using admin client (bypasses RLS)
-  const adminClient = createAdminClient()
-  const { error } = await adminClient
-    .from('profiles')
-    .update({ role: newRole })
-    .eq('id', userId)
-
-  if (error) {
-    console.error('Error updating user role:', error)
-    return { error: error.message }
-  }
-
-  // 3. Revalidate cache
-  revalidatePath('/dashboard/admin/users')
-  return { success: true }
 }
 
 export async function getUsers() {
   const supabase = createClient()
   
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { error: 'Ikke logget inn', users: [] }
-  }
+  if (!user) return { error: 'Ikke logget inn' }
 
   const adminVerifier = createAdminClient()
   const { data: adminProfile } = await adminVerifier
@@ -271,52 +256,22 @@ export async function getUsers() {
   const isAdmin = adminProfile?.role === 'admin';
 
   if (!isAdmin && !isVip) {
-    // If not admin/VIP, only return self (or rely on RLS if we used regular client, but here we manually restrict)
-    // Actually, let's just return error or only self.
-    // For consistency with client-side RLS, let's just use regular client if not admin.
-    const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-    const activeUsers = (data || []).filter((u: any) => u.is_active !== false);
-    return { users: activeUsers };
+    return { error: 'Ingen tilgang' }
   }
 
-  // If Admin or VIP, use admin client to fetch ALL users
-  const adminClient = createAdminClient()
-  const { data, error } = await adminClient
+  const { data: users, error } = await adminVerifier
     .from('profiles')
     .select('*')
     .order('created_at', { ascending: false })
 
-  if (error) {
-    console.error('Error fetching users:', error)
-    return { error: error.message, users: [] }
-  }
+  if (error) return { error: error.message }
 
-  // Return all users for admin, so they can see inactive ones too
-  // Also fetch emails from Auth Admin API to ensure we display the login email
-  const { data: authUsers, error: authError } = await adminClient.auth.admin.listUsers({
-    perPage: 1000
-  });
-  
-  if (authError) {
-    console.warn('Could not fetch auth users to sync emails:', authError);
-  }
-
-  // Map auth emails to profiles
-  const profilesWithEmail = (data || []).map((profile: any) => {
-    const authUser = authUsers?.users.find((u: any) => u.id === profile.id);
-    return {
-      ...profile,
-      email: authUser?.email || profile.email // Fallback to profile.email if exists, otherwise auth email
-    };
-  });
-
-  return { users: profilesWithEmail }
+  return { users }
 }
 
-export async function assignEmail(userId: string, emailAlias: string) {
+export async function updateUserRole(userId: string, role: string) {
   const supabase = createClient()
   
-  // 1. Check permissions
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Ikke logget inn' }
 
@@ -334,23 +289,54 @@ export async function assignEmail(userId: string, emailAlias: string) {
     return { error: 'Ingen tilgang' }
   }
 
-  // 2. Check if alias is taken
+  const { error } = await adminVerifier
+    .from('profiles')
+    .update({ role })
+    .eq('id', userId)
+
+  if (error) return { error: error.message }
+  
+  revalidatePath('/dashboard/admin/users')
+  return { success: true }
+}
+
+export async function assignEmail(userId: string, alias: string) {
+  const supabase = createClient()
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Ikke logget inn' }
+
+  const adminVerifier = createAdminClient()
+  const { data: adminProfile } = await adminVerifier
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isVip = user.email === 'richard141271@gmail.com';
+  const isAdmin = adminProfile?.role === 'admin';
+
+  if (!isAdmin && !isVip) {
+    return { error: 'Ingen tilgang' }
+  }
+
+  // Check availability
   const { data: existing } = await adminVerifier
     .from('profiles')
     .select('id')
-    .eq('email_alias', emailAlias)
+    .eq('email_alias', alias)
+    .neq('id', userId) // Allow self-update if same
     .single()
 
-  if (existing && existing.id !== userId) {
-    return { error: 'E-postadressen er allerede i bruk' }
+  if (existing) {
+    return { error: 'E-postalias allerede i bruk' }
   }
 
-  // 3. Update profile
   const { error } = await adminVerifier
     .from('profiles')
     .update({ 
-      email_alias: emailAlias,
-      email_enabled: true 
+      email_alias: alias,
+      has_email_access: true // Auto-enable access when assigning
     })
     .eq('id', userId)
 
@@ -360,10 +346,9 @@ export async function assignEmail(userId: string, emailAlias: string) {
   return { success: true }
 }
 
-export async function removeEmail(userId: string) {
+export async function toggleEmailAccess(userId: string, hasAccess: boolean) {
   const supabase = createClient()
   
-  // 1. Check permissions
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Ikke logget inn' }
 
@@ -381,46 +366,9 @@ export async function removeEmail(userId: string) {
     return { error: 'Ingen tilgang' }
   }
 
-  // 2. Remove email alias and disable email
   const { error } = await adminVerifier
     .from('profiles')
-    .update({ 
-      email_alias: null,
-      email_enabled: false 
-    })
-    .eq('id', userId)
-
-  if (error) return { error: error.message }
-
-  revalidatePath('/dashboard/admin/users')
-  return { success: true }
-}
-
-export async function toggleEmailAccess(userId: string, enabled: boolean) {
-  const supabase = createClient()
-  
-  // 1. Check permissions
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Ikke logget inn' }
-
-  const adminVerifier = createAdminClient()
-  const { data: adminProfile } = await adminVerifier
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  const isVip = user.email === 'richard141271@gmail.com';
-  const isAdmin = adminProfile?.role === 'admin';
-
-  if (!isAdmin && !isVip) {
-    return { error: 'Ingen tilgang' }
-  }
-
-  // 2. Update profile
-  const { error } = await adminVerifier
-    .from('profiles')
-    .update({ email_enabled: enabled })
+    .update({ has_email_access: hasAccess })
     .eq('id', userId)
 
   if (error) return { error: error.message }

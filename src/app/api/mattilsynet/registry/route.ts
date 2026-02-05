@@ -46,8 +46,8 @@ export async function GET() {
 
     const { data: beekeepers, error: beekeeperError } = await adminClient
       .from('profiles')
-      .select('*')
-      .eq('role', 'beekeeper');
+      .select('*');
+      // .eq('role', 'beekeeper'); // Removed to show all users in registry during pilot
 
     if (beekeeperError) {
       console.error('Feil ved henting av birøktere:', beekeeperError);
