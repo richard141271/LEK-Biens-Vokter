@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { getAllFoundersData, repairFounderProfiles, updateFounderFollowup } from '@/app/actions/founder';
-import { Shield, ChevronDown, ChevronUp, History, Target, MessageSquare, RefreshCw, Calendar, FileText, AlertCircle } from 'lucide-react';
+import { Shield, ChevronDown, ChevronUp, History, Target, MessageSquare, RefreshCw, Calendar, FileText, AlertCircle, Pin, ExternalLink } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import Link from 'next/link';
@@ -78,14 +78,24 @@ export default function AdminFoundersPage() {
 
             <main className="max-w-7xl mx-auto px-6 py-8 pb-24">
                 <div className="space-y-4">
-                    {founders.map((founder) => (
-                        <div key={founder.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm transition-all hover:shadow-md">
+                    {founders.map((founder) => {
+                        const hasCriticalFollowup = founder.followup?.internal_status === 'needs_action' || founder.followup?.internal_status === 'critical';
+                        const hasWarRoomAlerts = founder.warRoomAlerts && founder.warRoomAlerts.length > 0;
+                        const showRedPin = hasCriticalFollowup || hasWarRoomAlerts;
+
+                        return (
+                        <div key={founder.id} className={`bg-white rounded-xl border overflow-hidden shadow-sm transition-all hover:shadow-md ${showRedPin ? 'border-red-300 ring-1 ring-red-100' : 'border-gray-200'}`}>
                             {/* Header */}
                             <div 
-                                className="p-6 flex flex-col md:flex-row md:items-center justify-between cursor-pointer bg-gray-50/50 hover:bg-gray-50 gap-4"
+                                className={`p-6 flex flex-col md:flex-row md:items-center justify-between cursor-pointer gap-4 ${showRedPin ? 'bg-red-50/30 hover:bg-red-50/50' : 'bg-gray-50/50 hover:bg-gray-50'}`}
                                 onClick={() => setExpandedId(expandedId === founder.id ? null : founder.id)}
                             >
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-4 relative">
+                                    {showRedPin && (
+                                        <div className="absolute -left-2 -top-2">
+                                            <Pin className="w-5 h-5 text-red-600 fill-red-600 animate-pulse" />
+                                        </div>
+                                    )}
                                     <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white shrink-0 ${
                                         founder.status === 'active' ? 'bg-green-500' : 
                                         founder.status === 'exited' ? 'bg-red-400' : 'bg-amber-400'
@@ -93,8 +103,11 @@ export default function AdminFoundersPage() {
                                         {founder.profiles?.full_name?.[0] || '?'}
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-gray-900">{founder.profiles?.full_name || 'Ukjent navn'}</h3>
-                                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                                        <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                            {founder.profiles?.full_name || 'Ukjent navn'}
+                                            {showRedPin && <span className="text-xs font-normal text-red-600 bg-red-100 px-2 py-0.5 rounded-full border border-red-200">Krever handling</span>}
+                                        </h3>
+                                        <div className="flex flex-wrap items-center gap-2 text-sm mb-1">
                                             <span className="text-gray-500">{founder.profiles?.email}</span>
                                             <span className="hidden md:inline w-1 h-1 rounded-full bg-gray-300" />
                                             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -106,6 +119,30 @@ export default function AdminFoundersPage() {
                                                  founder.status === 'exited' ? 'Avsluttet' : 'Leser/Utkast'}
                                             </span>
                                         </div>
+                                        
+                                        {/* Alerts Shortcuts */}
+                                        {(hasWarRoomAlerts || hasCriticalFollowup) && (
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                {hasCriticalFollowup && (
+                                                    <span className="inline-flex items-center gap-1 text-xs text-red-700 font-medium bg-white border border-red-200 px-2 py-1 rounded shadow-sm">
+                                                        <Pin className="w-3 h-3" />
+                                                        {founder.followup?.internal_status === 'critical' ? 'Kritisk' : 'Må kontaktes'}
+                                                    </span>
+                                                )}
+                                                {founder.warRoomAlerts?.map((alert: any) => (
+                                                    <Link 
+                                                        key={alert.id} 
+                                                        href="/dashboard/admin/community" 
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="inline-flex items-center gap-1 text-xs text-red-700 font-medium bg-white border border-red-200 px-2 py-1 rounded shadow-sm hover:bg-red-50 transition-colors"
+                                                    >
+                                                        <MessageSquare className="w-3 h-3" />
+                                                        {alert.type === 'help' ? 'Hjelp' : 'Problem'}: {alert.content.substring(0, 15)}...
+                                                        <ExternalLink className="w-3 h-3 ml-1 opacity-50" />
+                                                    </Link>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 
@@ -207,7 +244,7 @@ export default function AdminFoundersPage() {
                                 </div>
                             )}
                         </div>
-                    ))}
+                    ); })}
 
                     {founders.length === 0 && (
                         <div className="text-center py-12 bg-white rounded-xl border border-gray-200 border-dashed">
@@ -265,10 +302,10 @@ function FollowupSection({ founder, onUpdate }: { founder: any, onUpdate: () => 
     };
 
     return (
-        <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-6 mb-8 shadow-sm">
-            <div className="flex items-center justify-between mb-4 border-b border-amber-100 pb-2">
-                <h4 className="font-bold text-amber-900 flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-amber-600" />
+        <div className={`bg-amber-50/50 border ${status === 'needs_action' || status === 'critical' ? 'border-red-300 ring-1 ring-red-100 bg-red-50/30' : 'border-amber-200'} rounded-xl p-6 mb-8 shadow-sm transition-colors`}>
+            <div className={`flex items-center justify-between mb-4 border-b ${status === 'needs_action' || status === 'critical' ? 'border-red-200' : 'border-amber-100'} pb-2`}>
+                <h4 className={`font-bold flex items-center gap-2 ${status === 'needs_action' || status === 'critical' ? 'text-red-900' : 'text-amber-900'}`}>
+                    <Shield className={`w-5 h-5 ${status === 'needs_action' || status === 'critical' ? 'text-red-600' : 'text-amber-600'}`} />
                     Intern Oppfølging (Admin)
                 </h4>
                 {founder.followup?.updated_at && (

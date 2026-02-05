@@ -634,13 +634,24 @@ export async function getAllFoundersData() {
         .eq('user_id', founder.id)
         .maybeSingle();
 
+      // Get War Room alerts (help/problem)
+      const { data: warRoomAlerts } = await adminClient
+        .from('warroom_posts')
+        .select('*')
+        .eq('user_id', founder.id)
+        .in('type', ['help', 'problem'])
+        .eq('is_deleted', false) // Only show active alerts
+        .order('created_at', { ascending: false })
+        .limit(3);
+
       return {
           ...founder,
           profiles: profile || { full_name: 'Ukjent', email: 'Ingen e-post' },
           role_choice: role,
           logs: logs || [],
           ambitions: ambitionsData?.[0] || null,
-          followup: followup || null
+          followup: followup || null,
+          warRoomAlerts: warRoomAlerts || []
       };
   }));
 
