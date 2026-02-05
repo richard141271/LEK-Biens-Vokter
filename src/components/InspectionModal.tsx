@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { X, Camera, Check, ChevronDown, ClipboardCheck } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import { useOffline } from '@/context/OfflineContext';
 
 interface InspectionModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface InspectionModalProps {
 export default function InspectionModal({ isOpen, onClose, allHives, onSuccess }: InspectionModalProps) {
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { isOffline, saveInspection } = useOffline();
   
   const [uploading, setUploading] = useState(false);
   const [inspectionData, setInspectionData] = useState({
@@ -38,6 +40,49 @@ export default function InspectionModal({ isOpen, onClose, allHives, onSuccess }
 
     setUploading(true);
     try {
+      if (isOffline) {
+        await saveInspection({
+          hiveId: inspectionData.hiveId,
+          action: 'INSPEKSJON',
+          details: `Inspeksjon: ${inspectionData.temperament} gemytt. ${inspectionData.notes}`,
+          sharedWithMattilsynet: inspectionData.sharedWithMattilsynet,
+          image: inspectionImage ? {
+            name: inspectionImage.name,
+            type: inspectionImage.type,
+            blob: inspectionImage
+          } : undefined,
+          data: {
+            queen_seen: inspectionData.queenSeen,
+            eggs_seen: inspectionData.eggsSeen,
+            larvae_seen: inspectionData.larvaeSeen,
+            pupa_seen: inspectionData.pupaSeen,
+            honey_frames: parseInt(inspectionData.honeyFrames) || 0,
+            pollen_frames: parseInt(inspectionData.pollenFrames) || 0,
+            temperament: inspectionData.temperament
+          }
+        });
+        
+        alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
+        
+        // Reset and close
+        setInspectionData({
+          hiveId: '',
+          queenSeen: false,
+          eggsSeen: false,
+          larvaeSeen: false,
+          pupaSeen: false,
+          honeyFrames: '',
+          pollenFrames: '',
+          temperament: 'Rolig',
+          notes: '',
+          sharedWithMattilsynet: false
+        });
+        setInspectionImage(null);
+        onClose();
+        onSuccess?.();
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Ikke logget inn');
 

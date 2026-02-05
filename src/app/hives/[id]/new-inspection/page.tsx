@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, Image as ImageIcon, X, Mic, MicOff } from 'lucide-react';
+import { useOffline } from '@/context/OfflineContext';
 
 export default function NewInspectionPage({ params }: { params: { id: string } }) {
   const [hive, setHive] = useState<any>(null);
@@ -11,6 +12,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [submitting, setSubmitting] = useState(false);
   const searchParams = useSearchParams();
   const autoVoice = searchParams.get('autoVoice');
+  
+  const { isOffline, saveInspection } = useOffline();
 
   // Voice State
   const [isListening, setIsListening] = useState(false);
@@ -211,6 +214,45 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     setSubmitting(true);
 
     try {
+      // 1. Check Offline Mode
+      if (isOffline) {
+        await saveInspection({
+          hiveId: params.id,
+          action: 'FULL_INSPECTION',
+          details: `Inspeksjon utført (Offline). Status: ${status}.`,
+          sharedWithMattilsynet: false, // Page doesn't have this field?
+          image: selectedImage ? {
+            name: selectedImage.name,
+            type: selectedImage.type,
+            blob: selectedImage
+          } : undefined,
+          data: {
+            inspection: {
+              hive_id: params.id,
+              inspection_date: date,
+              time: time,
+              queen_seen: queenSeen,
+              eggs_seen: eggsSeen,
+              brood_condition: broodCondition,
+              honey_stores: honeyStores,
+              temperament: temperament,
+              notes: notes,
+              status: status, 
+              temperature: temperature ? parseFloat(temperature) : null,
+              weather: weather
+            },
+            hiveUpdate: {
+              status: status === 'DØD' ? 'DØD' : 'AKTIV',
+              last_inspection_date: date 
+            }
+          }
+        });
+        
+        alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
+        router.push('/hives');
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
 
       let imageUrl = null;
