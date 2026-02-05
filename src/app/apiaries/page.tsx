@@ -207,15 +207,35 @@ export default function ApiariesPage() {
     
     try {
         const urls: string[] = [];
-        // Add Apiary Pages
+        
+        // 1. Apiary & Hive Pages
         apiaries.forEach(a => {
             urls.push(`/apiaries/${a.id}`);
-            // Add Hive Pages
             a.hives?.forEach((h: any) => {
                 urls.push(`/hives/${h.id}`);
                 urls.push(`/hives/${h.id}/new-inspection`);
             });
         });
+
+        // 2. Disease Guide (Smittevern)
+        const diseaseUrls = [
+            '/dashboard/smittevern/veileder',
+            '/dashboard/smittevern/sykdommer/varroa',
+            '/dashboard/smittevern/sykdommer/lukket-yngelrate',
+            '/dashboard/smittevern/sykdommer/apen-yngelrate',
+            '/dashboard/smittevern/sykdommer/kalkyngel',
+            '/dashboard/smittevern/sykdommer/nosema',
+            '/dashboard/smittevern/sykdommer/frisk-kube',
+            // Images
+            '/images/sykdommer/sykdommer.png',
+            '/images/sykdommer/varroa.png',
+            '/images/sykdommer/lukket_yngelrate.png',
+            '/images/sykdommer/apen_yngelrate.png',
+            '/images/sykdommer/kalkyngel.png',
+            '/images/sykdommer/nosema.png',
+            '/images/sykdommer/frisk_kube.jpg'
+        ];
+        urls.push(...diseaseUrls);
 
         const total = urls.length;
         let completed = 0;
@@ -229,7 +249,7 @@ export default function ApiariesPage() {
             setDownloadProgress(Math.min(100, Math.round((completed / total) * 100)));
         }
 
-        alert('✅ Alt innhold er lastet ned! Du er klar for skogen.');
+        alert('✅ Alt innhold er lastet ned!\n\n• Alle bigårder og kuber\n• Fullstendig sykdomsveileder med bilder\n\nDu er klar for skogen! 🌲🐝');
     } catch (e) {
         console.error(e);
         alert('❌ Noe gikk galt. Sjekk nettet ditt og prøv igjen.');
