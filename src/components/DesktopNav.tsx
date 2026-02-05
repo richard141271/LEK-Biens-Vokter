@@ -4,11 +4,20 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Home, Map, Box, Settings, LogOut, Archive, ShoppingBag, ShieldAlert, FileText } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import { useEffect, useState } from 'react';
+import { getFounderMeeting } from '@/app/actions/founder';
 
 export default function DesktopNav() {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const [hasMeeting, setHasMeeting] = useState(false);
+
+  useEffect(() => {
+    getFounderMeeting().then(date => {
+        if (date) setHasMeeting(true);
+    });
+  }, []);
 
   // Hide on login/register/about pages, and dedicated portals (admin/mattilsynet)
   if (pathname === '/login' || 
@@ -58,7 +67,7 @@ export default function DesktopNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors relative ${
                 active 
                   ? 'bg-honey-50 text-honey-700 font-medium' 
                   : 'text-gray-600 hover:bg-gray-50'
@@ -66,6 +75,9 @@ export default function DesktopNav() {
             >
               <Icon className={`w-5 h-5 ${active ? 'text-honey-600' : 'text-gray-400'}`} />
               {item.label}
+              {item.label === 'Min side' && hasMeeting && (
+                <span className="w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full absolute top-3 left-7 animate-pulse" />
+              )}
             </Link>
           );
         })}

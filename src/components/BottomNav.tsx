@@ -3,9 +3,18 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Map, Box, Settings, Archive, ShoppingBag, FileText } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { getFounderMeeting } from '@/app/actions/founder';
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const [hasMeeting, setHasMeeting] = useState(false);
+
+  useEffect(() => {
+    getFounderMeeting().then(date => {
+        if (date) setHasMeeting(true);
+    });
+  }, []);
 
   // Hide on login/register pages
   if (pathname === '/login' || pathname === '/register' || pathname === '/' || pathname === '/about' || pathname === '/signin' || pathname === '/lei-en-kube' || pathname.startsWith('/info/') || pathname.startsWith('/survey')) return null;
@@ -17,9 +26,14 @@ export default function BottomNav() {
       <div className="flex justify-around items-center h-16">
         <Link 
           href="/dashboard" 
-          className={`flex flex-col items-center justify-center w-full h-full ${isActive('/dashboard') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}
+          className={`flex flex-col items-center justify-center w-full h-full relative ${isActive('/dashboard') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <Home className="w-6 h-6 mb-1" />
+          <div className="relative">
+            <Home className="w-6 h-6 mb-1" />
+            {hasMeeting && (
+                <span className="w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full absolute -top-0.5 -right-0.5 animate-pulse" />
+            )}
+          </div>
           <span className="text-[10px] font-medium">Min side</span>
         </Link>
         

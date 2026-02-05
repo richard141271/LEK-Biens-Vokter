@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { getMailService } from '@/services/mail';
 
 export async function getFounderStatus() {
   const supabase = createClient();
@@ -364,42 +365,128 @@ export async function repairFounderProfiles() {
     return { success: true, count: fixedCount };
 }
 
-export async function updateFounderFollowup(founderId: string, data: { notes?: string; status?: string; nextDate?: string | null }) {
+export async function updateFounderFollowup(
+    founderId: string, 
+    data: { notes?: string; status?: string; nextDate?: string | null },
+    sendInvite: boolean = false
+) {
     const adminClient = createAdminClient();
     
-    // Check if record exists
-    const { data: existing } = await adminClient
+    // Use upsert to handle both insert and update atomically
+    const { error } = await adminClient
         .from('founder_followups')
-        .select('user_id')
-        .eq('user_id', founderId)
-        .single();
-
-    let error;
-    if (existing) {
-        const { error: updateError } = await adminClient
-            .from('founder_followups')
-            .update({
-                internal_notes: data.notes,
-                internal_status: data.status,
-                next_followup_date: data.nextDate
-            })
-            .eq('user_id', founderId);
-        error = updateError;
-    } else {
-        const { error: insertError } = await adminClient
-            .from('founder_followups')
-            .insert({
-                user_id: founderId,
-                internal_notes: data.notes,
-                internal_status: data.status,
-                next_followup_date: data.nextDate
-            });
-        error = insertError;
-    }
+        .upsert({
+            user_id: founderId,
+            internal_notes: data.notes,
+            internal_status: data.status,
+            next_followup_date: data.nextDate,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
 
     if (error) return { success: false, error: error.message };
+
+    // Send Invite if requested
+    if (sendInvite && data.nextDate) {
+        try {
+            const mailService = getMailService(adminClient);
+            const supabase = createClient();
+            const { data: { user: adminUser } } = await supabase.auth.getUser();
+
+            if (adminUser) {
+                // Get Founder Profile for name/email alias
+                const { data: founderProfile } = await adminClient
+                    .from('profiles')
+                    .select('full_name, email_alias')
+                    .eq('id', founderId)
+                    .single();
+
+                const { data: adminProfile } = await adminClient
+                    .from('profiles')
+                    .select('email_alias')
+                    .eq('id', adminUser.id)
+                    .single();
+
+                if (founderProfile && adminProfile) {
+                    const dateObj = new Date(data.nextDate);
+                    const endDateObj = new Date(dateObj.getTime() + 30 * 60000); // 30 min duration
+                    
+                    // Format for Google Calendar: YYYYMMDDTHHMMSSZ
+                    const formatGCal = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                    
+                    const gcalLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=Oppfølging+Biens+Vokter&dates=${formatGCal(dateObj)}/${formatGCal(endDateObj)}&details=Oppfølgingsmøte+med+${founderProfile.full_name}&location=Online`;
+
+                    const subject = "Invitasjon til oppfølgingsmøte - Biens Vokter";
+                    const body = `Hei ${founderProfile.full_name},\n\nVi har satt opp et oppfølgingsmøte.\n\nTidspunkt: ${dateObj.toLocaleString('nb-NO')}\n\nLegg til i din kalender her:\n${gcalLink}\n\nMvh,\nAurora & Richard`;
+
+                    // Send to Founder
+                    await mailService.sendMail(
+                        adminProfile.email_alias || 'admin',
+                        founderProfile.email_alias || 'founder',
+                        subject,
+                        body,
+                        adminUser.id
+                    );
+
+                    // Send copy to Admin
+                    await mailService.sendMail(
+                        adminProfile.email_alias || 'admin',
+                        adminProfile.email_alias || 'admin',
+                        `Kopi: ${subject}`,
+                        body,
+                        adminUser.id
+                    );
+                }
+            }
+        } catch (e) {
+            console.error('Failed to send invite email:', e);
+            // Don't fail the whole operation if email fails
+        }
+    }
+
     revalidatePath('/dashboard/admin/founders');
     return { success: true };
+}
+
+export async function getFounderFollowupStats() {
+    const adminClient = createAdminClient();
+    
+    // Count 'needs_action' or 'critical'
+    const { count: actionCount } = await adminClient
+        .from('founder_followups')
+        .select('*', { count: 'exact', head: true })
+        .in('internal_status', ['needs_action', 'critical']);
+
+    // Count upcoming meetings (next 24h)
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    
+    const { count: meetingCount } = await adminClient
+        .from('founder_followups')
+        .select('*', { count: 'exact', head: true })
+        .gte('next_followup_date', now.toISOString())
+        .lte('next_followup_date', tomorrow.toISOString());
+
+    return {
+        actionNeeded: actionCount || 0,
+        upcomingMeetings: meetingCount || 0
+    };
+}
+
+export async function getFounderMeeting() {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data } = await supabase
+        .from('founder_followups')
+        .select('next_followup_date')
+        .eq('user_id', user.id)
+        .gt('next_followup_date', new Date().toISOString())
+        .order('next_followup_date', { ascending: true })
+        .limit(1)
+        .single();
+
+    return data?.next_followup_date || null;
 }
 
 export async function getAllFoundersData() {
@@ -521,7 +608,7 @@ export async function getAllFoundersData() {
         .from('founder_followups')
         .select('*')
         .eq('user_id', founder.id)
-        .single();
+        .maybeSingle();
 
       return {
           ...founder,

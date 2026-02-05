@@ -13,11 +13,21 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import { useEffect, useState } from 'react';
+import { getFounderFollowupStats } from '@/app/actions/founder';
 
 export default function AdminNav() {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const [alertCount, setAlertCount] = useState(0);
+
+  useEffect(() => {
+    getFounderFollowupStats().then(stats => {
+      // Sum of actions needed and upcoming meetings
+      setAlertCount((stats.actionNeeded || 0) + (stats.upcomingMeetings || 0));
+    });
+  }, []);
 
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
 
@@ -29,7 +39,7 @@ export default function AdminNav() {
   const navItems = [
     { href: '/dashboard/admin', label: 'Oversikt', icon: LayoutDashboard },
     { href: '/dashboard/admin/users', label: 'Brukere', icon: Users },
-    { href: '/dashboard/admin/founders', label: 'Gründer-oppfølging', icon: Activity },
+    { href: '/dashboard/admin/founders', label: 'Gründer-oppfølging', icon: Activity, badge: alertCount },
     { href: '/dashboard/admin/community', label: 'War Room', icon: MessageSquare },
     { href: '/dashboard/admin/shop', label: 'Nettbutikk', icon: ShoppingBag },
     { href: '/dashboard/admin/email', label: 'E-post', icon: Mail },
@@ -55,14 +65,19 @@ export default function AdminNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors relative ${
                 active 
                   ? 'bg-purple-600 text-white font-medium shadow-lg shadow-purple-900/20' 
                   : 'text-gray-400 hover:bg-gray-800 hover:text-white'
               }`}
             >
               <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-gray-500'}`} />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.badge ? (
+                <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                  {item.badge}
+                </span>
+              ) : null}
             </Link>
           );
         })}

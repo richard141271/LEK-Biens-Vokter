@@ -2,11 +2,12 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { ensureMemberNumber } from '@/app/actions/profile';
+import { getFounderMeeting } from '@/app/actions/founder';
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { jsPDF } from 'jspdf';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert, Mail, Building, HeartHandshake } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert, Mail, Building, HeartHandshake, Calendar } from 'lucide-react';
 import WeatherWidget from '@/components/WeatherWidget';
 import SicknessRegistrationModal from '@/components/SicknessRegistrationModal';
 import InspectionModal from '@/components/InspectionModal';
@@ -116,6 +117,7 @@ export default function DashboardPage() {
   const [activeRental, setActiveRental] = useState<any>(null);
   const [latestHiveLog, setLatestHiveLog] = useState<any>(null); // New State for Tenant Log
   const [pendingMissionsCount, setPendingMissionsCount] = useState(0);
+  const [meetingDate, setMeetingDate] = useState<string | null>(null);
 
   // Data State
   const [allHives, setAllHives] = useState<any[]>([]);
@@ -433,6 +435,33 @@ export default function DashboardPage() {
       
       <main className="p-2 space-y-2 max-w-lg mx-auto">
           
+          {/* Meeting Alert */}
+          {meetingDate && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-4 animate-in slide-in-from-top-2">
+                <div className="bg-blue-100 p-2 rounded-full shrink-0">
+                    <Calendar className="w-6 h-6 text-blue-600" />
+                </div>
+                <div>
+                    <h3 className="font-bold text-blue-900 text-sm">Oppfølgingsmøte planlagt</h3>
+                    <p className="text-blue-700 text-xs mt-1">
+                        Du har et oppfølgingsmøte med Aurora & Richard: <br/>
+                        <span className="font-semibold">{new Date(meetingDate).toLocaleString('nb-NO', { dateStyle: 'long', timeStyle: 'short' })}</span>
+                    </p>
+                    <div className="mt-2">
+                        <a 
+                            href="https://calendar.google.com" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-[10px] bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center gap-1"
+                        >
+                            <ExternalLink className="w-3 h-3" />
+                            Åpne Kalender
+                        </a>
+                    </div>
+                </div>
+            </div>
+          )}
+
           {/* Profile Card */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 relative">
               <button 

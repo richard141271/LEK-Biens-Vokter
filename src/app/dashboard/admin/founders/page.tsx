@@ -221,16 +221,46 @@ export default function AdminFoundersPage() {
     );
 }
 
+import { Mail } from 'lucide-react';
+
 function FollowupSection({ founder, onUpdate }: { founder: any, onUpdate: () => void }) {
     const [notes, setNotes] = useState(founder.followup?.internal_notes || '');
     const [status, setStatus] = useState(founder.followup?.internal_status || 'active');
-    const [date, setDate] = useState(founder.followup?.next_followup_date ? new Date(founder.followup.next_followup_date).toISOString().split('T')[0] : '');
+    
+    const formatDateForInput = (isoString: string | null) => {
+        if (!isoString) return '';
+        const d = new Date(isoString);
+        const offset = d.getTimezoneOffset() * 60000;
+        return (new Date(d.getTime() - offset)).toISOString().slice(0, 16);
+    };
+
+    const [date, setDate] = useState(formatDateForInput(founder.followup?.next_followup_date));
+
+    // Sync state with props when founder changes (e.g. after save/refresh)
+    useEffect(() => {
+        setNotes(founder.followup?.internal_notes || '');
+        setStatus(founder.followup?.internal_status || 'active');
+        setDate(formatDateForInput(founder.followup?.next_followup_date));
+    }, [founder]);
+
+    const [sendInvite, setSendInvite] = useState(false);
     const [saving, setSaving] = useState(false);
 
     const handleSave = async () => {
         setSaving(true);
-        await updateFounderFollowup(founder.id, { notes, status, nextDate: date || null });
+        const isoDate = date ? new Date(date).toISOString() : null;
+        const res = await updateFounderFollowup(founder.id, { notes, status, nextDate: isoDate }, sendInvite);
         setSaving(false);
+        
+        if (!res.success) {
+            alert('Kunne ikke lagre oppfølging: ' + (res.error || 'Ukjent feil'));
+            return;
+        }
+
+        if (sendInvite) {
+            alert('Invitasjon er sendt til både gründer og din e-post, med kalenderlink.');
+            setSendInvite(false);
+        }
         onUpdate();
     };
 
@@ -269,14 +299,28 @@ function FollowupSection({ founder, onUpdate }: { founder: any, onUpdate: () => 
                     </div>
                     <div>
                         <label className="block text-xs font-bold text-amber-800 uppercase mb-1 flex items-center gap-1">
-                            <Calendar className="w-3 h-3" /> Neste oppfølging
+                            <Calendar className="w-3 h-3" /> Neste oppfølging (Møte)
                         </label>
                         <input 
-                            type="date" 
+                            type="datetime-local" 
                             value={date} 
                             onChange={(e) => setDate(e.target.value)}
                             className="w-full rounded-lg border-amber-200 bg-white text-sm focus:ring-amber-500 focus:border-amber-500 py-2"
                         />
+                        {date && (
+                            <div className="mt-2 flex items-center gap-2">
+                                <input 
+                                    type="checkbox" 
+                                    id={`invite-${founder.id}`}
+                                    checked={sendInvite}
+                                    onChange={(e) => setSendInvite(e.target.checked)}
+                                    className="rounded text-amber-600 focus:ring-amber-500 border-amber-300"
+                                />
+                                <label htmlFor={`invite-${founder.id}`} className="text-sm text-amber-900 flex items-center gap-1 cursor-pointer">
+                                    <Mail className="w-3 h-3" /> Send invitasjon på e-post (+Kalender)
+                                </label>
+                            </div>
+                        )}
                     </div>
                 </div>
 
