@@ -132,16 +132,20 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   const fetchHiveAndWeather = async () => {
     // 1. Fetch Hive Info
-    const { data, error } = await supabase
-      .from('hives')
-      .select('name, hive_number')
-      .eq('id', params.id)
-      .single();
-    
-    if (data) setHive(data);
+    try {
+      const { data, error } = await supabase
+        .from('hives')
+        .select('name, hive_number')
+        .eq('id', params.id)
+        .single();
+      
+      if (data) setHive(data);
+    } catch (e) {
+      console.log('Could not fetch hive info (offline?)');
+    }
 
     // 2. Fetch Weather (Geolocation)
-    if (navigator.geolocation) {
+    if (navigator.geolocation && !isOffline) {
       setWeatherLoading(true);
       navigator.geolocation.getCurrentPosition(async (position) => {
         const { latitude, longitude } = position.coords;
