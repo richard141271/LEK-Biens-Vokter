@@ -60,6 +60,7 @@ export default function WarRoomDashboard({
     const [isAdmin, setIsAdmin] = useState(false);
     const [editingPostId, setEditingPostId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState('');
+    const [isEditingFocus, setIsEditingFocus] = useState(false);
     
     // New Post State
     const [newPostType, setNewPostType] = useState<WarRoomPostType | null>(null);
@@ -96,7 +97,10 @@ export default function WarRoomDashboard({
         if (feedRes.posts) setPosts(feedRes.posts);
         if (feedRes.isAdmin) setIsAdmin(feedRes.isAdmin);
         if (focusRes.focus) {
-            setFocus(focusRes.focus.text);
+            // Only update focus text if user is not editing it
+            if (!isEditingFocus) {
+                setFocus(focusRes.focus.text);
+            }
             setFocusAuthor(focusRes.focus.author || '');
         }
         if (statsRes.stats) setStats(statsRes.stats);
@@ -239,7 +243,11 @@ export default function WarRoomDashboard({
                             type="text" 
                             value={focus}
                             onChange={(e) => setFocus(e.target.value)}
-                            onBlur={handleUpdateFocus}
+                            onFocus={() => setIsEditingFocus(true)}
+                            onBlur={() => {
+                                setIsEditingFocus(false);
+                                handleUpdateFocus();
+                            }}
                             placeholder="Hva er hovedmålet i dag?"
                             className="w-full bg-transparent border-none text-amber-900 placeholder-amber-900/50 focus:ring-0 p-0 text-lg font-medium"
                         />
