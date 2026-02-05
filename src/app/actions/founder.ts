@@ -364,6 +364,44 @@ export async function repairFounderProfiles() {
     return { success: true, count: fixedCount };
 }
 
+export async function updateFounderFollowup(founderId: string, data: { notes?: string; status?: string; nextDate?: string | null }) {
+    const adminClient = createAdminClient();
+    
+    // Check if record exists
+    const { data: existing } = await adminClient
+        .from('founder_followups')
+        .select('user_id')
+        .eq('user_id', founderId)
+        .single();
+
+    let error;
+    if (existing) {
+        const { error: updateError } = await adminClient
+            .from('founder_followups')
+            .update({
+                internal_notes: data.notes,
+                internal_status: data.status,
+                next_followup_date: data.nextDate
+            })
+            .eq('user_id', founderId);
+        error = updateError;
+    } else {
+        const { error: insertError } = await adminClient
+            .from('founder_followups')
+            .insert({
+                user_id: founderId,
+                internal_notes: data.notes,
+                internal_status: data.status,
+                next_followup_date: data.nextDate
+            });
+        error = insertError;
+    }
+
+    if (error) return { success: false, error: error.message };
+    revalidatePath('/dashboard/admin/founders');
+    return { success: true };
+}
+
 export async function getAllFoundersData() {
     const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -478,12 +516,20 @@ export async function getAllFoundersData() {
         .order('updated_at', { ascending: false })
         .limit(1);
 
+      // Get followup data
+      const { data: followup } = await adminClient
+        .from('founder_followups')
+        .select('*')
+        .eq('user_id', founder.id)
+        .single();
+
       return {
           ...founder,
           profiles: profile || { full_name: 'Ukjent', email: 'Ingen e-post' },
           role_choice: role,
           logs: logs || [],
-          ambitions: ambitionsData?.[0] || null
+          ambitions: ambitionsData?.[0] || null,
+          followup: followup || null
       };
   }));
 

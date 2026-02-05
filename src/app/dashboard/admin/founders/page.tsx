@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { getAllFoundersData, repairFounderProfiles } from '@/app/actions/founder';
-import { Shield, ChevronDown, ChevronUp, History, Target, MessageSquare, RefreshCw } from 'lucide-react';
+import { getAllFoundersData, repairFounderProfiles, updateFounderFollowup } from '@/app/actions/founder';
+import { Shield, ChevronDown, ChevronUp, History, Target, MessageSquare, RefreshCw, Calendar, FileText, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import Link from 'next/link';
@@ -126,78 +126,82 @@ export default function AdminFoundersPage() {
 
                             {/* Expanded Content */}
                             {expandedId === founder.id && (
-                                <div className="border-t border-gray-200 bg-white p-6 grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in slide-in-from-top-2 duration-200">
-                                    {/* Ambitions */}
-                                    <div className="space-y-4">
-                                        <h4 className="font-bold text-gray-900 flex items-center gap-2 border-b pb-2">
-                                            <Target className="w-4 h-4 text-blue-500" />
-                                            Ambisjoner & Mål
-                                        </h4>
-                                        {founder.ambitions ? (
-                                            <div className="space-y-4 text-sm">
-                                                <div>
-                                                    <strong className="block text-gray-500 text-xs uppercase mb-1">Bidrag</strong>
-                                                    <p className="text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-100">{founder.ambitions.contribution}</p>
-                                                </div>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="border-t border-gray-200 bg-white p-6 animate-in slide-in-from-top-2 duration-200">
+                                    <FollowupSection founder={founder} onUpdate={loadData} />
+                                    
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                        {/* Ambitions */}
+                                        <div className="space-y-4">
+                                            <h4 className="font-bold text-gray-900 flex items-center gap-2 border-b pb-2">
+                                                <Target className="w-4 h-4 text-blue-500" />
+                                                Ambisjoner & Mål
+                                            </h4>
+                                            {founder.ambitions ? (
+                                                <div className="space-y-4 text-sm">
                                                     <div>
-                                                        <strong className="block text-gray-500 text-xs uppercase mb-1">Mål 30 dager</strong>
-                                                        <p className="text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-100">{founder.ambitions.goal_30_days}</p>
+                                                        <strong className="block text-gray-500 text-xs uppercase mb-1">Bidrag</strong>
+                                                        <p className="text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-100">{founder.ambitions.contribution}</p>
                                                     </div>
-                                                    <div>
-                                                        <strong className="block text-gray-500 text-xs uppercase mb-1">Mål 1 år</strong>
-                                                        <p className="text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-100">{founder.ambitions.goal_1_year}</p>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <strong className="block text-gray-500 text-xs uppercase mb-1">5 års visjon</strong>
-                                                    <p className="text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-100">{founder.ambitions.goal_5_years}</p>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <p className="text-gray-500 italic text-sm">Ingen ambisjoner registrert ennå.</p>
-                                        )}
-                                    </div>
-
-                                    {/* Logs */}
-                                    <div className="space-y-4">
-                                        <h4 className="font-bold text-gray-900 flex items-center gap-2 border-b pb-2">
-                                            <History className="w-4 h-4 text-purple-500" />
-                                            Loggføring ({founder.logs.length})
-                                        </h4>
-                                        <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                                            {founder.logs.length > 0 ? founder.logs.map((log: any) => (
-                                                <div key={log.id} className="bg-gray-50 rounded-lg p-4 text-sm border border-gray-100 relative pl-6">
-                                                    <div className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-full ${
-                                                        log.status_color === 'green' ? 'bg-green-500' :
-                                                        log.status_color === 'yellow' ? 'bg-yellow-500' : 'bg-red-500'
-                                                    }`} />
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <span className="text-xs text-gray-400 font-mono">
-                                                            {new Date(log.created_at).toLocaleString('nb-NO')}
-                                                        </span>
-                                                    </div>
-                                                    <p className="font-medium text-gray-900 mb-2 whitespace-pre-wrap">{log.did_since_last}</p>
-                                                    {(log.plans_now || log.ideas) && (
-                                                        <div className="bg-white/50 p-3 rounded-lg mt-2 space-y-2 border border-gray-100/50">
-                                                            {log.plans_now && (
-                                                                <div className="text-gray-600 text-xs">
-                                                                    <span className="font-bold block text-gray-500 uppercase text-[10px] mb-0.5">Planer</span> 
-                                                                    {log.plans_now}
-                                                                </div>
-                                                            )}
-                                                            {log.ideas && (
-                                                                <div className="text-gray-600 text-xs">
-                                                                    <span className="font-bold block text-gray-500 uppercase text-[10px] mb-0.5">Ideer</span> 
-                                                                    {log.ideas}
-                                                                </div>
-                                                            )}
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div>
+                                                            <strong className="block text-gray-500 text-xs uppercase mb-1">Mål 30 dager</strong>
+                                                            <p className="text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-100">{founder.ambitions.goal_30_days}</p>
                                                         </div>
-                                                    )}
+                                                        <div>
+                                                            <strong className="block text-gray-500 text-xs uppercase mb-1">Mål 1 år</strong>
+                                                            <p className="text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-100">{founder.ambitions.goal_1_year}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <strong className="block text-gray-500 text-xs uppercase mb-1">5 års visjon</strong>
+                                                        <p className="text-gray-800 bg-gray-50 p-3 rounded-lg border border-gray-100">{founder.ambitions.goal_5_years}</p>
+                                                    </div>
                                                 </div>
-                                            )) : (
-                                                <p className="text-gray-500 italic text-sm">Ingen logger registrert ennå.</p>
+                                            ) : (
+                                                <p className="text-gray-500 italic text-sm">Ingen ambisjoner registrert ennå.</p>
                                             )}
+                                        </div>
+
+                                        {/* Logs */}
+                                        <div className="space-y-4">
+                                            <h4 className="font-bold text-gray-900 flex items-center gap-2 border-b pb-2">
+                                                <History className="w-4 h-4 text-purple-500" />
+                                                Loggføring ({founder.logs.length})
+                                            </h4>
+                                            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                                                {founder.logs.length > 0 ? founder.logs.map((log: any) => (
+                                                    <div key={log.id} className="bg-gray-50 rounded-lg p-4 text-sm border border-gray-100 relative pl-6">
+                                                        <div className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-full ${
+                                                            log.status_color === 'green' ? 'bg-green-500' :
+                                                            log.status_color === 'yellow' ? 'bg-yellow-500' : 'bg-red-500'
+                                                        }`} />
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <span className="text-xs text-gray-400 font-mono">
+                                                                {new Date(log.created_at).toLocaleString('nb-NO')}
+                                                            </span>
+                                                        </div>
+                                                        <p className="font-medium text-gray-900 mb-2 whitespace-pre-wrap">{log.did_since_last}</p>
+                                                        {(log.plans_now || log.ideas) && (
+                                                            <div className="bg-white/50 p-3 rounded-lg mt-2 space-y-2 border border-gray-100/50">
+                                                                {log.plans_now && (
+                                                                    <div className="text-gray-600 text-xs">
+                                                                        <span className="font-bold block text-gray-500 uppercase text-[10px] mb-0.5">Planer</span> 
+                                                                        {log.plans_now}
+                                                                    </div>
+                                                                )}
+                                                                {log.ideas && (
+                                                                    <div className="text-gray-600 text-xs">
+                                                                        <span className="font-bold block text-gray-500 uppercase text-[10px] mb-0.5">Ideer</span> 
+                                                                        {log.ideas}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )) : (
+                                                    <p className="text-gray-500 italic text-sm">Ingen logger registrert ennå.</p>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -213,6 +217,92 @@ export default function AdminFoundersPage() {
                     )}
                 </div>
             </main>
+        </div>
+    );
+}
+
+function FollowupSection({ founder, onUpdate }: { founder: any, onUpdate: () => void }) {
+    const [notes, setNotes] = useState(founder.followup?.internal_notes || '');
+    const [status, setStatus] = useState(founder.followup?.internal_status || 'active');
+    const [date, setDate] = useState(founder.followup?.next_followup_date ? new Date(founder.followup.next_followup_date).toISOString().split('T')[0] : '');
+    const [saving, setSaving] = useState(false);
+
+    const handleSave = async () => {
+        setSaving(true);
+        await updateFounderFollowup(founder.id, { notes, status, nextDate: date || null });
+        setSaving(false);
+        onUpdate();
+    };
+
+    return (
+        <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-6 mb-8 shadow-sm">
+            <div className="flex items-center justify-between mb-4 border-b border-amber-100 pb-2">
+                <h4 className="font-bold text-amber-900 flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-amber-600" />
+                    Intern Oppfølging (Admin)
+                </h4>
+                {founder.followup?.updated_at && (
+                    <span className="text-xs text-amber-700">
+                        Sist oppdatert: {new Date(founder.followup.updated_at).toLocaleString('nb-NO')}
+                    </span>
+                )}
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-amber-800 uppercase mb-1 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" /> Status
+                        </label>
+                        <select 
+                            value={status} 
+                            onChange={(e) => setStatus(e.target.value)}
+                            className="w-full rounded-lg border-amber-200 bg-white text-sm focus:ring-amber-500 focus:border-amber-500 py-2"
+                        >
+                            <option value="active">🟢 Aktiv</option>
+                            <option value="onboarding">👋 Onboarding</option>
+                            <option value="needs_action">⚠️ Må kontaktes</option>
+                            <option value="waiting">⏳ Venter på svar</option>
+                            <option value="critical">🔴 Kritisk / Risiko</option>
+                            <option value="completed">✅ Ferdig / Avsluttet</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-amber-800 uppercase mb-1 flex items-center gap-1">
+                            <Calendar className="w-3 h-3" /> Neste oppfølging
+                        </label>
+                        <input 
+                            type="date" 
+                            value={date} 
+                            onChange={(e) => setDate(e.target.value)}
+                            className="w-full rounded-lg border-amber-200 bg-white text-sm focus:ring-amber-500 focus:border-amber-500 py-2"
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-bold text-amber-800 uppercase mb-1 flex items-center gap-1">
+                        <FileText className="w-3 h-3" /> Interne notater
+                    </label>
+                    <textarea 
+                        value={notes} 
+                        onChange={(e) => setNotes(e.target.value)}
+                        rows={5}
+                        className="w-full rounded-lg border-amber-200 bg-white text-sm focus:ring-amber-500 focus:border-amber-500 p-3"
+                        placeholder="Skriv interne notater om oppfølging her..."
+                    />
+                </div>
+            </div>
+
+            <div className="flex justify-end">
+                <button 
+                    onClick={handleSave} 
+                    disabled={saving}
+                    className="flex items-center gap-2 px-6 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 disabled:opacity-50 transition-colors shadow-sm"
+                >
+                    {saving ? 'Lagrer...' : 'Lagre oppfølging'}
+                </button>
+            </div>
         </div>
     );
 }
