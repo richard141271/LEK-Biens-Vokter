@@ -303,13 +303,9 @@ export async function repairFounderProfiles() {
         .eq('id', user.id)
         .single();
 
-    // TEMPORARY: Relaxed check for debugging/access. 
-    // Ideally should be: if (profile?.role !== 'admin' && ...)
+    // STRICT CHECK: Only admin or Richard
     if (profile?.role !== 'admin' && user.email?.toLowerCase() !== 'richard141271@gmail.com') {
-        // Log but allow for now to fix the user's issue, or just return detailed error
-        // return { error: `Unauthorized: Role is '${profile?.role}'` };
-        // For now, let's just log and PROCEED to unblock the user.
-        console.warn('Non-admin accessing repair function:', user.email, profile?.role);
+        return { error: `Unauthorized: Role is '${profile?.role}'` };
     }
 
     let fixedCount = 0;
@@ -370,7 +366,22 @@ export async function updateFounderFollowup(
     data: { notes?: string; status?: string; nextDate?: string | null },
     sendInvite: boolean = false
 ) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: 'Not authenticated' };
+
     const adminClient = createAdminClient();
+    
+    // Verify admin role
+    const { data: profile } = await adminClient
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+    if (profile?.role !== 'admin' && user.email?.toLowerCase() !== 'richard141271@gmail.com') {
+        return { success: false, error: 'Unauthorized' };
+    }
     
     // Use upsert to handle both insert and update atomically
     const { error } = await adminClient
@@ -448,7 +459,22 @@ export async function updateFounderFollowup(
 }
 
 export async function getFounderFollowupStats() {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { actionNeeded: 0, upcomingMeetings: 0 };
+
     const adminClient = createAdminClient();
+    
+    // Verify admin role
+    const { data: profile } = await adminClient
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+    if (profile?.role !== 'admin' && user.email?.toLowerCase() !== 'richard141271@gmail.com') {
+        return { actionNeeded: 0, upcomingMeetings: 0 };
+    }
     
     // Count 'needs_action' or 'critical'
     const { count: actionCount } = await adminClient
@@ -504,10 +530,8 @@ export async function getAllFoundersData() {
     .eq('id', user.id)
     .single();
 
-  // TEMPORARY: Relaxed check
   if (profile?.role !== 'admin' && user.email?.toLowerCase() !== 'richard141271@gmail.com') {
-      console.warn('Non-admin accessing founder data:', user.email, profile?.role);
-      // Proceed anyway for now
+      return { error: `Unauthorized` };
   }
 
   // FIX: Check if we need to auto-create profiles for users who have logs but no profile

@@ -35,8 +35,16 @@ export async function getWarRoomFeed() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
 
-    const isAdmin = user.email === 'richard141271@gmail.com';
     const adminClient = createAdminClient();
+
+    // Check admin role properly
+    const { data: profile } = await adminClient
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+    const isAdmin = profile?.role === 'admin' || user.email === 'richard141271@gmail.com';
 
     // Fetch posts with user details
     // Filter deleted posts unless admin? Or maybe allow admin to see them but marked?
@@ -116,9 +124,20 @@ export async function getWarRoomFeed() {
 export async function deleteWarRoomPost(postId: string) {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user || user.email !== 'richard141271@gmail.com') return { error: 'Unauthorized' };
+    if (!user) return { error: 'Unauthorized' };
 
     const adminClient = createAdminClient();
+    
+    // Check admin role
+    const { data: profile } = await adminClient
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+    if (profile?.role !== 'admin' && user.email !== 'richard141271@gmail.com') {
+        return { error: 'Unauthorized' };
+    }
     
     // Soft delete
     const { error } = await adminClient
@@ -134,9 +153,20 @@ export async function deleteWarRoomPost(postId: string) {
 export async function editWarRoomPost(postId: string, content: string) {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user || user.email !== 'richard141271@gmail.com') return { error: 'Unauthorized' };
+    if (!user) return { error: 'Unauthorized' };
 
     const adminClient = createAdminClient();
+    
+    // Check admin role
+    const { data: profile } = await adminClient
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+    if (profile?.role !== 'admin' && user.email !== 'richard141271@gmail.com') {
+        return { error: 'Unauthorized' };
+    }
     
     const { error } = await adminClient
         .from('warroom_posts')

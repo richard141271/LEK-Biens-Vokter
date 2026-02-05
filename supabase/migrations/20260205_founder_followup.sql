@@ -12,13 +12,15 @@ ALTER TABLE founder_followups ENABLE ROW LEVEL SECURITY;
 
 -- Create policies (Admin only)
 -- We'll use the existing pattern of checking for specific admin email or role if available
--- But for simplicity and consistency with other admin policies, we'll allow access based on the same logic as other admin tables
+-- But for simplicity and consistency with other admin tables, we'll allow access based on the same logic
+
+DROP POLICY IF EXISTS "Admin full access" ON founder_followups;
 
 CREATE POLICY "Admin full access" ON founder_followups
     FOR ALL
     USING (
         (SELECT role FROM profiles WHERE id = auth.uid()) = 'admin' OR
-        (SELECT email FROM profiles WHERE id = auth.uid()) = 'richard141271@gmail.com'
+        (auth.jwt() ->> 'email') = 'richard141271@gmail.com'
     );
 
 -- Add updated_at trigger
