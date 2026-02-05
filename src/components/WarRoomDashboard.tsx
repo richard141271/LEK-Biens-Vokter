@@ -230,19 +230,34 @@ export default function WarRoomDashboard({
                 </div>
 
                 {/* Daily Focus */}
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 relative group">
                     <label className="block text-xs font-semibold text-amber-800 uppercase tracking-wide mb-1">
                         Dagens Fokus
                     </label>
-                    <input 
-                        type="text" 
-                        value={focus}
-                        onChange={(e) => setFocus(e.target.value)}
-                        onBlur={handleUpdateFocus}
-                        placeholder="Hva er hovedmålet i dag?"
-                        className="w-full bg-transparent border-none text-amber-900 placeholder-amber-900/50 focus:ring-0 p-0 text-lg font-medium"
-                    />
-                    {focusAuthor && (
+                    <div className="flex items-center">
+                        <input 
+                            type="text" 
+                            value={focus}
+                            onChange={(e) => setFocus(e.target.value)}
+                            onBlur={handleUpdateFocus}
+                            placeholder="Hva er hovedmålet i dag?"
+                            className="w-full bg-transparent border-none text-amber-900 placeholder-amber-900/50 focus:ring-0 p-0 text-lg font-medium"
+                        />
+                        {isAdmin && focus && (
+                            <button
+                                onClick={async () => {
+                                    setFocus('');
+                                    await setDailyFocus(' '); // Send space to clear visually, or empty string if allowed
+                                    loadData();
+                                }}
+                                className="p-1 text-amber-800/50 hover:text-red-600 rounded-full hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Fjern fokus"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        )}
+                    </div>
+                    {focusAuthor && focus.trim() && (
                         <p className="text-xs text-amber-800/60 mt-1 italic">
                             Satt av: {focusAuthor}
                         </p>
