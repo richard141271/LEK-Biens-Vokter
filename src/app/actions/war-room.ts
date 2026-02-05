@@ -35,25 +35,54 @@ export async function getWarRoomFeed() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
 
+    const isAdmin = user.email === 'richard141271@gmail.com';
     const adminClient = createAdminClient();
 
     // Fetch posts with user details
-    const { data: posts, error } = await adminClient
+    // Filter deleted posts unless admin? Or maybe allow admin to see them but marked?
+    // User says: "Admin kan fjerne fra synlighet". Implies regular users don't see them.
+    let query = adminClient
         .from('warroom_posts')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(50);
+    
+    // Check if is_deleted column exists first? 
+    // We assume migration runs. If not, this might fail if we filter by it.
+    // Safest is to rely on client filtering if the column doesn't exist, but we should fix DB.
+    // For now, let's assume migration.
+    // But wait, if migration failed, this breaks the app.
+    // I'll wrap in try/catch or just filter in memory if needed?
+    // No, let's try to filter in query.
+    
+    // Actually, I'll filter in JS to be safe against missing column error if I select '*'.
+    // No, select * returns columns.
+    // If I add .eq('is_deleted', false), it throws if column missing.
+    // I will try to fetch all and filter in JS.
+    
+    const { data: posts, error } = await query;
 
     if (error) return { error: error.message };
 
+    // Filter deleted
+    let filteredPosts = posts;
+    if (posts && posts.length > 0) {
+        // Check if is_deleted exists on first post
+        if ('is_deleted' in posts[0]) {
+            if (!isAdmin) {
+                filteredPosts = posts.filter(p => !p.is_deleted);
+            }
+        }
+    }
+
     // Map profiles
-    const userIds = Array.from(new Set(posts.map(p => p.user_id)));
+    const userIds = Array.from(new Set(filteredPosts.map(p => p.user_id)));
     const { data: profiles } = await adminClient
         .from('profiles')
         .select('id, full_name, email, avatar_url')
         .in('id', userIds);
 
-    const postsWithProfiles = await Promise.all(posts.map(async (post) => {
+    const postsWithProfiles = await Promise.all(filteredPosts.map(async (post) => {
         let profile = profiles?.find(p => p.id === post.user_id);
 
         if (!profile) {
@@ -82,7 +111,42 @@ export async function getWarRoomFeed() {
         };
     }));
 
-    return { posts: postsWithProfiles };
+    return { posts: postsWithProfiles, isAdmin };
+}
+
+export async function deleteWarRoomPost(postId: string) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || user.email !== 'richard141271@gmail.com') return { error: 'Unauthorized' };
+
+    const adminClient = createAdminClient();
+    
+    // Soft delete
+    const { error } = await adminClient
+        .from('warroom_posts')
+        .update({ is_deleted: true })
+        .eq('id', postId);
+
+    if (error) return { error: error.message };
+    revalidatePath('/dashboard/war-room');
+    return { success: true };
+}
+
+export async function editWarRoomPost(postId: string, content: string) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || user.email !== 'richard141271@gmail.com') return { error: 'Unauthorized' };
+
+    const adminClient = createAdminClient();
+    
+    const { error } = await adminClient
+        .from('warroom_posts')
+        .update({ content, updated_at: new Date().toISOString() })
+        .eq('id', postId);
+
+    if (error) return { error: error.message };
+    revalidatePath('/dashboard/war-room');
+    return { success: true };
 }
 
 export async function postWarRoomEntry(type: WarRoomPostType, content: string) {

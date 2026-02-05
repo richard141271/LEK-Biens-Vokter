@@ -11,6 +11,8 @@ import {
     updateUserStatus,
     sendRelationshipAlert,
     getIdeas,
+    deleteWarRoomPost,
+    editWarRoomPost,
     WarRoomPostType
 } from '@/app/actions/war-room';
 import { formatDistanceToNow } from 'date-fns';
@@ -26,7 +28,11 @@ import {
     Users, 
     Activity,
     HeartHandshake,
-    ArrowLeft
+    ArrowLeft,
+    Trash2,
+    Edit2,
+    X,
+    Check
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -51,6 +57,9 @@ export default function WarRoomDashboard({
     const [stats, setStats] = useState<any>({});
     const [statuses, setStatuses] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [editingPostId, setEditingPostId] = useState<string | null>(null);
+    const [editContent, setEditContent] = useState('');
     
     // New Post State
     const [newPostType, setNewPostType] = useState<WarRoomPostType | null>(null);
@@ -85,6 +94,7 @@ export default function WarRoomDashboard({
         ]);
 
         if (feedRes.posts) setPosts(feedRes.posts);
+        if (feedRes.isAdmin) setIsAdmin(feedRes.isAdmin);
         if (focusRes.focus) {
             setFocus(focusRes.focus.text);
             setFocusAuthor(focusRes.focus.author || '');
@@ -129,6 +139,8 @@ export default function WarRoomDashboard({
         try {
             await updateUserStatus(myWorkingOn, myStatusColor);
             loadData();
+        } catch (e) {
+            console.error(e);
         } finally {
             setUpdatingStatus(false);
         }
@@ -140,6 +152,24 @@ export default function WarRoomDashboard({
             alert('Varsel sendt.');
             loadData();
         }
+    };
+
+    const handleDeletePost = async (id: string) => {
+        if (!confirm('Er du sikker på at du vil slette denne posten?')) return;
+        await deleteWarRoomPost(id);
+        loadData();
+    };
+
+    const handleStartEdit = (post: any) => {
+        setEditingPostId(post.id);
+        setEditContent(post.content);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingPostId || !editContent.trim()) return;
+        await editWarRoomPost(editingPostId, editContent);
+        setEditingPostId(null);
+        loadData();
     };
 
     const getTypeIcon = (type: string) => {
@@ -326,10 +356,55 @@ export default function WarRoomDashboard({
                                                             </span>
                                                         </div>
                                                     </div>
+                                                    {isAdmin && (
+                                                        <div className="flex items-center gap-1">
+                                                            <button 
+                                                                onClick={() => handleStartEdit(post)}
+                                                                className="p-1 text-gray-400 hover:text-blue-600 rounded-full hover:bg-blue-50"
+                                                                title="Rediger"
+                                                            >
+                                                                <Edit2 className="w-3 h-3" />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleDeletePost(post.id)}
+                                                                className="p-1 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50"
+                                                                title="Slett"
+                                                            >
+                                                                <Trash2 className="w-3 h-3" />
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div className="text-gray-800 text-sm whitespace-pre-wrap pl-9">
-                                                    {post.content}
-                                                </div>
+                                                {editingPostId === post.id ? (
+                                                    <div className="pl-9 mt-2 space-y-2">
+                                                        <textarea
+                                                            value={editContent}
+                                                            onChange={(e) => setEditContent(e.target.value)}
+                                                            className="w-full rounded-lg border-gray-300 text-sm focus:ring-amber-500 focus:border-amber-500"
+                                                            rows={3}
+                                                        />
+                                                        <div className="flex justify-end gap-2">
+                                                            <button 
+                                                                onClick={() => setEditingPostId(null)}
+                                                                className="p-1 text-gray-500 hover:bg-gray-100 rounded"
+                                                                title="Avbryt"
+                                                            >
+                                                                <X className="w-4 h-4" />
+                                                            </button>
+                                                            <button 
+                                                                onClick={handleSaveEdit}
+                                                                className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                                                title="Lagre"
+                                                            >
+                                                                <Check className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-gray-800 text-sm whitespace-pre-wrap pl-9">
+                                                        {post.content}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))
                                     )}
