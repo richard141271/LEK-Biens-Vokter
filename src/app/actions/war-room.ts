@@ -220,6 +220,33 @@ export async function getDailyFocus() {
         return { error: error.message };
     }
 
+    if (data && data.created_by) {
+        let authorName = 'Ukjent';
+        
+        // Check if Admin
+        const { data: { user: authUser } } = await adminClient.auth.admin.getUserById(data.created_by);
+        if (authUser) {
+            if (authUser.email === 'richard141271@gmail.com') {
+                authorName = 'Admin';
+            } else {
+                // Check profile
+                const { data: profile } = await adminClient
+                    .from('profiles')
+                    .select('full_name')
+                    .eq('id', data.created_by)
+                    .single();
+                
+                if (profile) {
+                    authorName = profile.full_name || 'Ukjent';
+                } else {
+                    authorName = authUser.user_metadata?.full_name || 'Ukjent (Auth)';
+                }
+            }
+        }
+        
+        return { focus: { ...data, author: authorName } };
+    }
+
     return { focus: data };
 }
 

@@ -47,6 +47,7 @@ export default function WarRoomDashboard({
     const [posts, setPosts] = useState<any[]>([]);
     const [ideas, setIdeas] = useState<any[]>([]);
     const [focus, setFocus] = useState('');
+    const [focusAuthor, setFocusAuthor] = useState('');
     const [stats, setStats] = useState<any>({});
     const [statuses, setStatuses] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -84,7 +85,10 @@ export default function WarRoomDashboard({
         ]);
 
         if (feedRes.posts) setPosts(feedRes.posts);
-        if (focusRes.focus) setFocus(focusRes.focus.text);
+        if (focusRes.focus) {
+            setFocus(focusRes.focus.text);
+            setFocusAuthor(focusRes.focus.author || '');
+        }
         if (statsRes.stats) setStats(statsRes.stats);
         if (statusRes.statuses) {
             setStatuses(statusRes.statuses);
@@ -207,6 +211,11 @@ export default function WarRoomDashboard({
                         placeholder="Hva er hovedmålet i dag?"
                         className="w-full bg-transparent border-none text-amber-900 placeholder-amber-900/50 focus:ring-0 p-0 text-lg font-medium"
                     />
+                    {focusAuthor && (
+                        <p className="text-xs text-amber-800/60 mt-1 italic">
+                            Satt av: {focusAuthor}
+                        </p>
+                    )}
                 </div>
 
                 {/* Stats & Activity */}
