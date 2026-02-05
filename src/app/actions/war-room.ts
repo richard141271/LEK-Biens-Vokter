@@ -3,6 +3,24 @@
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { getMailService } from '@/services/mail';
+
+const ADMIN_EMAIL = 'richard141271@gmail.com';
+
+async function notifyAdmin(subject: string, content: string) {
+    try {
+        const mailService = getMailService();
+        await mailService.sendMail(
+            'WarRoom', 
+            ADMIN_EMAIL, 
+            subject, 
+            content, 
+            'system'
+        );
+    } catch (e) {
+        console.error('Failed to notify admin:', e);
+    }
+}
 
 export type WarRoomPostType = 'done' | 'plan' | 'help' | 'idea' | 'problem';
 export type WarRoomStatusColor = 'green' | 'yellow' | 'red';
@@ -146,6 +164,21 @@ export async function deleteWarRoomPost(postId: string) {
         .eq('id', postId);
 
     if (error) return { error: error.message };
+    
+    if (user.email !== ADMIN_EMAIL) {
+        const statusLabel: Record<string, string> = {
+            green: '🟢 Tilgjengelig',
+            yellow: '🟡 Opptatt',
+            red: '🔴 Ikke forstyrr'
+        };
+        const label = statusLabel[statusColor] || statusColor;
+
+        await notifyAdmin(
+            `War Room: Status endret av ${user.email}`,
+            `Ny status: ${label}\nArbeider med: ${workingOn}`
+        );
+    }
+
     revalidatePath('/dashboard/war-room');
     return { success: true };
 }
@@ -202,6 +235,23 @@ export async function postWarRoomEntry(type: WarRoomPostType, content: string) {
 
     // 2. Handle Side Effects
     
+    // Notify Admin
+    if (user.email !== ADMIN_EMAIL) {
+        const typeLabel: Record<string, string> = {
+            done: '✅ Utført',
+            plan: '📅 Planlegger',
+            help: '🆘 Trenger hjelp',
+            idea: '💡 Idé',
+            problem: '⚠️ Problem'
+        };
+        const label = typeLabel[type] || type;
+
+        await notifyAdmin(
+            `War Room: Ny ${label} fra ${user.email}`,
+            `Bruker: ${user.email}\nType: ${label}\n\nInnhold:\n${content.trim()}`
+        );
+    }
+
     // Idea -> Idea Bank
     if (type === 'idea') {
         await adminClient.from('warroom_ideas').insert({
@@ -390,6 +440,14 @@ export async function setDailyFocus(text: string) {
         console.error('[WarRoom] Error setting Daily Focus:', error);
         return { error: error.message };
     }
+
+    if (user.email !== ADMIN_EMAIL) {
+        await notifyAdmin(
+            `War Room: Dagens Fokus endret av ${user.email}`,
+            `Nytt fokus: ${text}`
+        );
+    }
+
     revalidatePath('/dashboard/war-room');
     return { success: true };
 }
@@ -466,6 +524,11 @@ export async function sendRelationshipAlert() {
     });
 
     if (error) return { error: error.message };
+
+    await notifyAdmin(
+        `🚨 RELASJONSVARSEL fra ${user.email}`,
+        `Bruker ${user.email} har sendt et relasjonsvarsel via War Room.\n\n"Vennskapet foran alt".`
+    );
 
     // Ideally send email too, but for now this logs it.
     revalidatePath('/dashboard/war-room');

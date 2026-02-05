@@ -74,12 +74,13 @@ export default function WarRoomDashboard({
 
     // Use ref to track editing state reliably inside async closures
     const isEditingFocusRef = useRef(false);
+    const isSavingRef = useRef(false);
 
     useEffect(() => {
         loadData();
         const interval = setInterval(() => {
-            // Only poll if NOT editing focus
-            if (!isEditingFocusRef.current) {
+            // Only poll if NOT editing focus AND not saving
+            if (!isEditingFocusRef.current && !isSavingRef.current) {
                 loadData();
             }
         }, 10000); // Poll every 10s
@@ -142,8 +143,15 @@ export default function WarRoomDashboard({
 
     const handleUpdateFocus = async () => {
         if (!focus.trim()) return;
-        await setDailyFocus(focus);
-        loadData();
+        isSavingRef.current = true;
+        try {
+            await setDailyFocus(focus);
+            loadData();
+        } catch (e) {
+            console.error('Error saving focus:', e);
+        } finally {
+            isSavingRef.current = false;
+        }
     };
 
     const handleUpdateStatus = async () => {
