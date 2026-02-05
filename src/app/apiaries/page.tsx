@@ -449,12 +449,15 @@ export default function ApiariesPage() {
                 ? 'bg-blue-500 text-white ring-4 ring-blue-200' 
                 : 'bg-white text-gray-600 hover:text-blue-600 hover:bg-blue-50 border border-gray-200'
             }`}
-            title="Last ned for offline bruk"
+            title="Last ned for offline bruk (v1.3)"
           >
              {isDownloading ? (
                  <span className="text-[10px] font-bold">{downloadProgress}%</span>
              ) : (
-                 <Download className="w-6 h-6" />
+                 <div className="relative">
+                    <Download className="w-6 h-6" />
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full"></span>
+                 </div>
              )}
           </button>
 
