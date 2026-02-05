@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
-import { Plus, MapPin, Warehouse, Store, Truck, LogOut, Box, Printer, CheckSquare, Square, X } from 'lucide-react';
+import { Plus, MapPin, Warehouse, Store, Truck, LogOut, Box, Printer, CheckSquare, Square, X, Download } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
@@ -12,6 +12,10 @@ export default function ApiariesPage() {
   const [apiaries, setApiaries] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Offline Download State
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   
   // Selection State
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -195,6 +199,45 @@ export default function ApiariesPage() {
     }
   };
 
+  const handleOfflineDownload = async () => {
+    if (!confirm('Vil du laste ned alle bigårder og kuber for offline bruk? Dette sikrer at du kan gjøre inspeksjoner i skogen uten dekning.')) return;
+    
+    setIsDownloading(true);
+    setDownloadProgress(0);
+    
+    try {
+        const urls: string[] = [];
+        // Add Apiary Pages
+        apiaries.forEach(a => {
+            urls.push(`/apiaries/${a.id}`);
+            // Add Hive Pages
+            a.hives?.forEach((h: any) => {
+                urls.push(`/hives/${h.id}`);
+                urls.push(`/hives/${h.id}/new-inspection`);
+            });
+        });
+
+        const total = urls.length;
+        let completed = 0;
+
+        // Process in batches
+        const batchSize = 3;
+        for (let i = 0; i < total; i += batchSize) {
+            const batch = urls.slice(i, i + batchSize);
+            await Promise.all(batch.map(url => fetch(url, { cache: 'reload' }).catch(e => console.error('Failed to fetch', url))));
+            completed += batch.length;
+            setDownloadProgress(Math.min(100, Math.round((completed / total) * 100)));
+        }
+
+        alert('✅ Alt innhold er lastet ned! Du er klar for skogen.');
+    } catch (e) {
+        console.error(e);
+        alert('❌ Noe gikk galt. Sjekk nettet ditt og prøv igjen.');
+    } finally {
+        setIsDownloading(false);
+    }
+  };
+
   if (loading) return <div className="p-8 text-center">Laster bigårder...</div>;
 
   return (
@@ -329,14 +372,36 @@ export default function ApiariesPage() {
         )}
       </main>
 
-      {/* Floating Action Button (Hide in selection mode and for tenants) */}
+      {/* Floating Action Buttons (Hide in selection mode and for tenants) */}
       {!isSelectionMode && profile?.role !== 'tenant' && (
-        <Link 
-          href="/apiaries/new"
-          className="fixed bottom-24 right-6 w-14 h-14 bg-honey-500 hover:bg-honey-600 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95 z-20 print:hidden"
-        >
-          <Plus className="w-8 h-8" />
-        </Link>
+        <div className="fixed bottom-24 right-6 flex flex-col items-center gap-4 z-20 print:hidden">
+          
+          {/* Offline Download Button */}
+          <button
+            onClick={handleOfflineDownload}
+            disabled={isDownloading}
+            className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all ${
+              isDownloading 
+                ? 'bg-blue-500 text-white ring-4 ring-blue-200' 
+                : 'bg-white text-gray-600 hover:text-blue-600 hover:bg-blue-50 border border-gray-200'
+            }`}
+            title="Last ned for offline bruk"
+          >
+             {isDownloading ? (
+                 <span className="text-[10px] font-bold">{downloadProgress}%</span>
+             ) : (
+                 <Download className="w-6 h-6" />
+             )}
+          </button>
+
+          {/* New Apiary Button */}
+          <Link 
+            href="/apiaries/new"
+            className="w-14 h-14 bg-honey-500 hover:bg-honey-600 text-white rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
+          >
+            <Plus className="w-8 h-8" />
+          </Link>
+        </div>
       )}
 
 
