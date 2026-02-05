@@ -84,7 +84,7 @@ const withPWA = require('next-pwa')({
     },
     {
       urlPattern: /\/_next\/data\/.+\/.+\.json$/i,
-      handler: 'StaleWhileRevalidate',
+      handler: 'NetworkFirst',
       options: {
         cacheName: 'next-data',
         expiration: {
@@ -95,7 +95,7 @@ const withPWA = require('next-pwa')({
     },
     {
       urlPattern: /\.(?:json|xml|csv)$/i,
-      handler: 'StaleWhileRevalidate',
+      handler: 'NetworkFirst',
       options: {
         cacheName: 'static-data-assets',
         expiration: {
@@ -124,7 +124,7 @@ const withPWA = require('next-pwa')({
         const isSameOrigin = self.origin === url.origin;
         return isSameOrigin;
       },
-      handler: 'StaleWhileRevalidate',
+      handler: 'NetworkFirst',
       options: {
         cacheName: 'pages',
         expiration: {

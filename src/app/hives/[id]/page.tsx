@@ -45,6 +45,41 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   }, [params.id]);
 
   const fetchHiveDetails = async () => {
+    // 0. Check Offline Cache FIRST (if no network)
+    if (!navigator.onLine) {
+        try {
+            const offlineData = localStorage.getItem('offline_data');
+            if (offlineData) {
+                const parsed = JSON.parse(offlineData);
+                const foundHive = parsed.hives?.find((h: any) => h.id === params.id);
+                
+                if (foundHive) {
+                    console.log('📦 Loaded hive details from offline cache', foundHive);
+                    // Reconstruct structure expected by page
+                    // Apiary info might be flattened or separate, let's try to attach it
+                    const foundApiary = parsed.apiaries?.find((a: any) => a.id === foundHive.apiary_id);
+                    
+                    setHive({
+                        ...foundHive,
+                        apiaries: foundApiary ? {
+                            name: foundApiary.name,
+                            location: foundApiary.location,
+                            type: foundApiary.type
+                        } : undefined
+                    });
+
+                    // We might not have logs/inspections in the light cache
+                    // If we want them offline, we need to cache them in apiaries/page.tsx too
+                    // For now, at least show the hive info so page doesn't crash
+                }
+            }
+        } catch (e) {
+            console.error('Offline cache load failed', e);
+        }
+        setLoading(false);
+        return;
+    }
+
     // Fetch Hive with Apiary info
     const { data: hiveData, error: hiveError } = await supabase
       .from('hives')
