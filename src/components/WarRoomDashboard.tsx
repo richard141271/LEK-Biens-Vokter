@@ -121,6 +121,7 @@ export default function WarRoomDashboard({
     const handleUpdateFocus = async () => {
         if (!focus.trim()) return;
         await setDailyFocus(focus);
+        loadData();
     };
 
     const handleUpdateStatus = async () => {

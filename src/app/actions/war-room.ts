@@ -7,6 +7,29 @@ import { revalidatePath } from 'next/cache';
 export type WarRoomPostType = 'done' | 'plan' | 'help' | 'idea' | 'problem';
 export type WarRoomStatusColor = 'green' | 'yellow' | 'red';
 
+function getOsloDate() {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Oslo' }); // YYYY-MM-DD
+}
+
+function getOsloStartOfDayISO() {
+    // Returns ISO string for Oslo midnight in UTC
+    // Winter (CET): UTC+1 -> Midnight Oslo = 23:00 UTC previous day
+    // Summer (CEST): UTC+2 -> Midnight Oslo = 22:00 UTC previous day
+    const now = new Date();
+    const osloDate = getOsloDate();
+    const target = new Date(`${osloDate}T00:00:00`); // Local browser time? No, node server time.
+    
+    // Better: Get offset
+    const osloTime = new Date().toLocaleString('en-US', { timeZone: 'Europe/Oslo', timeZoneName: 'short' });
+    const isSummer = osloTime.includes('GMT+2') || osloTime.includes('CEST');
+    const offsetHours = isSummer ? 2 : 1;
+    
+    const utcMidnight = new Date(`${osloDate}T00:00:00Z`);
+    utcMidnight.setHours(utcMidnight.getHours() - offsetHours);
+    
+    return utcMidnight.toISOString();
+}
+
 export async function getWarRoomFeed() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -96,15 +119,14 @@ export async function postWarRoomEntry(type: WarRoomPostType, content: string) {
 
     // Done/Plan -> Founder Logs
     if (type === 'done' || type === 'plan') {
-        // Find latest log from today
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        // Find latest log from today (Oslo time)
+        const todayISO = getOsloStartOfDayISO();
 
         const { data: existingLogs } = await adminClient
             .from('founder_logs')
             .select('*')
             .eq('founder_id', user.id)
-            .gte('created_at', today.toISOString())
+            .gte('created_at', todayISO)
             .order('created_at', { ascending: false })
             .limit(1);
 
@@ -208,7 +230,7 @@ export async function getUserStatuses() {
 
 export async function getDailyFocus() {
     const adminClient = createAdminClient();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getOsloDate(); // YYYY-MM-DD in Oslo
 
     const { data, error } = await adminClient
         .from('warroom_daily_focus')
@@ -256,7 +278,10 @@ export async function setDailyFocus(text: string) {
     if (!user) return { error: 'Not authenticated' };
 
     const adminClient = createAdminClient();
-    const today = new Date().toISOString().split('T')[0];
+    const today = getOsloDate(); // YYYY-MM-DD in Oslo
+    
+    // Log intent (debug)
+    console.log(`[WarRoom] Setting Daily Focus for ${today} by ${user.email} (Admin override active via adminClient)`);
 
     // Upsert logic for today's focus
     // We need to handle the unique constraint on date
@@ -268,20 +293,22 @@ export async function setDailyFocus(text: string) {
             created_by: user.id
         }, { onConflict: 'date' });
 
-    if (error) return { error: error.message };
+    if (error) {
+        console.error('[WarRoom] Error setting Daily Focus:', error);
+        return { error: error.message };
+    }
     revalidatePath('/dashboard/war-room');
     return { success: true };
 }
 
 export async function getWarRoomStats() {
     const adminClient = createAdminClient();
-    const today = new Date();
-    today.setHours(0,0,0,0);
+    const todayISO = getOsloStartOfDayISO();
 
     const { data: posts } = await adminClient
         .from('warroom_posts')
         .select('type')
-        .gte('created_at', today.toISOString());
+        .gte('created_at', todayISO);
 
     const stats: Record<string, number> = {
         idea: 0,
