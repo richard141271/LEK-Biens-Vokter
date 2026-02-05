@@ -15,6 +15,7 @@ import {
     editWarRoomPost,
     WarRoomPostType
 } from '@/app/actions/war-room';
+import { resolveWarRoomPost } from '@/app/actions/war-room-resolve';
 import { formatDistanceToNow } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { 
@@ -177,6 +178,12 @@ export default function WarRoomDashboard({
     const handleDeletePost = async (id: string) => {
         if (!confirm('Er du sikker på at du vil slette denne posten?')) return;
         await deleteWarRoomPost(id);
+        loadData();
+    };
+
+    const handleResolvePost = async (id: string) => {
+        if (!confirm('Er du sikker på at du vil markere denne som løst/avklart?')) return;
+        await resolveWarRoomPost(id);
         loadData();
     };
 
@@ -384,15 +391,20 @@ export default function WarRoomDashboard({
                                         <p className="text-center text-gray-500 py-8">Laster...</p>
                                     ) : (
                                         posts.map(post => (
-                                            <div key={post.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                                            <div key={post.id} className={`bg-white p-4 rounded-xl shadow-sm border border-gray-200 ${post.is_resolved ? 'opacity-60 bg-gray-50' : ''}`}>
                                                 <div className="flex items-start justify-between mb-2">
                                                     <div className="flex items-center gap-2">
                                                         <div className={`p-1.5 rounded-full ${getTypeColor(post.type)}`}>
                                                             {getTypeIcon(post.type)}
                                                         </div>
                                                         <div>
-                                                            <span className="block text-xs font-bold text-gray-900 uppercase tracking-wide">
+                                                            <span className="flex items-center gap-2 text-xs font-bold text-gray-900 uppercase tracking-wide">
                                                                 {getTypeLabel(post.type)}
+                                                                {post.is_resolved && (
+                                                                    <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-bold border border-green-200">
+                                                                        LØST
+                                                                    </span>
+                                                                )}
                                                             </span>
                                                             <span className="text-xs text-gray-500">
                                                                 {post.profile?.full_name} • {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: nb })}
@@ -401,6 +413,16 @@ export default function WarRoomDashboard({
                                                     </div>
                                                     {isAdmin && (
                                                         <div className="flex items-center gap-1">
+                                                            {/* Show Resolve button only if NOT resolved */}
+                                                            {!post.is_resolved && (
+                                                                <button 
+                                                                    onClick={() => handleResolvePost(post.id)}
+                                                                    className="p-1 text-gray-400 hover:text-green-600 rounded-full hover:bg-green-50"
+                                                                    title="Markér som avklart/løst"
+                                                                >
+                                                                    <Check className="w-3 h-3" />
+                                                                </button>
+                                                            )}
                                                             <button 
                                                                 onClick={() => handleStartEdit(post)}
                                                                 className="p-1 text-gray-400 hover:text-blue-600 rounded-full hover:bg-blue-50"

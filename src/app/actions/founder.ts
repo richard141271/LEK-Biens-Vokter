@@ -641,6 +641,7 @@ export async function getAllFoundersData() {
         .eq('user_id', founder.id)
         .in('type', ['help', 'problem'])
         .eq('is_deleted', false) // Only show active alerts
+        .eq('is_resolved', false) // Only show unresolved alerts
         .order('created_at', { ascending: false })
         .limit(3);
 

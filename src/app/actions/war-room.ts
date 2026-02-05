@@ -8,6 +8,10 @@ import { getMailService } from '@/services/mail';
 const ADMIN_EMAIL = 'richard141271@gmail.com';
 
 async function notifyAdmin(subject: string, content: string) {
+    // Disabled by user request: "jeg vil heller ha røde prikker i appen... så ikke eposten min fylles med driiit"
+    return;
+    
+    /*
     try {
         const mailService = getMailService();
         await mailService.sendMail(
@@ -20,6 +24,7 @@ async function notifyAdmin(subject: string, content: string) {
     } catch (e) {
         console.error('Failed to notify admin:', e);
     }
+    */
 }
 
 export type WarRoomPostType = 'done' | 'plan' | 'help' | 'idea' | 'problem';
