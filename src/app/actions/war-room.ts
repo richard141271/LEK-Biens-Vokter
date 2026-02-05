@@ -69,9 +69,8 @@ export async function getWarRoomFeed() {
     if (posts && posts.length > 0) {
         // Check if is_deleted exists on first post
         if ('is_deleted' in posts[0]) {
-            if (!isAdmin) {
-                filteredPosts = posts.filter(p => !p.is_deleted);
-            }
+            // Filter for EVERYONE (including Admin) as per user request "skal forsvinne"
+            filteredPosts = posts.filter(p => !p.is_deleted);
         }
     }
 
@@ -395,9 +394,11 @@ export async function getWarRoomStats() {
 export async function getIdeas() {
     const adminClient = createAdminClient();
     
+    // Use !inner join to filter by parent post's is_deleted status
     const { data: ideas, error } = await adminClient
         .from('warroom_ideas')
-        .select('*, warroom_posts(user_id, created_at)')
+        .select('*, warroom_posts!inner(user_id, created_at, is_deleted)')
+        .eq('warroom_posts.is_deleted', false)
         .order('created_at', { ascending: false });
 
     if (error) return { error: error.message };

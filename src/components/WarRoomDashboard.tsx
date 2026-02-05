@@ -72,9 +72,17 @@ export default function WarRoomDashboard({
     const [myStatusColor, setMyStatusColor] = useState<'green' | 'yellow' | 'red'>('green');
     const [updatingStatus, setUpdatingStatus] = useState(false);
 
+    // Use ref to track editing state reliably inside async closures
+    const isEditingFocusRef = useRef(false);
+
     useEffect(() => {
         loadData();
-        const interval = setInterval(loadData, 10000); // Poll every 10s
+        const interval = setInterval(() => {
+            // Only poll if NOT editing focus
+            if (!isEditingFocusRef.current) {
+                loadData();
+            }
+        }, 10000); // Poll every 10s
         return () => clearInterval(interval);
     }, []);
 
@@ -97,8 +105,8 @@ export default function WarRoomDashboard({
         if (feedRes.posts) setPosts(feedRes.posts);
         if (feedRes.isAdmin) setIsAdmin(feedRes.isAdmin);
         if (focusRes.focus) {
-            // Only update focus text if user is not editing it
-            if (!isEditingFocus) {
+            // Only update focus text if user is not editing it (double check via ref)
+            if (!isEditingFocusRef.current) {
                 setFocus(focusRes.focus.text);
             }
             setFocusAuthor(focusRes.focus.author || '');
@@ -243,9 +251,13 @@ export default function WarRoomDashboard({
                             type="text" 
                             value={focus}
                             onChange={(e) => setFocus(e.target.value)}
-                            onFocus={() => setIsEditingFocus(true)}
+                            onFocus={() => {
+                                setIsEditingFocus(true);
+                                isEditingFocusRef.current = true;
+                            }}
                             onBlur={() => {
                                 setIsEditingFocus(false);
+                                isEditingFocusRef.current = false;
                                 handleUpdateFocus();
                             }}
                             placeholder="Hva er hovedmålet i dag?"
