@@ -31,6 +31,21 @@ export default function ApiariesPage() {
 
   const fetchData = async () => {
     try {
+      // Offline fallback for list
+      if (!navigator.onLine) {
+           const offlineData = localStorage.getItem('offline_data');
+           if (offlineData) {
+               const parsed = JSON.parse(offlineData);
+               if (parsed.apiaries) {
+                   setApiaries(parsed.apiaries);
+                   // Assuming we stored profile in a separate key or just let it be null for now
+                   // Ideally we should cache profile too
+               }
+           }
+           setLoading(false);
+           return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         router.push('/login');
@@ -209,7 +224,16 @@ export default function ApiariesPage() {
         const urls: string[] = [];
         const buildId = (window as any).__NEXT_DATA__?.buildId;
         
-        // 1. Apiary & Hive Pages
+        // 0. Cache DATA in LocalStorage (Robust fallback)
+        const offlineData = {
+            apiaries: apiaries,
+            hives: apiaries.flatMap(a => a.hives || []),
+            timestamp: Date.now()
+        };
+        localStorage.setItem('offline_data', JSON.stringify(offlineData));
+        console.log('📦 Offline data saved to LocalStorage', offlineData);
+
+        // 1. Apiary & Hive Pages (HTML & JSON Cache)
         apiaries.forEach(a => {
             const apiaryPath = `/apiaries/${a.id}`;
             urls.push(apiaryPath);

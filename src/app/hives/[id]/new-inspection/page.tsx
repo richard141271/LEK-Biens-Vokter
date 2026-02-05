@@ -133,6 +133,21 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const fetchHiveAndWeather = async () => {
     // 1. Fetch Hive Info
     try {
+      // Try LocalStorage first if offline or as backup
+      if (isOffline) {
+          const offlineData = localStorage.getItem('offline_data');
+          if (offlineData) {
+              const parsed = JSON.parse(offlineData);
+              const foundHive = parsed.hives?.find((h: any) => h.id === params.id);
+              if (foundHive) {
+                  console.log('📦 Loaded hive from offline cache', foundHive);
+                  setHive(foundHive);
+                  setLoading(false);
+                  return; // Skip network
+              }
+          }
+      }
+
       const { data, error } = await supabase
         .from('hives')
         .select('name, hive_number')
@@ -142,6 +157,13 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       if (data) setHive(data);
     } catch (e) {
       console.log('Could not fetch hive info (offline?)');
+      // Fallback to local storage if network request failed unexpectedly
+      const offlineData = localStorage.getItem('offline_data');
+      if (offlineData) {
+          const parsed = JSON.parse(offlineData);
+          const foundHive = parsed.hives?.find((h: any) => h.id === params.id);
+          if (foundHive) setHive(foundHive);
+      }
     }
 
     // 2. Fetch Weather (Geolocation)
