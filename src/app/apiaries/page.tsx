@@ -207,26 +207,46 @@ export default function ApiariesPage() {
     
     try {
         const urls: string[] = [];
+        const buildId = (window as any).__NEXT_DATA__?.buildId;
         
         // 1. Apiary & Hive Pages
         apiaries.forEach(a => {
-            urls.push(`/apiaries/${a.id}`);
+            const apiaryPath = `/apiaries/${a.id}`;
+            urls.push(apiaryPath);
+            if (buildId) urls.push(`/_next/data/${buildId}${apiaryPath}.json`);
+
             a.hives?.forEach((h: any) => {
-                urls.push(`/hives/${h.id}`);
-                urls.push(`/hives/${h.id}/new-inspection`);
+                const hivePath = `/hives/${h.id}`;
+                const inspectionPath = `/hives/${h.id}/new-inspection`;
+                
+                urls.push(hivePath);
+                urls.push(inspectionPath);
+                
+                if (buildId) {
+                    urls.push(`/_next/data/${buildId}${hivePath}.json`);
+                    urls.push(`/_next/data/${buildId}${inspectionPath}.json`);
+                }
             });
         });
 
         // 2. Disease Guide (Smittevern)
-        const diseaseUrls = [
+        const diseasePaths = [
             '/dashboard/smittevern/veileder',
             '/dashboard/smittevern/sykdommer/varroa',
             '/dashboard/smittevern/sykdommer/lukket-yngelrate',
             '/dashboard/smittevern/sykdommer/apen-yngelrate',
             '/dashboard/smittevern/sykdommer/kalkyngel',
             '/dashboard/smittevern/sykdommer/nosema',
-            '/dashboard/smittevern/sykdommer/frisk-kube',
-            // Images
+            '/dashboard/smittevern/sykdommer/frisk-kube'
+        ];
+
+        diseasePaths.forEach(path => {
+            urls.push(path);
+            if (buildId) urls.push(`/_next/data/${buildId}${path}.json`);
+        });
+
+        // Images (Static assets, no JSON needed)
+        const imageUrls = [
             '/images/sykdommer/sykdommer.png',
             '/images/sykdommer/varroa.png',
             '/images/sykdommer/lukket_yngelrate.png',
@@ -235,7 +255,7 @@ export default function ApiariesPage() {
             '/images/sykdommer/nosema.png',
             '/images/sykdommer/frisk_kube.jpg'
         ];
-        urls.push(...diseaseUrls);
+        urls.push(...imageUrls);
 
         const total = urls.length;
         let completed = 0;
