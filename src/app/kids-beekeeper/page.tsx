@@ -29,7 +29,7 @@ export default async function KidsBeekeeperPage() {
         
         <div className="max-w-4xl mx-auto relative z-10">
           <Link 
-            href="/honey-exchange"
+            href="/"
             className="mb-6 inline-flex items-center gap-2 text-white/80 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />

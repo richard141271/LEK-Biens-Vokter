@@ -618,8 +618,8 @@ export default function DashboardPage() {
              </div>
           )}
 
-          {/* ALERTS SECTION (Pilot Firewall) - HIDDEN FOR DEMO */}
-          {/* {nearbyAlerts.length > 0 && (
+          {/* ALERTS SECTION (Pilot Firewall) */}
+          {nearbyAlerts.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-2 animate-pulse">
                 <div className="flex items-center gap-2 mb-2">
                     <Activity className="w-4 h-4 text-red-600" />
@@ -634,7 +634,7 @@ export default function DashboardPage() {
                     ))}
                 </div>
             </div>
-          )} */}
+          )}
 
           {/* RENTAL STATUS - HIDDEN PER USER REQUEST */}
           {/* <div className="bg-white rounded-xl border border-honey-200 shadow-sm p-4 mb-2">

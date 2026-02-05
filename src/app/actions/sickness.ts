@@ -1,0 +1,77 @@
+'use server';
+
+import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
+
+interface SicknessReportData {
+  hiveId: string;
+  varroaCount: string;
+  behavior: string;
+  diseaseType: string;
+  mortality: string;
+  description: string;
+  imageUrl?: string;
+  aiDetails?: string;
+}
+
+export async function submitSicknessReport(data: SicknessReportData) {
+  const supabase = createClient();
+  const adminClient = createAdminClient();
+
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Du må være logget inn for å sende rapport");
+
+    // 1. Create the main report for the reporter
+    const details = `Sykdom: ${data.diseaseType}, Atferd: ${data.behavior}, Død: ${data.mortality}, Varroa: ${data.varroaCount}. Beskrivelse: ${data.description} ${data.imageUrl ? `\nBilde: ${data.imageUrl}` : ''}${data.aiDetails || ''}`;
+
+    const { error: logError } = await adminClient.from('hive_logs').insert({
+      hive_id: data.hiveId || null,
+      user_id: user.id,
+      action: 'SYKDOM',
+      details: data.hiveId ? details : `(Generell Rapport) ${details}`,
+      shared_with_mattilsynet: true,
+      created_at: new Date().toISOString()
+    });
+
+    if (logError) throw logError;
+
+    // 2. "Neighbor Alert" - Find other beekeepers
+    // Since we don't have lat/lon coordinates in the current 'location' string field,
+    // we will alert ALL other beekeepers for this pilot phase to ensure safety.
+    // In production, this should use PostGIS or lat/lon columns.
+    
+    const { data: otherBeekeepers, error: userError } = await adminClient
+        .from('profiles')
+        .select('id, full_name')
+        .eq('role', 'beekeeper')
+        .neq('id', user.id); // Exclude self
+
+    if (userError) {
+        console.error("Failed to fetch neighbors for alert:", userError);
+    } else if (otherBeekeepers && otherBeekeepers.length > 0) {
+        // Create alert logs for neighbors
+        const alerts = otherBeekeepers.map(bk => ({
+            user_id: bk.id,
+            action: 'SYKDOM', // Using SYKDOM so it shows up in their dashboard alerts
+            details: `NABOVARSEL: Smitte (${data.diseaseType}) rapportert i ditt område. Sjekk dine kuber! \n(Dette er et automatisk varsel sendt til birøktere i pilot-gruppen)`,
+            created_at: new Date().toISOString(),
+            shared_with_mattilsynet: false // No need to spam Mattilsynet with the alerts
+        }));
+
+        const { error: alertError } = await adminClient
+            .from('hive_logs')
+            .insert(alerts);
+            
+        if (alertError) {
+            console.error("Failed to send neighbor alerts:", alertError);
+        }
+    }
+
+    return { success: true, neighborCount: otherBeekeepers?.length || 0 };
+
+  } catch (error: any) {
+    console.error("Error submitting sickness report:", error);
+    return { success: false, error: error.message };
+  }
+}

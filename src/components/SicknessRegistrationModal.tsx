@@ -12,6 +12,8 @@ interface SicknessRegistrationModalProps {
   onSuccess?: () => void;
 }
 
+import { submitSicknessReport } from '@/app/actions/sickness';
+
 export default function SicknessRegistrationModal({ isOpen, onClose, allHives, profile, onSuccess }: SicknessRegistrationModalProps) {
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -102,23 +104,20 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
             ? `\n\n[AI Analyse]\nFunnet: ${aiResult.detected}\nSikkerhet: ${aiResult.confidence}%`
             : "";
 
-        const details = `Sykdom: ${sicknessData.diseaseType}, Atferd: ${sicknessData.behavior}, Død: ${sicknessData.mortality}, Varroa: ${sicknessData.varroaCount}. Beskrivelse: ${sicknessData.description} ${imageUrl ? `\nBilde: ${imageUrl}` : ''}${aiDetails}`;
-        
-        // Insert into hive_logs
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Du må være logget inn for å sende rapport");
-        const userId = user.id;
-
-        const { error: logError } = await supabase.from('hive_logs').insert({
-            hive_id: sicknessData.hiveId || null,
-            user_id: userId,
-            action: 'SYKDOM',
-            details: sicknessData.hiveId ? details : `(Generell Rapport) ${details}`,
-            shared_with_mattilsynet: true,
-            created_at: new Date().toISOString()
+        const result = await submitSicknessReport({
+            hiveId: sicknessData.hiveId,
+            varroaCount: sicknessData.varroaCount,
+            behavior: sicknessData.behavior,
+            diseaseType: sicknessData.diseaseType,
+            mortality: sicknessData.mortality,
+            description: sicknessData.description,
+            imageUrl: imageUrl,
+            aiDetails: aiDetails
         });
 
-        if (logError) throw logError;
+        if (!result.success) {
+            throw new Error(result.error || 'Feil ved innsending');
+        }
 
         const aiMsg = aiResult 
             ? `\n\n🤖 AI-Analyse (PoC):\nModellen gjenkjenner: ${aiResult.detected} (${aiResult.confidence}% sannsynlighet).`
@@ -126,9 +125,7 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
 
         const riskWarning = '\n\n⚠️ Mulig smitte: Følg ekstra godt med på andre kuber i området, og unngå flytting av tavler mellom kuber før situasjonen er avklart.';
         
-        const successMsg = profile?.role === 'beekeeper' 
-            ? `Rapport sendt til Mattilsynet. 🚨${aiMsg}${riskWarning}`
-            : `Melding sendt til Mattilsynet (Pilot) og Birøkter! 🚨${aiMsg}\n\nNabovarsel er sendt til 4 birøktere i radius på 3 km.${riskWarning}`;
+        const successMsg = `Melding sendt til Mattilsynet og Birøkter! 🚨${aiMsg}\n\nNabovarsel er sendt til ${result.neighborCount} birøktere i systemet (Pilot).${riskWarning}`;
         
         alert(successMsg);
         onClose();
