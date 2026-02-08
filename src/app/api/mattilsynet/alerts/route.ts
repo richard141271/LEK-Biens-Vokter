@@ -42,7 +42,6 @@ export async function GET() {
         *,
         reporter:user_id (
           full_name,
-          email,
           phone_number
         ),
         hives (
@@ -59,6 +58,23 @@ export async function GET() {
     if (error) {
       console.error('Feil ved henting av sykdomsvarsler:', error);
       return NextResponse.json({ error: 'Kunne ikke hente varsler' }, { status: 500 });
+    }
+
+    // Berik varsler med e-post fra Auth API
+    if (alerts && alerts.length > 0) {
+      try {
+        const { data: { users: authUsers } } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+        if (authUsers) {
+          const emailMap = new Map(authUsers.map(u => [u.id, u.email]));
+          alerts.forEach((alert: any) => {
+            if (alert.reporter && alert.user_id) {
+               alert.reporter.email = emailMap.get(alert.user_id) || null;
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Feil ved berikelse av e-post for varsler:', err);
+      }
     }
 
     // Also fetch stats for the dashboard

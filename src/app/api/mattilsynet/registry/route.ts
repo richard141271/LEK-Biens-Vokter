@@ -57,33 +57,49 @@ export async function GET() {
       );
     }
 
+    // 2. Hent alle bigårder med eier-info
     const { data: apiaries, error: apiaryError } = await adminClient
       .from('apiaries')
-      .select('*, profiles(full_name, email)');
+      .select('*, profiles(full_name)');
 
     if (apiaryError) {
       console.error('Feil ved henting av bigårder:', apiaryError);
-      return NextResponse.json(
-        { error: 'Kunne ikke hente bigårder' },
-        { status: 500 }
-      );
+      // Ikke stopp hele requesten, men logg feilen
     }
 
+    // 3. Hent alle bikuber med bigård og eier-info
     const { data: hives, error: hiveError } = await adminClient
       .from('hives')
       .select('*, apiaries(name, location), profiles(full_name)');
 
     if (hiveError) {
       console.error('Feil ved henting av bikuber:', hiveError);
-      return NextResponse.json(
-        { error: 'Kunne ikke hente bikuber' },
-        { status: 500 }
-      );
+    }
+
+    // 4. Hent e-postadresser fra Auth API (da de ikke ligger i profiles)
+    let enrichedBeekeepers = beekeepers || [];
+    try {
+      const { data: { users: authUsers }, error: authError } = await adminClient.auth.admin.listUsers({
+        perPage: 1000 // Hent nok brukere for piloten
+      });
+
+      if (!authError && authUsers) {
+        const emailMap = new Map(authUsers.map(u => [u.id, u.email]));
+        
+        enrichedBeekeepers = enrichedBeekeepers.map(b => ({
+          ...b,
+          email: emailMap.get(b.id) || null
+        }));
+      } else {
+        console.error('Kunne ikke hente brukere fra Auth:', authError);
+      }
+    } catch (err) {
+      console.error('Feil ved berikelse av e-post:', err);
     }
 
     return NextResponse.json(
       {
-        beekeepers: beekeepers || [],
+        beekeepers: enrichedBeekeepers,
         apiaries: apiaries || [],
         hives: hives || [],
       },
