@@ -472,22 +472,27 @@ export default function DashboardPage() {
           {/* Nearby Sickness Alerts */}
           {nearbyAlerts.length > 0 && (
             <div className="space-y-2 animate-in slide-in-from-top-4 duration-700">
-              {nearbyAlerts.map(alert => (
-                <div key={alert.id} className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-4 animate-pulse">
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-4 animate-pulse">
                     <div className="bg-red-100 p-2 rounded-full shrink-0">
                         <ShieldAlert className="w-6 h-6 text-red-600" />
                     </div>
                     <div>
-                        <h3 className="font-bold text-red-900 text-sm">SMITTEVARSEL</h3>
+                        <h3 className="font-bold text-red-900 text-sm flex items-center gap-2">
+                            SMITTEVARSEL I OMRÅDET
+                            {nearbyAlerts.length > 1 && (
+                                <span className="text-[10px] bg-red-200 text-red-800 px-1.5 py-0.5 rounded-full">
+                                    +{nearbyAlerts.length - 1} andre
+                                </span>
+                            )}
+                        </h3>
                         <p className="text-red-700 text-xs mt-1">
-                            {alert.details}
+                            {nearbyAlerts[0].details}
                         </p>
-                        <p className="text-[10px] text-red-500 mt-2">
-                            {new Date(alert.created_at).toLocaleString('nb-NO')}
+                        <p className="text-[10px] text-red-500 mt-2 font-medium">
+                            Sist oppdatert: {new Date(nearbyAlerts[0].created_at).toLocaleString('nb-NO')}
                         </p>
                     </div>
                 </div>
-              ))}
             </div>
           )}
 

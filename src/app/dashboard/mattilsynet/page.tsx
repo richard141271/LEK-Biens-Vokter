@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, Search, Map, LogOut, Bell, FileText, Activity } from 'lucide-react';
+import { ShieldCheck, Search, Map, LogOut, Bell, FileText, Activity, Mail } from 'lucide-react';
 import Link from 'next/link';
 
 export default function MattilsynetDashboard() {
@@ -201,10 +201,29 @@ export default function MattilsynetDashboard() {
                                             {getStatusLabel(alert.admin_status)}
                                         </span>
                                     </div>
-                                    <h3 className="font-bold text-gray-900 mb-1">
-                                        {alert.reporter?.full_name || 'Ukjent birøkter'} 
-                                        {alert.reporter?.email && <span className="text-xs font-normal text-gray-500 ml-1">({alert.reporter.email})</span>}
-                                        {alert.reporter?.phone_number && <span className="text-xs font-normal text-gray-500 ml-1">Tlf: {alert.reporter.phone_number}</span>}
+                                    <h3 className="font-bold text-gray-900 mb-1 flex flex-col gap-1">
+                                        <span className="flex items-center gap-2">
+                                            {alert.reporter?.full_name || 'Ukjent birøkter'}
+                                            {alert.reporter?.email && (
+                                                <a href={`mailto:${alert.reporter.email}`} className="text-xs font-normal text-blue-600 hover:underline flex items-center gap-1">
+                                                    <Mail className="w-3 h-3" />
+                                                    {alert.reporter.email}
+                                                </a>
+                                            )}
+                                            {alert.reporter?.phone_number && (
+                                                <a href={`tel:${alert.reporter.phone_number}`} className="text-xs font-normal text-blue-600 hover:underline flex items-center gap-1">
+                                                    <span className="text-gray-400">|</span>
+                                                    Tlf: {alert.reporter.phone_number}
+                                                </a>
+                                            )}
+                                        </span>
+                                        <Link 
+                                            href={`/dashboard/mattilsynet/registry?search=${encodeURIComponent(alert.reporter?.full_name || '')}`}
+                                            className="text-[10px] text-slate-500 hover:text-slate-800 underline w-fit flex items-center gap-1"
+                                        >
+                                            <Search className="w-3 h-3" />
+                                            Se birøkter i registeret
+                                        </Link>
                                     </h3>
                                     <p className="text-sm text-gray-700 mb-2">{alert.details}</p>
                                     

@@ -35,31 +35,37 @@ export async function GET() {
 
     const adminClient = createAdminClient();
     
-    // Fetch active sickness alerts
-    const { data: alerts, error } = await adminClient
-      .from('hive_logs')
-      .select(`
-        *,
-        reporter:user_id (
-          full_name,
-          phone_number
-        ),
-        hives (
-          hive_number,
-          apiary_id,
-          apiaries (
-            name,
-            location
+      // Fetch active sickness alerts
+      // Explicitly checking for NULL status (pending) or investigating
+      // Supabase .neq('admin_status', 'resolved') EXCLUDES nulls, so we must be explicit
+      const { data: alerts, error } = await adminClient
+        .from('hive_logs')
+        .select(`
+          *,
+          reporter:user_id (
+            full_name,
+            phone_number,
+            email
+          ),
+          hives (
+            hive_number,
+            apiary_id,
+            apiaries (
+              name,
+              location
+            )
           )
-        )
-      `)
-      .eq('action', 'SYKDOM')
-      .order('created_at', { ascending: false });
+        `)
+        .eq('action', 'SYKDOM')
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Feil ved henting av sykdomsvarsler:', error);
-      return NextResponse.json({ error: 'Kunne ikke hente varsler' }, { status: 500 });
-    }
+      if (error) {
+        console.error('Feil ved henting av sykdomsvarsler:', error);
+        return NextResponse.json({ error: 'Kunne ikke hente varsler' }, { status: 500 });
+      }
+
+      // Filter in memory to ensure we get NULL statuses (new reports)
+      const activeAlerts = alerts?.filter(a => a.admin_status !== 'resolved') || [];
 
     // Berik varsler med e-post fra Auth API
     if (alerts && alerts.length > 0) {
@@ -89,7 +95,7 @@ export async function GET() {
         .eq('action', 'INSPEKSJON');
 
     return NextResponse.json({ 
-        alerts: alerts || [],
+        alerts: activeAlerts || [],
         stats: {
             apiaries: apiaryCount || 0,
             inspections: inspectionCount || 0
