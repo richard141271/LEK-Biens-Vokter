@@ -22,6 +22,7 @@ import BottomNav from "@/components/BottomNav";
 import DesktopNav from "@/components/DesktopNav";
 import Header from "@/components/Header";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import TermsConsentModal from "@/components/TermsConsentModal";
 
 import MainLayout from "@/components/MainLayout";
 import { CartProvider } from "@/context/CartContext";
@@ -44,6 +45,7 @@ export default function RootLayout({
         <PWAProvider>
           <OfflineProvider>
             <CartProvider>
+              <TermsConsentModal />
               <DesktopNav />
               <CartSidebar />
               
