@@ -219,11 +219,18 @@ export default function DashboardPage() {
         .from('hive_logs')
         .select('*, hives(apiaries(location))')
         .eq('action', 'SYKDOM')
-        .neq('admin_status', 'resolved')
+        // Remove .neq('admin_status', 'resolved') to ensure we get NULLs too.
+        // We will filter in memory below.
         .order('created_at', { ascending: false })
-        .limit(3);
+        .limit(10);
 
-        if (alerts) setNearbyAlerts(alerts);
+        if (alerts) {
+            // Filter out resolved alerts in memory to handle NULLs correctly
+            const activeAlerts = alerts
+                .filter(a => a.admin_status !== 'resolved')
+                .slice(0, 3);
+            setNearbyAlerts(activeAlerts);
+        }
 
         const { data: rental } = await supabase
             .from('rentals')
@@ -459,6 +466,28 @@ export default function DashboardPage() {
                         </a>
                     </div>
                 </div>
+            </div>
+          )}
+
+          {/* Nearby Sickness Alerts */}
+          {nearbyAlerts.length > 0 && (
+            <div className="space-y-2 animate-in slide-in-from-top-4 duration-700">
+              {nearbyAlerts.map(alert => (
+                <div key={alert.id} className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-4 animate-pulse">
+                    <div className="bg-red-100 p-2 rounded-full shrink-0">
+                        <ShieldAlert className="w-6 h-6 text-red-600" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-red-900 text-sm">SMITTEVARSEL</h3>
+                        <p className="text-red-700 text-xs mt-1">
+                            {alert.details}
+                        </p>
+                        <p className="text-[10px] text-red-500 mt-2">
+                            {new Date(alert.created_at).toLocaleString('nb-NO')}
+                        </p>
+                    </div>
+                </div>
+              ))}
             </div>
           )}
 

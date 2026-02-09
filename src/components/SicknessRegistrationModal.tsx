@@ -12,7 +12,7 @@ interface SicknessRegistrationModalProps {
   onSuccess?: () => void;
 }
 
-import { submitSicknessReport } from '@/app/actions/sickness';
+import { submitSicknessReport, getSignedUploadUrl } from '@/app/actions/sickness';
 
 export default function SicknessRegistrationModal({ isOpen, onClose, allHives, profile, onSuccess }: SicknessRegistrationModalProps) {
   const supabase = createClient();
@@ -55,32 +55,33 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
         let imageUrl = '';
 
         if (sicknessImage) {
-            const fileExt = sicknessImage.name.split('.').pop();
-            const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-            const filePath = `${fileName}`;
+            try {
+              const fileExt = sicknessImage.name.split('.').pop();
+              const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+              
+              // 1. Get signed URL via Server Action (bypasses RLS)
+              const { signedUrl, path, token } = await getSignedUploadUrl(fileName);
 
-            const { error: uploadError } = await supabase.storage
-                .from('sickness-images')
-                .upload(filePath, sicknessImage);
+              // 2. Upload directly to signed URL
+              const { error: uploadError } = await supabase.storage
+                  .from('sickness-images')
+                  .uploadToSignedUrl(path, token, sicknessImage);
 
-            if (uploadError) {
-                console.error('Upload error:', uploadError);
-                const raw = uploadError.message || '';
-                const msg = raw.toLowerCase();
-                if (msg.includes('bucket') && msg.includes('not found')) {
-                    alert('Kunne ikke lagre bildet (lagringsområde mangler). Rapporten sendes uten bilde.');
-                    setSicknessImage(null);
-                    setPreviewUrl(null);
-                    setPreviewError('Bildet ble ikke lagret, men rapporten kan sendes uten.');
-                } else {
-                    throw new Error('Kunne ikke laste opp bilde: ' + raw);
-                }
-            } else {
-                const { data: { publicUrl } } = supabase.storage
-                    .from('sickness-images')
-                    .getPublicUrl(filePath);
-                
-                imageUrl = publicUrl;
+              if (uploadError) {
+                  throw uploadError;
+              }
+
+              // 3. Get Public URL (since bucket is public)
+              const { data: { publicUrl } } = supabase.storage
+                  .from('sickness-images')
+                  .getPublicUrl(path);
+              
+              imageUrl = publicUrl;
+
+            } catch (error: any) {
+                console.error('Upload error:', error);
+                alert('Kunne ikke lagre bildet, men sender rapporten uten.');
+                // Proceed without image
             }
         }
 

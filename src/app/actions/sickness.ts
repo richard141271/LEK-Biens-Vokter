@@ -14,6 +14,34 @@ interface SicknessReportData {
   aiDetails?: string;
 }
 
+export async function getSignedUploadUrl(fileName: string) {
+  const adminClient = createAdminClient();
+  
+  // Ensure bucket exists first
+  const { error: bucketError } = await adminClient.storage.createBucket('sickness-images', {
+    public: true,
+    fileSizeLimit: 5242880,
+    allowedMimeTypes: ['image/png', 'image/jpeg', 'image/jpg']
+  });
+  
+  // Ignore bucket already exists error
+  if (bucketError && !bucketError.message.includes('already exists')) {
+    console.error('Error ensuring bucket exists:', bucketError);
+  }
+
+  // Create signed URL for upload (valid for 60 seconds)
+  const { data, error } = await adminClient.storage
+    .from('sickness-images')
+    .createSignedUploadUrl(fileName);
+
+  if (error) {
+    console.error('Error creating signed upload URL:', error);
+    throw new Error('Kunne ikke forberede bildeopplasting');
+  }
+
+  return { signedUrl: data.signedUrl, token: data.token, path: data.path };
+}
+
 export async function submitSicknessReport(data: SicknessReportData) {
   const supabase = createClient();
   const adminClient = createAdminClient();
