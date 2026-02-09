@@ -50,7 +50,7 @@ export default function WarRoomDashboard({
     backLink,
     backText = 'Tilbake'
 }: WarRoomDashboardProps) {
-    const [activeTab, setActiveTab] = useState<'feed' | 'ideas'>('feed');
+    const [activeTab, setActiveTab] = useState<'feed' | 'ideas' | 'status'>('feed');
     const [posts, setPosts] = useState<any[]>([]);
     const [ideas, setIdeas] = useState<any[]>([]);
     const [focus, setFocus] = useState('');

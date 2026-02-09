@@ -65,6 +65,40 @@ export async function deleteUser(userId: string) {
   return { success: true }
 }
 
+export async function removeEmail(userId: string) {
+  const supabase = createClient()
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Ikke logget inn' }
+
+  const adminVerifier = createAdminClient()
+  const { data: adminProfile } = await adminVerifier
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isVip = user.email === 'richard141271@gmail.com';
+  const isAdmin = adminProfile?.role === 'admin';
+
+  if (!isAdmin && !isVip) {
+    return { error: 'Ingen tilgang' }
+  }
+
+  const { error } = await adminVerifier
+    .from('profiles')
+    .update({ 
+      email_alias: null,
+      has_email_access: false
+    })
+    .eq('id', userId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/admin/users')
+  return { success: true }
+}
+
 export async function toggleFounderStatus(userId: string, isFounder: boolean) {
   const supabase = createClient()
   
