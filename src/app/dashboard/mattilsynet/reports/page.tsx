@@ -2,8 +2,9 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, FileText, BarChart3, AlertTriangle, CheckCircle, Users, Box as BoxIcon } from 'lucide-react';
+import { ArrowLeft, FileText, BarChart3, AlertTriangle, CheckCircle, Users, Box as BoxIcon, Download } from 'lucide-react';
 import Link from 'next/link';
+import { jsPDF } from 'jspdf';
 
 export default function ReportsPage() {
   const [stats, setStats] = useState({
@@ -68,6 +69,77 @@ export default function ReportsPage() {
     }
   };
 
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    const date = new Date().toLocaleDateString('no-NO');
+
+    // Header
+    doc.setFontSize(22);
+    doc.text('Årsrapport 2025', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(16);
+    doc.setTextColor(100);
+    doc.text('Mattilsynet - Birøkterregisteret', 105, 30, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.setTextColor(150);
+    doc.text(`Generert dato: ${date}`, 105, 38, { align: 'center' });
+
+    // Line separator
+    doc.setDrawColor(200);
+    doc.line(20, 45, 190, 45);
+
+    // Stats Section
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text('Nøkkeltall', 20, 60);
+
+    const startY = 70;
+    const lineHeight = 10;
+    
+    doc.setFontSize(12);
+    doc.text(`Totalt antall birøktere: ${stats.totalBeekeepers}`, 20, startY);
+    doc.text(`Totalt antall bigårder: ${stats.totalApiaries}`, 20, startY + lineHeight);
+    doc.text(`Totalt antall bikuber: ${stats.totalHives}`, 20, startY + lineHeight * 2);
+    
+    doc.text(`Aktive sykdomsutbrudd: ${stats.activeSickness}`, 20, startY + lineHeight * 4);
+    doc.text(`Løste sykdomssaker: ${stats.resolvedSickness}`, 20, startY + lineHeight * 5);
+    doc.text(`Utførte inspeksjoner: ${stats.totalInspections}`, 20, startY + lineHeight * 6);
+
+    // Simple Bar Chart Visualization
+    doc.text('Visuell Oversikt', 20, startY + lineHeight * 9);
+    
+    const chartY = startY + lineHeight * 10;
+    const maxVal = Math.max(stats.totalBeekeepers, stats.totalApiaries, stats.totalHives, 10);
+    const scale = 150 / maxVal; // Scale to fit width
+
+    // Beekeepers bar
+    doc.setFontSize(10);
+    doc.text('Birøktere', 20, chartY + 5);
+    doc.setFillColor(59, 130, 246); // Blue
+    doc.rect(50, chartY, stats.totalBeekeepers * scale, 6, 'F');
+    doc.text(stats.totalBeekeepers.toString(), 50 + stats.totalBeekeepers * scale + 2, chartY + 5);
+
+    // Apiaries bar
+    doc.text('Bigårder', 20, chartY + 15);
+    doc.setFillColor(34, 197, 94); // Green
+    doc.rect(50, chartY + 10, stats.totalApiaries * scale, 6, 'F');
+    doc.text(stats.totalApiaries.toString(), 50 + stats.totalApiaries * scale + 2, chartY + 15);
+
+    // Hives bar
+    doc.text('Bikuber', 20, chartY + 25);
+    doc.setFillColor(249, 115, 22); // Orange
+    doc.rect(50, chartY + 20, stats.totalHives * scale, 6, 'F');
+    doc.text(stats.totalHives.toString(), 50 + stats.totalHives * scale + 2, chartY + 25);
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text('Denne rapporten er generert automatisk fra Biens Vokter systemet.', 105, 280, { align: 'center' });
+
+    doc.save(`aarsrapport_mattilsynet_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   const StatCard = ({ title, value, icon: Icon, color }: any) => (
     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
       <div className="flex items-center justify-between mb-4">
@@ -93,14 +165,23 @@ export default function ReportsPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
       <header className="bg-white border-b border-gray-200 p-4">
-          <div className="max-w-7xl mx-auto flex items-center gap-4">
-            <Link href="/dashboard/mattilsynet" className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
-            </Link>
-            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-blue-600" />
-                Rapporter & Statistikk
-            </h1>
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-4">
+                <Link href="/dashboard/mattilsynet" className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <ArrowLeft className="w-5 h-5 text-gray-600" />
+                </Link>
+                <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    Rapporter & Statistikk
+                </h1>
+            </div>
+            <button 
+                onClick={generatePDF}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors shadow-sm"
+            >
+                <Download className="w-4 h-4" />
+                Last ned Årsrapport (PDF)
+            </button>
           </div>
       </header>
 

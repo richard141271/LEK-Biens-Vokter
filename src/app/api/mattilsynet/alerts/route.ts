@@ -46,6 +46,7 @@ export async function GET() {
         ),
         hives (
           hive_number,
+          apiary_id,
           apiaries (
             name,
             location

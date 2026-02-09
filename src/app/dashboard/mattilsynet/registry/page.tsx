@@ -45,22 +45,22 @@ export default function RegistryPage() {
 
   // Filter logic
   const filteredBeekeepers = beekeepers.filter(b => 
-    b.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    b.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    b.phone_number?.includes(searchQuery)
+    (b.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (b.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (b.phone_number || '').includes(searchQuery)
   );
 
   const filteredApiaries = apiaries.filter(a => 
-    a.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.apiary_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.profiles?.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
+    (a.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (a.location || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (a.apiary_number || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (a.profiles?.full_name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredHives = hives.filter(h => 
-    h.hive_number?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    h.apiaries?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    h.profiles?.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
+    (h.hive_number || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (h.apiaries?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (h.profiles?.full_name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
