@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Map as MapIcon, Phone, Mail, User, AlertTriangle, CheckCircle, Clock, Ruler, AlertOctagon, FileText, Camera, Mic, Send, Edit, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import { getIncidentData } from '@/app/actions/mattilsynet';
 
 // Dynamic import for Map to avoid SSR issues
 const IncidentMap = dynamic(() => import('@/components/IncidentMap'), { 
@@ -73,6 +74,7 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
     const [incidentStatus, setIncidentStatus] = useState<string>('investigating');
     const [mapCenter, setMapCenter] = useState<[number, number]>([59.1243, 11.3875]);
     const [showOtherApiariesOnMap, setShowOtherApiariesOnMap] = useState(false);
+    const [debugInfo, setDebugInfo] = useState<any>(null); // New debug state
     
     const supabase = createClient();
 
@@ -88,10 +90,17 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
 
     async function fetchData() {
         try {
-            const res = await fetch(`/api/mattilsynet/incident/${params.id}`);
-            if (!res.ok) throw new Error('Failed to fetch data');
+            // Use Server Action instead of fetch
+            const result = await getIncidentData(params.id);
             
-            const { alert: alertData, apiaries: apiariesData } = await res.json();
+            if (result.error || !result.success) {
+                console.error("Server Action Error:", result.error);
+                setDebugInfo({ error: result.error });
+                setLoading(false);
+                return;
+            }
+
+            const { alert: alertData, apiaries: apiariesData } = result;
 
             // Prepare data with coordinates
             const centerCoords = getCoordinates(alertData.hives?.apiaries?.location || 'Halden');
@@ -109,10 +118,22 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
             setAlert(alertData);
             setAllApiaries(processedApiaries);
             setIncidentStatus(alertData.admin_status || 'investigating');
+            
+            // Set Debug Info
+            setDebugInfo({
+                alertId: alertData.id,
+                reporter: alertData.reporter?.email,
+                totalApiariesFetched: apiariesData.length,
+                processedApiariesCount: processedApiaries.length,
+                ownerApiariesCount: processedApiaries.filter((a: any) => a.isOwner).length,
+                mapCenter: centerCoords
+            });
+
             setLoading(false);
 
         } catch (e) {
             console.error("Error fetching incident data:", e);
+            setDebugInfo({ error: "Exception in fetchData", details: e });
             setLoading(false);
         }
     }
@@ -166,7 +187,16 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
     }
 
     if (loading) return <div className="h-screen flex items-center justify-center bg-slate-50">Laster beredskapsrom...</div>;
-    if (!alert) return <div className="h-screen flex items-center justify-center">Fant ikke hendelsen</div>;
+    if (!alert) return (
+        <div className="h-screen flex flex-col items-center justify-center gap-4">
+            <h2 className="text-xl font-bold">Fant ikke hendelsen</h2>
+            {debugInfo && (
+                <pre className="bg-gray-100 p-4 rounded text-xs max-w-lg overflow-auto border border-red-300">
+                    {JSON.stringify(debugInfo, null, 2)}
+                </pre>
+            )}
+        </div>
+    );
 
     const isResolved = incidentStatus === 'resolved';
 
@@ -355,6 +385,30 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
                             </div>
                         </div>
                     </div>
+
+                    {/* DEBUG SECTION (Only for admins/Mattilsynet) */}
+                    {debugInfo && (
+                        <div className="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-4 text-xs font-mono text-green-400 overflow-x-auto">
+                            <h3 className="font-bold text-white mb-2 uppercase border-b border-slate-700 pb-2">Debug Info (System Status)</h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p><span className="text-slate-500">Alert ID:</span> {debugInfo.alertId}</p>
+                                    <p><span className="text-slate-500">Reporter:</span> {debugInfo.reporter}</p>
+                                    <p><span className="text-slate-500">Total Apiaries:</span> {debugInfo.totalApiariesFetched}</p>
+                                </div>
+                                <div>
+                                    <p><span className="text-slate-500">Processed:</span> {debugInfo.processedApiariesCount}</p>
+                                    <p><span className="text-slate-500">Owner Apiaries:</span> {debugInfo.ownerApiariesCount}</p>
+                                    <p><span className="text-slate-500">Center:</span> [{debugInfo.mapCenter?.join(', ')}]</p>
+                                </div>
+                            </div>
+                            {debugInfo.error && (
+                                <div className="mt-2 text-red-500 bg-red-900/20 p-2 rounded">
+                                    ERROR: {JSON.stringify(debugInfo.error)}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                 </div>
 
