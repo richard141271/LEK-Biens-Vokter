@@ -10,6 +10,7 @@ export default function NewApiaryPage() {
   const [name, setName] = useState('');
   const [type, setType] = useState('bigård');
   const [locationStr, setLocationStr] = useState('');
+  const [coordinates, setCoordinates] = useState<string | null>(null);
   const [registrationNumber, setRegistrationNumber] = useState(''); // New: Car Reg Number
   const [loading, setLoading] = useState(false);
   const [pendingRentals, setPendingRentals] = useState<any[]>([]);
@@ -98,8 +99,7 @@ export default function NewApiaryPage() {
                 apiary_number: apiaryNumber,
                 type: 'utleie', // New type
                 location: rental.contact_address,
-                // latitude: rental.latitude, // Removed to avoid schema error
-                // longitude: rental.longitude // Removed to avoid schema error
+                coordinates: rental.latitude && rental.longitude ? `${rental.latitude},${rental.longitude}` : null,
             })
             .select()
             .single();
@@ -227,6 +227,7 @@ export default function NewApiaryPage() {
         name,
         type,
         location: locationStr,
+        coordinates: coordinates, // Save coordinates
         apiary_number: apiaryNumber,
         registration_number: type === 'bil' ? registrationNumber : null, // Only for cars
       });
@@ -239,6 +240,33 @@ export default function NewApiaryPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Geolokasjon støttes ikke av din nettleser");
+      return;
+    }
+    
+    setLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const coordString = `${latitude},${longitude}`;
+        setCoordinates(coordString);
+        
+        // Update location string if empty or just coordinates
+        if (!locationStr || locationStr.startsWith('Koordinater:')) {
+            setLocationStr(`Koordinater: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        }
+        setLoading(false);
+      },
+      (error) => {
+        console.error(error);
+        alert("Kunne ikke hente posisjon. Sjekk at du har gitt tillatelse.");
+        setLoading(false);
+      }
+    );
   };
 
   return (
@@ -350,13 +378,29 @@ export default function NewApiaryPage() {
 
           {/* Lokasjon */}
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Adresse / Beskrivelse</label>
+            <div className="flex justify-between items-center mb-2">
+                <label className="block text-sm font-medium text-gray-700">Adresse / Beskrivelse</label>
+                <button 
+                    type="button"
+                    onClick={handleGetLocation}
+                    className="text-xs bg-honey-100 text-honey-700 px-2 py-1 rounded hover:bg-honey-200 flex items-center gap-1"
+                >
+                    <MapPin className="w-3 h-3" />
+                    Hent min posisjon
+                </button>
+            </div>
             <textarea
               value={locationStr}
               onChange={(e) => setLocationStr(e.target.value)}
               placeholder="Hvor er dette?"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none h-24 resize-none"
             />
+            {coordinates && (
+                <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    Koordinater lagret: {coordinates}
+                </p>
+            )}
           </div>
 
           <button

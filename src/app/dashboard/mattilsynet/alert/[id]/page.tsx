@@ -103,13 +103,33 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
             const { alert: alertData, apiaries: apiariesData } = result;
 
             // Prepare data with coordinates
-            const centerCoords = getCoordinates(alertData?.hives?.apiaries?.location || 'Halden');
+            // Prioritize DB coordinates, fallback to location string matching
+            let centerCoords: [number, number];
+            if (alertData?.hives?.apiaries?.coordinates) {
+                const parts = alertData.hives.apiaries.coordinates.split(',');
+                if (parts.length === 2) {
+                    centerCoords = [parseFloat(parts[0]), parseFloat(parts[1])];
+                } else {
+                    centerCoords = getCoordinates(alertData?.hives?.apiaries?.location || 'Halden');
+                }
+            } else {
+                centerCoords = getCoordinates(alertData?.hives?.apiaries?.location || 'Halden');
+            }
+            
             setMapCenter(centerCoords);
 
             const processedApiaries = (apiariesData || []).map((a: any) => ({
                 ...a,
                 isOwner: a.users?.email === alertData?.reporter?.email,
                 ...(() => {
+                    // Check DB coordinates first
+                    if (a.coordinates) {
+                        const parts = a.coordinates.split(',');
+                        if (parts.length === 2) {
+                            return { lat: parseFloat(parts[0]), lon: parseFloat(parts[1]) };
+                        }
+                    }
+                    // Fallback to location string matching
                     const [lat, lon] = getCoordinates(a.location || 'Ukjent');
                     return { lat, lon };
                 })()

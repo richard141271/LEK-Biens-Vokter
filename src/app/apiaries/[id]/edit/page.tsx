@@ -10,6 +10,7 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
   const [name, setName] = useState('');
   const [type, setType] = useState('bigård');
   const [locationStr, setLocationStr] = useState('');
+  const [coordinates, setCoordinates] = useState<string | null>(null);
   const [registrationNumber, setRegistrationNumber] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -38,6 +39,7 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
           setName(data.name || '');
           setType(data.type || 'bigård');
           setLocationStr(data.location || '');
+          setCoordinates(data.coordinates || null);
           setRegistrationNumber(data.registration_number || '');
         }
       } catch (error) {
@@ -51,6 +53,36 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
 
     fetchApiary();
   }, [params.id]);
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Geolokasjon støttes ikke av din nettleser");
+      return;
+    }
+    
+    setLoading(true); // Re-use loading state or create a new one? Use saving for button state maybe? 
+    // Let's just use a temporary alert or similar indicator if needed, but here we can just wait.
+    // Actually, let's toggle saving to show activity
+    setSaving(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const coordString = `${latitude},${longitude}`;
+        setCoordinates(coordString);
+        
+        if (!locationStr || locationStr.startsWith('Koordinater:')) {
+            setLocationStr(`Koordinater: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        }
+        setSaving(false);
+      },
+      (error) => {
+        console.error(error);
+        alert("Kunne ikke hente posisjon. Sjekk at du har gitt tillatelse.");
+        setSaving(false);
+      }
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +99,7 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
           name,
           type,
           location: locationStr,
+          coordinates,
           registration_number: type === 'bil' ? registrationNumber : null,
         })
         .eq('id', params.id);
@@ -160,8 +193,22 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
               value={locationStr}
               onChange={(e) => setLocationStr(e.target.value)}
               placeholder="Hvor er dette?"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none h-24 resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none h-24 resize-none mb-3"
             />
+
+            <button
+                type="button"
+                onClick={handleGetLocation}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-blue-50 text-blue-700 font-bold rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors"
+            >
+                <MapPin className="w-5 h-5" />
+                {coordinates ? 'Oppdater GPS-posisjon' : 'Hent min posisjon (GPS)'}
+            </button>
+            {coordinates && (
+                <p className="text-xs text-center text-gray-500 mt-2 font-mono">
+                    Lagret: {coordinates}
+                </p>
+            )}
           </div>
 
           <button
