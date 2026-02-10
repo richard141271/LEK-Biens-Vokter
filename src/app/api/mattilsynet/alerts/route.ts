@@ -65,7 +65,8 @@ export async function GET() {
       }
 
       // Filter in memory to ensure we get NULL statuses (new reports)
-      const activeAlerts = alerts?.filter(a => a.admin_status !== 'resolved') || [];
+      // Robust check for admin_status existence
+      const activeAlerts = alerts?.filter(a => !a.admin_status || a.admin_status !== 'resolved') || [];
 
     // Berik varsler med e-post fra Auth API
     if (alerts && alerts.length > 0) {
@@ -74,7 +75,9 @@ export async function GET() {
         if (authUsers) {
           const emailMap = new Map(authUsers.map(u => [u.id, u.email]));
           alerts.forEach((alert: any) => {
-            if (alert.reporter && alert.user_id) {
+            // Safe access to reporter
+            if (alert.user_id) {
+               if (!alert.reporter) alert.reporter = {};
                alert.reporter.email = emailMap.get(alert.user_id) || null;
             }
           });
