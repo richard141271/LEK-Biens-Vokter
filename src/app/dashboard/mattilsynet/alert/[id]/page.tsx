@@ -88,35 +88,10 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
 
     async function fetchData() {
         try {
-            // 1. Fetch Alert Details
-            const { data: alertData, error: alertError } = await supabase
-                .from('hive_logs')
-                .select(`
-                    *,
-                    reporter:user_id (
-                        id, full_name, email, phone_number
-                    ),
-                    hives (
-                        id, hive_number,
-                        apiaries (
-                            id, name, location
-                        )
-                    )
-                `)
-                .eq('id', params.id)
-                .single();
-
-            if (alertError) throw alertError;
-
-            // 2. Fetch All Apiaries for Map (including owner info)
-            const { data: apiariesData, error: apiariesError } = await supabase
-                .from('apiaries')
-                .select(`
-                    *,
-                    users (full_name, phone_number, email)
-                `);
-
-            if (apiariesError) throw apiariesError;
+            const res = await fetch(`/api/mattilsynet/incident/${params.id}`);
+            if (!res.ok) throw new Error('Failed to fetch data');
+            
+            const { alert: alertData, apiaries: apiariesData } = await res.json();
 
             // Prepare data with coordinates
             const centerCoords = getCoordinates(alertData.hives?.apiaries?.location || 'Halden');
