@@ -103,27 +103,27 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
             const { alert: alertData, apiaries: apiariesData } = result;
 
             // Prepare data with coordinates
-            const centerCoords = getCoordinates(alertData.hives?.apiaries?.location || 'Halden');
+            const centerCoords = getCoordinates(alertData?.hives?.apiaries?.location || 'Halden');
             setMapCenter(centerCoords);
 
-            const processedApiaries = apiariesData.map((a: any) => ({
+            const processedApiaries = (apiariesData || []).map((a: any) => ({
                 ...a,
-                isOwner: a.users?.email === alertData.reporter?.email,
+                isOwner: a.users?.email === alertData?.reporter?.email,
                 ...(() => {
                     const [lat, lon] = getCoordinates(a.location || 'Ukjent');
                     return { lat, lon };
                 })()
-            })).filter((a: any) => a.id !== alertData.hives?.apiaries?.id); // Exclude source apiary from "others"
+            })).filter((a: any) => a.id !== alertData?.hives?.apiaries?.id); // Exclude source apiary from "others"
 
             setAlert(alertData);
             setAllApiaries(processedApiaries);
-            setIncidentStatus(alertData.admin_status || 'investigating');
+            setIncidentStatus(alertData?.admin_status || 'investigating');
             
             // Set Debug Info
             setDebugInfo({
-                alertId: alertData.id,
-                reporter: alertData.reporter?.email,
-                totalApiariesFetched: apiariesData.length,
+                alertId: alertData?.id,
+                reporter: alertData?.reporter?.email,
+                totalApiariesFetched: apiariesData?.length || 0,
                 processedApiariesCount: processedApiaries.length,
                 ownerApiariesCount: processedApiaries.filter((a: any) => a.isOwner).length,
                 mapCenter: centerCoords

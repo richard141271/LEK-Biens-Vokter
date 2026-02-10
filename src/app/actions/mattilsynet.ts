@@ -113,7 +113,7 @@ export async function getIncidentData(incidentId: string) {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) return { error: 'Ikke logget inn', debug };
+    if (!user) return { error: 'Ikke logget inn', debug, success: false };
 
     const adminVerifier = createAdminClient();
     const { data: adminProfile } = await adminVerifier
@@ -125,7 +125,7 @@ export async function getIncidentData(incidentId: string) {
     const isVip = user.email === 'richard141271@gmail.com';
     const isInspector = adminProfile?.role === 'mattilsynet' || adminProfile?.role === 'admin';
 
-    if (!isInspector && !isVip) return { error: 'Ingen tilgang', debug };
+    if (!isInspector && !isVip) return { error: 'Ingen tilgang', debug, success: false };
 
     const adminClient = createAdminClient();
 
@@ -149,7 +149,7 @@ export async function getIncidentData(incidentId: string) {
 
     if (alertError) {
         debug.errors.push(`Alert fetch error: ${alertError.message}`);
-        return { error: 'Fant ikke hendelsen', debug };
+        return { error: 'Fant ikke hendelsen', debug, success: false };
     }
 
     // 2. Fetch All Apiaries for Map
@@ -167,10 +167,10 @@ export async function getIncidentData(incidentId: string) {
     debug.success = true;
     debug.apiaryCount = apiaries?.length || 0;
 
-    return { alert, apiaries, debug };
+    return { alert, apiaries, debug, success: true };
 
   } catch (e: any) {
     debug.errors.push(`Catch: ${e.message}`);
-    return { error: 'Server error', debug };
+    return { error: 'Server error', debug, success: false };
   }
 }
