@@ -1,16 +1,24 @@
 'use server';
 
-import { createAdminClient } from '@/utils/supabase/admin';
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 
-export async function getIncidentData(id: string) {
+export async function getMattilsynetDashboardData() {
+  const debug: any = {
+    step: 'start',
+    errors: [],
+    counts: {}
+  };
+
   try {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      return { error: 'Ikke logget inn' };
+      return { error: 'Ikke logget inn', debug };
     }
+
+    debug.user = user.email;
 
     // Verify access
     const adminVerifier = createAdminClient();
@@ -24,8 +32,100 @@ export async function getIncidentData(id: string) {
     const isInspector = adminProfile?.role === 'mattilsynet' || adminProfile?.role === 'admin';
 
     if (!isInspector && !isVip) {
-      return { error: 'Ingen tilgang' };
+      return { error: 'Ingen tilgang', debug };
     }
+
+    debug.access = 'granted';
+
+    const adminClient = createAdminClient();
+
+    // 1. Fetch Alerts
+    const { data: alerts, error: alertError } = await adminClient
+      .from('hive_logs')
+      .select(`
+        *,
+        reporter:user_id (
+          full_name,
+          phone_number,
+          email
+        ),
+        hives (
+          hive_number,
+          apiary_id,
+          apiaries (
+            name,
+            location
+          )
+        )
+      `)
+      .eq('action', 'SYKDOM')
+      .order('created_at', { ascending: false });
+
+    if (alertError) {
+      debug.errors.push(`Alerts error: ${alertError.message}`);
+    } else {
+      debug.counts.rawAlerts = alerts?.length || 0;
+    }
+
+    const activeAlerts = alerts?.filter(a => !a.admin_status || a.admin_status !== 'resolved') || [];
+    debug.counts.activeAlerts = activeAlerts.length;
+
+    // 2. Fetch Stats
+    const { count: apiaryCount, error: apiaryError } = await adminClient
+        .from('apiaries')
+        .select('*', { count: 'exact', head: true });
+    
+    if (apiaryError) debug.errors.push(`Apiary error: ${apiaryError.message}`);
+    debug.counts.apiaries = apiaryCount;
+
+    const { count: inspectionCount, error: inspectionError } = await adminClient
+        .from('hive_logs')
+        .select('*', { count: 'exact', head: true })
+        .eq('action', 'INSPEKSJON');
+
+    if (inspectionError) debug.errors.push(`Inspection error: ${inspectionError.message}`);
+    debug.counts.inspections = inspectionCount;
+
+    return {
+      alerts: activeAlerts,
+      stats: {
+        alerts: activeAlerts.length,
+        inspections: inspectionCount || 0,
+        apiaries: apiaryCount || 0
+      },
+      debug
+    };
+
+  } catch (e: any) {
+    debug.errors.push(`Catch: ${e.message}`);
+    return { error: 'Server error', debug };
+  }
+}
+
+export async function getIncidentData(incidentId: string) {
+  const debug: any = {
+    step: 'start_incident',
+    errors: [],
+    id: incidentId
+  };
+
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Ikke logget inn', debug };
+
+    const adminVerifier = createAdminClient();
+    const { data: adminProfile } = await adminVerifier
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const isVip = user.email === 'richard141271@gmail.com';
+    const isInspector = adminProfile?.role === 'mattilsynet' || adminProfile?.role === 'admin';
+
+    if (!isInspector && !isVip) return { error: 'Ingen tilgang', debug };
 
     const adminClient = createAdminClient();
 
@@ -44,15 +144,15 @@ export async function getIncidentData(id: string) {
             )
         )
       `)
-      .eq('id', id)
+      .eq('id', incidentId)
       .single();
 
     if (alertError) {
-      console.error('Error fetching alert:', alertError);
-      return { error: 'Fant ikke hendelsen' };
+        debug.errors.push(`Alert fetch error: ${alertError.message}`);
+        return { error: 'Fant ikke hendelsen', debug };
     }
 
-    // 2. Fetch All Apiaries for Map (including owner info)
+    // 2. Fetch All Apiaries for Map
     const { data: apiaries, error: apiariesError } = await adminClient
       .from('apiaries')
       .select(`
@@ -61,14 +161,16 @@ export async function getIncidentData(id: string) {
       `);
 
     if (apiariesError) {
-      console.error('Error fetching apiaries:', apiariesError);
-      return { error: 'Kunne ikke hente bigårder' };
+        debug.errors.push(`Apiaries fetch error: ${apiariesError.message}`);
     }
 
-    return { alert, apiaries, success: true };
+    debug.success = true;
+    debug.apiaryCount = apiaries?.length || 0;
 
-  } catch (e) {
-    console.error('Unexpected error in getIncidentData:', e);
-    return { error: 'Uventet feil' };
+    return { alert, apiaries, debug };
+
+  } catch (e: any) {
+    debug.errors.push(`Catch: ${e.message}`);
+    return { error: 'Server error', debug };
   }
 }

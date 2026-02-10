@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { ShieldCheck, Search, Map, LogOut, Bell, FileText, Activity, Mail } from 'lucide-react';
 import Link from 'next/link';
 
+import { getMattilsynetDashboardData } from '@/app/actions/mattilsynet';
+
 export default function MattilsynetDashboard() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
@@ -15,6 +17,7 @@ export default function MattilsynetDashboard() {
     inspections: 0,
     apiaries: 0
   });
+  const [debugInfo, setDebugInfo] = useState<any>(null);
   const supabase = createClient();
   const router = useRouter();
 
@@ -55,23 +58,21 @@ export default function MattilsynetDashboard() {
 
   async function fetchData() {
     try {
-        const res = await fetch('/api/mattilsynet/alerts');
-        if (!res.ok) {
-            console.error("Error fetching mattilsynet data:", await res.text());
+        const result = await getMattilsynetDashboardData();
+        
+        if (result.debug) {
+            setDebugInfo(result.debug);
+        }
+
+        if (result.error) {
+            console.error("Error fetching mattilsynet data:", result.error);
             return;
         }
         
-        const data = await res.json();
-        console.log("Mattilsynet Data Received:", data); // Debugging
-        const alerts = data.alerts || [];
-        const activeOnly = alerts.filter((a: any) => a.admin_status !== 'resolved');
-        setActiveAlerts(activeOnly);
-
-        setStats({
-            alerts: activeOnly.length,
-            inspections: data.stats?.inspections || 0,
-            apiaries: data.stats?.apiaries || 0
-        });
+        if (result.alerts && result.stats) {
+            setActiveAlerts(result.alerts);
+            setStats(result.stats);
+        }
     } catch (e) {
         console.error("Error fetching mattilsynet data:", e);
     }
@@ -352,6 +353,24 @@ export default function MattilsynetDashboard() {
           </Link>
 
         </div>
+
+        {/* Debug Info - Only visible if active or specific user, but for now always visible to help diagnose */}
+        {debugInfo && (
+            <div className="mt-8 p-4 bg-slate-900 text-green-400 font-mono text-xs rounded-lg overflow-auto">
+                <h4 className="font-bold border-b border-green-800 mb-2 pb-1">Debug Info (Mattilsynet)</h4>
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <strong>Counts:</strong>
+                        <pre>{JSON.stringify(debugInfo.counts, null, 2)}</pre>
+                    </div>
+                    <div>
+                        <strong>User:</strong> {debugInfo.user}<br/>
+                        <strong>Access:</strong> {debugInfo.access}<br/>
+                        <strong>Errors:</strong> {debugInfo.errors.length > 0 ? debugInfo.errors.join(', ') : 'None'}
+                    </div>
+                </div>
+            </div>
+        )}
       </main>
     </div>
   );
