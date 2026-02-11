@@ -17,7 +17,7 @@ export default async function WarRoomPage() {
     // Check auth metadata
     const { data: { user: authUser } } = await adminVerifier.auth.admin.getUserById(user.id);
     
-    const isVip = user.email === 'richard141271@gmail.com';
+    const isVip = user.email === 'richard141271@gmail.com' || user.email === 'richard141271@gmail.no';
     const isCourseFriendMeta = authUser?.user_metadata?.is_course_friend;
 
     const { data: profile } = await adminVerifier

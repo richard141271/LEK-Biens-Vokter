@@ -7,6 +7,7 @@ import { ShieldCheck, Search, Map, LogOut, Bell, FileText, Activity, Mail } from
 import Link from 'next/link';
 
 import { getMattilsynetDashboardData } from '@/app/actions/mattilsynet';
+import AlertsPoller from './components/AlertsPoller';
 
 export default function MattilsynetDashboard() {
   const [loading, setLoading] = useState(true);
@@ -41,7 +42,7 @@ export default function MattilsynetDashboard() {
         .eq('id', user.id)
         .single();
 
-      if (profileData?.role !== 'mattilsynet' && profileData?.role !== 'admin' && user.email !== 'richard141271@gmail.com') {
+      if (profileData?.role !== 'mattilsynet' && profileData?.role !== 'admin' && user.email !== 'richard141271@gmail.com' && user.email !== 'richard141271@gmail.no') {
         await supabase.auth.signOut();
         router.push('/mattilsynet');
         return;
@@ -109,6 +110,7 @@ export default function MattilsynetDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      <AlertsPoller />
       {/* Top Bar */}
       <header className="bg-slate-800 text-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">

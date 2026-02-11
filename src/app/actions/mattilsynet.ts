@@ -196,15 +196,34 @@ export async function getIncidentData(incidentId: string) {
     };
 
     // 2. Fetch All Apiaries for Map
-    const { data: apiaries, error: apiariesError } = await adminClient
+    const { data: rawApiaries, error: apiariesError } = await adminClient
       .from('apiaries')
-      .select(`
-        *,
-        users (full_name, phone_number, email)
-      `);
+      .select('*');
 
+    let apiaries: any[] = [];
+    
     if (apiariesError) {
         debug.errors.push(`Apiaries fetch error: ${apiariesError.message}`);
+    } else if (rawApiaries) {
+        // Fetch owners manually
+        const userIds = Array.from(new Set(rawApiaries.map((a: any) => a.user_id).filter(Boolean)));
+        let usersMap: Record<string, any> = {};
+        
+        if (userIds.length > 0) {
+            const { data: users } = await adminClient
+                .from('profiles')
+                .select('id, full_name, email, phone_number')
+                .in('id', userIds);
+                
+            if (users) {
+                users.forEach((u: any) => usersMap[u.id] = u);
+            }
+        }
+
+        apiaries = rawApiaries.map((a: any) => ({
+            ...a,
+            users: usersMap[a.user_id] || { full_name: 'Ukjent' }
+        }));
     }
 
     debug.success = true;
