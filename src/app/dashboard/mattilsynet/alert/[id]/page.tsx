@@ -95,7 +95,29 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
     useEffect(() => {
         if (alert) {
             const disease = alert.details?.split('Sykdom: ')[1]?.split(',')[0] || 'Sykdom';
-            setAlertMessage(`Viktig melding fra Mattilsynet:\n\nVi har oppdaget mistanke om ${disease} i ditt nærområde (innenfor ${radius/1000} km).\n\nVennligst sjekk dine bigårder for symptomer umiddelbart og rapporter status i appen.\n\nMvh,\nMattilsynet`);
+            const location = alert.hives?.apiaries?.location || 'ditt område';
+            
+            let advice = "Sjekk bifolket for symptomer umiddelbart.";
+            if (disease.includes('Kalkyngel')) advice += " Se etter hvite/grå mumier på bunnbrettet.";
+            if (disease.includes('yngelråte')) advice += " Se etter nedsunkne cellelokk og lukt.";
+            if (disease.includes('Varroa')) advice += " Tell middnedfall og vurder behandling.";
+
+            setAlertMessage(
+`VIKTIG MELDING FRA MATTILSYNET
+
+Det er påvist mistanke om smittsom sykdom (${disease}) i ${location}.
+Din bigård ligger innenfor sikringssonen på ${radius/1000} km.
+
+PÅLAGTE TILTAK:
+1. ${advice}
+2. Ikke flytt bier eller utstyr ut av sonen.
+3. Rapporter status via appen ("Ny Inspeksjon") innen 48 timer.
+
+Dette er en automatisk varsling. Ved spørsmål, kontakt lokalt birøkterlag eller Mattilsynet.
+
+Mvh,
+Mattilsynet`
+            );
         }
     }, [alert, radius]);
 
@@ -268,12 +290,17 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
     const diseaseName = rawDiseaseName; 
     
     // Construct options dynamically to ensure current value exists
-    const diseases = ['Kalkyngel', 'Åpen yngelråte', 'Lukket yngelråte', 'Varroa'];
+    const baseDiseases = ['Kalkyngel', 'Åpen yngelråte', 'Lukket yngelråte', 'Varroa'];
+    // Add current disease if not in list
+    const diseases = baseDiseases.includes(diseaseName.replace(' (Mistenkt)', '')) 
+        ? baseDiseases 
+        : [...baseDiseases, diseaseName.replace(' (Mistenkt)', '')];
+
     const currentDiseaseBase = diseases.find(d => diseaseName.includes(d)) || diseaseName;
     
     // Determine what to show in dropdown
     // If we are investigating, we want to show "X (Mistenkt)"
-    const dropdownValue = incidentStatus === 'investigating' 
+    const dropdownValue = incidentStatus === 'investigating' && !diseaseName.includes('(Bekreftet)')
         ? `${currentDiseaseBase} (Mistenkt)` 
         : currentDiseaseBase;
 
@@ -693,6 +720,20 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
                                         Du er i ferd med å sende varsel til <strong>{affectedList.length}</strong> birøktere innenfor en radius på <strong>{radius/1000} km</strong>.
                                     </div>
                                     
+                                    {affectedList.length > 0 && (
+                                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 max-h-32 overflow-y-auto">
+                                            <p className="text-xs font-bold text-gray-500 uppercase mb-2 sticky top-0 bg-slate-50">Mottakere:</p>
+                                            <ul className="text-xs text-gray-600 space-y-1">
+                                                {affectedList.map((a, i) => (
+                                                    <li key={i} className="flex justify-between">
+                                                        <span>{a.users?.full_name || 'Ukjent'}</span>
+                                                        <span className="text-gray-400">{a.users?.email}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+
                                     <div>
                                         <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Meldingstekst</label>
                                         <textarea 

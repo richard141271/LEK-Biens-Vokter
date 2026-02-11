@@ -7,6 +7,7 @@ export interface ParsedInspection {
     status?: string;
     temperature?: string;
     weather?: string;
+    action?: 'TAKE_PHOTO';
 }
 
 export function parseVoiceCommand(text: string): ParsedInspection {
@@ -15,6 +16,11 @@ export function parseVoiceCommand(text: string): ParsedInspection {
 
     // Helper for regex matching
     const has = (patterns: string[]) => patterns.some(p => t.includes(p));
+
+    // --- Action: Take Photo ---
+    if (has(['ta bilde', 'ta foto', 'knips', 'bilde'])) {
+        result.action = 'TAKE_PHOTO';
+    }
 
     // --- Queen ---
     if (has(['ingen dronning', 'ikke sett dronning', 'finner ikke dronning', 'mangler dronning'])) {
@@ -30,16 +36,16 @@ export function parseVoiceCommand(text: string): ParsedInspection {
         result.eggsSeen = true;
     }
 
-    // --- Honey ---
-    if (has(['lite honning', 'tomt for honning', 'sulten', 'lite mat'])) {
+    // --- Honey (Fôr) ---
+    if (has(['lite honning', 'tomt for honning', 'sulten', 'lite mat', 'lite fôr'])) {
         result.honeyStores = 'lite';
-    } else if (has(['middels honning', 'greit med honning', 'litt honning', 'ok med mat'])) {
+    } else if (has(['middels honning', 'greit med honning', 'litt honning', 'ok med mat', 'middels fôr'])) {
         result.honeyStores = 'middels';
-    } else if (has(['mye honning', 'fullt av honning', 'tunge rammer', 'masse mat', 'full skattekasse'])) {
+    } else if (has(['mye honning', 'fullt av honning', 'tunge rammer', 'masse mat', 'full skattekasse', 'mye fôr'])) {
         result.honeyStores = 'mye';
     }
 
-    // --- Temperament ---
+    // --- Temperament (Gemytt) ---
     if (has(['rolig', 'snille', 'greie bier', 'rolige bier'])) {
         result.temperament = 'rolig';
     } else if (has(['urolig', 'løper', 'stressede', 'nervøse'])) {
@@ -48,7 +54,7 @@ export function parseVoiceCommand(text: string): ParsedInspection {
         result.temperament = 'aggressiv';
     }
 
-    // --- Brood (Yngel) ---
+    // --- Brood (Yngelleie) ---
     if (has(['dårlig yngel', 'lite yngel', 'hullete yngel'])) {
         result.broodCondition = 'darlig';
     } else if (has(['bra yngel', 'tett yngel', 'fin yngel', 'masse yngel'])) {
@@ -57,17 +63,29 @@ export function parseVoiceCommand(text: string): ParsedInspection {
         result.broodCondition = 'normal';
     }
 
-    // --- Status ---
+    // --- Status (Kubestatus) ---
+    // Mappings: OK, SVAK, DØD, SYKDOM, BYTT_DRONNING, MOTTATT_FOR, SKIFTET_RAMMER, SVERMING, VARROA_MISTANKE, BYTTET_VOKS
+    
     if (has(['svak', 'lite bier', 'stusselig'])) {
         result.status = 'SVAK';
     } else if (has(['død', 'tom kube', 'ingen bier'])) {
         result.status = 'DØD';
-    } else if (has(['alt bra', 'fin kube', 'sterk', 'super'])) {
+    } else if (has(['alt bra', 'fin kube', 'sterk', 'super', 'ok'])) {
         result.status = 'OK';
     } else if (has(['sykdom', 'syk'])) {
         result.status = 'SYKDOM';
+    } else if (has(['bytt dronning', 'dronningbytte', 'ny dronning'])) {
+        result.status = 'BYTT_DRONNING';
+    } else if (has(['mottatt fôr', 'fôret', 'fikk mat', 'fikk fôr'])) {
+        result.status = 'MOTTATT_FOR';
+    } else if (has(['skiftet rammer', 'nye rammer', 'byttet rammer'])) {
+        result.status = 'SKIFTET_RAMMER';
     } else if (has(['sverming', 'har svermet', 'sverm'])) {
         result.status = 'SVERMING';
+    } else if (has(['varroa', 'midd', 'varroa mistanke'])) {
+        result.status = 'VARROA_MISTANKE';
+    } else if (has(['byttet voks', 'ny voks', 'smeltet voks'])) {
+        result.status = 'BYTTET_VOKS';
     }
 
     // --- Temperature ---

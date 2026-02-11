@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { getMailService } from '@/services/mail';
 
 export async function getMattilsynetDashboardData() {
   const debug: any = {
@@ -299,21 +300,41 @@ export async function dismissIncident(id: string) {
 }
 
 export async function sendZoneAlert(incidentId: string, radius: number, emails: string[], message: string) {
-    // In a real app, this would use an email service (Resend, SendGrid).
-    // For now, we'll log it and return success to simulate.
+    const adminClient = createAdminClient();
+    const mailService = getMailService();
+    
     console.log(`SENDING ALERT for ${incidentId} within ${radius}m`);
     console.log(`Recipients (${emails.length}):`, emails);
-    console.log(`Message:`, message);
-    
-    // We could also log this action to the database
-    const adminClient = createAdminClient();
-    await adminClient.from('admin_logs').insert({
-        action: 'ZONE_ALERT_SENT',
-        details: `Sent to ${emails.length} recipients. Radius: ${radius}m. Msg: ${message.slice(0, 50)}...`,
-        target_id: incidentId
-    });
 
-    return { success: true, count: emails.length };
+    try {
+        // 1. Log to DB
+        await adminClient.from('admin_logs').insert({
+            action: 'ZONE_ALERT_SENT',
+            details: `Sent to ${emails.length} recipients. Radius: ${radius}m.`,
+            target_id: incidentId
+        });
+
+        // 2. Send Emails (Batch)
+        if (emails.length > 0) {
+            // Send individually to hide other recipients (BCC style) or just loop
+            // For now, we'll loop to ensure delivery
+            const emailPromises = emails.map(email => 
+                mailService.sendMail({
+                    to: email,
+                    subject: 'VIKTIG MELDING FRA MATTILSYNET - SMITTEVARSEL',
+                    text: message,
+                    html: message.replace(/\n/g, '<br/>')
+                })
+            );
+            
+            await Promise.allSettled(emailPromises);
+        }
+
+        return { success: true, count: emails.length };
+    } catch (e: any) {
+        console.error("Failed to send alerts:", e);
+        return { error: e.message };
+    }
 }
 
 export async function getAllAlerts() {

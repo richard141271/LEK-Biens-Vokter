@@ -34,9 +34,11 @@ export default async function WarRoomPage() {
         redirect('/dashboard');
     }
 
+    const backLink = (isFounder || isAdmin || isVip) ? "/dashboard/founder" : "/dashboard";
+
     return (
         <WarRoomDashboard 
-            backLink="/dashboard/founder"
+            backLink={backLink}
             backText="Tilbake"
         />
     );

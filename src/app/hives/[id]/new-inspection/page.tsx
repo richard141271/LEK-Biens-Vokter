@@ -5,7 +5,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { parseVoiceCommand } from '@/utils/voice-parser';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, Image as ImageIcon, X, Mic, MicOff } from 'lucide-react';
+import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, Image as ImageIcon, X, Mic, MicOff, Camera } from 'lucide-react';
 import { useOffline } from '@/context/OfflineContext';
 
 export default function NewInspectionPage({ params }: { params: { id: string } }) {
@@ -20,10 +20,92 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   // Voice State
   const [lastCommand, setLastCommand] = useState<string | null>(null);
 
+  // Camera State
+  const [cameraActive, setCameraActive] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Capture Photo Function
+  const capturePhoto = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    
+    // Set canvas dimensions to match video stream
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    // Draw current frame
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+        ctx.drawImage(video, 0, 0);
+        
+        // Convert to file
+        canvas.toBlob((blob) => {
+            if (blob) {
+                const file = new File([blob], `voice_capture_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                setSelectedImage(file);
+                setImagePreview(URL.createObjectURL(file));
+                setLastCommand("Bilde tatt!");
+                // Optional: Flash effect or sound here
+                setTimeout(() => setLastCommand(null), 3000);
+            }
+        }, 'image/jpeg', 0.8);
+    }
+  }, []);
+
+  // Initialize Camera Stream
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    
+    if (cameraActive) {
+        navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                facingMode: 'environment',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            } 
+        })
+        .then(s => {
+            stream = s;
+            if (videoRef.current) {
+                videoRef.current.srcObject = s;
+                videoRef.current.play();
+            }
+        })
+        .catch(err => {
+            console.error("Camera error:", err);
+            setCameraActive(false);
+            alert("Kunne ikke starte kamera. Sjekk at du har gitt tillatelse.");
+        });
+    }
+
+    return () => {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+    };
+  }, [cameraActive]);
+
   const handleVoiceCommand = (text: string) => {
       console.log("Voice Command:", text);
       const parsed = parseVoiceCommand(text);
       let feedback: string[] = [];
+
+      // Action: Take Photo
+      if (parsed.action === 'TAKE_PHOTO') {
+          if (cameraActive) {
+              capturePhoto();
+              feedback.push("Tar bilde...");
+          } else {
+              feedback.push("Kamera er ikke aktivt. Si 'Start kamera' (ikke implementert) eller trykk på knappen.");
+              // Auto-start camera? Maybe risky if permissions prompt.
+              setCameraActive(true); // Let's try to auto-start if they ask for photo
+              feedback.push("Starter kamera...");
+              // We can't capture immediately because stream takes time to start.
+              // Just starting it is a good first step.
+          }
+      }
 
       // Update State based on parsed result
       if (parsed.queenSeen !== undefined) {
@@ -352,20 +434,56 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           </div>
         </div>
         
-        {/* Voice Toggle */}
-        <button
-            onClick={toggleListening}
-            className={`p-3 rounded-full transition-all ${
-                isListening 
-                ? 'bg-red-500 text-white animate-pulse shadow-lg' 
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-        >
-            {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-        </button>
+        {/* Voice & Camera Controls */}
+        <div className="flex gap-2">
+            <button
+                onClick={() => setCameraActive(!cameraActive)}
+                className={`p-3 rounded-full transition-all ${
+                    cameraActive 
+                    ? 'bg-blue-600 text-white shadow-lg ring-2 ring-blue-300' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                title="Start/Stopp Bodycam"
+            >
+                <Camera className="w-6 h-6" />
+            </button>
+
+            <button
+                onClick={toggleListening}
+                className={`p-3 rounded-full transition-all ${
+                    isListening 
+                    ? 'bg-red-500 text-white animate-pulse shadow-lg' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                title="Start/Stopp Talestyring"
+            >
+                {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+            </button>
+        </div>
       </header>
 
       <main className="p-4">
+        {/* Camera Preview (Bodycam Mode) */}
+        {cameraActive && (
+            <div className="mb-4 relative rounded-xl overflow-hidden shadow-lg bg-black aspect-video mx-auto max-w-lg border-2 border-blue-500">
+                <video 
+                    ref={videoRef} 
+                    autoPlay 
+                    playsInline 
+                    muted 
+                    className="w-full h-full object-cover"
+                />
+                <div className="absolute top-3 right-3 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse shadow-md flex items-center gap-1">
+                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                    BODYCAM
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-white text-xs">
+                    Si "Ta bilde" for å knipse
+                </div>
+            </div>
+        )}
+        <canvas ref={canvasRef} className="hidden" />
+
         {/* Voice Feedback */}
         {lastCommand && (
           <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2 shadow-sm border border-green-200">
