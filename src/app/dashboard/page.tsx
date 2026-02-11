@@ -159,7 +159,20 @@ export default function DashboardPage() {
         .eq('id', user.id)
         .single();
         
-        setProfile(profileData || { full_name: user.user_metadata?.full_name || user.email });
+        // Merge with metadata to ensure we get latest flags (like is_course_friend)
+        const isCourseFriend = user.user_metadata?.is_course_friend || profileData?.is_course_friend;
+        const isFounder = user.user_metadata?.is_founder || profileData?.is_founder;
+
+        const mergedProfile = {
+            ...(profileData || {}),
+            full_name: profileData?.full_name || user.user_metadata?.full_name || user.email,
+            is_course_friend: isCourseFriend,
+            is_founder: isFounder,
+            // Ensure email alias is also synced if possible, though usually in profile
+            email_alias: profileData?.email_alias || user.user_metadata?.email_alias
+        };
+
+        setProfile(mergedProfile);
 
         // Check if franchise owner (role or actual ownership)
         const { count: franchiseCount } = await supabase
