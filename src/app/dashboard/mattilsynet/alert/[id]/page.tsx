@@ -219,6 +219,7 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
     );
 
     const isResolved = incidentStatus === 'resolved';
+    const diseaseName = alert.details?.split('Sykdom: ')[1]?.split(',')[0] || 'Kalkyngel (Mistenkt)';
 
     return (
         <div className="min-h-screen bg-slate-50 pb-20">
@@ -280,7 +281,10 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
                                 Smittekart & Sikringssone
                             </h2>
                             <div className="flex items-center gap-4">
-                                <select className="bg-white border border-slate-200 text-slate-700 text-xs font-bold py-1 px-2 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                                <select 
+                                    defaultValue={diseaseName}
+                                    className="bg-white border border-slate-200 text-slate-700 text-xs font-bold py-1 px-2 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                                >
                                     <option>Kalkyngel (Mistenkt)</option>
                                     <option>Åpen yngelråte</option>
                                     <option>Lukket yngelråte</option>

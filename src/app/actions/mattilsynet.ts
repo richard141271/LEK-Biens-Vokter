@@ -167,7 +167,7 @@ export async function getIncidentData(incidentId: string) {
         hives (
             id, hive_number,
             apiaries (
-                id, name, location, coordinates
+                id, name, location, coordinates, user_id
             )
         )
       `)
@@ -181,11 +181,13 @@ export async function getIncidentData(incidentId: string) {
 
     // Fetch reporter manually
     let reporter = null;
-    if (alert.user_id) {
+    const userId = alert.user_id || alert.hives?.apiaries?.user_id;
+
+    if (userId) {
         const { data: userProfile } = await adminClient
             .from('profiles')
             .select('id, full_name, email, phone_number')
-            .eq('id', alert.user_id)
+            .eq('id', userId)
             .single();
         reporter = userProfile;
     }
