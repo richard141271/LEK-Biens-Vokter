@@ -135,11 +135,18 @@ Mattilsynet`
             const { alert: alertData, apiaries: apiariesData } = result;
 
             // Prepare data with coordinates
-            let centerCoords: [number, number];
+            let centerCoords: [number, number] = [59.1243, 11.3875]; // Default safe fallback
+            
             if (alertData?.hives?.apiaries?.coordinates) {
                 const parts = alertData.hives.apiaries.coordinates.split(',');
                 if (parts.length === 2) {
-                    centerCoords = [parseFloat(parts[0]), parseFloat(parts[1])];
+                    const lat = parseFloat(parts[0]);
+                    const lon = parseFloat(parts[1]);
+                    if (!isNaN(lat) && !isNaN(lon)) {
+                        centerCoords = [lat, lon];
+                    } else {
+                        centerCoords = getCoordinates(alertData?.hives?.apiaries?.location || 'Halden');
+                    }
                 } else {
                     centerCoords = getCoordinates(alertData?.hives?.apiaries?.location || 'Halden');
                 }
@@ -160,7 +167,11 @@ Mattilsynet`
                     if (a.coordinates) {
                         const parts = a.coordinates.split(',');
                         if (parts.length === 2) {
-                            return { lat: parseFloat(parts[0]), lon: parseFloat(parts[1]) };
+                            const lat = parseFloat(parts[0]);
+                            const lon = parseFloat(parts[1]);
+                            if (!isNaN(lat) && !isNaN(lon)) {
+                                return { lat, lon };
+                            }
                         }
                     }
                     const [lat, lon] = getCoordinates(a.location || 'Ukjent');
