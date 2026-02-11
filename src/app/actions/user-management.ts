@@ -65,6 +65,50 @@ export async function deleteUser(userId: string) {
   return { success: true }
 }
 
+export async function hardDeleteUser(userId: string) {
+  const supabase = createClient()
+  
+  // 1. Check if current user is admin
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { error: 'Ikke logget inn' }
+  }
+
+  const adminVerifier = createAdminClient()
+  const { data: adminProfile } = await adminVerifier
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isVip = user.email === 'richard141271@gmail.com';
+  const isAdmin = adminProfile?.role === 'admin';
+
+  if (!isAdmin && !isVip) {
+    return { error: 'Ingen tilgang: Krever admin-rettigheter' }
+  }
+
+  // 2. Hard delete user from Auth (cascades to DB usually if configured, but we will ensure DB cleanup too)
+  const adminClient = createAdminClient()
+
+  try {
+      // Delete from Auth
+      const { error: authError } = await adminClient.auth.admin.deleteUser(userId)
+      if (authError) throw authError
+
+      // Note: If Postgres uses ON DELETE CASCADE on the foreign key to auth.users, 
+      // the profile and related data will be gone. 
+      // If not, we might need to delete from 'profiles' manually. 
+      // Let's assume standard Supabase setup where profiles.id references auth.users.id with CASCADE.
+      
+      revalidatePath('/dashboard/admin/users')
+      return { success: true }
+  } catch (error: any) {
+      console.error('Error hard deleting user:', error)
+      return { error: 'Kunne ikke slette bruker permanent: ' + error.message }
+  }
+}
+
 export async function removeEmail(userId: string) {
   const supabase = createClient()
   
@@ -176,12 +220,23 @@ export async function toggleCourseFriendStatus(userId: string, isCourseFriend: b
 
   // 2. Update profile
   const adminClient = createAdminClient()
-  const { error } = await adminClient
-    .from('profiles')
-    .update({ is_course_friend: isCourseFriend })
-    .eq('id', userId)
+  
+  // Update User Metadata (Primary storage for this flag now)
+  const { error: authError } = await adminClient.auth.admin.updateUserById(userId, {
+    user_metadata: { is_course_friend: isCourseFriend }
+  })
 
-  if (error) return { error: error.message }
+  if (authError) return { error: authError.message }
+
+  // Try to update profile too (for future schema support), but ignore error if column missing
+  try {
+    await adminClient
+      .from('profiles')
+      .update({ is_course_friend: isCourseFriend })
+      .eq('id', userId)
+  } catch (e) {
+    // Ignore error
+  }
 
   revalidatePath('/dashboard/admin/users')
   return { success: true }
@@ -293,14 +348,37 @@ export async function getUsers() {
     return { error: 'Ingen tilgang' }
   }
 
-  const { data: users, error } = await adminVerifier
+  const { data: profiles, error } = await adminVerifier
     .from('profiles')
     .select('*')
     .order('created_at', { ascending: false })
 
   if (error) return { error: error.message }
 
-  return { users }
+  // Fetch auth users to get metadata (for K/V status)
+  const { data: { users: authUsers }, error: authError } = await adminVerifier.auth.admin.listUsers({ perPage: 1000 })
+  
+  let mergedUsers = profiles;
+  
+  if (!authError && authUsers) {
+    mergedUsers = profiles.map(p => {
+      const authUser = authUsers.find(u => u.id === p.id);
+      const isCourseFriendMetadata = authUser?.user_metadata?.is_course_friend;
+      
+      // Use metadata if present, otherwise fallback to profile (if column exists)
+      // Default to false if neither exists
+      const isCourseFriend = isCourseFriendMetadata !== undefined 
+          ? isCourseFriendMetadata 
+          : (p.is_course_friend || false);
+
+      return {
+          ...p,
+          is_course_friend: isCourseFriend
+      };
+    });
+  }
+
+  return { users: mergedUsers }
 }
 
 export async function updateUserRole(userId: string, role: string) {

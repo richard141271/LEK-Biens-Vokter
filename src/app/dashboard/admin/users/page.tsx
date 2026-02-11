@@ -21,7 +21,8 @@ import {
   Filter
 } from 'lucide-react';
 import Link from 'next/link';
-import { deleteUser, reactivateUser, updateUserRole as updateUserRoleAction, getUsers, assignEmail, toggleEmailAccess, updateUserPassword, toggleFounderStatus, toggleCourseFriendStatus } from '@/app/actions/user-management';
+import { deleteUser, reactivateUser, updateUserRole as updateUserRoleAction, getUsers, assignEmail, toggleEmailAccess, updateUserPassword, toggleFounderStatus, toggleCourseFriendStatus, hardDeleteUser } from '@/app/actions/user-management';
+import { cleanupTestUsers } from '@/app/actions/cleanup';
 
 export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
@@ -46,6 +47,10 @@ export default function AdminUsersPage() {
   const [passwordUser, setPasswordUser] = useState<any | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
+
+  // Cleanup State
+  const [isCleaning, setIsCleaning] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<any>(null);
 
   const supabase = createClient();
 
@@ -163,28 +168,45 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Er du sikker på at du vil deaktivere denne brukeren? Brukeren vil miste tilgang, men data beholdes.')) return;
+  const handleDeleteUser = async (userId: string, permanent: boolean = false) => {
+    if (permanent) {
+        if (!confirm('ADVARSEL: Dette vil slette brukeren PERMANENT fra systemet. All data (bigårder, kuber, logger) vil bli borte. Handlingen kan ikke angres. Er du helt sikker?')) return;
+    } else {
+        if (!confirm('Er du sikker på at du vil deaktivere denne brukeren? Brukeren vil miste tilgang, men data beholdes.')) return;
+    }
 
     try {
         setUpdatingId(userId);
         setMessage(null);
         
-        const result = await deleteUser(userId);
+        let result;
+        if (permanent) {
+            result = await hardDeleteUser(userId);
+        } else {
+            result = await deleteUser(userId);
+        }
         
         if (result.error) {
-            setMessage({ text: 'Feil ved deaktivering: ' + result.error, type: 'error' });
+            setMessage({ text: 'Feil ved sletting: ' + result.error, type: 'error' });
         } else {
-            setMessage({ text: 'Bruker deaktivert', type: 'success' });
-            // Instead of removing, just update the local state to show as inactive
-            setUsers(users.map(u => u.id === userId ? { ...u, is_active: false } : u));
-            setFilteredUsers(filteredUsers.map(u => u.id === userId ? { ...u, is_active: false } : u));
+            setMessage({ text: permanent ? 'Bruker slettet permanent' : 'Bruker deaktivert', type: 'success' });
+            
+            if (permanent) {
+                // Remove from list
+                setUsers(users.filter(u => u.id !== userId));
+                setFilteredUsers(filteredUsers.filter(u => u.id !== userId));
+            } else {
+                // Mark as inactive
+                setUsers(users.map(u => u.id === userId ? { ...u, is_active: false } : u));
+                setFilteredUsers(filteredUsers.map(u => u.id === userId ? { ...u, is_active: false } : u));
+            }
         }
     } catch (e: any) {
         console.error(e);
-        setMessage({ text: 'Noe gikk galt under deaktivering: ' + e.message, type: 'error' });
+        setMessage({ text: 'Noe gikk galt under sletting: ' + e.message, type: 'error' });
     } finally {
         setUpdatingId(null);
+        setSelectedUser(null); // Close modal if open
     }
   };
 
@@ -366,6 +388,30 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleCleanup = async (dryRun: boolean) => {
+    if (!dryRun && !confirm('ER DU SIKKER? Dette vil slette alle testbrukere UTEN data permanent!')) return;
+    
+    setIsCleaning(true);
+    setCleanupResult(null);
+    try {
+      const result = await cleanupTestUsers(dryRun);
+      if (result.error) {
+        setMessage({ text: 'Feil under rydding: ' + result.error, type: 'error' });
+      } else {
+        if (dryRun) {
+            setCleanupResult(result);
+        } else {
+            setMessage({ text: `Slettet ${result.results?.length} brukere`, type: 'success' });
+            fetchUsers(); // Refresh list
+        }
+      }
+    } catch (e: any) {
+      setMessage({ text: 'Feil: ' + e.message, type: 'error' });
+    } finally {
+      setIsCleaning(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto">
@@ -379,7 +425,43 @@ export default function AdminUsersPage() {
                     <p className="text-gray-500">Administrer tilganger og roller</p>
                 </div>
             </div>
+            <div className="flex gap-2">
+                <button
+                    onClick={() => handleCleanup(true)}
+                    disabled={isCleaning}
+                    className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                    {isCleaning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    Simuler Sletting
+                </button>
+            </div>
         </div>
+
+        {cleanupResult && (
+            <div className="mb-6 bg-white p-6 rounded-xl border border-yellow-200 shadow-sm">
+                <h3 className="font-bold text-lg mb-2">Simulering av sletting</h3>
+                <p className="mb-4 text-gray-600">{cleanupResult.message}</p>
+                <div className="bg-gray-50 p-4 rounded-lg mb-4 max-h-60 overflow-y-auto text-sm font-mono">
+                    {cleanupResult.users?.map((u: string, i: number) => (
+                        <div key={i}>{u}</div>
+                    ))}
+                </div>
+                <div className="flex justify-end gap-3">
+                    <button 
+                        onClick={() => setCleanupResult(null)}
+                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                    >
+                        Avbryt
+                    </button>
+                    <button 
+                        onClick={() => handleCleanup(false)}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold"
+                    >
+                        UTFØR SLETTING NÅ
+                    </button>
+                </div>
+            </div>
+        )}
 
         {message && (
           <div className={`mb-6 p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
@@ -634,18 +716,25 @@ export default function AdminUsersPage() {
                 )}
               </div>
 
-              <div className="flex justify-end pt-2">
+              <div className="flex justify-between pt-2">
                  <button 
                     onClick={() => {
-                        if (confirm('Er du sikker på at du vil deaktivere denne brukeren?')) {
-                            handleDeleteUser(selectedUser.id);
-                            setSelectedUser(null);
-                        }
+                        handleDeleteUser(selectedUser.id, true);
                     }}
-                    className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium text-sm"
+                    className="flex items-center gap-2 px-4 py-2 text-red-800 bg-red-100 hover:bg-red-200 rounded-lg transition-colors font-bold text-sm"
                   >
                     <Trash2 className="w-4 h-4" />
-                    Deaktiver bruker
+                    SLETT PERMANENT
+                </button>
+
+                 <button 
+                    onClick={() => {
+                        handleDeleteUser(selectedUser.id, false);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium text-sm"
+                  >
+                    <Ban className="w-4 h-4" />
+                    Deaktiver (Soft Delete)
                 </button>
               </div>
             </div>

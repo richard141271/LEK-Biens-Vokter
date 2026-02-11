@@ -3,8 +3,14 @@
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { MapPin, Warehouse, Store, Truck, ArrowLeft } from 'lucide-react';
+import { MapPin, Warehouse, Store, Truck, ArrowLeft, Map as MapIcon, X } from 'lucide-react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+
+const Map = dynamic(() => import('@/components/Map'), { 
+  ssr: false,
+  loading: () => <div className="h-full w-full bg-gray-100 animate-pulse rounded-lg flex items-center justify-center text-gray-400">Laster kart...</div>
+});
 
 export default function EditApiaryPage({ params }: { params: { id: string } }) {
   const [name, setName] = useState('');
@@ -14,6 +20,7 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
   const [registrationNumber, setRegistrationNumber] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -196,14 +203,28 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none h-24 resize-none mb-3"
             />
 
-            <button
-                type="button"
-                onClick={handleGetLocation}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-blue-50 text-blue-700 font-bold rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors"
-            >
-                <MapPin className="w-5 h-5" />
-                {coordinates ? 'Oppdater GPS-posisjon' : 'Hent min posisjon (GPS)'}
-            </button>
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              <button
+                  type="button"
+                  onClick={handleGetLocation}
+                  disabled={saving}
+                  className="flex items-center justify-center gap-2 py-3 bg-blue-50 text-blue-700 font-bold rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors"
+              >
+                  <MapPin className="w-5 h-5" />
+                  {coordinates ? 'Oppdater (GPS)' : 'Hent (GPS)'}
+              </button>
+              
+              <button
+                  type="button"
+                  onClick={() => setShowMapPicker(true)}
+                  disabled={saving}
+                  className="flex items-center justify-center gap-2 py-3 bg-green-50 text-green-700 font-bold rounded-lg border border-green-100 hover:bg-green-100 transition-colors"
+              >
+                  <MapIcon className="w-5 h-5" />
+                  Velg i kart
+              </button>
+            </div>
+
             {coordinates && (
                 <p className="text-xs text-center text-gray-500 mt-2 font-mono">
                     Lagret: {coordinates}
@@ -220,6 +241,86 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
           </button>
         </form>
       </main>
+
+      {/* Map Picker Modal */}
+      {showMapPicker && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg h-[80vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-white z-10">
+              <h3 className="font-bold text-lg text-gray-900">Velg posisjon</h3>
+              <button 
+                onClick={() => setShowMapPicker(false)}
+                className="p-2 hover:bg-gray-100 rounded-full text-gray-500"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="flex-1 relative bg-gray-100">
+               <Map 
+                 center={coordinates ? [parseFloat(coordinates.split(',')[0]), parseFloat(coordinates.split(',')[1])] : [59.9139, 10.7522]} // Default to Oslo or current coords
+                 zoom={coordinates ? 15 : 10}
+                 onMapClick={(lat, lng) => {
+                   const coordString = `${lat},${lng}`;
+                   setCoordinates(coordString);
+                   if (!locationStr || locationStr.startsWith('Koordinater:')) {
+                     setLocationStr(`Koordinater: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+                   }
+                   setShowMapPicker(false);
+                 }}
+                 markers={coordinates ? [{
+                   id: 'selected',
+                   position: [parseFloat(coordinates.split(',')[0]), parseFloat(coordinates.split(',')[1])],
+                   title: 'Valgt posisjon',
+                   type: 'user'
+                 }] : []}
+               />
+               
+               <div className="absolute top-4 left-4 right-14 z-[1000] flex gap-2">
+                 <button 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        if (!navigator.geolocation) {
+                            alert("Geolokasjon støttes ikke");
+                            return;
+                        }
+                        const btn = e.currentTarget;
+                        const originalText = btn.innerText;
+                        btn.innerText = "Henter...";
+                        
+                        navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                                const { latitude, longitude } = position.coords;
+                                // We can't easily pan the map programmatically without a ref to the map instance
+                                // But we can set the marker and close, OR we need to pass a 'center' prop that updates.
+                                // The Map component updates view when 'center' changes.
+                                const coordString = `${latitude},${longitude}`;
+                                setCoordinates(coordString); // This updates the center prop
+                                btn.innerText = originalText;
+                            },
+                            (error) => {
+                                alert("Kunne ikke hente posisjon");
+                                btn.innerText = originalText;
+                            }
+                        );
+                    }}
+                    className="bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-lg text-sm font-bold text-blue-700 border border-blue-100 flex items-center gap-2"
+                 >
+                    <MapPin className="w-4 h-4" />
+                    Hent min posisjon
+                 </button>
+               </div>
+
+               <div className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none z-[1000]">
+                 <div className="bg-white/90 backdrop-blur px-4 py-2 rounded-full shadow-lg text-sm font-medium text-gray-700 pointer-events-auto border border-gray-200">
+                   Klikk i kartet for å velge posisjon
+                 </div>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

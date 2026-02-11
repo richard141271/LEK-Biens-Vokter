@@ -607,17 +607,18 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
               <p className="text-sm text-gray-500">{apiary.apiary_number}</p>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <Link
               href={`/apiaries/${params.id}/edit`}
-              className="p-2 hover:bg-gray-100 text-gray-600 rounded-full"
+              className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm font-medium"
               title="Rediger lokasjon"
             >
-              <Edit className="w-5 h-5" />
+              <Edit className="w-4 h-4" />
+              <span>Rediger</span>
             </Link>
             <button 
               onClick={handleDeleteApiary}
-              className="p-2 hover:bg-red-50 text-red-500 rounded-full"
+              className="p-2 hover:bg-red-50 text-red-500 rounded-full transition-colors"
               title="Slett lokasjon"
             >
               <Trash2 className="w-5 h-5" />

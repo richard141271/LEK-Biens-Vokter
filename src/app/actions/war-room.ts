@@ -7,6 +7,33 @@ import { getMailService } from '@/services/mail';
 
 const ADMIN_EMAIL = 'richard141271@gmail.com';
 
+async function checkWarRoomAccess(userId: string) {
+    const adminVerifier = createAdminClient();
+    
+    // Check auth metadata first
+    const { data: { user: authUser } } = await adminVerifier.auth.admin.getUserById(userId);
+    if (!authUser) return false;
+
+    // Check strict Richard email
+    if (authUser.email === 'richard141271@gmail.com') return true;
+
+    // Check profile roles
+    const { data: profile } = await adminVerifier
+        .from('profiles')
+        .select('role, is_founder, is_course_friend')
+        .eq('id', userId)
+        .single();
+    
+    if (profile?.role === 'admin') return true;
+    if (profile?.is_founder) return true;
+    if (profile?.is_course_friend) return true;
+
+    // Check metadata as fallback/primary for K/V
+    if (authUser.user_metadata?.is_course_friend) return true;
+
+    return false;
+}
+
 async function notifyAdmin(subject: string, content: string) {
     // Disabled by user request: "jeg vil heller ha røde prikker i appen... så ikke eposten min fylles med driiit"
     return;
@@ -58,9 +85,12 @@ export async function getWarRoomFeed() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
 
+    const hasAccess = await checkWarRoomAccess(user.id);
+    if (!hasAccess) return { error: 'Ingen tilgang til War Room' };
+
     const adminClient = createAdminClient();
 
-    // Check admin role properly
+    // Check admin role properly for UI flags
     const { data: profile } = await adminClient
         .from('profiles')
         .select('role')
@@ -149,9 +179,13 @@ export async function deleteWarRoomPost(postId: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Unauthorized' };
 
+    const hasAccess = await checkWarRoomAccess(user.id);
+    if (!hasAccess) return { error: 'Unauthorized' };
+
     const adminClient = createAdminClient();
     
-    // Check admin role
+    // Check admin role (Only admin can delete others' posts, but users can delete their own?)
+    // Assuming delete is admin only based on original code
     const { data: profile } = await adminClient
         .from('profiles')
         .select('role')
@@ -159,7 +193,11 @@ export async function deleteWarRoomPost(postId: string) {
         .single();
 
     if (profile?.role !== 'admin' && user.email !== 'richard141271@gmail.com') {
-        return { error: 'Unauthorized' };
+        // Allow deleting own post?
+        const { data: post } = await adminClient.from('warroom_posts').select('user_id').eq('id', postId).single();
+        if (post?.user_id !== user.id) {
+            return { error: 'Unauthorized' };
+        }
     }
     
     // Soft delete
@@ -179,16 +217,18 @@ export async function editWarRoomPost(postId: string, content: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Unauthorized' };
 
+    const hasAccess = await checkWarRoomAccess(user.id);
+    if (!hasAccess) return { error: 'Unauthorized' };
+
     const adminClient = createAdminClient();
     
-    // Check admin role
-    const { data: profile } = await adminClient
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-    if (profile?.role !== 'admin' && user.email !== 'richard141271@gmail.com') {
+    // Check ownership or admin
+    const { data: post } = await adminClient.from('warroom_posts').select('user_id').eq('id', postId).single();
+    const { data: profile } = await adminClient.from('profiles').select('role').eq('id', user.id).single();
+    
+    const isAdmin = profile?.role === 'admin' || user.email === 'richard141271@gmail.com';
+    
+    if (!isAdmin && post?.user_id !== user.id) {
         return { error: 'Unauthorized' };
     }
     
@@ -206,6 +246,9 @@ export async function postWarRoomEntry(type: WarRoomPostType, content: string) {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
+
+    const hasAccess = await checkWarRoomAccess(user.id);
+    if (!hasAccess) return { error: 'Ingen tilgang' };
 
     if (!content.trim()) return { error: 'Content cannot be empty' };
 
@@ -297,6 +340,9 @@ export async function updateUserStatus(workingOn: string, statusColor: WarRoomSt
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
+
+    const hasAccess = await checkWarRoomAccess(user.id);
+    if (!hasAccess) return { error: 'Ingen tilgang' };
 
     const adminClient = createAdminClient();
 
@@ -411,6 +457,9 @@ export async function setDailyFocus(text: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
 
+    const hasAccess = await checkWarRoomAccess(user.id);
+    if (!hasAccess) return { error: 'Ingen tilgang' };
+
     const adminClient = createAdminClient();
     const today = getOsloDate(); // YYYY-MM-DD in Oslo
     
@@ -444,6 +493,14 @@ export async function setDailyFocus(text: string) {
 }
 
 export async function getWarRoomStats() {
+    // Note: Stats are public info for authorized users
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { stats: {} }; // Return empty if not logged in
+
+    const hasAccess = await checkWarRoomAccess(user.id);
+    if (!hasAccess) return { stats: {} };
+
     const adminClient = createAdminClient();
     const todayISO = getOsloStartOfDayISO();
 

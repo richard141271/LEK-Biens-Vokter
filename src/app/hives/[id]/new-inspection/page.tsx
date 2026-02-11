@@ -34,6 +34,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [weather, setWeather] = useState('');
   const [temperature, setTemperature] = useState('');
   const [weatherLoading, setWeatherLoading] = useState(false);
+  const [coordinates, setCoordinates] = useState<{lat: number, lng: number} | null>(null);
 
   // Image Upload State
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -150,7 +151,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       const { data, error } = await supabase
         .from('hives')
-        .select('name, hive_number')
+        .select('name, hive_number, apiary_id')
         .eq('id', params.id)
         .single();
       
@@ -171,6 +172,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       setWeatherLoading(true);
       navigator.geolocation.getCurrentPosition(async (position) => {
         const { latitude, longitude } = position.coords;
+        setCoordinates({ lat: latitude, lng: longitude });
         try {
           const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&wind_speed_unit=ms`);
           const weatherData = await response.json();
@@ -280,6 +282,22 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
 
       const { data: { user } } = await supabase.auth.getUser();
+
+      // Update Apiary Location if we have coordinates
+      if (coordinates && hive?.apiary_id) {
+          const { error: apiaryError } = await supabase
+              .from('apiaries')
+              .update({
+                  latitude: coordinates.lat,
+                  longitude: coordinates.lng
+              })
+              .eq('id', hive.apiary_id);
+              
+          if (apiaryError) {
+              console.error('Kunne ikke oppdatere bigårdens posisjon:', apiaryError);
+              // Don't stop inspection submission just because of this
+          }
+      }
 
       let imageUrl = null;
       if (selectedImage) {

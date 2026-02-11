@@ -39,35 +39,65 @@ export async function getMattilsynetDashboardData() {
 
     const adminClient = createAdminClient();
 
-    // 1. Fetch Alerts
-    const { data: alerts, error: alertError } = await adminClient
-      .from('hive_logs')
-      .select(`
-        *,
-        reporter:user_id (
-          full_name,
-          phone_number,
-          email
-        ),
-        hives (
-          hive_number,
-          apiary_id,
-          apiaries (
-            name,
-            location
+    // 1. Fetch Alerts with safe error handling
+    let activeAlerts: any[] = [];
+    
+    try {
+      // First fetch the logs without the user join to avoid relationship errors
+      const { data: rawAlerts, error: alertError } = await adminClient
+        .from('hive_logs')
+        .select(`
+          *,
+          hives (
+            hive_number,
+            apiary_id,
+            apiaries (
+              name,
+              location
+            )
           )
-        )
-      `)
-      .eq('action', 'SYKDOM')
-      .order('created_at', { ascending: false });
+        `)
+        .eq('action', 'SYKDOM')
+        .order('created_at', { ascending: false });
 
-    if (alertError) {
-      debug.errors.push(`Alerts error: ${alertError.message}`);
-    } else {
-      debug.counts.rawAlerts = alerts?.length || 0;
+      if (alertError) {
+        console.error('Alerts fetch error:', alertError);
+        debug.errors.push(`Alerts error: ${alertError.message}`);
+      } else if (rawAlerts) {
+        debug.counts.rawAlerts = rawAlerts.length;
+        
+        // Fetch reporters (users) manually to be safe
+        const userIds = Array.from(new Set(rawAlerts.map(a => a.user_id).filter(Boolean)));
+        
+        let reportersMap: Record<string, any> = {};
+        
+        if (userIds.length > 0) {
+            const { data: reporters } = await adminClient
+                .from('profiles')
+                .select('id, full_name, email, phone_number')
+                .in('id', userIds);
+                
+            if (reporters) {
+                reporters.forEach(r => {
+                    reportersMap[r.id] = r;
+                });
+            }
+        }
+
+        // Combine data
+        const combinedAlerts = rawAlerts.map(alert => ({
+            ...alert,
+            reporter: reportersMap[alert.user_id] || { full_name: 'Ukjent', email: '', phone_number: '' }
+        }));
+
+        // Filter in memory to handle potential null statuses safely
+        activeAlerts = combinedAlerts.filter(a => !a.admin_status || a.admin_status !== 'resolved');
+      }
+    } catch (e: any) {
+      console.error('Alerts fetch exception:', e);
+      debug.errors.push(`Alerts exception: ${e.message}`);
     }
-
-    const activeAlerts = alerts?.filter(a => !a.admin_status || a.admin_status !== 'resolved') || [];
+    
     debug.counts.activeAlerts = activeAlerts.length;
 
     // 2. Fetch Stats

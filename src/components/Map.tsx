@@ -1,6 +1,6 @@
 'use client';
 
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useEffect } from 'react';
@@ -17,6 +17,16 @@ const icon = L.icon({
 function ChangeView({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap();
   map.setView(center, zoom);
+  return null;
+}
+
+// Helper to handle map clicks
+function MapEvents({ onClick }: { onClick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
   return null;
 }
 
@@ -47,6 +57,7 @@ const Map = ({ center, zoom = 13, markers = [], circles = [], onMapClick }: MapP
       scrollWheelZoom={true}
     >
       <ChangeView center={center} zoom={zoom} />
+      {onMapClick && <MapEvents onClick={onMapClick} />}
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
