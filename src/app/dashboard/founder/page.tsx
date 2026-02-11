@@ -26,6 +26,17 @@ export default async function FounderPage() {
     }
 
     if (!status.profile) {
+        // Check if course friend (should be redirected to community)
+        const { data: userProfile } = await supabase
+            .from('profiles')
+            .select('is_course_friend')
+            .eq('id', user.id)
+            .single();
+
+        if (userProfile?.is_course_friend) {
+            redirect('/dashboard/founder/community');
+        }
+
         // User has access but no founder profile? 
         // This might happen if is_founder is true but founder_profiles entry missing.
         // Or if they are not is_founder at all (but RLS might block reading founder_profiles anyway).

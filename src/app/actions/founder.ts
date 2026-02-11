@@ -15,7 +15,7 @@ export async function getFounderStatus() {
     .from('founder_profiles')
     .select('*')
     .eq('id', user.id)
-    .single();
+    .maybeSingle();
 
   if (error) return { error: error.message };
 

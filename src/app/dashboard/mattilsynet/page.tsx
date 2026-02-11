@@ -17,7 +17,6 @@ export default function MattilsynetDashboard() {
     inspections: 0,
     apiaries: 0
   });
-  const [debugInfo, setDebugInfo] = useState<any>(null);
   const supabase = createClient();
   const router = useRouter();
 
@@ -60,10 +59,6 @@ export default function MattilsynetDashboard() {
     try {
         const result = await getMattilsynetDashboardData();
         
-        if (result.debug) {
-            setDebugInfo(result.debug);
-        }
-
         if (result.error) {
             console.error("Error fetching mattilsynet data:", result.error);
             return;
@@ -353,24 +348,6 @@ export default function MattilsynetDashboard() {
           </Link>
 
         </div>
-
-        {/* Debug Info - Only visible if active or specific user, but for now always visible to help diagnose */}
-        {debugInfo && (
-            <div className="mt-8 p-4 bg-slate-900 text-green-400 font-mono text-xs rounded-lg overflow-auto">
-                <h4 className="font-bold border-b border-green-800 mb-2 pb-1">Debug Info (Mattilsynet)</h4>
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <strong>Counts:</strong>
-                        <pre>{JSON.stringify(debugInfo.counts, null, 2)}</pre>
-                    </div>
-                    <div>
-                        <strong>User:</strong> {debugInfo.user}<br/>
-                        <strong>Access:</strong> {debugInfo.access}<br/>
-                        <strong>Errors:</strong> {debugInfo.errors.length > 0 ? debugInfo.errors.join(', ') : 'None'}
-                    </div>
-                </div>
-            </div>
-        )}
       </main>
     </div>
   );

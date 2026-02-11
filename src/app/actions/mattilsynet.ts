@@ -164,9 +164,6 @@ export async function getIncidentData(incidentId: string) {
       .from('hive_logs')
       .select(`
         *,
-        reporter:user_id (
-            id, full_name, email, phone_number
-        ),
         hives (
             id, hive_number,
             apiaries (
@@ -181,6 +178,22 @@ export async function getIncidentData(incidentId: string) {
         debug.errors.push(`Alert fetch error: ${alertError.message}`);
         return { error: 'Fant ikke hendelsen', debug, success: false };
     }
+
+    // Fetch reporter manually
+    let reporter = null;
+    if (alert.user_id) {
+        const { data: userProfile } = await adminClient
+            .from('profiles')
+            .select('id, full_name, email, phone_number')
+            .eq('id', alert.user_id)
+            .single();
+        reporter = userProfile;
+    }
+
+    const alertWithReporter = {
+        ...alert,
+        reporter: reporter || { full_name: 'Ukjent', email: '', phone_number: '' }
+    };
 
     // 2. Fetch All Apiaries for Map
     const { data: apiaries, error: apiariesError } = await adminClient
@@ -197,10 +210,52 @@ export async function getIncidentData(incidentId: string) {
     debug.success = true;
     debug.apiaryCount = apiaries?.length || 0;
 
-    return { alert, apiaries, debug, success: true };
-
+    return { alert: alertWithReporter, apiaries, debug, success: true };
   } catch (e: any) {
     debug.errors.push(`Catch: ${e.message}`);
     return { error: 'Server error', debug, success: false };
   }
+}
+
+export async function getAllAlerts() {
+    const adminClient = createAdminClient();
+    try {
+        const { data: alerts, error } = await adminClient
+            .from('hive_logs')
+            .select(`
+                *,
+                hives (
+                    hive_number,
+                    apiaries (name, location)
+                )
+            `)
+            .eq('action', 'SYKDOM')
+            .order('created_at', { ascending: false });
+
+        if (error) return { error: error.message };
+
+        // Fetch reporters
+        const userIds = Array.from(new Set(alerts.map(a => a.user_id).filter(Boolean)));
+        let reportersMap: Record<string, any> = {};
+        
+        if (userIds.length > 0) {
+            const { data: reporters } = await adminClient
+                .from('profiles')
+                .select('id, full_name, email')
+                .in('id', userIds);
+                
+            if (reporters) {
+                reporters.forEach(r => reportersMap[r.id] = r);
+            }
+        }
+
+        const enrichedAlerts = alerts.map(alert => ({
+            ...alert,
+            reporter: reportersMap[alert.user_id] || { full_name: 'Ukjent' }
+        }));
+
+        return { alerts: enrichedAlerts };
+    } catch (e: any) {
+        return { error: e.message };
+    }
 }

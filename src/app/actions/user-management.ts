@@ -373,6 +373,7 @@ export async function getUsers() {
 
       return {
           ...p,
+          email: authUser?.email || p.email, // Ensure email is populated from Auth
           is_course_friend: isCourseFriend
       };
     });

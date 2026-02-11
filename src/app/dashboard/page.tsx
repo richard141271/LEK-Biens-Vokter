@@ -577,8 +577,8 @@ export default function DashboardPage() {
               )}
 
               {/* Kursvenn Card (Only if not Founder) */}
-              {profile?.is_course_friend && !profile?.is_founder && (
-                <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-3 relative ${!profile?.email_enabled ? 'col-span-2' : ''}`}>
+              {profile?.is_course_friend && (
+          <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-3 relative ${!profile?.email_enabled ? 'col-span-2' : ''}`}>
                     <div className="flex items-center gap-3 mb-2">
                         <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
                             <GraduationCap className="w-4 h-4" />
