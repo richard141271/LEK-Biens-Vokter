@@ -247,12 +247,48 @@ export async function getIncidentData(incidentId: string) {
 export async function updateIncidentStatus(id: string, status: string) {
     const adminClient = createAdminClient();
     try {
-        const { error } = await adminClient
+        // 1. Update the main incident status
+        const { data: incident, error } = await adminClient
             .from('hive_logs')
             .update({ admin_status: status })
-            .eq('id', id);
+            .eq('id', id)
+            .select()
+            .single();
         
         if (error) throw error;
+
+        // 2. If resolving, also resolve associated neighbor alerts
+        if (status === 'resolved' && incident) {
+            // Extract disease type from details string "Sykdom: X, ..."
+            const diseaseMatch = incident.details.match(/Sykdom: (.*?)($|,)/);
+            const disease = diseaseMatch ? diseaseMatch[1].trim() : null;
+
+            if (disease) {
+                const incidentTime = new Date(incident.created_at).getTime();
+                // Look for alerts created within a short window (e.g., -10s to +1 hour) around the report
+                // Neighbor alerts are created immediately after, so +1 hour is generous but safe
+                const minTime = new Date(incidentTime - 10000).toISOString();
+                const maxTime = new Date(incidentTime + 60 * 60 * 1000).toISOString();
+
+                const { error: neighborError } = await adminClient
+                    .from('hive_logs')
+                    .update({ admin_status: 'resolved' })
+                    .eq('action', 'SYKDOM')
+                    .eq('shared_with_mattilsynet', false)
+                    .ilike('details', `%NABOVARSEL: Smitte (${disease})%`)
+                    .gte('created_at', minTime)
+                    .lte('created_at', maxTime)
+                    .is('admin_status', null); // Only update those not already handled
+
+                if (neighborError) {
+                    console.error("Failed to resolve neighbor alerts:", neighborError);
+                    // We don't fail the main operation, just log the error
+                } else {
+                    console.log(`Resolved neighbor alerts for incident ${id} (Disease: ${disease})`);
+                }
+            }
+        }
+
         return { success: true };
     } catch (e: any) {
         console.error('Error updating status:', e);
