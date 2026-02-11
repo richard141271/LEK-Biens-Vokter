@@ -2,10 +2,10 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
-import { Map as MapIcon, Phone, Mail, User, AlertTriangle, CheckCircle, Clock, Ruler, AlertOctagon, FileText, Camera, Mic, Send, Edit, Trash2 } from 'lucide-react';
+import { Map as MapIcon, Phone, Mail, User, AlertTriangle, CheckCircle, Clock, Ruler, AlertOctagon, FileText, Camera, Mic, Send, Edit, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { getIncidentData } from '@/app/actions/mattilsynet';
+import { getIncidentData, updateIncidentStatus, updateIncidentDisease, sendZoneAlert } from '@/app/actions/mattilsynet';
 
 // Dynamic import for Map to avoid SSR issues
 const IncidentMap = dynamic(() => import('@/components/IncidentMap'), { 
@@ -35,7 +35,6 @@ function getCoordinates(location: string): [number, number] {
     }
 
     // Default random near Halden for demo if unknown
-    // In production, use Nominatim API
     return [59.1243 + (Math.random() - 0.5) * 0.1, 11.3875 + (Math.random() - 0.5) * 0.1];
 }
 
@@ -74,9 +73,13 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
     const [incidentStatus, setIncidentStatus] = useState<string>('investigating');
     const [mapCenter, setMapCenter] = useState<[number, number]>([59.1243, 11.3875]);
     const [showOtherApiariesOnMap, setShowOtherApiariesOnMap] = useState(false);
-    const [debugInfo, setDebugInfo] = useState<any>(null); // New debug state
+    const [debugInfo, setDebugInfo] = useState<any>(null);
     
-    const supabase = createClient();
+    // Alert Modal State
+    const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
+    const [alertMessage, setAlertMessage] = useState('');
+    const [sendingAlert, setSendingAlert] = useState(false);
+    const [alertSent, setAlertSent] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -88,9 +91,16 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
         }
     }, [alert, allApiaries, radius]);
 
+    // Update default alert message when disease name changes
+    useEffect(() => {
+        if (alert) {
+            const disease = alert.details?.split('Sykdom: ')[1]?.split(',')[0] || 'Sykdom';
+            setAlertMessage(`Viktig melding fra Mattilsynet:\n\nVi har oppdaget mistanke om ${disease} i ditt nærområde (innenfor ${radius/1000} km).\n\nVennligst sjekk dine bigårder for symptomer umiddelbart og rapporter status i appen.\n\nMvh,\nMattilsynet`);
+        }
+    }, [alert, radius]);
+
     async function fetchData() {
         try {
-            // Use Server Action instead of fetch
             const result = await getIncidentData(params.id);
             
             if (result.error || !result.success) {
@@ -103,7 +113,6 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
             const { alert: alertData, apiaries: apiariesData } = result;
 
             // Prepare data with coordinates
-            // Prioritize DB coordinates, fallback to location string matching
             let centerCoords: [number, number];
             if (alertData?.hives?.apiaries?.coordinates) {
                 const parts = alertData.hives.apiaries.coordinates.split(',');
@@ -118,28 +127,29 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
             
             setMapCenter(centerCoords);
 
+            // Logic to identify owner apiaries: Match by User ID first, then Email
+            const reporterId = alertData?.user_id || alertData?.reporter?.id;
+            const reporterEmail = alertData?.reporter?.email;
+
             const processedApiaries = (apiariesData || []).map((a: any) => ({
                 ...a,
-                isOwner: a.users?.email === alertData?.reporter?.email,
+                isOwner: (reporterId && a.user_id === reporterId) || (reporterEmail && a.users?.email === reporterEmail),
                 ...(() => {
-                    // Check DB coordinates first
                     if (a.coordinates) {
                         const parts = a.coordinates.split(',');
                         if (parts.length === 2) {
                             return { lat: parseFloat(parts[0]), lon: parseFloat(parts[1]) };
                         }
                     }
-                    // Fallback to location string matching
                     const [lat, lon] = getCoordinates(a.location || 'Ukjent');
                     return { lat, lon };
                 })()
-            })).filter((a: any) => a.id !== alertData?.hives?.apiaries?.id); // Exclude source apiary from "others"
+            })).filter((a: any) => a.id !== alertData?.hives?.apiaries?.id);
 
             setAlert(alertData);
             setAllApiaries(processedApiaries);
             setIncidentStatus(alertData?.admin_status || 'investigating');
             
-            // Set Debug Info
             setDebugInfo({
                 alertId: alertData?.id,
                 reporter: alertData?.reporter?.email,
@@ -158,14 +168,12 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
         }
     }
 
-    // Helper to extract image URL from details string
     function getImageUrl(details: string): string | null {
         if (!details) return null;
         const match = details.match(/Bilde: (https?:\/\/[^\s]+)/);
         return match ? match[1] : null;
     }
 
-    // Helper to extract AI details
     function getAiDetails(details: string): string | null {
         if (!details) return null;
         if (details.includes('[AI Analyse]')) {
@@ -192,17 +200,53 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
 
     async function handleStatusUpdate(newStatus: string) {
         try {
-             const { error } = await supabase
-                .from('hive_logs')
-                .update({ admin_status: newStatus })
-                .eq('id', params.id);
-            
-            if (error) throw error;
+            const result = await updateIncidentStatus(params.id, newStatus);
+            if (result.error) throw new Error(result.error);
             setIncidentStatus(newStatus);
-            // Optionally update UI logs
         } catch (e) {
             console.error("Failed to update status", e);
             alert("Kunne ikke oppdatere status");
+        }
+    }
+
+    async function handleDiseaseChange(newDisease: string) {
+        try {
+            // Clean "(Mistenkt)" from string if present for storage
+            const cleanDisease = newDisease.replace(' (Mistenkt)', '');
+            const result = await updateIncidentDisease(params.id, cleanDisease);
+            if (result.error) throw new Error(result.error);
+            
+            // Optimistically update local state
+            setAlert(prev => ({
+                ...prev,
+                details: prev.details.includes('Sykdom:') 
+                    ? prev.details.replace(/Sykdom: [^,]+/, `Sykdom: ${cleanDisease}`)
+                    : `Sykdom: ${cleanDisease}, ${prev.details}`
+            }));
+        } catch (e) {
+            console.error("Failed to update disease", e);
+            alert("Kunne ikke endre sykdomstype");
+        }
+    }
+
+    async function handleSendAlert() {
+        setSendingAlert(true);
+        try {
+            const emails = affectedList.map(a => a.users?.email).filter(Boolean);
+            const result = await sendZoneAlert(params.id, radius, emails, alertMessage);
+            
+            if (result.success) {
+                setAlertSent(true);
+                setTimeout(() => {
+                    setIsAlertModalOpen(false);
+                    setAlertSent(false);
+                }, 2000);
+            }
+        } catch (e) {
+            console.error("Failed to send alert", e);
+            alert("Kunne ikke sende varsel");
+        } finally {
+            setSendingAlert(false);
         }
     }
 
@@ -219,17 +263,29 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
     );
 
     const isResolved = incidentStatus === 'resolved';
-    const diseaseName = alert.details?.split('Sykdom: ')[1]?.split(',')[0] || 'Kalkyngel (Mistenkt)';
+    const rawDiseaseName = alert.details?.split('Sykdom: ')[1]?.split(',')[0] || 'Kalkyngel';
+    // Logic: If investigating, show as Suspected if it matches known types, otherwise just show name
+    const diseaseName = rawDiseaseName; 
+    
+    // Construct options dynamically to ensure current value exists
+    const diseases = ['Kalkyngel', 'Åpen yngelråte', 'Lukket yngelråte', 'Varroa'];
+    const currentDiseaseBase = diseases.find(d => diseaseName.includes(d)) || diseaseName;
+    
+    // Determine what to show in dropdown
+    // If we are investigating, we want to show "X (Mistenkt)"
+    const dropdownValue = incidentStatus === 'investigating' 
+        ? `${currentDiseaseBase} (Mistenkt)` 
+        : currentDiseaseBase;
 
     return (
-        <div className="min-h-screen bg-slate-50 pb-20">
+        <div className="min-h-screen bg-slate-50 pb-20 relative">
             {/* TOP BANNER */}
-            <div className={`w-full px-6 py-4 shadow-md flex flex-col md:flex-row justify-between items-center gap-4 ${isResolved ? 'bg-green-600' : 'bg-red-600'} text-white sticky top-0 z-50`}>
+            <div className={`w-full px-6 py-4 shadow-md flex flex-col md:flex-row justify-between items-center gap-4 ${isResolved ? 'bg-green-600' : 'bg-red-600'} text-white sticky top-0 z-40`}>
                 <div>
                     <div className="flex items-center gap-3 mb-1">
                         <AlertOctagon className="w-6 h-6 animate-pulse" />
                         <h1 className="text-xl font-bold uppercase tracking-wide">
-                            {isResolved ? 'HENDELSE AVSLUTTET' : 'AKTIV SMITTEHENDELSE'} – {alert.details?.split('Sykdom: ')[1]?.split(',')[0] || 'Ukjent sykdom'}
+                            {isResolved ? 'HENDELSE AVSLUTTET' : 'AKTIV SMITTEHENDELSE'} – {diseaseName}
                         </h1>
                     </div>
                     <p className="text-sm opacity-90 font-mono">
@@ -282,13 +338,17 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
                             </h2>
                             <div className="flex items-center gap-4">
                                 <select 
-                                    defaultValue={diseaseName}
+                                    value={dropdownValue}
+                                    onChange={(e) => handleDiseaseChange(e.target.value)}
                                     className="bg-white border border-slate-200 text-slate-700 text-xs font-bold py-1 px-2 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                                 >
-                                    <option>Kalkyngel (Mistenkt)</option>
-                                    <option>Åpen yngelråte</option>
-                                    <option>Lukket yngelråte</option>
-                                    <option>Varroa</option>
+                                    {diseases.map(d => (
+                                        <option key={d} value={`${d} (Mistenkt)`}>{d} (Mistenkt)</option>
+                                    ))}
+                                    <option disabled>──────────</option>
+                                    {diseases.map(d => (
+                                        <option key={`${d}-confirmed`} value={d}>{d} (Bekreftet)</option>
+                                    ))}
                                 </select>
                                 <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
                                     <Ruler className="w-4 h-4 text-slate-400" />
@@ -331,7 +391,10 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
                                 <AlertTriangle className="w-5 h-5 text-orange-500" />
                                 Berørte i sonen ({affectedList.length})
                             </h2>
-                            <button className="px-3 py-1.5 bg-red-100 text-red-700 text-xs font-bold rounded hover:bg-red-200 transition-colors flex items-center gap-2">
+                            <button 
+                                onClick={() => setIsAlertModalOpen(true)}
+                                className="px-3 py-1.5 bg-red-100 text-red-700 text-xs font-bold rounded hover:bg-red-200 transition-colors flex items-center gap-2"
+                            >
                                 <Mail className="w-3 h-3" />
                                 Send varsel til alle i sonen
                             </button>
@@ -596,7 +659,10 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
                                 Sende melding til birøkter
                                 <Send className="w-4 h-4 text-slate-400" />
                             </button>
-                            <button className="w-full py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-bold hover:bg-red-50 transition-colors text-left px-4 flex items-center justify-between">
+                            <button 
+                                onClick={() => handleStatusUpdate('resolved')}
+                                className="w-full py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-bold hover:bg-red-50 transition-colors text-left px-4 flex items-center justify-between"
+                            >
                                 Markere som falsk alarm
                                 <Trash2 className="w-4 h-4" />
                             </button>
@@ -605,6 +671,67 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
 
                 </div>
             </div>
+
+            {/* SEND ALERT MODAL */}
+            {isAlertModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+                        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <h3 className="font-bold text-lg flex items-center gap-2">
+                                <Mail className="w-5 h-5 text-red-600" />
+                                Send varsel til sikringssone
+                            </h3>
+                            <button onClick={() => setIsAlertModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 space-y-4">
+                            {!alertSent ? (
+                                <>
+                                    <div className="bg-amber-50 p-4 rounded-lg border border-amber-100 text-sm text-amber-800">
+                                        Du er i ferd med å sende varsel til <strong>{affectedList.length}</strong> birøktere innenfor en radius på <strong>{radius/1000} km</strong>.
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Meldingstekst</label>
+                                        <textarea 
+                                            value={alertMessage}
+                                            onChange={(e) => setAlertMessage(e.target.value)}
+                                            className="w-full h-40 p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                        />
+                                    </div>
+
+                                    <div className="flex justify-end gap-3 pt-2">
+                                        <button 
+                                            onClick={() => setIsAlertModalOpen(false)}
+                                            className="px-4 py-2 text-gray-600 font-bold text-sm hover:bg-gray-100 rounded-lg"
+                                        >
+                                            Avbryt
+                                        </button>
+                                        <button 
+                                            onClick={handleSendAlert}
+                                            disabled={sendingAlert}
+                                            className="px-6 py-2 bg-red-600 text-white font-bold text-sm rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+                                        >
+                                            {sendingAlert ? 'Sender...' : 'Send varsel'}
+                                            <Send className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="text-center py-8">
+                                    <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <CheckCircle className="w-8 h-8" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-gray-900 mb-2">Varsel sendt!</h3>
+                                    <p className="text-gray-500">Meldingen er sendt til {affectedList.length} mottakere.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

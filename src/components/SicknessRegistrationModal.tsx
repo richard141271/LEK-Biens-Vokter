@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Activity, X, Camera, ShieldCheck } from 'lucide-react';
+import { Activity, X, Camera, ShieldCheck, Mic, MicOff } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
+import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 
 interface SicknessRegistrationModalProps {
   isOpen: boolean;
@@ -244,13 +245,23 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Beskrivelse</label>
-                    <textarea 
-                        value={sicknessData.description}
-                        onChange={(e) => setSicknessData({...sicknessData, description: e.target.value})}
-                        placeholder="Beskriv hva du ser... (f.eks. mange døde bier, urolig sverm, tegn til sykdom)"
-                        className="w-full p-3 border border-gray-200 rounded-xl min-h-[80px] text-sm focus:ring-2 focus:ring-red-500 outline-none"
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Beskrivelse av symptomer</label>
+                    <div className="relative">
+                        <textarea 
+                            value={sicknessData.description}
+                            onChange={(e) => setSicknessData({...sicknessData, description: e.target.value})}
+                            placeholder="Beskriv hva du ser... (Du kan bruke stemmen)"
+                            className="w-full p-3 border border-gray-200 rounded-xl min-h-[80px] text-sm focus:ring-2 focus:ring-red-500 outline-none"
+                        />
+                        <button 
+                            type="button"
+                            onClick={toggleListening}
+                            className={`absolute bottom-3 right-3 p-2 rounded-full transition-colors ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                            title="Bruk stemme til tekst"
+                        >
+                            {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                        </button>
+                    </div>
                 </div>
 
                 <div>

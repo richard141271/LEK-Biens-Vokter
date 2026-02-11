@@ -1,7 +1,9 @@
 'use client';
 
 import { createClient } from '@/utils/supabase/client';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { parseVoiceCommand } from '@/utils/voice-parser';
+import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, Image as ImageIcon, X, Mic, MicOff } from 'lucide-react';
 import { useOffline } from '@/context/OfflineContext';
@@ -16,10 +18,66 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const { isOffline, saveInspection } = useOffline();
 
   // Voice State
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const [lastCommand, setLastCommand] = useState<string | null>(null);
 
-  // Form State
+  const handleVoiceCommand = (text: string) => {
+      console.log("Voice Command:", text);
+      const parsed = parseVoiceCommand(text);
+      let feedback: string[] = [];
+
+      // Update State based on parsed result
+      if (parsed.queenSeen !== undefined) {
+          setQueenSeen(parsed.queenSeen);
+          feedback.push(parsed.queenSeen ? 'Dronning sett' : 'Ingen dronning');
+      }
+
+      if (parsed.eggsSeen !== undefined) {
+          setEggsSeen(parsed.eggsSeen);
+          feedback.push(parsed.eggsSeen ? 'Egg sett' : 'Ingen egg');
+      }
+
+      if (parsed.honeyStores) {
+          setHoneyStores(parsed.honeyStores);
+          feedback.push(`Honning: ${parsed.honeyStores}`);
+      }
+
+      if (parsed.temperament) {
+          setTemperament(parsed.temperament);
+          feedback.push(`Gemytt: ${parsed.temperament}`);
+      }
+
+      if (parsed.broodCondition) {
+          setBroodCondition(parsed.broodCondition);
+          feedback.push(`Yngel: ${parsed.broodCondition}`);
+      }
+
+      if (parsed.status) {
+          setStatus(parsed.status);
+          feedback.push(`Status: ${parsed.status}`);
+      }
+
+      if (parsed.temperature) {
+          setTemperature(parsed.temperature);
+          feedback.push(`Temp: ${parsed.temperature}°C`);
+      }
+
+      if (parsed.weather) {
+          setWeather(parsed.weather);
+          feedback.push(`Vær: ${parsed.weather}`);
+      }
+
+      // Show feedback if we understood something
+      if (feedback.length > 0) {
+          setLastCommand(feedback.join(', '));
+          // Clear feedback after 4s
+          setTimeout(() => setLastCommand(null), 4000);
+      }
+
+      // Add everything to notes as well for safety
+      setNotes(prev => prev + (prev ? '\n' : '') + "Stemme: " + text);
+  };
+
+  const { isListening, toggleListening, isSupported } = useVoiceRecognition(handleVoiceCommand);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(new Date().toTimeString().split(' ')[0].substring(0, 5));
   const [queenSeen, setQueenSeen] = useState(false);
@@ -46,90 +104,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   useEffect(() => {
     fetchHiveAndWeather();
-    
-    // Auto-voice removed by user request
-    /*
-    if (autoVoice === 'true') {
-        setTimeout(() => {
-            startListening();
-        }, 3000); 
-    }
-    */
-  }, [params.id, autoVoice]);
+  }, [params.id]);
 
-  // Voice Logic
-  const startListening = () => {
-      if (typeof window !== 'undefined' && !recognitionRef.current) {
-          const { webkitSpeechRecognition, SpeechRecognition } = window as any;
-          const SpeechRecognitionConstructor = SpeechRecognition || webkitSpeechRecognition;
-          
-          if (SpeechRecognitionConstructor) {
-              const recognition = new SpeechRecognitionConstructor();
-              recognition.continuous = true; // Keep listening
-              recognition.lang = 'no-NO';
-              recognition.interimResults = false;
-              
-              recognition.onresult = (event: any) => {
-                  const last = event.results.length - 1;
-                  const text = event.results[last][0].transcript.toLowerCase();
-                  handleVoiceCommand(text);
-              };
 
-              recognition.onend = () => {
-                  // Auto-restart if we want continuous listening, or just stop
-                  // setIsListening(false);
-              };
-
-              recognitionRef.current = recognition;
-          }
-      }
-
-      if (recognitionRef.current) {
-          try {
-            recognitionRef.current.start();
-            setIsListening(true);
-          } catch (e) {
-              console.error(e);
-          }
-      }
-  };
-
-  const stopListening = () => {
-      if (recognitionRef.current) {
-          recognitionRef.current.stop();
-          setIsListening(false);
-      }
-  };
-
-  const handleVoiceCommand = (text: string) => {
-      console.log("Voice Command:", text);
-      
-      // Simple Keyword Matching
-      if (text.includes('dronning sett') || text.includes('dronning er her')) setQueenSeen(true);
-      if (text.includes('ingen dronning')) setQueenSeen(false);
-      
-      if (text.includes('egg sett') || text.includes('ser egg')) setEggsSeen(true);
-      
-      if (text.includes('lite honning')) setHoneyStores('lite');
-      if (text.includes('middels honning')) setHoneyStores('middels');
-      if (text.includes('mye honning')) setHoneyStores('mye');
-      
-      if (text.includes('rolig')) setTemperament('rolig');
-      if (text.includes('urolig')) setTemperament('urolig');
-      if (text.includes('aggressiv') || text.includes('sint')) setTemperament('aggressiv');
-
-      if (text.includes('svak')) setStatus('SVAK');
-      if (text.includes('død')) setStatus('DØD');
-      if (text.includes('ok') || text.includes('alt bra')) setStatus('OK');
-
-      if (text.includes('lagre') || text.includes('send inn')) {
-          // Trigger submit? Maybe dangerous to auto-submit
-          alert('Sa du lagre? Trykk på knappen for å bekrefte.');
-      }
-
-      // Add everything to notes as well for safety
-      setNotes(prev => prev + (prev ? '\n' : '') + "Stemme: " + text);
-  };
 
   const fetchHiveAndWeather = async () => {
     // 1. Fetch Hive Info
@@ -362,7 +339,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10">
+      <header className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button onClick={() => router.back()} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
             <ArrowLeft className="w-6 h-6 text-gray-600" />
@@ -377,7 +354,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         
         {/* Voice Toggle */}
         <button
-            onClick={isListening ? stopListening : startListening}
+            onClick={toggleListening}
             className={`p-3 rounded-full transition-all ${
                 isListening 
                 ? 'bg-red-500 text-white animate-pulse shadow-lg' 
@@ -389,6 +366,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       </header>
 
       <main className="p-4">
+        {/* Voice Feedback */}
+        {lastCommand && (
+          <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2 shadow-sm border border-green-200">
+            <Mic className="w-5 h-5" />
+            <span className="font-medium">Oppfattet: {lastCommand}</span>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6 max-w-lg mx-auto">
           
           {/* Date & Weather */}

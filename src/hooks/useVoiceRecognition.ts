@@ -1,0 +1,74 @@
+import { useState, useRef, useEffect, useCallback } from 'react';
+
+export function useVoiceRecognition(onResult: (text: string) => void) {
+  const [isListening, setIsListening] = useState(false);
+  const [isSupported, setIsSupported] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const onResultRef = useRef(onResult);
+
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const { webkitSpeechRecognition, SpeechRecognition } = window as any;
+        const SpeechRecognitionConstructor = SpeechRecognition || webkitSpeechRecognition;
+        
+        if (SpeechRecognitionConstructor) {
+            setIsSupported(true);
+            const recognition = new SpeechRecognitionConstructor();
+            recognition.continuous = true;
+            recognition.lang = 'no-NO';
+            recognition.interimResults = false;
+            
+            recognition.onresult = (event: any) => {
+                const last = event.results.length - 1;
+                const text = event.results[last][0].transcript;
+                onResultRef.current(text);
+            };
+
+            recognition.onend = () => {
+                setIsListening(false);
+            };
+
+            recognition.onerror = (event: any) => {
+                console.error("Speech recognition error", event.error);
+                setIsListening(false);
+            };
+
+            recognitionRef.current = recognition;
+        }
+    }
+  }, []);
+
+  const startListening = useCallback(() => {
+    if (recognitionRef.current) {
+        try {
+            recognitionRef.current.start();
+            setIsListening(true);
+        } catch (e) {
+            console.error("Could not start recognition", e);
+        }
+    }
+  }, []);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        setIsListening(false);
+    }
+  }, []);
+
+  const toggleListening = useCallback(() => {
+      // If we are effectively listening (state is true), stop.
+      // But we check ref to be sure.
+      if (isListening) {
+          stopListening();
+      } else {
+          startListening();
+      }
+  }, [isListening, startListening, stopListening]);
+
+  return { isListening, startListening, stopListening, toggleListening, isSupported };
+}

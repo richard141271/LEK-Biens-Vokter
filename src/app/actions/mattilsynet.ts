@@ -181,7 +181,12 @@ export async function getIncidentData(incidentId: string) {
 
     // Fetch reporter manually
     let reporter = null;
-    const userId = alert.user_id || alert.hives?.apiaries?.user_id;
+    let userId = alert.user_id;
+
+    // Fallback: If no user_id in log, try to get it from the apiary
+    if (!userId && alert.hives?.apiaries?.user_id) {
+        userId = alert.hives.apiaries.user_id;
+    }
 
     if (userId) {
         const { data: userProfile } = await adminClient
@@ -236,6 +241,79 @@ export async function getIncidentData(incidentId: string) {
     debug.errors.push(`Catch: ${e.message}`);
     return { error: 'Server error', debug, success: false };
   }
+}
+
+export async function updateIncidentStatus(id: string, status: string) {
+    const adminClient = createAdminClient();
+    try {
+        const { error } = await adminClient
+            .from('hive_logs')
+            .update({ admin_status: status })
+            .eq('id', id);
+        
+        if (error) throw error;
+        return { success: true };
+    } catch (e: any) {
+        console.error('Error updating status:', e);
+        return { error: e.message };
+    }
+}
+
+export async function updateIncidentDisease(id: string, disease: string) {
+    const adminClient = createAdminClient();
+    try {
+        // Fetch current details to preserve other info if needed, 
+        // but typically we just want to update the disease part.
+        // For simplicity, we'll assume we prepend/replace "Sykdom: X".
+        // However, standardizing on a separate column would be better long term.
+        // For now, let's update the details field string.
+        
+        const { data: current } = await adminClient
+            .from('hive_logs')
+            .select('details')
+            .eq('id', id)
+            .single();
+            
+        let newDetails = current?.details || '';
+        if (newDetails.includes('Sykdom:')) {
+            newDetails = newDetails.replace(/Sykdom: [^,]+/, `Sykdom: ${disease}`);
+        } else {
+            newDetails = `Sykdom: ${disease}, ${newDetails}`;
+        }
+
+        const { error } = await adminClient
+            .from('hive_logs')
+            .update({ details: newDetails })
+            .eq('id', id);
+            
+        if (error) throw error;
+        return { success: true };
+    } catch (e: any) {
+        return { error: e.message };
+    }
+}
+
+export async function dismissIncident(id: string) {
+    // Mark as resolved (falsk alarm)
+    return updateIncidentStatus(id, 'resolved');
+}
+
+export async function sendZoneAlert(incidentId: string, radius: number, emails: string[], message: string) {
+    // In a real app, this would use an email service (Resend, SendGrid).
+    // For now, we'll log it and return success to simulate.
+    console.log(`SENDING ALERT for ${incidentId} within ${radius}m`);
+    console.log(`Recipients (${emails.length}):`, emails);
+    console.log(`Message:`, message);
+    
+    // We could also log this action to the database
+    const adminClient = createAdminClient();
+    await adminClient.from('admin_logs').insert({
+        action: 'ZONE_ALERT_SENT',
+        details: `Sent to ${emails.length} recipients. Radius: ${radius}m. Msg: ${message.slice(0, 50)}...`,
+        target_id: incidentId
+    });
+
+    return { success: true, count: emails.length };
 }
 
 export async function getAllAlerts() {
