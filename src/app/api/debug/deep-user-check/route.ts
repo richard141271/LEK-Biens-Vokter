@@ -82,8 +82,8 @@ export async function GET() {
       const userId = authMatch?.id || profileMatch?.id || historicalId;
 
       // Check Data
-      const apiaryCount = userId ? apiaries?.filter(a => a.user_id === userId).length : 0;
-      const hiveCount = userId ? hives?.filter(h => h.user_id === userId).length : 0;
+      const apiaryCount = userId ? (apiaries?.filter(a => a.user_id === userId).length || 0) : 0;
+      const hiveCount = userId ? (hives?.filter(h => h.user_id === userId).length || 0) : 0;
 
       report.push({
         name_searched: name,

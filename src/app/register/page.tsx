@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Check, AlertCircle } from 'lucide-react';
+import { signup } from '@/app/actions/auth';
 
 export default function RegisterPage() {
   return (
@@ -144,57 +145,24 @@ function RegisterForm() {
     }
 
     try {
-      // 1. Sign Up User
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-          },
-        },
+      // Use Server Action for registration
+      const result = await signup({
+        ...formData,
+        role // Add role to the data
       });
 
-      if (authError) throw authError;
+      if (result.error) {
+        throw new Error(result.error);
+      }
 
-      if (authData.user) {
-        // 2. Create Profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: authData.user.id,
-            role: role,
-            full_name: formData.fullName,
-            address: formData.address,
-            postal_code: formData.postalCode,
-            city: formData.city,
-            phone_number: formData.phoneNumber,
-            is_norges_birokterlag_member: formData.isNorgesBirokterlagMember,
-            member_number: formData.memberNumber || null,
-            local_association: formData.localAssociation || null,
-            is_lek_honning_member: formData.isLekHonningMember,
-            interests: formData.interests,
-            beekeeping_type: formData.beekeepingType,
-            company_name: formData.companyName || null,
-            org_number: formData.orgNumber || null,
-            company_bank_account: formData.companyBankAccount || null,
-            company_address: formData.companyAddress || null,
-            private_bank_account: formData.privateBankAccount || null
-          });
-
-        if (profileError) {
-          console.error('Profile creation failed:', profileError);
-          // Don't throw here, let the user proceed but maybe warn? 
-          // Actually, if profile fails, dashboard might look empty. 
-          // But auth worked. We should redirect.
-        }
-
+      if (result.success) {
         // Use hard navigation to ensure clean state
         const next = searchParams.get('next');
         window.location.href = next || '/dashboard';
       }
     } catch (err: any) {
-      setError(err.message);
+      console.error('Registration error:', err);
+      setError(err.message || 'En ukjent feil oppstod');
     } finally {
       setLoading(false);
     }

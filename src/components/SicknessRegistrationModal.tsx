@@ -19,6 +19,13 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  const { isListening, toggleListening, isSupported } = useVoiceRecognition((text) => {
+      setSicknessData(prev => ({
+          ...prev,
+          description: prev.description ? `${prev.description} ${text}` : text
+      }));
+  });
+
   const [sicknessData, setSicknessData] = useState({
     hiveId: '',
     varroaCount: '',

@@ -239,7 +239,7 @@ Mattilsynet`
             if (result.error) throw new Error(result.error);
             
             // Optimistically update local state
-            setAlert(prev => ({
+            setAlert((prev: any) => ({
                 ...prev,
                 details: prev.details.includes('Sykdom:') 
                     ? prev.details.replace(/Sykdom: [^,]+/, `Sykdom: ${cleanDisease}`)

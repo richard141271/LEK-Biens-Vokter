@@ -319,12 +319,13 @@ export async function sendZoneAlert(incidentId: string, radius: number, emails: 
             // Send individually to hide other recipients (BCC style) or just loop
             // For now, we'll loop to ensure delivery
             const emailPromises = emails.map(email => 
-                mailService.sendMail({
-                    to: email,
-                    subject: 'VIKTIG MELDING FRA MATTILSYNET - SMITTEVARSEL',
-                    text: message,
-                    html: message.replace(/\n/g, '<br/>')
-                })
+                mailService.sendMail(
+                    'Mattilsynet', // fromAlias
+                    email, // toAlias
+                    'VIKTIG MELDING FRA MATTILSYNET - SMITTEVARSEL', // subject
+                    message, // body
+                    'system-alert' // userId (system)
+                )
             );
             
             await Promise.allSettled(emailPromises);

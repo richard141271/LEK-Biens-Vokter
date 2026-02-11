@@ -703,8 +703,8 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* RENTAL STATUS - HIDDEN PER USER REQUEST */}
-          {/* <div className="bg-white rounded-xl border border-honey-200 shadow-sm p-4 mb-2">
+          {/* RENTAL STATUS */}
+          <div className="bg-white rounded-xl border border-honey-200 shadow-sm p-4 mb-2">
             <div className="flex justify-between items-start mb-2">
               <div>
                 <h3 className="font-bold text-gray-900 text-sm">Min Leieavtale</h3>
@@ -805,17 +805,23 @@ export default function DashboardPage() {
                         ? new Date(activeRental.created_at).toLocaleDateString('no-NO')
                         : new Date().toLocaleDateString('no-NO');
 
+                      // Use profile data as fallback if activeRental fields are missing
+                      const name = activeRental.contact_name || profile?.full_name || '___________';
+                      const address = activeRental.contact_address || profile?.address || '___________';
+                      const phone = activeRental.contact_phone || profile?.phone_number || '___________';
+                      const email = activeRental.contact_email || profile?.email || '___________';
+
                       const contractText = RENTAL_CONTRACT_TEXT
-                        .replace(/\[LEIETAKER_NAVN\]/g, activeRental.contact_name || '___________')
-                        .replace('[LEIETAKER_ADRESSE]', activeRental.contact_address || '___________')
-                        .replace('[LEIETAKER_TLF]', activeRental.contact_phone || '___________')
-                        .replace('[LEIETAKER_EPOST]', activeRental.contact_email || '___________')
+                        .replace(/\[LEIETAKER_NAVN\]/g, name)
+                        .replace('[LEIETAKER_ADRESSE]', address)
+                        .replace('[LEIETAKER_TLF]', phone)
+                        .replace('[LEIETAKER_EPOST]', email)
                         .replace('[ANTALL]', String(activeRental.hive_count || 1))
                         .replace('[DAGENS DATO]', contractDate)
                         .replace('[SESONG SLUTT]', getSeasonEndDate())
                         .replace(
                           'Representerer (klasse/lag/familie osv.): [LEIETAKER_NAVN] (Privat)',
-                          `Representerer: ${activeRental.contact_organization || (activeRental.contact_name ? `${activeRental.contact_name} (Privat)` : '___________')}`
+                          `Representerer: ${activeRental.contact_organization || (name ? `${name} (Privat)` : '___________')}`
                         )
                         .replace('[PRIS_MND]', String(monthlyPrice))
                         .replace('[PRIS_TOTAL]', String(activeRental.total_price || 0));
@@ -832,7 +838,7 @@ export default function DashboardPage() {
                 </div>
             </div>
             )}
-          </div> */}
+          </div>
 
           {/* MISSIONS ALERT (For Beekeepers) */}
           {pendingMissionsCount > 0 && profile?.role === 'beekeeper' && (
