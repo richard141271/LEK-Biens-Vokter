@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { deleteUser, reactivateUser, updateUserRole as updateUserRoleAction, getUsers, assignEmail, toggleEmailAccess, updateUserPassword, toggleFounderStatus, toggleCourseFriendStatus, hardDeleteUser } from '@/app/actions/user-management';
-import { cleanupTestUsers } from '@/app/actions/cleanup';
 
 export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
@@ -47,10 +46,6 @@ export default function AdminUsersPage() {
   const [passwordUser, setPasswordUser] = useState<any | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
-
-  // Cleanup State
-  const [isCleaning, setIsCleaning] = useState(false);
-  const [cleanupResult, setCleanupResult] = useState<any>(null);
 
   const supabase = createClient();
 
@@ -388,30 +383,6 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleCleanup = async (dryRun: boolean) => {
-    if (!dryRun && !confirm('ER DU SIKKER? Dette vil slette alle testbrukere UTEN data permanent!')) return;
-    
-    setIsCleaning(true);
-    setCleanupResult(null);
-    try {
-      const result = await cleanupTestUsers(dryRun);
-      if (result.error) {
-        setMessage({ text: 'Feil under rydding: ' + result.error, type: 'error' });
-      } else {
-        if (dryRun) {
-            setCleanupResult(result);
-        } else {
-            setMessage({ text: `Slettet ${result.results?.length} brukere`, type: 'success' });
-            fetchUsers(); // Refresh list
-        }
-      }
-    } catch (e: any) {
-      setMessage({ text: 'Feil: ' + e.message, type: 'error' });
-    } finally {
-      setIsCleaning(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto">
@@ -425,43 +396,7 @@ export default function AdminUsersPage() {
                     <p className="text-gray-500">Administrer tilganger og roller</p>
                 </div>
             </div>
-            <div className="flex gap-2">
-                <button
-                    onClick={() => handleCleanup(true)}
-                    disabled={isCleaning}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                    {isCleaning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                    Simuler Sletting
-                </button>
-            </div>
         </div>
-
-        {cleanupResult && (
-            <div className="mb-6 bg-white p-6 rounded-xl border border-yellow-200 shadow-sm">
-                <h3 className="font-bold text-lg mb-2">Simulering av sletting</h3>
-                <p className="mb-4 text-gray-600">{cleanupResult.message}</p>
-                <div className="bg-gray-50 p-4 rounded-lg mb-4 max-h-60 overflow-y-auto text-sm font-mono">
-                    {cleanupResult.users?.map((u: string, i: number) => (
-                        <div key={i}>{u}</div>
-                    ))}
-                </div>
-                <div className="flex justify-end gap-3">
-                    <button 
-                        onClick={() => setCleanupResult(null)}
-                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                    >
-                        Avbryt
-                    </button>
-                    <button 
-                        onClick={() => handleCleanup(false)}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold"
-                    >
-                        UTFØR SLETTING NÅ
-                    </button>
-                </div>
-            </div>
-        )}
 
         {message && (
           <div className={`mb-6 p-4 rounded-lg ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
