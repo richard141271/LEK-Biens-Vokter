@@ -416,7 +416,17 @@ export default function RentHivePage() {
         
         <div className="max-w-4xl mx-auto relative z-10">
           <button 
-            onClick={() => step === 'info' ? router.push('/') : setStep('info')}
+            onClick={() => {
+              if (step !== 'info') {
+                setStep('info');
+                return;
+              }
+              if (user) {
+                router.push('/dashboard');
+              } else {
+                router.push('/');
+              }
+            }}
             className="mb-6 flex items-center gap-2 text-white/80 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
