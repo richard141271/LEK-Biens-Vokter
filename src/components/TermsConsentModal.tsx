@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 
 export default function TermsConsentModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -10,8 +10,26 @@ export default function TermsConsentModal() {
   const [checked, setChecked] = useState(false);
   const supabase = createClient();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
+    // Only show modal on app-specific routes
+    const isAppRoute = pathname?.startsWith('/dashboard') || 
+                       pathname?.startsWith('/hives') || 
+                       pathname?.startsWith('/apiaries') || 
+                       pathname?.startsWith('/settings') ||
+                       pathname?.startsWith('/missions') ||
+                       pathname?.startsWith('/referater') ||
+                       pathname?.startsWith('/scan') ||
+                       pathname?.startsWith('/wallet') ||
+                       pathname?.startsWith('/honey-exchange');
+
+    if (!isAppRoute) {
+      setIsOpen(false);
+      setLoading(false);
+      return;
+    }
+
     const checkConsent = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -29,7 +47,7 @@ export default function TermsConsentModal() {
     };
 
     checkConsent();
-  }, [supabase.auth]);
+  }, [supabase.auth, pathname]);
 
   const handleAccept = async () => {
     if (!checked) return;
@@ -72,6 +90,9 @@ export default function TermsConsentModal() {
           <p>
             Dette betyr at bildene ikke knyttes til navn eller adresse, men brukes kun i faglig sammenheng for å forbedre appen og sykdomsforståelse.
           </p>
+          <p className="text-xs text-gray-500 italic">
+            Ved å samtykke gir du tillatelse til at anonymiserte data kan brukes til utvikling, forskning og kommersiell videreutvikling av tjenesten i henhold til vår personvernerklæring.
+          </p>
           <p className="font-medium text-gray-900">
             For å bruke LEK må du samtykke til dette.
           </p>
@@ -86,7 +107,7 @@ export default function TermsConsentModal() {
               onChange={(e) => setChecked(e.target.checked)}
             />
             <span className="text-sm text-blue-900 leading-tight">
-              Jeg forstår og samtykker til at bilder og inspeksjonsdata jeg legger inn kan brukes anonymt til forskning og opplæring av KI i LEK.
+              Jeg samtykker til at bilder og inspeksjonsdata jeg laster opp kan brukes anonymisert til utvikling, forbedring, forskning og kommersiell videreutvikling av LEKs KI-modeller og relaterte tjenester. Data behandles i henhold til vår personvernerklæring og anonymiseres før bruk i modelltrening.
             </span>
           </label>
         </div>
