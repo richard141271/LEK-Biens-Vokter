@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
-import { Map as MapIcon, Phone, Mail, User, AlertTriangle, CheckCircle, Clock, Ruler, AlertOctagon, FileText, Camera, Mic, Send, Edit, Trash2, X } from 'lucide-react';
+import { Map as MapIcon, Phone, Mail, User, AlertTriangle, CheckCircle, Clock, Ruler, AlertOctagon, FileText, Camera, Mic, Send, Edit, Trash2, X, Activity } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { getIncidentData, updateIncidentStatus, updateIncidentDisease, sendZoneAlert } from '@/app/actions/mattilsynet';
