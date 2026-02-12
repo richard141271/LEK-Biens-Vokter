@@ -107,7 +107,7 @@ export default function AllHivesPage() {
     const hiveNum = hive.hive_number?.toLowerCase() || '';
     const apiaryName = hive.apiaries?.name?.toLowerCase() || '';
     const apiaryLoc = hive.apiaries?.location?.toLowerCase() || '';
-    const status = (hive.active === false ? 'inaktiv' : (hive.status || 'aktiv')).toLowerCase();
+    const status = (hive?.active === false ? 'inaktiv' : (hive?.status || 'aktiv')).toLowerCase();
     const type = (hive.type || 'produksjon').toLowerCase();
     const name = hive.name?.toLowerCase() || ''; // Added name search
     
@@ -248,12 +248,12 @@ export default function AllHivesPage() {
   const getStatusColor = (hive: any) => {
     if (!hive) return 'bg-gray-100 text-gray-500 border-gray-200';
     // Check specific statuses first, even if inactive
-    if (hive.status === 'SOLGT') return 'bg-blue-100 text-blue-800 border-blue-200';
-    if (hive.status === 'AVSLUTTET') return 'bg-gray-100 text-gray-800 border-gray-200';
+    if (hive?.status === 'SOLGT') return 'bg-blue-100 text-blue-800 border-blue-200';
+    if (hive?.status === 'AVSLUTTET') return 'bg-gray-100 text-gray-800 border-gray-200';
     
-    if (hive.active === false) return 'bg-gray-100 text-gray-500 border-gray-200';
+    if (hive?.active === false) return 'bg-gray-100 text-gray-500 border-gray-200';
     
-    switch (hive.status) {
+    switch (hive?.status) {
       case 'DØD': return 'bg-red-100 text-red-800 border-red-200';
       case 'SVAK': return 'bg-orange-100 text-orange-800 border-orange-200';
       case 'AKTIV': return 'bg-green-100 text-green-800 border-green-200';
@@ -263,10 +263,10 @@ export default function AllHivesPage() {
 
   const getStatusText = (hive: any) => {
     if (!hive) return '-';
-    if (hive.status === 'SOLGT') return 'SOLGT';
-    if (hive.status === 'AVSLUTTET') return 'AVSLUTTET';
-    if (hive.active === false) return 'AVSLUTTET'; // Display inactive as Avsluttet per user request
-    return hive.status || 'AKTIV';
+    if (hive?.status === 'SOLGT') return 'SOLGT';
+    if (hive?.status === 'AVSLUTTET') return 'AVSLUTTET';
+    if (hive?.active === false) return 'AVSLUTTET'; // Display inactive as Avsluttet per user request
+    return hive?.status || 'AKTIV';
   };
 
   if (loading) return <div className="p-8 text-center">Laster bikuber...</div>;
