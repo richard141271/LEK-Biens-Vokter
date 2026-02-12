@@ -6,7 +6,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
-import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight, Archive, Briefcase, Printer, Link as LinkIcon, X, CreditCard, List, QrCode, FileText, ClipboardCheck } from 'lucide-react';
+import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight, Archive, Briefcase, Printer, Link as LinkIcon, X, CreditCard, List, QrCode, FileText, ClipboardCheck, ChevronDown } from 'lucide-react';
+
+const RENTAL_CONTRACT_TEXT = ``;
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -107,6 +109,7 @@ export default function SettingsPage() {
         company_email: data.company_email || user.email || '',
         company_phone: data.company_phone || data.phone_number || ''
       });
+
     } else {
       // Fallback to auth metadata if profile doesn't exist yet
       setFormData({ 
@@ -653,6 +656,7 @@ export default function SettingsPage() {
               {/* Mine Dokumenter */}
               <div className="mt-6 border-t border-gray-100 pt-4">
                   <h5 className="font-bold text-gray-900 text-sm mb-3">Mine Dokumenter & Oppdrag</h5>
+                  
                   <div className="grid grid-cols-1 gap-3">
                       <button 
                         onClick={() => router.push('/referater')}

@@ -102,6 +102,7 @@ export default function AllHivesPage() {
 
   // Filter hives based on search term
   const filteredHives = hives.filter(hive => {
+    if (!hive) return false;
     const term = searchTerm.toLowerCase();
     const hiveNum = hive.hive_number?.toLowerCase() || '';
     const apiaryName = hive.apiaries?.name?.toLowerCase() || '';
@@ -245,6 +246,7 @@ export default function AllHivesPage() {
   };
 
   const getStatusColor = (hive: any) => {
+    if (!hive) return 'bg-gray-100 text-gray-500 border-gray-200';
     // Check specific statuses first, even if inactive
     if (hive.status === 'SOLGT') return 'bg-blue-100 text-blue-800 border-blue-200';
     if (hive.status === 'AVSLUTTET') return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -260,6 +262,7 @@ export default function AllHivesPage() {
   };
 
   const getStatusText = (hive: any) => {
+    if (!hive) return '-';
     if (hive.status === 'SOLGT') return 'SOLGT';
     if (hive.status === 'AVSLUTTET') return 'AVSLUTTET';
     if (hive.active === false) return 'AVSLUTTET'; // Display inactive as Avsluttet per user request

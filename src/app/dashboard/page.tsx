@@ -12,74 +12,7 @@ import WeatherWidget from '@/components/WeatherWidget';
 import SicknessRegistrationModal from '@/components/SicknessRegistrationModal';
 import InspectionModal from '@/components/InspectionModal';
 
-const RENTAL_CONTRACT_TEXT = `
-LEIEAVTALE – LEK-HONNING™️ / LEIE AV BIKUBE
 
-Denne avtalen inngås mellom:
-
-Utleier:
-AI Innovate AS® / LEK-Honning™️
-Org.nr: 935 460 387
-Adresse: Rascheprangen 1, 1767 Halden
-Daglig leder AI-identitet: Aurora
-Representert av: Jørn Thoresen
-
-Leietaker (bruker/gruppe):
-Navn: [LEIETAKER_NAVN]
-Representerer (klasse/lag/familie osv.): [LEIETAKER_NAVN] (Privat)
-Adresse: [LEIETAKER_ADRESSE]
-Telefon: [LEIETAKER_TLF]
-E-post: [LEIETAKER_EPOST]
-
-1. Avtalens formål
-Leietaker får disponere [ANTALL] stk LEK-sertifisert bikube med bifolk for læring, observasjon og eventuelle sesongoppgaver, i et trygt og strukturert LEK-opplegg.
-
-2. Leieperiode
-Startdato: [DAGENS DATO]
-Sluttdato: [SESONG SLUTT]
-(Leieavtalen fornyes automatisk om den ikke sies opp. Den må sies opp minimum 3 mnd før innvintring. Innvintring skjer normalt i midten av Oktober. Man binder seg til minimum en sesong av gangen, grunnet kompleksiteten i å flytte en bikube som er i drift)
-
-3. Pris og Betaling
-Leiepris: [PRIS_MND] kr per måned (faktureres sesongvis forskudd: [PRIS_TOTAL] kr).
-
-4. Inkludert i leien (kryss av)
-[x] Full kube med bifolk + tavler
-[x] Oppstartsfôr 2–3 kg
-[x] Deltakelse i honningslynging
-[x] Honning-tapping og etikett-opplæring
-[x] Salg på Honningbørsen med rapport
-[x] LEK-sertifisering etter fullført sesong (kun for barn)
-[x] Forsikring inkludert i perioden
-
-5. Ansvar og sikkerhet
-- Utleier har ansvar for at kuben er sertifisert, trygg og sykdomskontrollert ved utlevering
-- Leietaker har ansvar for forsvarlig bruk og å følge sikkerhetsinstrukser
-- Barn/medlemmer skal ikke åpne kube uten tilsyn av godkjent, Sertifisert LEK-birøkter
-- Ved skade på utstyr som skyldes uforsvarlig bruk, kan erstatning kreves
-- Ved sykdomstegn skal dette rapporteres umiddelbart i LEK-appen
-
-6. Honning og inntektsfordeling
-Hvis honningproduksjon og salg er del av leien, fordeles inntekten slik:
-Leietaker betaler en fast lav pris for kjøp av honning fra leide kuber, og har forkjøpsrett til ALL honning i de leide kubene. Honningprisen blir beregnet hvert år ved sesongens slutt, og offentliggjøres på LEK-Honning™️ sine nettsider, og i appen.
-Alle salg skal dokumenteres og gjennomføres i appen
-
-7. Allergi og helse
-Leietaker bekrefter at gruppen har sjekket allergier:
-[x] Ingen kjent allergi (bekreftet ved signering)
-Utleier anbefaler at Epipen eller førstehjelpsplan finnes i gruppen, men det er ikke krav fra utleier
-
-8. Databruk og innhold i app
-Leietaker godkjenner at:
-Observasjonsbilder og kubelogger kan brukes i anonymisert form i LEK-systemet
-Ingen persondata publiseres uten samtykke
-[x] Godkjent
-
-Tilleggsnotat:
-\"AI Innovate er ikke bare et selskap – det er et kunstverk i seg selv.\" – Dette er et verdibasert LEK-opplæringsprogram, ikke økonomisk rådgivning.
-
-Angrerett og Avbestilling:
-Da det er levende dyr, som klargjøres spesielt til hver enkelt leietaker, er det INGEN angrefrist på bestilling av bikube. Skulle man angre seg, vil det derimot bli krevd et ekstra gebyr på ca. 3000 for den ekstra kostnaden birøkteren får, ved å måtte enten drifte kuben selv, eller sette jobben bort til andre som kan ta seg av dem.
-`;
 
 export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -114,7 +47,6 @@ export default function DashboardPage() {
   const [isInspectionModalOpen, setIsInspectionModalOpen] = useState(false);
   
   // Rental & Mission State
-  const [activeRental, setActiveRental] = useState<any>(null);
   const [latestHiveLog, setLatestHiveLog] = useState<any>(null); // New State for Tenant Log
   const [pendingMissionsCount, setPendingMissionsCount] = useState(0);
   const [meetingDate, setMeetingDate] = useState<string | null>(null);
@@ -262,8 +194,6 @@ export default function DashboardPage() {
             .maybeSingle();
         
         if (rental) {
-            setActiveRental(rental);
-
             if (rental.apiary_id) {
                  const { data: hives } = await supabase
                     .from('hives')
@@ -663,7 +593,7 @@ export default function DashboardPage() {
           )} */}
 
           {/* Tenant Hive Updates */}
-          {profile?.role === 'tenant' && activeRental?.apiary_id && (
+          {profile?.role === 'tenant' && latestHiveLog && (
              <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
                  <div className="flex items-center gap-1.5 mb-3">
                       <Activity className="w-3.5 h-3.5 text-honey-500" />
@@ -703,142 +633,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* RENTAL STATUS */}
-          <div className="bg-white rounded-xl border border-honey-200 shadow-sm p-4 mb-2">
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <h3 className="font-bold text-gray-900 text-sm">Min Leieavtale</h3>
-                {activeRental ? (
-                  <p className="text-xs text-gray-500">{activeRental.hive_count} Bikuber</p>
-                ) : (
-                  <p className="text-xs text-gray-500">Ingen leieavtale registrert på denne brukeren.</p>
-                )}
-              </div>
-              {activeRental && (
-                <span
-                  className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-                    activeRental.status === "pending"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : activeRental.status === "assigned"
-                      ? "bg-blue-100 text-blue-800"
-                      : "bg-green-100 text-green-800"
-                  }`}
-                >
-                  {activeRental.status === "pending"
-                    ? "Søker birøkter..."
-                    : activeRental.status === "assigned"
-                    ? "Birøkter tildelt"
-                    : "Aktiv"}
-                </span>
-              )}
-            </div>
-
-            {!activeRental && (
-              <div className="mt-1 flex justify-between items-center">
-                <p className="text-[11px] text-gray-600">
-                  For å opprette en leieavtale går du via «Lei en kube».
-                </p>
-                <button
-                  onClick={() => router.push("/lei-en-kube")}
-                  className="text-[11px] px-3 py-1.5 rounded-lg border border-honey-300 text-honey-700 font-bold hover:bg-honey-50"
-                >
-                  Lei en kube
-                </button>
-              </div>
-            )}
-
-            {activeRental && (
-            <div className="bg-white rounded-xl border border-honey-200 shadow-sm p-4 mb-2">
-                <div className="flex justify-between items-start mb-2">
-                    <div>
-                        <h3 className="font-bold text-gray-900 text-sm">Min Leieavtale</h3>
-                        <p className="text-xs text-gray-500">{activeRental.hive_count} Bikuber</p>
-                    </div>
-                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-                        activeRental.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        activeRental.status === 'assigned' ? 'bg-blue-100 text-blue-800' :
-                        'bg-green-100 text-green-800'
-                    }`}>
-                        {activeRental.status === 'pending' ? 'Søker birøkter...' :
-                         activeRental.status === 'assigned' ? 'Birøkter tildelt' : 'Aktiv'}
-                    </span>
-                </div>
-
-                {activeRental.status === 'pending' && (
-                    <div className="text-xs text-gray-600 bg-yellow-50 p-2 rounded-lg">
-                        <p>Vi sender forespørselen din til nærmeste ledige birøktere. Du får beskjed så snart noen tar oppdraget!</p>
-                    </div>
-                )}
-
-                {(activeRental.status === 'assigned' || activeRental.status === 'active') && activeRental.assigned_beekeeper && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-xs text-gray-700 bg-gray-50 p-2 rounded-lg">
-                        <User className="w-4 h-4 text-gray-400" />
-                            <div>
-                                <p className="font-bold">Din Birøkter:</p>
-                                <p>{activeRental.assigned_beekeeper.full_name}</p>
-                            </div>
-                        </div>
-
-                        <div className="text-xs">
-                            <p className="font-bold text-gray-900 mb-1">Status:</p>
-                            <div className="flex items-center gap-2">
-                                <div className={`w-2 h-2 rounded-full ${activeRental.delivery_status === 'pending' ? 'bg-blue-500 animate-pulse' : 'bg-green-500'}`} />
-                                <p className="text-gray-600">
-                                    {activeRental.delivery_status === 'pending' || !activeRental.delivery_status ? 'Kubene er under produksjon/klargjøring' :
-                                     activeRental.delivery_status === 'assigned' ? 'Klargjøres for levering' :
-                                     activeRental.delivery_status === 'delivered' ? 'Levert og installert!' : activeRental.delivery_status}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <div className="mt-3 flex justify-end">
-                  <button
-                    onClick={() => {
-                      if (!activeRental) return;
-                      const doc = new jsPDF();
-
-                      const monthlyPrice = Math.round((activeRental.total_price || 0) / 12);
-                      const contractDate = activeRental.created_at
-                        ? new Date(activeRental.created_at).toLocaleDateString('no-NO')
-                        : new Date().toLocaleDateString('no-NO');
-
-                      // Use profile data as fallback if activeRental fields are missing
-                      const name = activeRental.contact_name || profile?.full_name || '___________';
-                      const address = activeRental.contact_address || profile?.address || '___________';
-                      const phone = activeRental.contact_phone || profile?.phone_number || '___________';
-                      const email = activeRental.contact_email || profile?.email || '___________';
-
-                      const contractText = RENTAL_CONTRACT_TEXT
-                        .replace(/\[LEIETAKER_NAVN\]/g, name)
-                        .replace('[LEIETAKER_ADRESSE]', address)
-                        .replace('[LEIETAKER_TLF]', phone)
-                        .replace('[LEIETAKER_EPOST]', email)
-                        .replace('[ANTALL]', String(activeRental.hive_count || 1))
-                        .replace('[DAGENS DATO]', contractDate)
-                        .replace('[SESONG SLUTT]', getSeasonEndDate())
-                        .replace(
-                          'Representerer (klasse/lag/familie osv.): [LEIETAKER_NAVN] (Privat)',
-                          `Representerer: ${activeRental.contact_organization || (name ? `${name} (Privat)` : '___________')}`
-                        )
-                        .replace('[PRIS_MND]', String(monthlyPrice))
-                        .replace('[PRIS_TOTAL]', String(activeRental.total_price || 0));
-
-                      doc.setFontSize(11);
-                      const lines = doc.splitTextToSize(contractText, 180);
-                      doc.text(lines, 15, 20);
-                      doc.save('lek-honning-leieavtale.pdf');
-                    }}
-                    className="text-[11px] px-3 py-1.5 rounded-lg border border-honey-300 text-honey-700 font-bold hover:bg-honey-50"
-                  >
-                    Last ned avtale (PDF)
-                    </button>
-                </div>
-            </div>
-            )}
-          </div>
+          {/* RENTAL STATUS REMOVED FROM HERE - MOVED TO SETTINGS */}
 
           {/* MISSIONS ALERT (For Beekeepers) */}
           {pendingMissionsCount > 0 && profile?.role === 'beekeeper' && (

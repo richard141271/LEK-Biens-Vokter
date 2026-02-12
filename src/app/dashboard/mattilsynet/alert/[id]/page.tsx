@@ -69,6 +69,7 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
     const [allApiaries, setAllApiaries] = useState<any[]>([]);
     const [mapApiaries, setMapApiaries] = useState<any[]>([]);
     const [radius, setRadius] = useState(3000); // meters
+    const [sliderValue, setSliderValue] = useState(3000); // UI state for smooth slider
     const [affectedList, setAffectedList] = useState<any[]>([]);
     const [incidentStatus, setIncidentStatus] = useState<string>('investigating');
     const [mapCenter, setMapCenter] = useState<[number, number]>([59.1243, 11.3875]);
@@ -84,6 +85,11 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
     useEffect(() => {
         fetchData();
     }, [params.id]);
+
+    // Sync sliderValue with radius when radius changes externally (e.g. initial load)
+    useEffect(() => {
+        setSliderValue(radius);
+    }, [radius]);
 
     useEffect(() => {
         if (alert && allApiaries.length > 0) {
@@ -388,18 +394,21 @@ Mattilsynet`
                                         <option key={`${d}-confirmed`} value={d}>{d} (Bekreftet)</option>
                                     ))}
                                 </select>
-                                <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">
-                                    <Ruler className="w-4 h-4 text-slate-400" />
-                                    <span className="text-sm font-bold text-slate-700">{radius / 1000} km</span>
+                                <div className="flex items-center gap-4">
                                     <input 
                                         type="range" 
                                         min="1000" 
                                         max="10000" 
-                                        step="500" 
-                                        value={radius} 
-                                        onChange={(e) => setRadius(parseInt(e.target.value))}
-                                        className="w-24 accent-red-600 cursor-pointer"
+                                        step="100" 
+                                        value={sliderValue} 
+                                        onChange={(e) => setSliderValue(parseInt(e.target.value))}
+                                        onMouseUp={() => setRadius(sliderValue)}
+                                        onTouchEnd={() => setRadius(sliderValue)}
+                                        className="w-48 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
                                     />
+                                    <span className="font-mono font-bold text-blue-600 w-20">
+                                        {(sliderValue / 1000).toFixed(1)} km
+                                    </span>
                                 </div>
                                 <button className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 transition-colors">
                                     Godkjenn sone
