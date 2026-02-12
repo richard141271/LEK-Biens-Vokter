@@ -706,13 +706,32 @@ Mattilsynet`
                                 Sende melding til birøkter
                                 <Send className="w-4 h-4 text-slate-400" />
                             </button>
-                            <button 
-                                onClick={() => handleStatusUpdate('resolved')}
-                                className="w-full py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-bold hover:bg-red-50 transition-colors text-left px-4 flex items-center justify-between"
-                            >
-                                Markere som falsk alarm
-                                <Trash2 className="w-4 h-4" />
-                            </button>
+                            {incidentStatus === 'resolved' ? (
+                                <button 
+                                    onClick={() => handleStatusUpdate('investigating')}
+                                    className="w-full py-2 bg-white border border-blue-200 text-blue-600 rounded-lg text-sm font-bold hover:bg-blue-50 transition-colors text-left px-4 flex items-center justify-between"
+                                >
+                                    Gjenåpne sak
+                                    <Activity className="w-4 h-4" />
+                                </button>
+                            ) : (
+                                <>
+                                    <button 
+                                        onClick={() => handleStatusUpdate('resolved')}
+                                        className="w-full py-2 bg-white border border-green-200 text-green-600 rounded-lg text-sm font-bold hover:bg-green-50 transition-colors text-left px-4 flex items-center justify-between mb-2"
+                                    >
+                                        Marker som løst / Friskmeldt
+                                        <CheckCircle className="w-4 h-4" />
+                                    </button>
+                                    <button 
+                                        onClick={() => handleStatusUpdate('resolved')}
+                                        className="w-full py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-bold hover:bg-red-50 transition-colors text-left px-4 flex items-center justify-between"
+                                    >
+                                        Markere som falsk alarm
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
 

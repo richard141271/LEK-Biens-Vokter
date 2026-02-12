@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShieldCheck, Search, Map, LogOut, Bell, FileText, Activity, Mail } from 'lucide-react';
+import { ShieldCheck, Search, Map, LogOut, Bell, FileText, Activity, Mail, ArrowRight, Archive } from 'lucide-react';
 import Link from 'next/link';
 
 import { getMattilsynetDashboardData } from '@/app/actions/mattilsynet';
@@ -337,15 +337,47 @@ export default function MattilsynetDashboard() {
             </div>
           </Link>
 
-          <Link href="/dashboard/mattilsynet/reports" className="block group">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:border-green-500 hover:shadow-md transition-all h-full">
-              <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <FileText className="w-6 h-6 text-green-600" />
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 bg-orange-100 rounded-lg">
+                <FileText className="w-6 h-6 text-orange-600" />
               </div>
-              <h3 className="font-bold text-lg mb-2 text-gray-900">Rapporter</h3>
-              <p className="text-sm text-gray-600">Generer statusrapporter og statistikk for forvaltning.</p>
+              <div>
+                <p className="text-sm text-gray-500">Rapporter</p>
+                <h3 className="text-xl font-bold text-gray-900">Statistikk</h3>
+              </div>
             </div>
-          </Link>
+            <p className="text-sm text-gray-600 mb-4">
+                Generer statusrapporter og statistikk for forvaltning.
+            </p>
+            <Link 
+                href="/dashboard/mattilsynet/reports" 
+                className="text-blue-600 font-bold text-sm hover:underline flex items-center gap-1"
+            >
+                Åpne rapporter <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 bg-slate-100 rounded-lg">
+                <Archive className="w-6 h-6 text-slate-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Varslingsarkiv</p>
+                <h3 className="text-xl font-bold text-gray-900">Alle Saker</h3>
+              </div>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+                Se historikk over alle varsler, både aktive og løste saker.
+            </p>
+            <Link 
+                href="/dashboard/mattilsynet/alerts" 
+                className="text-blue-600 font-bold text-sm hover:underline flex items-center gap-1"
+            >
+                Gå til arkiv <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
 
         </div>
       </main>
