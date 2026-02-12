@@ -242,8 +242,8 @@ export default function WarRoomDashboard({
                         {backText}
                     </Link>
                 )}
-                <div className="flex justify-between items-start">
-                    <div>
+                <div className="flex justify-center items-start">
+                    <div className="text-center">
                         <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
                         <p className="text-sm text-gray-500">{subtitle}</p>
                     </div>

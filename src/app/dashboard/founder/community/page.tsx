@@ -38,6 +38,8 @@ export default async function WarRoomPage() {
 
     return (
         <WarRoomDashboard 
+            title="LEK – Kursvennenes Operative Samlingspunkt"
+            subtitle="Første kull – sammen bygger vi fremtidens birøkterverktøy"
             backLink={backLink}
             backText="Tilbake"
         />
