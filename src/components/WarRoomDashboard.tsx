@@ -16,7 +16,7 @@ import {
     WarRoomPostType
 } from '@/app/actions/war-room';
 import { resolveWarRoomPost } from '@/app/actions/war-room-resolve';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { 
     CheckCircle2, 
@@ -407,7 +407,7 @@ export default function WarRoomDashboard({
                                                                 )}
                                                             </span>
                                                             <span className="text-xs text-gray-500">
-                                                                {post.profile?.full_name} • {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: nb })}
+                                                                {post.profile?.full_name} • {format(new Date(post.created_at), 'd. MMM yyyy HH:mm', { locale: nb })} ({formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: nb })})
                                                             </span>
                                                         </div>
                                                     </div>
@@ -486,7 +486,7 @@ export default function WarRoomDashboard({
                                         </div>
                                         <p className="text-gray-900 text-sm">{idea.content}</p>
                                         <p className="text-xs text-yellow-600/70 mt-2">
-                                            Lagret {formatDistanceToNow(new Date(idea.created_at), { addSuffix: true, locale: nb })}
+                                            Lagret {format(new Date(idea.created_at), 'd. MMM yyyy HH:mm', { locale: nb })} ({formatDistanceToNow(new Date(idea.created_at), { addSuffix: true, locale: nb })})
                                         </p>
                                     </div>
                                 ))}
@@ -558,7 +558,7 @@ export default function WarRoomDashboard({
                                                 <div className="flex items-baseline gap-2">
                                                     <span className="text-sm font-medium text-gray-900">{status.full_name}</span>
                                                     <span className="text-[10px] text-gray-400">
-                                                        {formatDistanceToNow(new Date(status.updated_at), { addSuffix: true, locale: nb })}
+                                                        {format(new Date(status.updated_at), 'd. MMM HH:mm', { locale: nb })}
                                                     </span>
                                                 </div>
                                                 <p className="text-xs text-gray-600 mt-0.5">
@@ -637,7 +637,7 @@ export default function WarRoomDashboard({
                                     <p className="text-xs font-bold text-gray-900">{status.profile?.full_name}</p>
                                     <p className="text-xs text-gray-500">{status.working_on || 'Ingen status'}</p>
                                     <p className="text-[10px] text-gray-400 mt-0.5">
-                                        {formatDistanceToNow(new Date(status.updated_at), { addSuffix: true, locale: nb })}
+                                        {format(new Date(status.updated_at), 'd. MMM HH:mm', { locale: nb })}
                                     </p>
                                 </div>
                             </div>
