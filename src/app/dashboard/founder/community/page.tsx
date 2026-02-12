@@ -19,6 +19,7 @@ export default async function WarRoomPage() {
     
     const isVip = user.email === 'richard141271@gmail.com' || user.email === 'richard141271@gmail.no';
     const isCourseFriendMeta = authUser?.user_metadata?.is_course_friend;
+    const isFounderMeta = authUser?.user_metadata?.is_founder;
 
     const { data: profile } = await adminVerifier
         .from('profiles')
@@ -27,7 +28,7 @@ export default async function WarRoomPage() {
         .single();
     
     const isAdmin = profile?.role === 'admin';
-    const isFounder = profile?.is_founder;
+    const isFounder = profile?.is_founder || isFounderMeta;
     const isCourseFriend = profile?.is_course_friend || isCourseFriendMeta;
 
     if (!isAdmin && !isVip && !isFounder && !isCourseFriend) {

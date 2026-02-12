@@ -30,6 +30,7 @@ async function checkWarRoomAccess(userId: string) {
 
     // Check metadata as fallback/primary for K/V
     if (authUser.user_metadata?.is_course_friend) return true;
+    if (authUser.user_metadata?.is_founder) return true;
 
     return false;
 }
