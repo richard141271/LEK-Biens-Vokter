@@ -27,13 +27,11 @@ export default async function FounderPage() {
 
     if (!status.profile) {
         // Check if course friend (should be redirected to community)
-        const { data: userProfile } = await supabase
-            .from('profiles')
-            .select('is_course_friend')
-            .eq('id', user.id)
-            .single();
+        // Also check for VIP Wenche
+        const isWenche = user.email === 'test_beekeeper_5@demo.no';
+        const isCourseFriend = user.user_metadata?.is_course_friend || isWenche;
 
-        if (userProfile?.is_course_friend) {
+        if (isCourseFriend) {
             redirect('/dashboard/founder/community');
         }
 
