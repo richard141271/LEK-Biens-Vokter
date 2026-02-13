@@ -26,7 +26,13 @@ export async function deleteUser(userId: string) {
     .eq('id', user.id)
     .single()
 
-  const isVip = user.email === 'richard141271@gmail.com' || user.email === 'richard141271@gmail.no' || user.email === 'richard141271@gmail.no';
+  const isVip = [
+    'richard141271@gmail.com', 
+    'richard141271@gmail.no', 
+    'lek@kias.no', 
+    'jorn@kias.no'
+  ].includes(user.email?.toLowerCase() || '');
+  
   const isAdmin = adminProfile?.role === 'admin';
 
   if (!isAdmin && !isVip) {
@@ -81,7 +87,12 @@ export async function hardDeleteUser(userId: string) {
     .eq('id', user.id)
     .single()
 
-  const isVip = user.email === 'richard141271@gmail.com' || user.email === 'richard141271@gmail.no';
+  const isVip = [
+    'richard141271@gmail.com', 
+    'richard141271@gmail.no', 
+    'lek@kias.no', 
+    'jorn@kias.no'
+  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
   if (!isAdmin && !isVip) {
@@ -122,7 +133,12 @@ export async function removeEmail(userId: string) {
     .eq('id', user.id)
     .single()
 
-  const isVip = user.email === 'richard141271@gmail.com' || user.email === 'richard141271@gmail.no';
+  const isVip = [
+    'richard141271@gmail.com', 
+    'richard141271@gmail.no', 
+    'lek@kias.no', 
+    'jorn@kias.no'
+  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
   if (!isAdmin && !isVip) {
@@ -157,7 +173,12 @@ export async function toggleFounderStatus(userId: string, isFounder: boolean) {
     .eq('id', user.id)
     .single()
 
-  const isVip = user.email === 'richard141271@gmail.com' || user.email === 'richard141271@gmail.no';
+  const isVip = [
+    'richard141271@gmail.com', 
+    'richard141271@gmail.no', 
+    'lek@kias.no', 
+    'jorn@kias.no'
+  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
   if (!isAdmin && !isVip) {
@@ -211,7 +232,12 @@ export async function toggleCourseFriendStatus(userId: string, isCourseFriend: b
     .eq('id', user.id)
     .single()
 
-  const isVip = user.email === 'richard141271@gmail.com' || user.email === 'richard141271@gmail.no';
+  const isVip = [
+    'richard141271@gmail.com', 
+    'richard141271@gmail.no', 
+    'lek@kias.no', 
+    'jorn@kias.no'
+  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
   if (!isAdmin && !isVip) {
@@ -256,7 +282,12 @@ export async function reactivateUser(userId: string) {
     .eq('id', user.id)
     .single()
 
-  const isVip = user.email === 'richard141271@gmail.com' || user.email === 'richard141271@gmail.no';
+  const isVip = [
+    'richard141271@gmail.com', 
+    'richard141271@gmail.no', 
+    'lek@kias.no', 
+    'jorn@kias.no'
+  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
   if (!isAdmin && !isVip) {
@@ -306,7 +337,12 @@ export async function updateUserPassword(userId: string, newPassword: string) {
     .eq('id', user.id)
     .single()
 
-  const isVip = user.email === 'richard141271@gmail.com' || user.email === 'richard141271@gmail.no';
+  const isVip = [
+    'richard141271@gmail.com', 
+    'richard141271@gmail.no', 
+    'lek@kias.no', 
+    'jorn@kias.no'
+  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
   if (!isAdmin && !isVip) {
@@ -341,7 +377,12 @@ export async function getUsers() {
     .eq('id', user.id)
     .single()
 
-  const isVip = user.email === 'richard141271@gmail.com' || user.email === 'richard141271@gmail.no';
+  const isVip = [
+    'richard141271@gmail.com', 
+    'richard141271@gmail.no', 
+    'lek@kias.no', 
+    'jorn@kias.no'
+  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
   if (!isAdmin && !isVip) {
@@ -395,7 +436,12 @@ export async function updateUserRole(userId: string, role: string) {
     .eq('id', user.id)
     .single()
 
-  const isVip = user.email === 'richard141271@gmail.com' || user.email === 'richard141271@gmail.no';
+  const isVip = [
+    'richard141271@gmail.com', 
+    'richard141271@gmail.no', 
+    'lek@kias.no', 
+    'jorn@kias.no'
+  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
   if (!isAdmin && !isVip) {
@@ -426,7 +472,12 @@ export async function assignEmail(userId: string, alias: string) {
     .eq('id', user.id)
     .single()
 
-  const isVip = user.email === 'richard141271@gmail.com' || user.email === 'richard141271@gmail.no';
+  const isVip = [
+    'richard141271@gmail.com', 
+    'richard141271@gmail.no', 
+    'lek@kias.no', 
+    'jorn@kias.no'
+  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
   if (!isAdmin && !isVip) {
@@ -472,7 +523,12 @@ export async function toggleEmailAccess(userId: string, hasAccess: boolean) {
     .eq('id', user.id)
     .single()
 
-  const isVip = user.email === 'richard141271@gmail.com' || user.email === 'richard141271@gmail.no';
+  const isVip = [
+    'richard141271@gmail.com', 
+    'richard141271@gmail.no', 
+    'lek@kias.no', 
+    'jorn@kias.no'
+  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
   if (!isAdmin && !isVip) {

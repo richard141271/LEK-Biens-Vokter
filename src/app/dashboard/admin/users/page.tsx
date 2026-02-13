@@ -617,6 +617,20 @@ export default function AdminUsersPage() {
                   <label className="text-xs font-semibold text-gray-400 uppercase">Medlemsnummer</label>
                   <p className="text-gray-900 font-medium">#{selectedUser.member_number || 'N/A'}</p>
                 </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 uppercase">Registrert</label>
+                  <p className="text-gray-900 font-medium">
+                    {selectedUser.created_at 
+                      ? new Date(selectedUser.created_at).toLocaleString('nb-NO', { 
+                          day: '2-digit', 
+                          month: '2-digit', 
+                          year: 'numeric', 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })
+                      : 'Ukjent'}
+                  </p>
+                </div>
               </div>
 
               <div className="bg-gray-50 rounded-xl p-4">
