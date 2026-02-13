@@ -103,7 +103,67 @@ export async function hardDeleteUser(userId: string) {
   const adminClient = createAdminClient()
 
   try {
-      // Delete from Auth
+      // 2a. Manually delete related data to avoid Foreign Key constraints if CASCADE is missing
+      // Order is important: Child -> Parent
+
+      // Get user's hives to delete related logs
+      const { data: userHives } = await adminClient
+        .from('hives')
+        .select('id')
+        .eq('user_id', userId)
+      
+      const hiveIds = userHives?.map(h => h.id) || []
+
+      // Delete Logs (both created by user AND attached to user's hives)
+      if (hiveIds.length > 0) {
+        const { error: logsError } = await adminClient
+            .from('hive_logs')
+            .delete()
+            .or(`user_id.eq.${userId},hive_id.in.(${hiveIds.join(',')})`)
+        
+        if (logsError) console.warn('Error deleting user/hive logs:', logsError)
+      } else {
+        const { error: logsError } = await adminClient
+            .from('hive_logs')
+            .delete()
+            .eq('user_id', userId)
+        
+        if (logsError) console.warn('Error deleting user logs:', logsError)
+      }
+
+      // Delete Hives
+      const { error: hivesError } = await adminClient
+        .from('hives')
+        .delete()
+        .eq('user_id', userId)
+
+      if (hivesError) console.warn('Error deleting user hives:', hivesError)
+
+      // Delete Apiaries
+      const { error: apiariesError } = await adminClient
+        .from('apiaries')
+        .delete()
+        .eq('user_id', userId)
+
+      if (apiariesError) console.warn('Error deleting user apiaries:', apiariesError)
+
+      // Delete Founder Profile
+      const { error: founderError } = await adminClient
+        .from('founder_profiles')
+        .delete()
+        .eq('id', userId)
+
+      if (founderError) console.warn('Error deleting founder profile:', founderError)
+
+      // Delete Profile (if not cascaded by auth)
+      const { error: profileError } = await adminClient
+        .from('profiles')
+        .delete()
+        .eq('id', userId)
+
+      if (profileError) console.warn('Error deleting profile:', profileError)
+
+      // 2b. Delete from Auth
       const { error: authError } = await adminClient.auth.admin.deleteUser(userId)
       if (authError) throw authError
 
