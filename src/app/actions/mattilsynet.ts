@@ -182,21 +182,29 @@ export async function getIncidentData(incidentId: string) {
 
     // Fetch reporter manually
     let reporter = null;
-    let userId = alert.user_id;
-
-    // Fallback: If no user_id in log, try to get it from the apiary
-    if (!userId && alert.hives?.apiaries?.user_id) {
-        userId = alert.hives.apiaries.user_id;
+    
+    // Priority 1: Try actual reporter (log creator)
+    if (alert.user_id) {
+        const { data } = await adminClient
+            .from('profiles')
+            .select('id, full_name, email, phone_number, address, member_number, is_norges_birokterlag_member, is_lek_honning_member')
+            .eq('id', alert.user_id)
+            .single();
+        reporter = data;
     }
 
-    if (userId) {
-            const { data: userProfile } = await adminClient
-                .from('profiles')
-                .select('id, full_name, email, phone_number, address, member_number, is_norges_birokterlag_member, is_lek_honning_member')
-                .eq('id', userId)
-                .single();
-            reporter = userProfile;
-        }
+    // Priority 2: Fallback to Apiary Owner if reporter not found or empty
+    // This handles cases where the log user is deleted or system-generated, 
+    // but we want to show the responsible owner.
+    if (!reporter && alert.hives?.apiaries?.user_id) {
+        console.log(`Reporter lookup failed for user_id ${alert.user_id}, falling back to owner ${alert.hives.apiaries.user_id}`);
+        const { data } = await adminClient
+            .from('profiles')
+            .select('id, full_name, email, phone_number, address, member_number, is_norges_birokterlag_member, is_lek_honning_member')
+            .eq('id', alert.hives.apiaries.user_id)
+            .single();
+        reporter = data;
+    }
 
     const alertWithReporter = {
         ...alert,
