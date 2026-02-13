@@ -35,16 +35,16 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
     description: '',
     sharedWithMattilsynet: false
   });
-  const [sicknessImage, setSicknessImage] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [sicknessImages, setSicknessImages] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
   if (!isOpen) return null;
 
   const resetForm = () => {
-    setSicknessImage(null);
-    setPreviewUrl(null);
+    setSicknessImages([]);
+    setPreviewUrls([]);
     setPreviewError(null);
     setSicknessData({
       hiveId: '',
@@ -58,19 +58,20 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
   };
 
   const handleSubmit = async () => {
-    // Validate that an image is provided
-    if (!sicknessImage) {
-        alert('Du må laste opp et bilde før du kan sende rapporten. Dette er påkrevd for dokumentasjon.');
+    // Validate that at least one image is provided
+    if (sicknessImages.length === 0) {
+        alert('Du må laste opp minst ett bilde før du kan sende rapporten. Dette er påkrevd for dokumentasjon.');
         return;
     }
 
     try {
         setUploading(true);
-        let imageUrl = '';
+        const imageUrls: string[] = [];
 
-        if (sicknessImage) {
+        // Upload all images
+        for (const image of sicknessImages) {
             try {
-              const fileExt = sicknessImage.name.split('.').pop();
+              const fileExt = image.name.split('.').pop();
               const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
               
               // 1. Get signed URL via Server Action (bypasses RLS)
@@ -79,28 +80,26 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
               // 2. Upload directly to signed URL
               const { error: uploadError } = await supabase.storage
                   .from('sickness-images')
-                  .uploadToSignedUrl(path, token, sicknessImage);
+                  .uploadToSignedUrl(path, token, image);
 
-              if (uploadError) {
-                  throw uploadError;
-              }
+              if (uploadError) throw uploadError;
 
-              // 3. Get Public URL (since bucket is public)
+              // 3. Get Public URL
               const { data: { publicUrl } } = supabase.storage
                   .from('sickness-images')
                   .getPublicUrl(path);
               
-              imageUrl = publicUrl;
+              imageUrls.push(publicUrl);
 
             } catch (error: any) {
-                console.error('Upload error:', error);
-                throw new Error('Kunne ikke laste opp bilde. Prøv igjen eller sjekk internettilkoblingen.');
+                console.error('Upload error for image:', image.name, error);
+                throw new Error(`Kunne ikke laste opp bilde ${image.name}. Prøv igjen.`);
             }
         }
 
-        // 1. AI Analysis Mock (PoC)
+        // 1. AI Analysis Mock (PoC) - Use the first image
         let aiResult = null;
-        if (sicknessImage) {
+        if (sicknessImages.length > 0) {
             // Mock AI Analysis based on selected type or random
             const confidence = Math.floor(Math.random() * (98 - 70 + 1) + 70); // 70-98%
             const detected = sicknessData.diseaseType !== 'Annet / Vet ikke' 
@@ -125,7 +124,7 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
             diseaseType: sicknessData.diseaseType,
             mortality: sicknessData.mortality,
             description: sicknessData.description,
-            imageUrl: imageUrl,
+            imageUrls: imageUrls,
             aiDetails: aiDetails
         });
 
@@ -278,62 +277,84 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
 
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Last opp bilde (Påkrevd)</label>
-                    <div 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 cursor-pointer transition-colors relative overflow-hidden"
-                    >
-                        {sicknessImage ? (
-                            <div className="text-center w-full">
-                                <div className="relative w-full h-32 mb-2 rounded-lg overflow-hidden bg-gray-100">
-                                    {previewUrl ? (
-                                        <img 
-                                            src={previewUrl} 
-                                            alt="Preview" 
-                                            className="w-full h-full object-contain" 
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-xs text-gray-600 px-3 text-center">
-                                            {previewError ? previewError : 'Forhåndsvisning genereres...'}
+                    <div className="space-y-4">
+                        <div 
+                            onClick={() => sicknessImages.length < 4 && fileInputRef.current?.click()}
+                            className={`border-2 border-dashed border-gray-300 rounded-xl p-4 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors relative overflow-hidden ${sicknessImages.length >= 4 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                            <Camera className="w-6 h-6 mb-1 text-gray-400" />
+                            <span className="text-xs font-medium">
+                                {sicknessImages.length >= 4 
+                                    ? 'Maks antall bilder nådd (4)' 
+                                    : 'Trykk for å legge til bilder (Maks 4)'}
+                            </span>
+                        </div>
+
+                        {sicknessImages.length > 0 && (
+                            <div className="grid grid-cols-2 gap-3">
+                                {sicknessImages.map((file, index) => (
+                                    <div key={index} className="relative bg-gray-50 rounded-lg p-2 border border-gray-100">
+                                        <div className="relative w-full h-24 mb-2 rounded overflow-hidden bg-gray-200">
+                                            {previewUrls[index] ? (
+                                                <img 
+                                                    src={previewUrls[index]} 
+                                                    alt={`Preview ${index + 1}`} 
+                                                    className="w-full h-full object-cover" 
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-500 text-center p-1">
+                                                    {previewError && !previewUrls[index] ? 'Ingen visning (HEIC)' : 'Laster...'}
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
-                                <span className="text-xs font-medium text-green-600 block truncate px-4">{sicknessImage.name}</span>
-                                <div className="flex items-center justify-center gap-3 mt-1">
-                                    <span className="text-[11px] text-gray-400">Klikk for å endre</span>
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setSicknessImage(null);
-                                            setPreviewUrl(null);
-                                            setPreviewError(null);
-                                        }}
-                                        className="text-[11px] text-red-600 underline"
-                                    >
-                                        Fjern bilde
-                                    </button>
-                                </div>
+                                        <div className="flex justify-between items-center px-1">
+                                            <span className="text-[10px] font-medium text-gray-600 truncate max-w-[80px]">
+                                                {file.name}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const newImages = [...sicknessImages];
+                                                    newImages.splice(index, 1);
+                                                    setSicknessImages(newImages);
+                                                    
+                                                    const newUrls = [...previewUrls];
+                                                    newUrls.splice(index, 1);
+                                                    setPreviewUrls(newUrls);
+                                                }}
+                                                className="text-[10px] text-red-600 hover:text-red-800"
+                                            >
+                                                Fjern
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        ) : (
-                            <>
-                                <Camera className="w-6 h-6 mb-1 text-gray-400" />
-                                <span className="text-xs font-medium">Trykk for å ta bilde eller laste opp</span>
-                            </>
                         )}
+                    </div>
                         <input 
                             ref={fileInputRef}
                             type="file" 
                             accept="image/*"
+                            multiple
                             className="hidden" 
-                            onChange={(e) => {
-                                if (e.target.files && e.target.files[0]) {
-                                    const file = e.target.files[0];
+                            onChange={async (e) => {
+                                if (e.target.files && e.target.files.length > 0) {
+                                    const newFiles = Array.from(e.target.files);
+                                    
+                                    if (sicknessImages.length + newFiles.length > 4) {
+                                        alert('Du kan maksimalt laste opp 4 bilder.');
+                                        return;
+                                    }
+
                                     setPreviewError(null);
-                                    setPreviewUrl(null);
-                                    // Handle HEIC conversion to JPEG for browser preview
-                                    const isHeic = /\.heic$/i.test(file.name) || file.type === 'image/heic' || file.type === 'image/heif';
-                                    if (isHeic) {
-                                        (async () => {
+                                    
+                                    for (const file of newFiles) {
+                                        // Handle HEIC conversion to JPEG for browser preview
+                                        const isHeic = /\.heic$/i.test(file.name) || file.type === 'image/heic' || file.type === 'image/heif';
+                                        
+                                        if (isHeic) {
                                             try {
                                                 const heic2any = (await import('heic2any')).default;
                                                 const convertedBlob = await heic2any({
@@ -342,20 +363,21 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
                                                     quality: 0.85
                                                 }) as Blob;
                                                 const convertedFile = new File([convertedBlob], file.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' });
-                                                setSicknessImage(convertedFile);
+                                                
+                                                setSicknessImages(prev => [...prev, convertedFile]);
                                                 const url = URL.createObjectURL(convertedBlob);
-                                                setPreviewUrl(url);
+                                                setPreviewUrls(prev => [...prev, url]);
                                             } catch (err) {
                                                 console.error('HEIC conversion failed:', err);
-                                                setPreviewError('Kan ikke vise HEIC-bilde. Bildet blir likevel sendt.');
-                                                // Fallback: upload original file but no preview
-                                                setSicknessImage(file);
+                                                setPreviewError('Noen bilder (HEIC) kunne ikke forhåndsvises, men blir sendt.');
+                                                setSicknessImages(prev => [...prev, file]);
+                                                setPreviewUrls(prev => [...prev, '']); // Empty string placeholder
                                             }
-                                        })();
-                                    } else {
-                                        setSicknessImage(file);
-                                        const url = URL.createObjectURL(file);
-                                        setPreviewUrl(url);
+                                        } else {
+                                            setSicknessImages(prev => [...prev, file]);
+                                            const url = URL.createObjectURL(file);
+                                            setPreviewUrls(prev => [...prev, url]);
+                                        }
                                     }
                                 }
                             }}

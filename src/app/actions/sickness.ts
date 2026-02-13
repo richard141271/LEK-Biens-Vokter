@@ -10,7 +10,7 @@ interface SicknessReportData {
   diseaseType: string;
   mortality: string;
   description: string;
-  imageUrl?: string;
+  imageUrls?: string[];
   aiDetails?: string;
 }
 
@@ -51,7 +51,11 @@ export async function submitSicknessReport(data: SicknessReportData) {
     if (!user) throw new Error("Du må være logget inn for å sende rapport");
 
     // 1. Create the main report for the reporter
-    const details = `Sykdom: ${data.diseaseType}, Atferd: ${data.behavior}, Død: ${data.mortality}, Varroa: ${data.varroaCount}. Beskrivelse: ${data.description} ${data.imageUrl ? `\nBilde: ${data.imageUrl}` : ''}${data.aiDetails || ''}`;
+    const imageString = data.imageUrls && data.imageUrls.length > 0 
+      ? `\nBilder: ${data.imageUrls.join(', ')}` 
+      : '';
+      
+    const details = `Sykdom: ${data.diseaseType}, Atferd: ${data.behavior}, Død: ${data.mortality}, Varroa: ${data.varroaCount}. Beskrivelse: ${data.description}${imageString}${data.aiDetails || ''}`;
 
     const { error: logError } = await adminClient.from('hive_logs').insert({
       hive_id: data.hiveId || null,

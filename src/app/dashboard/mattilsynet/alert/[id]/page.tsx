@@ -207,18 +207,44 @@ Mattilsynet`
         }
     }
 
-    function getImageUrl(details: string): string | null {
-        if (!details) return null;
-        const match = details.match(/Bilde: (https?:\/\/[^\s]+)/);
-        return match ? match[1] : null;
-    }
+    function parseDetails(details: string) {
+        if (!details) return { 
+            description: 'Ingen beskrivelse', 
+            behavior: 'Ukjent', 
+            mortality: 'Ukjent', 
+            varroa: 'Ukjent', 
+            images: [] as string[], 
+            aiDetails: null as string | null 
+        };
+        
+        // Extract fields
+        const behavior = details.match(/Atferd: (.*?)(?:,|$)/)?.[1] || 'Ukjent';
+        const mortality = details.match(/Død: (.*?)(?:,|$)/)?.[1] || 'Ukjent';
+        const varroa = details.match(/Varroa: (.*?)(?:\.|$)/)?.[1] || 'Ukjent';
+        
+        // Extract description
+        let description = 'Ingen beskrivelse';
+        const descMatch = details.match(/Beskrivelse: (.*?)(?:\nBilder:|\n\n\[AI|$)/s);
+        if (descMatch) description = descMatch[1].trim();
 
-    function getAiDetails(details: string): string | null {
-        if (!details) return null;
-        if (details.includes('[AI Analyse]')) {
-            return details.split('[AI Analyse]')[1];
+        // Extract images
+        let images: string[] = [];
+        const imgMatch = details.match(/Bilder: (.*?)(?:\n|$)/);
+        if (imgMatch) {
+            images = imgMatch[1].split(',').map(s => s.trim()).filter(s => s.startsWith('http'));
+        } else {
+            // Fallback for old single image format
+            const singleImg = details.match(/Bilde: (https?:\/\/[^\s]+)/);
+            if (singleImg) images.push(singleImg[1]);
         }
-        return null;
+
+        // Extract AI details
+        let aiDetails = null;
+        if (details.includes('[AI Analyse]')) {
+            aiDetails = details.split('[AI Analyse]')[1].trim();
+        }
+
+        return { description, behavior, mortality, varroa, images, aiDetails };
     }
 
     function calculateAffected() {
@@ -320,6 +346,9 @@ Mattilsynet`
     const dropdownValue = incidentStatus === 'investigating' && !diseaseName.includes('(Bekreftet)')
         ? `${currentDiseaseBase} (Mistenkt)` 
         : currentDiseaseBase;
+
+    // Parse details once for use in render
+    const parsedDetails = parseDetails(alert.details);
 
     return (
         <div className="min-h-screen bg-slate-50 pb-20 relative">
@@ -571,6 +600,12 @@ Mattilsynet`
                             <div className="space-y-3 mb-6">
                                 <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                                     <div className="flex items-center gap-3">
+                                        <MapIcon className="w-4 h-4 text-slate-400" />
+                                        <span className="text-sm font-medium">{alert.reporter?.address || 'Adresse ikke registrert'}</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                                    <div className="flex items-center gap-3">
                                         <Phone className="w-4 h-4 text-slate-400" />
                                         <span className="text-sm font-medium">{alert.reporter?.phone_number || 'Ikke registrert'}</span>
                                     </div>
@@ -628,30 +663,62 @@ Mattilsynet`
                                 Bevismaterialet
                             </h2>
                         </div>
-                        <div className="p-4 space-y-4">
+                        <div className="p-4 space-y-6">
+                            {/* Description Field (Crucial Text) */}
                             <div>
-                                <h4 className="text-xs font-bold text-gray-500 uppercase mb-1">Siste inspeksjon</h4>
-                                <p className="text-sm text-gray-900 flex items-center gap-2">
-                                    <Clock className="w-4 h-4 text-slate-400" />
-                                    {new Date(alert.created_at).toLocaleString('nb-NO')}
-                                </p>
+                                <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Beskrivelse fra birøkter</h4>
+                                <div className="bg-amber-50 border border-amber-100 p-4 rounded-lg">
+                                    <p className="text-sm text-gray-900 whitespace-pre-wrap font-medium">
+                                        "{parsedDetails.description}"
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Key Metrics Grid */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-slate-50 p-3 rounded-lg">
+                                    <h4 className="text-xs font-bold text-gray-500 uppercase mb-1">Atferd</h4>
+                                    <p className="text-sm font-bold text-gray-900">{parsedDetails.behavior}</p>
+                                </div>
+                                <div className="bg-slate-50 p-3 rounded-lg">
+                                    <h4 className="text-xs font-bold text-gray-500 uppercase mb-1">Dødelighet</h4>
+                                    <p className="text-sm font-bold text-gray-900">{parsedDetails.mortality}</p>
+                                </div>
+                                <div className="bg-slate-50 p-3 rounded-lg">
+                                    <h4 className="text-xs font-bold text-gray-500 uppercase mb-1">Varroa</h4>
+                                    <p className="text-sm font-bold text-gray-900">{parsedDetails.varroa}</p>
+                                </div>
+                                <div className="bg-slate-50 p-3 rounded-lg">
+                                    <h4 className="text-xs font-bold text-gray-500 uppercase mb-1">Inspeksjon</h4>
+                                    <p className="text-sm font-bold text-gray-900">
+                                        {new Date(alert.created_at).toLocaleString('nb-NO')}
+                                    </p>
+                                </div>
                             </div>
                             
+                            {/* Images Gallery */}
                             <div>
-                                <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Bilder</h4>
-                                {getImageUrl(alert.details) ? (
+                                <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Bilder ({parsedDetails.images.length})</h4>
+                                {parsedDetails.images.length > 0 ? (
                                     <div className="grid grid-cols-2 gap-2">
-                                        <div className="aspect-square bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden border border-slate-200 relative group">
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img 
-                                                src={getImageUrl(alert.details)!} 
-                                                alt="Smittebevis" 
-                                                className="w-full h-full object-cover"
-                                            />
-                                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold cursor-pointer">
-                                                Klikk for å forstørre
+                                        {parsedDetails.images.map((url, idx) => (
+                                            <div key={idx} className="aspect-square bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden border border-slate-200 relative group">
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img 
+                                                    src={url} 
+                                                    alt={`Smittebevis ${idx + 1}`} 
+                                                    className="w-full h-full object-cover"
+                                                />
+                                                <a 
+                                                    href={url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold cursor-pointer"
+                                                >
+                                                    Klikk for å forstørre
+                                                </a>
                                             </div>
-                                        </div>
+                                        ))}
                                     </div>
                                 ) : (
                                     <div className="text-sm text-gray-500 italic bg-slate-50 p-3 rounded">
@@ -660,12 +727,13 @@ Mattilsynet`
                                 )}
                             </div>
 
+                            {/* AI Analysis */}
                             <div>
                                 <h4 className="text-xs font-bold text-gray-500 uppercase mb-1">KI Vurdering</h4>
-                                {getAiDetails(alert.details) ? (
+                                {parsedDetails.aiDetails ? (
                                     <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg">
                                         <p className="text-sm text-blue-800 italic whitespace-pre-wrap">
-                                            "{getAiDetails(alert.details)?.trim()}"
+                                            "{parsedDetails.aiDetails.trim()}"
                                         </p>
                                     </div>
                                 ) : (
@@ -675,14 +743,6 @@ Mattilsynet`
                                         </p>
                                     </div>
                                 )}
-                            </div>
-
-                            <div>
-                                <h4 className="text-xs font-bold text-gray-500 uppercase mb-1">Notater / Lydlogg</h4>
-                                <div className="bg-slate-50 p-3 rounded-lg flex items-center gap-3">
-                                    <Mic className="w-5 h-5 text-slate-400" />
-                                    <span className="text-sm text-gray-600">Ingen lydlogg</span>
-                                </div>
                             </div>
                         </div>
                     </div>

@@ -190,13 +190,13 @@ export async function getIncidentData(incidentId: string) {
     }
 
     if (userId) {
-        const { data: userProfile } = await adminClient
-            .from('profiles')
-            .select('id, full_name, email, phone_number')
-            .eq('id', userId)
-            .single();
-        reporter = userProfile;
-    }
+            const { data: userProfile } = await adminClient
+                .from('profiles')
+                .select('id, full_name, email, phone_number, address')
+                .eq('id', userId)
+                .single();
+            reporter = userProfile;
+        }
 
     const alertWithReporter = {
         ...alert,
