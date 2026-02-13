@@ -630,6 +630,30 @@ Mattilsynet`
                                         <a href={`mailto:${alert.reporter.email}`} className="text-xs font-bold text-blue-600 hover:underline">Send epost</a>
                                     )}
                                 </div>
+                                
+                                {/* NEW: Member Details */}
+                                {(alert.reporter?.member_number || alert.reporter?.is_norges_birokterlag_member || alert.reporter?.is_lek_honning_member) && (
+                                    <div className="pt-2 border-t border-slate-100 mt-2 space-y-2">
+                                        {alert.reporter?.member_number && (
+                                            <div className="flex items-center justify-between p-2 bg-blue-50 rounded text-xs">
+                                                <span className="text-slate-500 font-medium">Medlemsnummer:</span>
+                                                <span className="font-mono font-bold text-blue-800">{alert.reporter.member_number}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex gap-2">
+                                            {alert.reporter?.is_norges_birokterlag_member && (
+                                                <span className="px-2 py-1 bg-amber-100 text-amber-800 rounded text-[10px] font-bold border border-amber-200">
+                                                    Norges Birøkterlag
+                                                </span>
+                                            )}
+                                            {alert.reporter?.is_lek_honning_member && (
+                                                <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-[10px] font-bold border border-purple-200">
+                                                    LEK Honning
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="border-t border-slate-100 pt-4">

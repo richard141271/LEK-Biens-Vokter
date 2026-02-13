@@ -192,7 +192,7 @@ export async function getIncidentData(incidentId: string) {
     if (userId) {
             const { data: userProfile } = await adminClient
                 .from('profiles')
-                .select('id, full_name, email, phone_number, address')
+                .select('id, full_name, email, phone_number, address, member_number, is_norges_birokterlag_member, is_lek_honning_member')
                 .eq('id', userId)
                 .single();
             reporter = userProfile;
