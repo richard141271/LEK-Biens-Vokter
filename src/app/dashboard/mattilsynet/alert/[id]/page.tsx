@@ -162,13 +162,17 @@ Mattilsynet`
             
             setMapCenter(centerCoords);
 
-            // Logic to identify owner apiaries: Match by User ID first, then Email
+            // Logic to identify owner apiaries: Match by Owner ID (from infected hive) first, then Reporter ID/Email
+            const infectedApiaryUserId = alertData?.hives?.apiaries?.user_id;
             const reporterId = alertData?.user_id || alertData?.reporter?.id;
+            const ownerId = infectedApiaryUserId || reporterId;
             const reporterEmail = alertData?.reporter?.email;
 
             const processedApiaries = (apiariesData || []).map((a: any) => ({
                 ...a,
-                isOwner: (reporterId && a.user_id === reporterId) || (reporterEmail && a.users?.email === reporterEmail),
+                isOwner: (ownerId && a.user_id === ownerId) || 
+                         (reporterEmail && a.users?.email === reporterEmail) ||
+                         (infectedApiaryUserId && a.user_id === infectedApiaryUserId),
                 ...(() => {
                     if (a.coordinates) {
                         const parts = a.coordinates.split(',');
@@ -192,9 +196,13 @@ Mattilsynet`
             setDebugInfo({
                 alertId: alertData?.id,
                 reporter: alertData?.reporter?.email,
+                ownerId,
+                infectedApiaryUserId,
                 totalApiariesFetched: apiariesData?.length || 0,
                 processedApiariesCount: processedApiaries.length,
                 ownerApiariesCount: processedApiaries.filter((a: any) => a.isOwner).length,
+                firstApiaryUser: processedApiaries[0]?.user_id,
+                firstApiaryEmail: processedApiaries[0]?.users?.email,
                 mapCenter: centerCoords
             });
 
@@ -224,7 +232,7 @@ Mattilsynet`
         
         // Extract description
         let description = 'Ingen beskrivelse';
-        const descMatch = details.match(/Beskrivelse: (.*?)(?:\nBilder:|\n\n\[AI|$)/s);
+        const descMatch = details.match(/Beskrivelse: ([\s\S]*?)(?:\nBilder:|\n\n\[AI|$)/);
         if (descMatch) description = descMatch[1].trim();
 
         // Extract images
@@ -635,7 +643,7 @@ Mattilsynet`
                             
                             <div className="border-t border-slate-100 pt-4 mt-4">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-600">Andre bigårder:</span>
+                                    <span className="text-sm text-gray-600">Eiers andre bigårder:</span>
                                     <span className="font-bold text-gray-900">
                                         {allApiaries.filter(a => a.isOwner).length} stk
                                     </span>

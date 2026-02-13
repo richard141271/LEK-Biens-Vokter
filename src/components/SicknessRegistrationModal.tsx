@@ -383,7 +383,6 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
                             }}
                         />
                     </div>
-                </div>
 
                 {profile?.role !== 'beekeeper' && (
                 <div className="bg-blue-50 p-3 rounded-lg flex gap-2 text-xs text-blue-800">
