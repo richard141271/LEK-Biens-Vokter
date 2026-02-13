@@ -58,6 +58,12 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
   };
 
   const handleSubmit = async () => {
+    // Validate that an image is provided
+    if (!sicknessImage) {
+        alert('Du må laste opp et bilde før du kan sende rapporten. Dette er påkrevd for dokumentasjon.');
+        return;
+    }
+
     try {
         setUploading(true);
         let imageUrl = '';
@@ -88,8 +94,7 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
 
             } catch (error: any) {
                 console.error('Upload error:', error);
-                alert('Kunne ikke lagre bildet, men sender rapporten uten.');
-                // Proceed without image
+                throw new Error('Kunne ikke laste opp bilde. Prøv igjen eller sjekk internettilkoblingen.');
             }
         }
 
@@ -175,7 +180,7 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
                 </div>
                 <div>
                     <h2 className="text-xl font-bold text-gray-900">Meld sykdom / avvik</h2>
-                    <p className="text-xs text-gray-500">Sendes direkte til ansvarlig birøkter & Mattilsynet</p>
+                    <p className="text-xs text-gray-500">Sendes direkte til ansvarlig i Mattilsynet</p>
                 </div>
             </div>
 
@@ -361,7 +366,7 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
                 {profile?.role !== 'beekeeper' && (
                 <div className="bg-blue-50 p-3 rounded-lg flex gap-2 text-xs text-blue-800">
                     <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
-                    <p>Din birøkter vil vurdere bildet for å se om det krever utrykning eller er &quot;falsk alarm&quot;. Du hører fra oss!</p>
+                    <p>Mattilsynet vil vurdere bildet for å se om det krever utrykning eller er &quot;falsk alarm&quot;. Du hører fra oss!</p>
                 </div>
                 )}
 
