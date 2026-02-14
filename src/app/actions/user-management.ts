@@ -311,7 +311,8 @@ export async function hardDeleteUser(userId: string) {
         .eq('seller_id', userId)
       if (honeyListError) console.warn('Error deleting honey listings:', honeyListError)
 
-      // Surveys & Pilot Interest
+      // Surveys & Pilot Interest - PRESERVED AS PER INSTRUCTION
+      /*
       const { error: surveyError } = await adminClient
         .from('survey_responses')
         .delete()
@@ -335,6 +336,7 @@ export async function hardDeleteUser(userId: string) {
         .delete()
         .eq('user_id', userId)
       if (surveyPilotError) console.warn('Error deleting survey pilot interest:', surveyPilotError)
+      */
 
       // Unlink Rentals & Inspections & Apiaries
       const { error: rentalAssignError } = await adminClient
