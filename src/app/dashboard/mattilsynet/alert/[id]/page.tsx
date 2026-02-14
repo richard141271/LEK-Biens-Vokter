@@ -382,7 +382,7 @@ Mattilsynet`
             {/* TOP BANNER */}
             <div className={`w-full px-6 py-4 shadow-md flex flex-col md:flex-row justify-between items-center gap-4 ${isResolved ? 'bg-green-600' : 'bg-red-600'} text-white sticky top-0 z-40`}>
                 <div className="flex items-center gap-4">
-                    <Link href="/dashboard" className="p-2 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors">
+                    <Link href="/dashboard/mattilsynet" className="p-2 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors">
                         <ArrowLeft className="w-6 h-6" />
                     </Link>
                     <div>
