@@ -88,11 +88,18 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     };
   }, [cameraActive]);
 
+  const [lastCorrection, setLastCorrection] = useState<{ phrase?: string; similarity?: number } | null>(null);
+
   const handleVoiceCommand = (text: string) => {
       console.log("Voice Command:", text);
       let parsed = parseVoiceCommand(text);
-      parsed = analyzeAndCorrect(text, parsed);
+      const res = analyzeAndCorrect(text, parsed);
+      parsed = res.parsed;
       let feedback: string[] = [];
+      if (res.corrected && res.matched) {
+          setLastCorrection({ phrase: res.matched, similarity: res.similarity });
+          feedback.push(`Tolkning brukt: ${res.matched}`);
+      }
 
       // Action: Take Photo
       if (parsed.action === 'TAKE_PHOTO') {
@@ -495,6 +502,13 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             </div>
         )}
         <canvas ref={canvasRef} className="hidden" />
+
+        {lastCorrection && (
+          <div className="mb-3 p-2 bg-amber-50 text-amber-800 rounded-lg flex items-center gap-2 border border-amber-200">
+            <Info className="w-4 h-4" />
+            <span className="text-sm font-medium">Tolkning brukt: {lastCorrection.phrase} ({Math.round((lastCorrection.similarity || 0) * 100)}%)</span>
+          </div>
+        )}
 
         {/* Voice Feedback */}
         {lastCommand && (

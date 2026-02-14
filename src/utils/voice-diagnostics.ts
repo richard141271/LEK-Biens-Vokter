@@ -108,7 +108,7 @@ function pushFailure(entry: any) {
   } catch {}
 }
 
-export function analyzeAndCorrect(recognized: string, parsed: Parsed): Parsed {
+export function analyzeAndCorrect(recognized: string, parsed: Parsed): { parsed: Parsed, corrected: boolean, matched?: string, similarity: number } {
   const text = recognized || '';
   const best = getCatalog()
     .map(p => ({ ...p, score: similarity(text, p.text) }))
@@ -150,7 +150,12 @@ export function analyzeAndCorrect(recognized: string, parsed: Parsed): Parsed {
     }
   }
 
-  return corrected;
+  return {
+    parsed: corrected,
+    corrected: JSON.stringify(corrected) !== before,
+    matched: best?.text,
+    similarity: best?.score || 0
+  };
 }
 
 export function setAutoCorrectEnabled(enabled: boolean) {
