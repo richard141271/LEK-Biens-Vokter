@@ -74,10 +74,8 @@ export default function NewApiaryPage() {
 
     // Validate coordinates
     if (!rental.latitude || !rental.longitude) {
-        const confirmNoCoords = confirm('Utleieoppdraget mangler koordinater (kart-pin). Vil du fortsette uten posisjon?');
-        if (!confirmNoCoords) return;
-        // alert('Kan ikke opprette bigård: Utleieoppdraget mangler koordinater (kart-pin). Gå til oppdraget og legg til posisjon først.');
-        // return;
+        alert('Kan ikke opprette bigård: Utleieoppdraget mangler koordinater (kart-pin). Gå til oppdraget og legg til posisjon først.');
+        return;
     }
 
     setLoading(true);

@@ -191,6 +191,10 @@ export async function getIncidentData(incidentId: string) {
             .eq('id', alert.user_id)
             .single();
         reporter = data;
+        if (!reporter) {
+             console.log(`Reporter lookup returned null for user_id ${alert.user_id} (User might be deleted)`);
+             debug.errors.push(`Reporter profile not found for ID: ${alert.user_id}`);
+        }
     }
 
     // Priority 2: Fallback to Apiary Owner if reporter not found or empty
@@ -208,7 +212,12 @@ export async function getIncidentData(incidentId: string) {
 
     const alertWithReporter = {
         ...alert,
-        reporter: reporter || { full_name: 'Ukjent', email: '', phone_number: '' }
+        reporter: reporter || { 
+            full_name: alert.user_id ? 'Slettet bruker' : 'Ukjent bruker', 
+            email: '', 
+            phone_number: '',
+            id: alert.user_id || 'unknown'
+        }
     };
 
     // 2. Fetch All Apiaries for Map
