@@ -724,7 +724,8 @@ export async function getUsers() {
       return {
           ...p,
           email: authUser?.email || p.email, // Ensure email is populated from Auth
-          is_course_friend: isCourseFriend
+          is_course_friend: isCourseFriend,
+          email_enabled: p.has_email_access // Map DB column to frontend property
       };
     });
   }
@@ -768,7 +769,7 @@ export async function updateUserRole(userId: string, role: string) {
   return { success: true }
 }
 
-export async function assignEmail(userId: string, alias: string) {
+export async function assignEmail(userId: string, alias: string, enableAccess: boolean = true) {
   const supabase = createClient()
   
   const { data: { user } } = await supabase.auth.getUser()
@@ -809,7 +810,7 @@ export async function assignEmail(userId: string, alias: string) {
     .from('profiles')
     .update({ 
       email_alias: alias,
-      has_email_access: true // Auto-enable access when assigning
+      has_email_access: enableAccess 
     })
     .eq('id', userId)
 

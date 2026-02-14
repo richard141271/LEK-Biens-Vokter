@@ -96,12 +96,15 @@ export default function AdminEmailPage() {
     const fullAlias = `${emailAliasInput}@${emailDomainInput}`;
     
     try {
-        const result = await assignEmail(emailUser.id, fullAlias);
+        // Default to true if undefined (new assignment), otherwise respect current state
+        const isEnabled = emailUser.email_enabled ?? true;
+        const result = await assignEmail(emailUser.id, fullAlias, isEnabled);
+        
         if (result.error) {
             setMessage({ text: result.error, type: 'error' });
         } else {
             setMessage({ text: 'E-postkonto oppdatert', type: 'success' });
-            setUsers(users.map(u => u.id === emailUser.id ? { ...u, email_alias: fullAlias, email_enabled: true } : u));
+            setUsers(users.map(u => u.id === emailUser.id ? { ...u, email_alias: fullAlias, email_enabled: isEnabled } : u));
             setEmailModalOpen(false);
         }
     } catch (e) {

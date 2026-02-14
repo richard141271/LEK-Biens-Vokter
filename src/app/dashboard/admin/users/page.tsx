@@ -318,12 +318,15 @@ export default function AdminUsersPage() {
     const fullAlias = `${emailAliasInput}@${emailDomainInput}`;
     
     try {
-        const result = await assignEmail(emailUser.id, fullAlias);
+        // Default to true if undefined (new assignment), otherwise respect current state
+        const isEnabled = emailUser.email_enabled ?? true;
+        const result = await assignEmail(emailUser.id, fullAlias, isEnabled);
+        
         if (result.error) {
             setMessage({ text: result.error, type: 'error' });
         } else {
-            setMessage({ text: 'E-postadresse tildelt', type: 'success' });
-            setUsers(users.map(u => u.id === emailUser.id ? { ...u, email_alias: fullAlias, email_enabled: true } : u));
+            setMessage({ text: 'E-postadresse lagret', type: 'success' });
+            setUsers(users.map(u => u.id === emailUser.id ? { ...u, email_alias: fullAlias, email_enabled: isEnabled } : u));
             setEmailModalOpen(false);
         }
     } catch (e) {
@@ -348,6 +351,11 @@ export default function AdminUsersPage() {
         } else {
             setMessage({ text: newState ? 'E-post aktivert' : 'E-post deaktivert', type: 'success' });
             setUsers(users.map(u => u.id === user.id ? { ...u, email_enabled: newState } : u));
+            
+            // Also update the selected user in the modal if it's the same user
+            if (emailUser && emailUser.id === user.id) {
+                setEmailUser({ ...emailUser, email_enabled: newState });
+            }
         }
     } catch (e) {
         setMessage({ text: 'En feil oppstod', type: 'error' });
