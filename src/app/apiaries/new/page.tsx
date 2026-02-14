@@ -15,6 +15,7 @@ export default function NewApiaryPage() {
   const [loading, setLoading] = useState(false);
   const [pendingRentals, setPendingRentals] = useState<any[]>([]);
   const [nextApiaryNumber, setNextApiaryNumber] = useState(1);
+  const [memberNumber, setMemberNumber] = useState<string>('');
   const router = useRouter();
   const supabase = createClient();
 
@@ -23,6 +24,17 @@ export default function NewApiaryPage() {
     const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // 0. Fetch Member Number
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('member_number')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile?.member_number) {
+        setMemberNumber(profile.member_number);
+      }
 
       // 1. Fetch Pending Rentals
       const { data: rentals } = await supabase
@@ -60,6 +72,12 @@ export default function NewApiaryPage() {
   const handleCreateFromRental = async (rental: any) => {
     if (!confirm(`Opprette bigård for ${rental.contact_name}?`)) return;
 
+    // Validate coordinates
+    if (!rental.latitude || !rental.longitude) {
+        alert('Kan ikke opprette bigård: Utleieoppdraget mangler koordinater (kart-pin). Gå til oppdraget og legg til posisjon først.');
+        return;
+    }
+
     setLoading(true);
     try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -77,14 +95,25 @@ export default function NewApiaryPage() {
                 if (!apiary.apiary_number) return max;
                 const parts = apiary.apiary_number.split('-');
                 if (parts.length === 2) {
-                    const num = parseInt(parts[1], 10);
+                    // Handle both old format (BG-001) and new format (BG-001.12345)
+                    const numPart = parts[1].split('.')[0];
+                    const num = parseInt(numPart, 10);
                     return !isNaN(num) && num > max ? num : max;
                 }
                 return max;
             }, 0);
             nextNum = maxNum + 1;
         }
-        const apiaryNumber = `BG-${nextNum.toString().padStart(3, '0')}`;
+        
+        // Fetch member number if not already in state (though it should be)
+        let currentMemberNumber = memberNumber;
+        if (!currentMemberNumber) {
+             const { data: profile } = await supabase.from('profiles').select('member_number').eq('id', user.id).single();
+             currentMemberNumber = profile?.member_number || '';
+        }
+
+        const suffix = currentMemberNumber ? `.${currentMemberNumber}` : '';
+        const apiaryNumber = `BG-${nextNum.toString().padStart(3, '0')}${suffix}`;
 
         // 2. Extract Last Name for Name
         const lastName = rental.contact_name.split(' ').pop() || 'Utleie';
@@ -148,7 +177,7 @@ export default function NewApiaryPage() {
                  newHives.push({
                      user_id: user.id,
                      apiary_id: newApiary.id,
-                     hive_number: `KUBE-${(maxHiveNum + 1 + i).toString().padStart(3, '0')}`,
+                     hive_number: `KUBE-${(maxHiveNum + 1 + i).toString().padStart(3, '0')}${suffix}`,
                      status: 'aktiv'
                  });
              }
@@ -185,6 +214,12 @@ export default function NewApiaryPage() {
     e.preventDefault();
     setLoading(true);
 
+    if (!coordinates) {
+        alert('Du må hente posisjon (koordinater) for å registrere en bigård. Dette er et krav fra Mattilsynet.');
+        setLoading(false);
+        return;
+    }
+
     try {
       // 1. Hent brukeren
       const { data: { user } } = await supabase.auth.getUser();
@@ -204,7 +239,9 @@ export default function NewApiaryPage() {
           if (!apiary.apiary_number) return max;
           const parts = apiary.apiary_number.split('-');
           if (parts.length === 2) {
-            const num = parseInt(parts[1], 10);
+            // Handle both old format (BG-001) and new format (BG-001.12345)
+            const numPart = parts[1].split('.')[0];
+            const num = parseInt(numPart, 10);
             return !isNaN(num) && num > max ? num : max;
           }
           return max;
@@ -219,7 +256,8 @@ export default function NewApiaryPage() {
       if (type === 'lager') prefix = 'LG';
       if (type === 'oppstart') prefix = 'START';
 
-      const apiaryNumber = `${prefix}-${nextNum.toString().padStart(3, '0')}`;
+      const suffix = memberNumber ? `.${memberNumber}` : '';
+      const apiaryNumber = `${prefix}-${nextNum.toString().padStart(3, '0')}${suffix}`;
 
       // 3. Lagre i databasen
       const { error } = await supabase.from('apiaries').insert({

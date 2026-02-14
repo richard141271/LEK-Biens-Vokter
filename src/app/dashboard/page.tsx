@@ -11,6 +11,7 @@ import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, 
 import WeatherWidget from '@/components/WeatherWidget';
 import SicknessRegistrationModal from '@/components/SicknessRegistrationModal';
 import InspectionModal from '@/components/InspectionModal';
+import BeekeeperAlertsPoller from './components/BeekeeperAlertsPoller';
 
 
 
@@ -64,6 +65,16 @@ export default function DashboardPage() {
       return `Oktober ${now.getFullYear() + 1}`;
     }
     return `Oktober ${now.getFullYear()}`;
+  };
+
+  const cleanAlertText = (text: string) => {
+    if (!text) return '';
+    // Remove image URLs
+    let cleaned = text.replace(/Bilder: https?:\/\/\S+/g, '');
+    cleaned = cleaned.replace(/https?:\/\/\S+/g, '');
+    // Remove AI analysis part
+    cleaned = cleaned.replace(/\[AI Analyse][\s\S]*$/, '');
+    return cleaned.trim();
   };
 
   useEffect(() => {
@@ -383,6 +394,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
+      <BeekeeperAlertsPoller />
       
       <main className="p-2 space-y-2 max-w-lg mx-auto">
           
@@ -430,7 +442,7 @@ export default function DashboardPage() {
                             )}
                         </h3>
                         <p className="text-red-700 text-xs mt-1 break-words">
-                            {nearbyAlerts[0].details}
+                            {cleanAlertText(nearbyAlerts[0].details)}
                         </p>
                         <p className="text-[10px] text-red-500 mt-2 font-medium">
                             Sist oppdatert: {new Date(nearbyAlerts[0].created_at).toLocaleString('nb-NO')}

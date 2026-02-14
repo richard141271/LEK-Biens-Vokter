@@ -20,8 +20,8 @@ export async function getSignedUploadUrl(fileName: string) {
   // Ensure bucket exists first
   const { error: bucketError } = await adminClient.storage.createBucket('sickness-images', {
     public: true,
-    fileSizeLimit: 5242880,
-    allowedMimeTypes: ['image/png', 'image/jpeg', 'image/jpg']
+    fileSizeLimit: 10485760, // Increased to 10MB
+    allowedMimeTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif']
   });
   
   // Ignore bucket already exists error
@@ -67,6 +67,13 @@ export async function submitSicknessReport(data: SicknessReportData) {
     });
 
     if (logError) throw logError;
+
+    // Audit Log for verification
+    await adminClient.from('admin_logs').insert({
+        action: 'SICKNESS_REPORT_RECEIVED',
+        details: `Report from ${user.email} for Hive ${data.hiveId || 'Generell'}. Disease: ${data.diseaseType}`,
+        target_id: user.id
+    });
 
     // 2. "Neighbor Alert" - Find other beekeepers
     // Since we don't have lat/lon coordinates in the current 'location' string field,

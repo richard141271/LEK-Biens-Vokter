@@ -1,15 +1,15 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { getMattilsynetDashboardData } from '@/app/actions/mattilsynet';
-import { AlertTriangle, X, Volume2, VolumeX } from 'lucide-react';
+import { createClient } from '@/utils/supabase/client';
+import { AlertTriangle, X } from 'lucide-react';
 import Link from 'next/link';
 
-export default function AlertsPoller() {
-  const [lastAlertId, setLastAlertId] = useState<string | null>(null);
+export default function BeekeeperAlertsPoller() {
   const [newAlert, setNewAlert] = useState<any | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const supabase = createClient();
 
   // Initialize Audio Context lazily
   const getAudioContext = () => {
@@ -38,7 +38,7 @@ export default function AlertsPoller() {
       osc.connect(gain);
       gain.connect(ctx.destination);
       
-      // Urgent alarm sound
+      // Urgent alarm sound (Loud 0.7 volume)
       const now = ctx.currentTime;
       
       // Three rapid beeps
@@ -67,36 +67,54 @@ export default function AlertsPoller() {
     }
   };
 
-  useEffect(() => {
-    // Load last seen alert from localStorage to persist across reloads
-    const savedId = localStorage.getItem('mattilsynet_last_alert_id');
-    if (savedId) {
-        setLastAlertId(savedId);
-    }
+  const cleanAlertText = (text: string) => {
+    if (!text) return '';
+    // Remove image URLs
+    let cleaned = text.replace(/Bilder: https?:\/\/\S+/g, '');
+    cleaned = cleaned.replace(/https?:\/\/\S+/g, '');
+    // Remove AI analysis part
+    cleaned = cleaned.replace(/\[AI Analyse][\s\S]*$/, ''); // Remove from [AI Analyse] to end
+    return cleaned.trim();
+  };
 
+  useEffect(() => {
+    // Load last seen alert from localStorage
+    const savedId = localStorage.getItem('beekeeper_last_alert_id');
+    
     const checkAlerts = async () => {
-      const data = await getMattilsynetDashboardData();
-      if (data?.alerts && data.alerts.length > 0) {
-        const latest = data.alerts[0];
-        
-        // Check against localStorage to be sure (state might be stale in closure if not careful, 
-        // though we re-read in the loop implicitly via the stored check below if we used a ref, 
-        // but here we rely on the closure. 
-        // Actually, setInterval captures the closure. We need to be careful.)
-        
-        // Better: Read localStorage directly inside the check
-        const currentStored = localStorage.getItem('mattilsynet_last_alert_id');
-        
-        if (latest.id !== currentStored) {
-            // NEW ALERT!
-            console.log("New alert detected:", latest.id);
-            setNewAlert(latest);
-            setLastAlertId(latest.id);
-            localStorage.setItem('mattilsynet_last_alert_id', latest.id);
-            
-            // Trigger sound immediately
-            playSound();
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Fetch recent UNRESOLVED neighbor alerts (SYKDOM)
+        const { data: alerts } = await supabase
+          .from('hive_logs')
+          .select('*')
+          .eq('action', 'SYKDOM')
+          .eq('user_id', user.id) // Only alerts for me (created as neighbor alerts)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (alerts && alerts.length > 0) {
+          const latest = alerts[0];
+          
+          // Skip if resolved (handled in memory since we might have nulls in DB)
+          if (latest.admin_status === 'resolved') return;
+
+          const currentStored = localStorage.getItem('beekeeper_last_alert_id');
+          
+          if (latest.id !== currentStored) {
+              // NEW ALERT!
+              console.log("New beekeeper alert detected:", latest.id);
+              setNewAlert(latest);
+              localStorage.setItem('beekeeper_last_alert_id', latest.id);
+              
+              // Trigger sound immediately
+              playSound();
+          }
         }
+      } catch (e) {
+        console.error("Error polling alerts:", e);
       }
     };
 
@@ -140,7 +158,7 @@ export default function AlertsPoller() {
             <div className="bg-white/20 p-2 rounded-full animate-bounce">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <h2 className="text-xl font-bold">ALARM: SMITTE OPPDAGET!</h2>
+            <h2 className="text-xl font-bold">SMITTEVARSEL!</h2>
           </div>
           <button 
             onClick={() => setNewAlert(null)} 
@@ -152,45 +170,26 @@ export default function AlertsPoller() {
         </div>
         
         <div className="p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-2">Ny hendelse krever handling</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-2">Varsel om smitte i ditt område</h3>
           <p className="text-gray-600 mb-4">
-            En ny smittehendelse er nettopp registrert. Beredskapsrommet er aktivert.
+            Det er oppdaget smitte i nærheten av dine bigårder. Sjekk kubene dine snarest!
           </p>
           
           <div className="bg-red-50 p-4 rounded-xl border border-red-100 mb-6 shadow-inner">
-            <div className="flex justify-between mb-2">
-                <span className="text-sm text-gray-500 shrink-0">Sykdom/Mistanke:</span>
-                <span className="font-bold text-red-700 text-right flex-1 break-words ml-4">{newAlert.details?.split('Sykdom: ')[1]?.split(',')[0] || 'Ukjent'}</span>
-            </div>
-            <div className="flex justify-between mb-2">
-                <span className="text-sm text-gray-500 shrink-0">Bigård:</span>
-                <span className="font-bold text-gray-900 text-right flex-1 break-words ml-4">{newAlert.hives?.apiaries?.name || 'Ukjent'}</span>
-            </div>
-            <div className="flex justify-between mb-2">
-                <span className="text-sm text-gray-500 shrink-0">Lokasjon:</span>
-                <span className="font-bold text-gray-900 text-right flex-1 break-words ml-4">{newAlert.hives?.apiaries?.location || 'Ukjent'}</span>
-            </div>
-            <div className="flex justify-between">
-                <span className="text-sm text-gray-500 shrink-0">Tidspunkt:</span>
-                <span className="font-bold text-gray-900 text-right flex-1 break-words ml-4">{newAlert.created_at ? new Date(newAlert.created_at).toLocaleTimeString('no-NO') : 'Nå'}</span>
-            </div>
+            <p className="text-red-800 text-sm font-medium break-words">
+                {cleanAlertText(newAlert.details)}
+            </p>
+            <p className="text-xs text-red-500 mt-2 font-medium">
+                Mottatt: {new Date(newAlert.created_at).toLocaleString('nb-NO')}
+            </p>
           </div>
 
-          <div className="flex gap-3">
-            <button 
-                onClick={() => setNewAlert(null)}
-                className="flex-1 py-3 px-4 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-colors"
-            >
-                Lukk Varsel
-            </button>
-            <Link 
-                href={`/dashboard/mattilsynet/alert/${newAlert.id}`}
-                onClick={() => setNewAlert(null)}
-                className="flex-1 py-3 px-4 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors text-center shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center justify-center gap-2"
-            >
-                Gå til Beredskapsrom
-            </Link>
-          </div>
+          <button 
+            onClick={() => setNewAlert(null)}
+            className="w-full py-3 px-4 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors shadow-lg"
+          >
+            Jeg forstår - Lukk varsel
+          </button>
         </div>
       </div>
     </div>

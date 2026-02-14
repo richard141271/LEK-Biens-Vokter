@@ -16,6 +16,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [rental, setRental] = useState<any>(null);
   const [inspections, setInspections] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [memberNumber, setMemberNumber] = useState<string>('');
   
   // Selection State
   const [selectedHiveIds, setSelectedHiveIds] = useState<Set<string>>(new Set());
@@ -91,6 +92,17 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     // 0. Fetch User
     const { data: { user } } = await supabase.auth.getUser();
     setCurrentUser(user);
+
+    if (user) {
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('member_number')
+            .eq('id', user.id)
+            .single();
+        if (profile?.member_number) {
+            setMemberNumber(profile.member_number);
+        }
+    }
 
     // 1. Fetch Apiary
     const { data: apiaryData, error: apiaryError } = await supabase
@@ -219,20 +231,30 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
     setIsProcessingScan(true);
     const input = scanInput.trim(); 
+    
+    // 1. Construct the standardized ID (New Format)
     let hiveNumber = input;
+    const suffix = memberNumber ? `.${memberNumber}` : '';
+
     if (/^\d+$/.test(input)) {
-        hiveNumber = `KUBE-${input.padStart(3, '0')}`;
+        // Input: "1" -> "KUBE-001.12345"
+        hiveNumber = `KUBE-${input.padStart(3, '0')}${suffix}`;
+    } else if (/^KUBE-\d+$/i.test(input)) {
+        // Input: "KUBE-1" -> "KUBE-001.12345"
+        const numPart = input.split('-')[1];
+        hiveNumber = `KUBE-${numPart.padStart(3, '0')}${suffix}`;
     }
+    // Else: Assume it's already a full ID or UUID
 
     try {
         const { data: { user } } = await supabase.auth.getUser();
         
-        // Check if hive exists
+        // Check if hive exists (Search for Modern ID, Original Input, or UUID)
         const { data: existingHive } = await supabase
             .from('hives')
             .select('*')
-            .or(`hive_number.eq.${hiveNumber},id.eq.${input}`)
-            .single();
+            .or(`hive_number.eq.${hiveNumber},hive_number.eq.${input},id.eq.${input}`)
+            .maybeSingle();
 
         if (existingHive) {
             // Move to this apiary if not already here
