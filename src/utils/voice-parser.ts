@@ -35,7 +35,7 @@ export function parseVoiceCommand(text: string): ParsedInspection {
     }
 
     // --- Action: Save Inspection ---
-    if (has(['lagre inspeksjon', 'lagre skjema', 'ferdig med inspeksjon', 'send inn', 'lagre nå', 'avslutt inspeksjon'])) {
+    if (has(['lagre inspeksjon', 'lagre skjema', 'lagring inspeksjon', 'lag inspeksjon', 'ferdig med inspeksjon', 'send inn', 'lagre nå', 'avslutt inspeksjon'])) {
         result.action = 'SAVE_INSPECTION';
     }
 
@@ -54,7 +54,7 @@ export function parseVoiceCommand(text: string): ParsedInspection {
     // --- Eggs ---
     if (has(['ingen egg', 'ikke sett egg', 'tom for egg', 'ingen stift', 'tomme celler', 'ser ingen egg', 'ingen yngelstift'])) {
         result.eggsSeen = false;
-    } else if (has(['egg sett', 'ser egg', 'masse egg', 'dagsferske', 'så egg', 'fant egg', 'stifter', 'nylagt egg', 'ser stift', 'egg i cellene'])) {
+    } else if (has(['egg sett', 'egseth', 'engeset', 'eggset', 'eggsatt', 'ser egg', 'masse egg', 'dagsferske', 'så egg', 'fant egg', 'stifter', 'nylagt egg', 'ser stift', 'egg i cellene'])) {
         result.eggsSeen = true;
     }
 
@@ -101,20 +101,20 @@ export function parseVoiceCommand(text: string): ParsedInspection {
         result.status = 'BYTT_DRONNING';
     } else if (has(['mottatt fôr', 'fôret', 'fikk mat', 'fikk fôr'])) {
         result.status = 'MOTTATT_FOR';
-    } else if (has(['skiftet rammer', 'nye rammer', 'byttet rammer'])) {
+    } else if (has(['skiftet rammer', 'skifte rammer', 'nye rammer', 'byttet rammer'])) {
         result.status = 'SKIFTET_RAMMER';
-    } else if (has(['sverming', 'har svermet', 'sverm', 'svermetrang', 'fare for sverming', 'sverre trang', 'fare på svømming', 'fare for svømming'])) {
+    } else if (has(['sverming', 'svømming', 'har svermet', 'sverm', 'svermetrang', 'fare for sverming', 'sverre trang', 'fare på svømming', 'fare for svømming'])) {
         result.status = 'SVERMING';
     } else if (hasWord('varroa') || (hasWord('midd') && !t.includes('middels'))) {
         // Varroa/Midd: unngå falsk treff på 'middels'
         result.status = 'VARROA_MISTANKE';
-    } else if (has(['byttet voks', 'ny voks', 'smeltet voks'])) {
+    } else if (has(['byttet voks', 'byttet boks', 'vox', 'ny voks', 'smeltet voks'])) {
         result.status = 'BYTTET_VOKS';
     }
 
     // --- Temperature ---
     // Match "20 grader", "temperatur 20", "20.5 grader"
-    const tempMatch = t.match(/(\d+([.,]\d+)?)\s*grader/) || t.match(/temperatur\s*(\d+([.,]\d+)?)/);
+    const tempMatch = t.match(/(\d+([.,]\d+)?)\s*(grader|[°º])/) || t.match(/temperatur\s*(\d+([.,]\d+)?)/);
     if (tempMatch) {
         result.temperature = tempMatch[1].replace(',', '.');
     }
@@ -124,7 +124,7 @@ export function parseVoiceCommand(text: string): ParsedInspection {
         result.weather = 'Klart';
     } else if (has(['regn', 'regner', 'vått'])) {
         result.weather = 'Regn';
-    } else if (has(['overskyet', 'skyet'])) {
+    } else if (has(['overskyet', 'overskya', 'skyet'])) {
         result.weather = 'Lettskyet/Overskyet';
     }
 
