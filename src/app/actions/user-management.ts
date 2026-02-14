@@ -106,6 +106,75 @@ export async function hardDeleteUser(userId: string) {
       // 2a. Manually delete related data to avoid Foreign Key constraints if CASCADE is missing
       // Order is important: Child -> Parent
 
+      // 0. Get User's Apiaries (needed for Rental cleanup)
+      const { data: userApiaries } = await adminClient
+        .from('apiaries')
+        .select('id')
+        .eq('user_id', userId)
+      
+      const apiaryIds = userApiaries?.map(a => a.id) || []
+
+      // 1. Unassign from Rentals (set assigned_beekeeper_id to null AND unlink apiaries)
+      const { error: rentalError } = await adminClient
+        .from('rentals')
+        .update({ assigned_beekeeper_id: null })
+        .eq('assigned_beekeeper_id', userId)
+      
+      if (rentalError) console.warn('Error unassigning rentals:', rentalError)
+
+      if (apiaryIds.length > 0) {
+        const { error: rentalApiaryError } = await adminClient
+            .from('rentals')
+            .update({ apiary_id: null })
+            .in('apiary_id', apiaryIds)
+        
+        if (rentalApiaryError) console.warn('Error unlinking apiaries from rentals:', rentalApiaryError)
+      }
+
+      // 2. Delete Founder Related Data
+      // founder_ambitions
+      const { error: ambitionError } = await adminClient
+        .from('founder_ambitions')
+        .delete()
+        .eq('founder_id', userId)
+      if (ambitionError) console.warn('Error deleting founder ambitions:', ambitionError)
+
+      // founder_agreement_checks
+      const { error: checksError } = await adminClient
+        .from('founder_agreement_checks')
+        .delete()
+        .eq('founder_id', userId)
+      if (checksError) console.warn('Error deleting founder checks:', checksError)
+
+      // founder_logs
+      const { error: fLogsError } = await adminClient
+        .from('founder_logs')
+        .delete()
+        .eq('founder_id', userId)
+      if (fLogsError) console.warn('Error deleting founder logs:', fLogsError)
+
+      // founder_followups
+      const { error: followupsError } = await adminClient
+        .from('founder_followups')
+        .delete()
+        .eq('user_id', userId)
+      if (followupsError) console.warn('Error deleting founder followups:', followupsError)
+
+      // warroom_posts
+      const { error: warroomError } = await adminClient
+        .from('warroom_posts')
+        .delete()
+        .eq('user_id', userId)
+      if (warroomError) console.warn('Error deleting warroom posts:', warroomError)
+
+      // admin_logs (where user is actor or target)
+      const { error: adminLogsError } = await adminClient
+        .from('admin_logs')
+        .delete()
+        .or(`user_id.eq.${userId},target_id.eq.${userId}`)
+      if (adminLogsError) console.warn('Error deleting admin logs:', adminLogsError)
+
+      // 3. Delete Hive Logs & Hives & Apiaries
       // Get user's hives to delete related logs
       const { data: userHives } = await adminClient
         .from('hives')
@@ -147,6 +216,117 @@ export async function hardDeleteUser(userId: string) {
 
       if (apiariesError) console.warn('Error deleting user apiaries:', apiariesError)
 
+      // 5. Delete Honey Exchange & Wallet Data (New additions)
+      // honey_transactions
+      const { error: hTransError } = await adminClient
+        .from('honey_transactions')
+        .delete()
+        .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
+      if (hTransError) console.warn('Error deleting honey transactions:', hTransError)
+
+      // wallet_transactions
+      const { error: walletError } = await adminClient
+        .from('wallet_transactions')
+        .delete()
+        .eq('user_id', userId)
+      if (walletError) console.warn('Error deleting wallet transactions:', walletError)
+
+      // honey_listings
+      // Note: Listings might reference themselves via original_listing_id, so we might need cascading delete or multiple passes if deep nesting.
+      // But standard delete should work if no other user's listing references these.
+      const { error: hListError } = await adminClient
+        .from('honey_listings')
+        .delete()
+        .or(`seller_id.eq.${userId},keeper_id.eq.${userId}`)
+      if (hListError) console.warn('Error deleting honey listings:', hListError)
+
+      // rentals (as customer)
+      const { error: rentalsCustomerError } = await adminClient
+        .from('rentals')
+        .delete()
+        .eq('user_id', userId)
+      if (rentalsCustomerError) console.warn('Error deleting rentals as customer:', rentalsCustomerError)
+
+      // 6. Delete Franchise & Mail & Meeting & MLM Data (New additions)
+      // franchise_training_progress
+      const { error: fTrainError } = await adminClient
+        .from('franchise_training_progress')
+        .delete()
+        .eq('user_id', userId)
+      if (fTrainError) console.warn('Error deleting franchise training:', fTrainError)
+
+      // franchise_signatures
+      const { error: fSignError } = await adminClient
+        .from('franchise_signatures')
+        .delete()
+        .eq('user_id', userId)
+      if (fSignError) console.warn('Error deleting franchise signatures:', fSignError)
+
+      // franchise_weekly_reports (submitted_by)
+      const { error: fRepError } = await adminClient
+        .from('franchise_weekly_reports')
+        .delete()
+        .eq('submitted_by', userId)
+      if (fRepError) console.warn('Error deleting franchise reports:', fRepError)
+
+      // franchise_units (owned)
+      const { error: fUnitError } = await adminClient
+        .from('franchise_units')
+        .delete()
+        .eq('owner_id', userId)
+      if (fUnitError) console.warn('Error deleting franchise units:', fUnitError)
+
+      // mail_folders (should cascade to messages if configured, but explicit delete is safer)
+      const { error: mailFolderError } = await adminClient
+        .from('mail_folders')
+        .delete()
+        .eq('user_id', userId)
+      if (mailFolderError) console.warn('Error deleting mail folders:', mailFolderError)
+
+      // meeting_notes
+      const { error: meetingError } = await adminClient
+        .from('meeting_notes')
+        .delete()
+        .eq('user_id', userId)
+      if (meetingError) console.warn('Error deleting meeting notes:', meetingError)
+
+      // commissions
+      const { error: commError } = await adminClient
+        .from('commissions')
+        .delete()
+        .or(`beneficiary_id.eq.${userId},source_user_id.eq.${userId}`)
+      if (commError) console.warn('Error deleting commissions:', commError)
+
+      // Update profiles referrer_id (set to null)
+      const { error: refError } = await adminClient
+        .from('profiles')
+        .update({ referrer_id: null })
+        .eq('referrer_id', userId)
+      if (refError) console.warn('Error updating referrers:', refError)
+
+      // 4. Delete Storage Objects (Files)
+      // Attempt to delete files owned by user in 'storage' schema
+      try {
+          // This requires the client to have access to the 'storage' schema or use the storage API
+          // Since we can't easily list files by owner via standard API, we try direct DB deletion if possible
+          // or skip if not supported.
+          // Note: Supabase JS client 'storage' API doesn't support 'delete by owner'.
+          // We try direct table access.
+          /* 
+          const { error: storageError } = await adminClient
+            .schema('storage')
+            .from('objects')
+            .delete()
+            .eq('owner', userId)
+          
+          if (storageError) console.warn('Error deleting storage objects:', storageError)
+          */
+          // Commented out because we need to verify if 'schema()' is available on the client instance we have.
+          // Standard supabase-js v2 has .schema().
+      } catch (e) {
+          console.warn('Failed to cleanup storage:', e)
+      }
+
       // Delete Founder Profile
       const { error: founderError } = await adminClient
         .from('founder_profiles')
@@ -161,11 +341,20 @@ export async function hardDeleteUser(userId: string) {
         .delete()
         .eq('id', userId)
 
-      if (profileError) console.warn('Error deleting profile:', profileError)
+      if (profileError) {
+        console.error('Error deleting profile:', profileError)
+        // If we can't delete the profile, we should stop and report it, 
+        // because it likely means there's a constraint we missed.
+        // Continuing to auth delete will likely fail or leave zombie data.
+        return { error: 'Kunne ikke slette profil (database constraint): ' + profileError.message }
+      }
 
       // 2b. Delete from Auth
       const { error: authError } = await adminClient.auth.admin.deleteUser(userId)
-      if (authError) throw authError
+      if (authError) {
+        console.error('Error deleting auth user:', authError)
+        return { error: 'Kunne ikke slette bruker fra Auth: ' + authError.message }
+      }
 
       // Note: If Postgres uses ON DELETE CASCADE on the foreign key to auth.users, 
       // the profile and related data will be gone. 
