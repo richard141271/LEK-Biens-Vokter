@@ -78,6 +78,24 @@ export default function WordTraining({ onClose }: Props) {
           parsed: p
         };
         setFailures((prev) => [record, ...prev]);
+        try {
+          const share = typeof window !== 'undefined' && localStorage.getItem('voice_share') === '1';
+          if (share) {
+            fetch('/api/voice/log', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                recognized_text: t,
+                matched_phrase: item.text,
+                similarity: null,
+                expected_parse: item.expected || {},
+                parsed_before: p,
+                parsed_after: null,
+                source: 'training'
+              })
+            }).catch(() => {});
+          }
+        } catch {}
       }
     } catch {}
   }, [currentIndex, phrases]);
@@ -112,7 +130,7 @@ export default function WordTraining({ onClose }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-xl w-full max-w-2xl shadow-2xl border border-gray-200">
+    <div className="bg-white rounded-xl w-full max-w-2xl shadow-2xl border border-gray-200 max-h-[85vh] overflow-y-auto">
       <div className="flex items-center justify-between p-4 border-b border-gray-100">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-honey-50 text-honey-700 rounded-lg">

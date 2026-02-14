@@ -105,6 +105,16 @@ function pushFailure(entry: any) {
     const arr = JSON.parse(localStorage.getItem(key) || '[]');
     arr.unshift(entry);
     localStorage.setItem(key, JSON.stringify(arr.slice(0, 500)));
+
+    // Optional: share anonymously to common bank if enabled
+    const share = localStorage.getItem('voice_share') === '1';
+    if (share) {
+      fetch('/api/voice/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry)
+      }).catch(() => {});
+    }
   } catch {}
 }
 
@@ -145,7 +155,8 @@ export function analyzeAndCorrect(recognized: string, parsed: Parsed): { parsed:
         similarity: Number(best.score.toFixed(3)),
         expected_parse: exp,
         parsed_before: JSON.parse(before),
-        parsed_after: JSON.parse(after)
+        parsed_after: JSON.parse(after),
+        source: 'inspection'
       });
     }
   }
@@ -167,4 +178,18 @@ export function setAutoCorrectEnabled(enabled: boolean) {
 
 export function getAutoCorrectEnabled(): boolean {
   return isEnabled();
+}
+
+export function setShareEnabled(enabled: boolean) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('voice_share', enabled ? '1' : '0');
+  } catch {}
+}
+
+export function getShareEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem('voice_share') === '1';
+  } catch { return false; }
 }

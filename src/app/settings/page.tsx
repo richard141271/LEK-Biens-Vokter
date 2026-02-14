@@ -8,7 +8,7 @@ import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight, Archive, Briefcase, Printer, Link as LinkIcon, X, CreditCard, List, QrCode, FileText, ClipboardCheck, ChevronDown, Mic } from 'lucide-react';
 import WordTraining from '@/components/WordTraining';
-import { getAutoCorrectEnabled, setAutoCorrectEnabled } from '@/utils/voice-diagnostics';
+import { getAutoCorrectEnabled, setAutoCorrectEnabled, getShareEnabled, setShareEnabled } from '@/utils/voice-diagnostics';
 
 const RENTAL_CONTRACT_TEXT = ``;
 
@@ -156,9 +156,11 @@ export default function SettingsPage() {
   const [childLabelData, setChildLabelData] = useState({ name: '', age: '' });
   const [showWordTraining, setShowWordTraining] = useState(false);
   const [autoCorrect, setAutoCorrect] = useState(false);
+  const [shareVoice, setShareVoice] = useState(false);
 
   useEffect(() => {
     setAutoCorrect(getAutoCorrectEnabled());
+    setShareVoice(getShareEnabled());
   }, []);
 
   const generateLabelPDF = (type: 'standard' | 'child') => {
@@ -691,6 +693,28 @@ export default function SettingsPage() {
                       <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:h-5 after:w-5 after:left-[2px] after:top-[2px] after:bg-white after:rounded-full after:transition-all peer-checked:bg-honey-500 relative"></div>
                     </label>
                   </div>
+
+              <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-bold text-gray-900">Del anonym feil til fellesbank</div>
+                  <div className="text-xs text-gray-500">
+                    Lagrer misgjenkjenninger i en felles database for forbedring. Kun innloggede brukere.
+                  </div>
+                </div>
+                <label className="inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer" 
+                    checked={shareVoice}
+                    onChange={(e) => {
+                      const v = e.target.checked;
+                      setShareVoice(v);
+                      setShareEnabled(v);
+                    }}
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:h-5 after:w-5 after:left-[2px] after:top-[2px] after:bg-white after:rounded-full after:transition-all peer-checked:bg-honey-500 relative"></div>
+                </label>
+              </div>
               </div>
 
               <button 
