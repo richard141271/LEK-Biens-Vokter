@@ -247,7 +247,7 @@ export async function hardDeleteUser(userId: string) {
         .eq('user_id', userId)
       if (rentalsCustomerError) console.warn('Error deleting rentals as customer:', rentalsCustomerError)
 
-      // 6. Delete Franchise & Mail & Meeting & MLM Data (New additions)
+      // 6. Delete Franchise & Mail & Meeting & MLM & Honey Exchange & Survey Data
       // franchise_training_progress
       const { error: fTrainError } = await adminClient
         .from('franchise_training_progress')
@@ -297,6 +297,70 @@ export async function hardDeleteUser(userId: string) {
         .or(`beneficiary_id.eq.${userId},source_user_id.eq.${userId}`)
       if (commError) console.warn('Error deleting commissions:', commError)
 
+      // Honey Exchange Transactions (Buyer or Seller)
+      const { error: honeyTransError } = await adminClient
+        .from('honey_transactions')
+        .delete()
+        .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
+      if (honeyTransError) console.warn('Error deleting honey transactions:', honeyTransError)
+
+      // Honey Exchange Listings (Seller)
+      const { error: honeyListError } = await adminClient
+        .from('honey_listings')
+        .delete()
+        .eq('seller_id', userId)
+      if (honeyListError) console.warn('Error deleting honey listings:', honeyListError)
+
+      // Surveys & Pilot Interest
+      const { error: surveyError } = await adminClient
+        .from('survey_responses')
+        .delete()
+        .eq('user_id', userId)
+      if (surveyError) console.warn('Error deleting survey responses:', surveyError)
+
+      const { error: marketSurveyError } = await adminClient
+        .from('market_survey_responses')
+        .delete()
+        .eq('user_id', userId)
+      if (marketSurveyError) console.warn('Error deleting market survey responses:', marketSurveyError)
+
+      const { error: pilotError } = await adminClient
+        .from('pilot_interest')
+        .delete()
+        .eq('user_id', userId)
+      if (pilotError) console.warn('Error deleting pilot interest:', pilotError)
+
+      const { error: surveyPilotError } = await adminClient
+        .from('survey_pilot_interest')
+        .delete()
+        .eq('user_id', userId)
+      if (surveyPilotError) console.warn('Error deleting survey pilot interest:', surveyPilotError)
+
+      // Unlink Rentals & Inspections & Apiaries
+      const { error: rentalAssignError } = await adminClient
+        .from('rentals')
+        .update({ assigned_beekeeper_id: null })
+        .eq('assigned_beekeeper_id', userId)
+      if (rentalAssignError) console.warn('Error unlinking rental assignments:', rentalAssignError)
+
+      const { error: rentalUserError } = await adminClient
+        .from('rentals')
+        .update({ user_id: null })
+        .eq('user_id', userId)
+      if (rentalUserError) console.warn('Error unlinking rental users:', rentalUserError)
+
+      const { error: inspectionError } = await adminClient
+        .from('inspections')
+        .update({ beekeeper_id: null })
+        .eq('beekeeper_id', userId)
+      if (inspectionError) console.warn('Error unlinking inspections:', inspectionError)
+
+      const { error: apiaryManagerError } = await adminClient
+        .from('apiaries')
+        .update({ managed_by: null })
+        .eq('managed_by', userId)
+      if (apiaryManagerError) console.warn('Error unlinking apiary managers:', apiaryManagerError)
+
       // Update profiles referrer_id (set to null)
       const { error: refError } = await adminClient
         .from('profiles')
@@ -307,22 +371,18 @@ export async function hardDeleteUser(userId: string) {
       // 4. Delete Storage Objects (Files)
       // Attempt to delete files owned by user in 'storage' schema
       try {
-          // This requires the client to have access to the 'storage' schema or use the storage API
-          // Since we can't easily list files by owner via standard API, we try direct DB deletion if possible
-          // or skip if not supported.
-          // Note: Supabase JS client 'storage' API doesn't support 'delete by owner'.
-          // We try direct table access.
-          /* 
+          // Try to delete using schema access if possible (requires service_role)
           const { error: storageError } = await adminClient
             .schema('storage')
             .from('objects')
             .delete()
             .eq('owner', userId)
           
-          if (storageError) console.warn('Error deleting storage objects:', storageError)
-          */
-          // Commented out because we need to verify if 'schema()' is available on the client instance we have.
-          // Standard supabase-js v2 has .schema().
+          if (storageError) {
+             console.warn('Error deleting storage objects (schema access):', storageError)
+          } else {
+             console.log('Successfully attempted storage cleanup for user:', userId)
+          }
       } catch (e) {
           console.warn('Failed to cleanup storage:', e)
       }
