@@ -311,32 +311,30 @@ export async function hardDeleteUser(userId: string) {
         .eq('seller_id', userId)
       if (honeyListError) console.warn('Error deleting honey listings:', honeyListError)
 
-      // Surveys & Pilot Interest - PRESERVED AS PER INSTRUCTION
-      /*
-      const { error: surveyError } = await adminClient
-        .from('survey_responses')
-        .delete()
-        .eq('user_id', userId)
-      if (surveyError) console.warn('Error deleting survey responses:', surveyError)
+      // Surveys & Pilot Interest - PRESERVE DATA (Anonymize if possible, otherwise ABORT)
+      // Check for survey data first
+      const { count: surveyCount } = await adminClient.from('survey_responses').select('*', { count: 'exact', head: true }).eq('user_id', userId);
+      const { count: marketCount } = await adminClient.from('market_survey_responses').select('*', { count: 'exact', head: true }).eq('user_id', userId);
+      const { count: pilotCount } = await adminClient.from('pilot_interest').select('*', { count: 'exact', head: true }).eq('user_id', userId);
+      const { count: surveyPilotCount } = await adminClient.from('survey_pilot_interest').select('*', { count: 'exact', head: true }).eq('user_id', userId);
 
-      const { error: marketSurveyError } = await adminClient
-        .from('market_survey_responses')
-        .delete()
-        .eq('user_id', userId)
-      if (marketSurveyError) console.warn('Error deleting market survey responses:', marketSurveyError)
+      const hasSurveyData = (surveyCount || 0) > 0 || (marketCount || 0) > 0 || (pilotCount || 0) > 0 || (surveyPilotCount || 0) > 0;
 
-      const { error: pilotError } = await adminClient
-        .from('pilot_interest')
-        .delete()
-        .eq('user_id', userId)
-      if (pilotError) console.warn('Error deleting pilot interest:', pilotError)
+      if (hasSurveyData) {
+          console.log(`User ${userId} has survey data. Attempting to anonymize...`);
+          
+          // Attempt to set user_id to NULL
+          const { error: sErr } = await adminClient.from('survey_responses').update({ user_id: null }).eq('user_id', userId);
+          const { error: mErr } = await adminClient.from('market_survey_responses').update({ user_id: null }).eq('user_id', userId);
+          const { error: pErr } = await adminClient.from('pilot_interest').update({ user_id: null }).eq('user_id', userId);
+          const { error: spErr } = await adminClient.from('survey_pilot_interest').update({ user_id: null }).eq('user_id', userId);
 
-      const { error: surveyPilotError } = await adminClient
-        .from('survey_pilot_interest')
-        .delete()
-        .eq('user_id', userId)
-      if (surveyPilotError) console.warn('Error deleting survey pilot interest:', surveyPilotError)
-      */
+          // If any error occurs (likely NOT NULL constraint), we MUST ABORT to save the data
+          if (sErr || mErr || pErr || spErr) {
+              console.error('Failed to anonymize survey data:', sErr, mErr, pErr, spErr);
+              return { error: 'Kan ikke slette bruker permanent: Brukeren har svart på spørreundersøkelser som er "hellige" og ikke kan slettes eller anonymiseres automatisk. Kontakt utvikler.' };
+          }
+      }
 
       // Unlink Rentals & Inspections & Apiaries
       const { error: rentalAssignError } = await adminClient
