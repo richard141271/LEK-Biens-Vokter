@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
-import { Map as MapIcon, Phone, Mail, User, AlertTriangle, CheckCircle, Clock, Ruler, AlertOctagon, FileText, Camera, Mic, Send, Edit, Trash2, X, Activity } from 'lucide-react';
+import { Map as MapIcon, Phone, Mail, User, AlertTriangle, CheckCircle, Clock, Ruler, AlertOctagon, FileText, Camera, Mic, Send, Edit, Trash2, X, Activity, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { getIncidentData, updateIncidentStatus, updateIncidentDisease, sendZoneAlert } from '@/app/actions/mattilsynet';
@@ -362,16 +362,21 @@ Mattilsynet`
         <div className="min-h-screen bg-slate-50 pb-20 relative">
             {/* TOP BANNER */}
             <div className={`w-full px-6 py-4 shadow-md flex flex-col md:flex-row justify-between items-center gap-4 ${isResolved ? 'bg-green-600' : 'bg-red-600'} text-white sticky top-0 z-40`}>
-                <div>
-                    <div className="flex items-center gap-3 mb-1">
-                        <AlertOctagon className="w-6 h-6 animate-pulse" />
-                        <h1 className="text-xl font-bold uppercase tracking-wide">
-                            {isResolved ? 'HENDELSE AVSLUTTET' : 'AKTIV SMITTEHENDELSE'} – {diseaseName}
-                        </h1>
+                <div className="flex items-center gap-4">
+                    <Link href="/dashboard" className="p-2 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors">
+                        <ArrowLeft className="w-6 h-6" />
+                    </Link>
+                    <div>
+                        <div className="flex items-center gap-3 mb-1">
+                            <AlertOctagon className="w-6 h-6 animate-pulse" />
+                            <h1 className="text-xl font-bold uppercase tracking-wide">
+                                {isResolved ? 'HENDELSE AVSLUTTET' : 'AKTIV SMITTEHENDELSE'} – {diseaseName}
+                            </h1>
+                        </div>
+                        <p className="text-sm opacity-90 font-mono">
+                            Område: {alert.hives?.apiaries?.location || 'Ukjent'} &bull; Opprettet: {new Date(alert.created_at).toLocaleString('nb-NO')} &bull; Ref: #{alert.id.slice(0,8)}
+                        </p>
                     </div>
-                    <p className="text-sm opacity-90 font-mono">
-                        Område: {alert.hives?.apiaries?.location || 'Ukjent'} &bull; Opprettet: {new Date(alert.created_at).toLocaleString('nb-NO')} &bull; Ref: #{alert.id.slice(0,8)}
-                    </p>
                 </div>
                 
                 <div className="flex items-center gap-3">

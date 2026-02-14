@@ -490,31 +490,40 @@ export default function DashboardPage() {
           </div>
 
           {/* Mail & Founder/Kursvenn Grid */}
-          {(profile?.email_enabled || profile?.is_founder || profile?.is_course_friend) && (
+          {(profile?.email_alias || profile?.is_founder || profile?.is_course_friend) && (
             <div className="grid grid-cols-2 gap-2">
               {/* KIAS Mail Card */}
-              {profile?.email_enabled && (
+              {profile?.email_alias && (
                 <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-3 relative ${(!profile?.is_founder && !profile?.is_course_friend) ? 'col-span-2' : ''}`}>
                     <div className="flex items-center gap-3 mb-2">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                        <div className={`w-8 h-8 ${profile?.email_enabled ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'} rounded-full flex items-center justify-center`}>
                             <Mail className="w-4 h-4" />
                         </div>
                         <div>
-                            <h2 className="text-sm font-bold text-gray-900">Min e-post</h2>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-sm font-bold text-gray-900">Min e-post</h2>
+                                {!profile?.email_enabled && <span className="text-[9px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-bold">DEAKTIVERT</span>}
+                            </div>
                             <p className="text-[10px] text-gray-500 break-all">{profile.email_alias}</p>
                         </div>
                     </div>
                     <div className="mt-2">
-                        <Link href="/dashboard/mail" className="block w-full text-center py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-bold transition-colors">
-                            Åpne webmail
-                        </Link>
+                        {profile?.email_enabled ? (
+                            <Link href="/dashboard/mail" className="block w-full text-center py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-xs font-bold transition-colors">
+                                Åpne webmail
+                            </Link>
+                        ) : (
+                            <button disabled className="block w-full text-center py-2 px-4 bg-gray-100 text-gray-400 rounded-lg text-xs font-bold cursor-not-allowed border border-gray-200">
+                                Ingen tilgang
+                            </button>
+                        )}
                     </div>
                 </div>
               )}
 
               {/* Founder Card */}
               {profile?.is_founder && (
-                <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-3 relative ${!profile?.email_enabled ? 'col-span-2' : ''}`}>
+                <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-3 relative ${!profile?.email_alias ? 'col-span-2' : ''}`}>
                     <div className="flex items-center gap-3 mb-2">
                         <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
                             <HeartHandshake className="w-4 h-4" />
@@ -534,7 +543,7 @@ export default function DashboardPage() {
 
               {/* Kursvenn Card (Only if not Founder) */}
               {profile?.is_course_friend && (
-          <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-3 relative ${!profile?.email_enabled ? 'col-span-2' : ''}`}>
+          <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-3 relative ${!profile?.email_alias ? 'col-span-2' : ''}`}>
                     <div className="flex items-center gap-3 mb-2">
                         <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
                             <GraduationCap className="w-4 h-4" />
