@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { parseVoiceCommand } from '@/utils/voice-parser';
 import { analyzeAndCorrect } from '@/utils/voice-diagnostics';
+import { loadAliases } from '@/utils/voice-alias';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, Image as ImageIcon, X, Mic, MicOff, Camera } from 'lucide-react';
@@ -20,6 +21,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   // Voice State
   const [lastCommand, setLastCommand] = useState<string | null>(null);
+  useEffect(() => { loadAliases(); }, []);
 
   // Camera State
   const [cameraActive, setCameraActive] = useState(false);

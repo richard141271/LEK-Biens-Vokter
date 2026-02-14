@@ -1,3 +1,5 @@
+import { getAliasMap } from './voice-alias';
+
 export interface ParsedInspection {
     queenSeen?: boolean;
     eggsSeen?: boolean;
@@ -11,12 +13,26 @@ export interface ParsedInspection {
 }
 
 export function parseVoiceCommand(text: string): ParsedInspection {
-    const t = text.toLowerCase();
+    const t0 = (text || '').toLowerCase();
+    const t1 = applyAliases(t0);
+    const t = t1;
     const result: ParsedInspection = {};
 
-    // Helper for regex matching
     const has = (patterns: string[]) => patterns.some(p => t.includes(p));
     const hasWord = (w: string) => new RegExp(`\\b${w}\\b`).test(t);
+
+    const cmd = parseStructured(t);
+    if (cmd.status) result.status = cmd.status;
+    if (cmd.broodCondition) result.broodCondition = cmd.broodCondition as any;
+    if (cmd.honeyStores) result.honeyStores = cmd.honeyStores as any;
+    if (cmd.temperament) result.temperament = cmd.temperament as any;
+    if (cmd.eggsSeen !== undefined) result.eggsSeen = cmd.eggsSeen;
+    if (cmd.queenSeen !== undefined) result.queenSeen = cmd.queenSeen;
+    if (cmd.temperature) result.temperature = cmd.temperature;
+    if (cmd.weather) result.weather = cmd.weather;
+    if (result.status || result.broodCondition || result.honeyStores || result.temperament || result.eggsSeen !== undefined || result.queenSeen !== undefined) {
+        return result;
+    }
 
     // --- Action: Save Inspection ---
     if (has(['lagre inspeksjon', 'lagre skjema', 'ferdig med inspeksjon', 'send inn', 'lagre nå', 'avslutt inspeksjon'])) {
@@ -113,4 +129,79 @@ export function parseVoiceCommand(text: string): ParsedInspection {
     }
 
     return result;
+}
+
+function applyAliases(input: string): string {
+    try {
+        const map = getAliasMap();
+        const aliases = Object.keys(map).sort((a, b) => b.length - a.length);
+        let out = input;
+        for (const a of aliases) {
+            const p = map[a];
+            if (!a || !p) continue;
+            const re = new RegExp(`\\b${escapeReg(a)}\\b`, 'g');
+            out = out.replace(re, p);
+        }
+        return out;
+    } catch {
+        return input;
+    }
+}
+
+function escapeReg(s: string) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function parseStructured(t: string): any {
+    const out: any = {};
+    const kv = t.split(/[\n\r]+/).map(l => l.trim());
+    const lines = kv.length > 1 ? kv : [t];
+    const take = (key: string, value: string) => {
+        const v = value.trim();
+        if (!v) return;
+        if (key === 'status') {
+            if (/\bsvak\b/.test(v)) out.status = 'SVAK';
+            else if (/\bdød\b/.test(v)) out.status = 'DØD';
+            else if (/\bok\b|\balt bra\b|\bfin\b|\bsterk\b/.test(v)) out.status = 'OK';
+            else if (/\bsykdom\b/.test(v)) out.status = 'SYKDOM';
+            else if (/\bbytt\b.*\bdronning\b/.test(v)) out.status = 'BYTT_DRONNING';
+            else if (/\bmottatt\b.*\bf[oø]r\b|\bf[oø]ret\b/.test(v)) out.status = 'MOTTATT_FOR';
+            else if (/\bskiftet\b.*rammer\b|\bbyttet\b.*rammer\b/.test(v)) out.status = 'SKIFTET_RAMMER';
+            else if (/\bsverming\b|\bsverm(et|ing)?\b/.test(v)) out.status = 'SVERMING';
+            else if (/\bvarroa\b|\bmidd\b(?!els)/.test(v)) out.status = 'VARROA_MISTANKE';
+            else if (/\bbyttet\b.*voks\b/.test(v)) out.status = 'BYTTET_VOKS';
+        } else if (key === 'yngel') {
+            if (/\bd[åa]rlig\b/.test(v)) out.broodCondition = 'darlig';
+            else if (/\bbra\b|\btett\b|\bfin\b/.test(v)) out.broodCondition = 'bra';
+            else if (/\bnormal\b|\bgrei\b/.test(v)) out.broodCondition = 'normal';
+        } else if (key === 'honning') {
+            if (/\blite\b|\btomt\b/.test(v)) out.honeyStores = 'lite';
+            else if (/\bmiddels\b|\bgreit\b|\blitt\b/.test(v)) out.honeyStores = 'middels';
+            else if (/\bmye\b|\bfullt\b/.test(v)) out.honeyStores = 'mye';
+        } else if (key === 'gemytt' || key === 'temperament' || key === 'status gemytt') {
+            if (/\burolig\b/.test(v)) out.temperament = 'urolig';
+            else if (/\brolig\b|\bsnill(e)?\b/.test(v)) out.temperament = 'rolig';
+            else if (/\baggressiv\b|\bsint\b/.test(v)) out.temperament = 'aggressiv';
+        } else if (key === 'egg') {
+            if (/\bingen\b|\bikke\b/.test(v)) out.eggsSeen = false;
+            else if (/\bsett\b|\bser\b|\bmasse\b|\bs[oa]?\b/.test(v)) out.eggsSeen = true;
+        } else if (key === 'dronning') {
+            if (/\bingen\b|\bikke\b|\bmangler\b/.test(v)) out.queenSeen = false;
+            else if (/\bsett\b|\bser\b|\bfant\b/.test(v)) out.queenSeen = true;
+        } else if (key === 'temperatur') {
+            const m = v.match(/(\d+([.,]\d+)?)/);
+            if (m) out.temperature = m[1].replace(',', '.');
+        } else if (key === 'vær' || key === 'vaer' || key === 'v\xe6r') {
+            if (/\bsol\b|\bklart\b/.test(v)) out.weather = 'Klart';
+            else if (/\bregn\b|\bregner\b|\bv[åa]tt\b/.test(v)) out.weather = 'Regn';
+            else if (/\bskyet\b|\boverskyet\b/.test(v)) out.weather = 'Lettskyet/Overskyet';
+        }
+    };
+    for (const line of lines) {
+        const m = line.match(/\b(status|yngel|honning|gemytt|temperament|egg|dronning|temperatur|vær|vaer)\s*[:\-]\s*([^:;|]+)/);
+        if (m) {
+            take(m[1], m[2]);
+        }
+    }
+    return out;
 }
