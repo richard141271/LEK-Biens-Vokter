@@ -811,28 +811,26 @@ export default function AdminUsersPage() {
                 </p>
               </div>
 
-              {emailUser.email_enabled && (
-                <div className="pt-4 border-t border-gray-100">
-                  <button
-                    onClick={() => handleToggleEmail(emailUser)}
-                    className={`w-full py-2 px-4 rounded-lg border flex items-center justify-center gap-2 transition-colors ${
-                      emailUser.email_enabled 
-                        ? 'border-red-200 text-red-600 hover:bg-red-50' 
-                        : 'border-green-200 text-green-600 hover:bg-green-50'
-                    }`}
-                  >
-                    {emailUser.email_enabled ? (
-                      <>
-                        <Trash2 className="w-4 h-4" /> Deaktiver e-posttilgang
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-4 h-4" /> Aktiver e-posttilgang
-                      </>
-                    )}
-                  </button>
+              <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-gray-900">Aktiv e-posttilgang</span>
+                  <span className="text-xs text-gray-500">Gi brukeren tilgang til innboks og sending</span>
                 </div>
-              )}
+                <button
+                  type="button"
+                  onClick={() => setEmailUser({ ...emailUser, email_enabled: !(emailUser.email_enabled ?? true) })}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-honey-500 focus:ring-offset-2 ${
+                    (emailUser.email_enabled ?? true) ? 'bg-honey-500' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      (emailUser.email_enabled ?? true) ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
 
               <div className="pt-4 flex justify-end gap-3">
                 <button

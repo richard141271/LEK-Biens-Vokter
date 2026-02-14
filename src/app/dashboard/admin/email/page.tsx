@@ -394,6 +394,27 @@ export default function AdminEmailPage() {
                 <p className="mt-1 text-xs text-gray-500">Kun små bokstaver, tall og punktum.</p>
             </div>
 
+            <div className="mb-6 pt-4 border-t border-gray-100 flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-gray-900">Aktiv e-posttilgang</span>
+                  <span className="text-xs text-gray-500">Gi brukeren tilgang til innboks og sending</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEmailUser({ ...emailUser, email_enabled: !(emailUser.email_enabled ?? true) })}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                    (emailUser.email_enabled ?? true) ? 'bg-purple-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      (emailUser.email_enabled ?? true) ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+            </div>
+
             <div className="flex justify-end gap-3">
                 <button
                     onClick={() => setEmailModalOpen(false)}
