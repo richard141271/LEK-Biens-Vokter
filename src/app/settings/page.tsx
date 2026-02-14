@@ -6,7 +6,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
-import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight, Archive, Briefcase, Printer, Link as LinkIcon, X, CreditCard, List, QrCode, FileText, ClipboardCheck, ChevronDown } from 'lucide-react';
+import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight, Archive, Briefcase, Printer, Link as LinkIcon, X, CreditCard, List, QrCode, FileText, ClipboardCheck, ChevronDown, Mic } from 'lucide-react';
+import WordTraining from '@/components/WordTraining';
 
 const RENTAL_CONTRACT_TEXT = ``;
 
@@ -152,6 +153,7 @@ export default function SettingsPage() {
 
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [childLabelData, setChildLabelData] = useState({ name: '', age: '' });
+  const [showWordTraining, setShowWordTraining] = useState(false);
 
   const generateLabelPDF = (type: 'standard' | 'child') => {
     const doc = new jsPDF();
@@ -646,6 +648,24 @@ export default function SettingsPage() {
                   </div>
               </div>
 
+              {/* ORDTRENING */}
+              <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 text-left shadow-sm">
+                  <div className="flex items-center gap-2 mb-3 border-b border-gray-100 pb-2">
+                      <Mic className="w-5 h-5 text-honey-600" />
+                      <h4 className="font-bold text-gray-900">Stemme • ORDTRENING</h4>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Tren stemmegjenkjenningen med ord og setninger fra inspeksjonen.
+                  </p>
+                  <button
+                    onClick={() => setShowWordTraining(true)}
+                    className="w-full bg-black text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Mic className="w-4 h-4" />
+                    Start ORDTRENING
+                  </button>
+              </div>
+
               <button 
                 onClick={() => setIsEditing(true)}
                 className="w-full bg-black text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition-colors"
@@ -744,6 +764,13 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Word Training Modal */}
+            {showWordTraining && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <WordTraining onClose={() => setShowWordTraining(false)} />
               </div>
             )}
 
