@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { Map as MapIcon, Phone, Mail, User, AlertTriangle, CheckCircle, Clock, Ruler, AlertOctagon, FileText, Camera, Mic, Send, Edit, Trash2, X, Activity, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { getIncidentData, updateIncidentStatus, updateIncidentDisease, sendZoneAlert } from '@/app/actions/mattilsynet';
+import { getIncidentData, updateIncidentStatus, updateIncidentDisease, sendZoneAlert, claimAlert } from '@/app/actions/mattilsynet';
 
 // Dynamic import for Map to avoid SSR issues
 const IncidentMap = dynamic(() => import('@/components/IncidentMap'), { 
@@ -81,8 +81,16 @@ export default function IncidentPage({ params }: { params: { id: string } }) {
     const [alertMessage, setAlertMessage] = useState('');
     const [sendingAlert, setSendingAlert] = useState(false);
     const [alertSent, setAlertSent] = useState(false);
+    const [currentUser, setCurrentUser] = useState<any>(null);
 
     useEffect(() => {
+        const supabase = createClient();
+        supabase.auth.getUser().then(({ data: { user } }) => {
+            if (user) {
+                supabase.from('profiles').select('*').eq('id', user.id).single()
+                    .then(({ data }) => setCurrentUser(data));
+            }
+        });
         fetchData();
     }, [params.id]);
 
@@ -299,6 +307,17 @@ Mattilsynet`
         } catch (e) {
             console.error("Failed to update disease", e);
             alert("Kunne ikke endre sykdomstype");
+        }
+    }
+
+    async function handleClaim() {
+        if (!confirm('Er du sikker på at du vil knytte dette varselet til din bruker?')) return;
+        try {
+            await claimAlert(params.id);
+            alert('Varselet er nå knyttet til din bruker!');
+            window.location.reload();
+        } catch (e: any) {
+            alert('Feil: ' + e.message);
         }
     }
 
@@ -607,6 +626,14 @@ Mattilsynet`
                                 <div>
                                     <h3 className="text-xl font-bold text-gray-900">{alert.reporter?.full_name || 'Ukjent navn'}</h3>
                                     <p className="text-sm text-gray-500">ID: {alert.reporter?.id?.slice(0,8)}</p>
+                                    {alert.reporter?.full_name === 'Slettet bruker' && currentUser?.role === 'admin' && (
+                                        <button 
+                                            onClick={handleClaim}
+                                            className="mt-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 font-bold"
+                                        >
+                                            Knytt til meg (Admin Fix)
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                             

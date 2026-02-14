@@ -261,6 +261,27 @@ export async function getIncidentData(incidentId: string) {
   }
 }
 
+export async function claimAlert(alertId: string) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Ikke logget inn');
+  
+  // Check if admin
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+  if (profile?.role !== 'admin') throw new Error('Kun administratorer kan overta varsler');
+
+  const adminClient = createAdminClient();
+  
+  // Update hive_log
+  const { error } = await adminClient
+    .from('hive_logs')
+    .update({ user_id: user.id })
+    .eq('id', alertId);
+
+  if (error) throw new Error('Kunne ikke oppdatere varselet: ' + error.message);
+  return { success: true };
+}
+
 export async function updateIncidentStatus(id: string, status: string) {
     const adminClient = createAdminClient();
     try {
