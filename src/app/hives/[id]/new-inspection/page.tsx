@@ -107,6 +107,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           }
       }
 
+      // Action: Save Inspection
+      if (parsed.action === 'SAVE_INSPECTION') {
+          feedback.push("Lagrer inspeksjon...");
+          submitInspection();
+      }
+
       // Update State based on parsed result
       if (parsed.queenSeen !== undefined) {
           setQueenSeen(parsed.queenSeen);
@@ -296,8 +302,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitInspection = async () => {
     setSubmitting(true);
 
     try {
@@ -414,6 +419,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitInspection();
   };
 
   if (loading) return <div className="p-8 text-center">Laster...</div>;

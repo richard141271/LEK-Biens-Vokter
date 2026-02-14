@@ -7,7 +7,7 @@ export interface ParsedInspection {
     status?: string;
     temperature?: string;
     weather?: string;
-    action?: 'TAKE_PHOTO';
+    action?: 'TAKE_PHOTO' | 'SAVE_INSPECTION';
 }
 
 export function parseVoiceCommand(text: string): ParsedInspection {
@@ -16,6 +16,11 @@ export function parseVoiceCommand(text: string): ParsedInspection {
 
     // Helper for regex matching
     const has = (patterns: string[]) => patterns.some(p => t.includes(p));
+
+    // --- Action: Save Inspection ---
+    if (has(['lagre inspeksjon', 'lagre skjema', 'ferdig med inspeksjon', 'send inn', 'lagre nå', 'avslutt inspeksjon'])) {
+        result.action = 'SAVE_INSPECTION';
+    }
 
     // --- Action: Take Photo ---
     if (has(['ta bilde', 'ta foto', 'knips', 'bilde'])) {
@@ -80,7 +85,7 @@ export function parseVoiceCommand(text: string): ParsedInspection {
         result.status = 'MOTTATT_FOR';
     } else if (has(['skiftet rammer', 'nye rammer', 'byttet rammer'])) {
         result.status = 'SKIFTET_RAMMER';
-    } else if (has(['sverming', 'har svermet', 'sverm'])) {
+    } else if (has(['sverming', 'har svermet', 'sverm', 'svermetrang', 'fare for sverming', 'sverre trang', 'fare på svømming', 'fare for svømming'])) {
         result.status = 'SVERMING';
     } else if (has(['varroa', 'midd', 'varroa mistanke'])) {
         result.status = 'VARROA_MISTANKE';
