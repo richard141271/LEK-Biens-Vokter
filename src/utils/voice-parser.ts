@@ -16,6 +16,7 @@ export function parseVoiceCommand(text: string): ParsedInspection {
 
     // Helper for regex matching
     const has = (patterns: string[]) => patterns.some(p => t.includes(p));
+    const hasWord = (w: string) => new RegExp(`\\b${w}\\b`).test(t);
 
     // --- Action: Save Inspection ---
     if (has(['lagre inspeksjon', 'lagre skjema', 'ferdig med inspeksjon', 'send inn', 'lagre nå', 'avslutt inspeksjon'])) {
@@ -51,10 +52,11 @@ export function parseVoiceCommand(text: string): ParsedInspection {
     }
 
     // --- Temperament (Gemytt) ---
-    if (has(['rolig', 'snille', 'greie bier', 'rolige bier', 'snille jenter', 'rolig på tavla'])) {
-        result.temperament = 'rolig';
-    } else if (has(['urolig', 'løper', 'stressede', 'nervøse', 'løper rundt'])) {
+    // Viktig: sjekk 'urolig' før 'rolig' for å unngå at 'urolig' matcher 'rolig'
+    if (has(['urolig', 'løper', 'stressede', 'nervøse', 'løper rundt'])) {
         result.temperament = 'urolig';
+    } else if (has(['rolig', 'snille', 'greie bier', 'rolige bier', 'snille jenter', 'rolig på tavla'])) {
+        result.temperament = 'rolig';
     } else if (has(['aggressiv', 'sint', 'stikker', 'vonde', 'angriper', 'stikker meg', 'angrep', 'vonde bier'])) {
         result.temperament = 'aggressiv';
     }
@@ -87,7 +89,8 @@ export function parseVoiceCommand(text: string): ParsedInspection {
         result.status = 'SKIFTET_RAMMER';
     } else if (has(['sverming', 'har svermet', 'sverm', 'svermetrang', 'fare for sverming', 'sverre trang', 'fare på svømming', 'fare for svømming'])) {
         result.status = 'SVERMING';
-    } else if (has(['varroa', 'midd', 'varroa mistanke'])) {
+    } else if (hasWord('varroa') || (hasWord('midd') && !t.includes('middels'))) {
+        // Varroa/Midd: unngå falsk treff på 'middels'
         result.status = 'VARROA_MISTANKE';
     } else if (has(['byttet voks', 'ny voks', 'smeltet voks'])) {
         result.status = 'BYTTET_VOKS';

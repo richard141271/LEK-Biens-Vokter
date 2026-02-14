@@ -8,6 +8,7 @@ import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight, Archive, Briefcase, Printer, Link as LinkIcon, X, CreditCard, List, QrCode, FileText, ClipboardCheck, ChevronDown, Mic } from 'lucide-react';
 import WordTraining from '@/components/WordTraining';
+import { getAutoCorrectEnabled, setAutoCorrectEnabled } from '@/utils/voice-diagnostics';
 
 const RENTAL_CONTRACT_TEXT = ``;
 
@@ -154,6 +155,11 @@ export default function SettingsPage() {
   const [showLabelModal, setShowLabelModal] = useState(false);
   const [childLabelData, setChildLabelData] = useState({ name: '', age: '' });
   const [showWordTraining, setShowWordTraining] = useState(false);
+  const [autoCorrect, setAutoCorrect] = useState(false);
+
+  useEffect(() => {
+    setAutoCorrect(getAutoCorrectEnabled());
+  }, []);
 
   const generateLabelPDF = (type: 'standard' | 'child') => {
     const doc = new jsPDF();
@@ -664,6 +670,27 @@ export default function SettingsPage() {
                     <Mic className="w-4 h-4" />
                     Start ORDTRENING
                   </button>
+                  <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-bold text-gray-900">Forbedre tale (beta)</div>
+                      <div className="text-xs text-gray-500">
+                        Sammenligner i bakgrunnen og korrigerer forsiktig under ekte inspeksjoner.
+                      </div>
+                    </div>
+                    <label className="inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer" 
+                        checked={autoCorrect}
+                        onChange={(e) => {
+                          const v = e.target.checked;
+                          setAutoCorrect(v);
+                          setAutoCorrectEnabled(v);
+                        }}
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:h-5 after:w-5 after:left-[2px] after:top-[2px] after:bg-white after:rounded-full after:transition-all peer-checked:bg-honey-500 relative"></div>
+                    </label>
+                  </div>
               </div>
 
               <button 

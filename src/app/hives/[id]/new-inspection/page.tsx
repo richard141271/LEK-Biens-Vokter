@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { parseVoiceCommand } from '@/utils/voice-parser';
+import { analyzeAndCorrect } from '@/utils/voice-diagnostics';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, Image as ImageIcon, X, Mic, MicOff, Camera } from 'lucide-react';
@@ -89,7 +90,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   const handleVoiceCommand = (text: string) => {
       console.log("Voice Command:", text);
-      const parsed = parseVoiceCommand(text);
+      let parsed = parseVoiceCommand(text);
+      parsed = analyzeAndCorrect(text, parsed);
       let feedback: string[] = [];
 
       // Action: Take Photo
