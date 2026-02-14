@@ -15,11 +15,11 @@ export async function getMyMessages(folder: string = 'inbox') {
   // Get user profile to find email alias
   const { data: profile } = await supabase
     .from('profiles')
-    .select('email_alias, email_enabled')
+    .select('email_alias, has_email_access')
     .eq('id', user.id)
     .single();
 
-  if (!profile?.email_enabled || !profile?.email_alias) {
+  if (!profile?.has_email_access || !profile?.email_alias) {
     return { error: 'E-post er ikke aktivert' };
   }
 
@@ -37,11 +37,11 @@ export async function sendMessage(to: string, subject: string, body: string, att
   // Get user profile to find email alias
   const { data: profile } = await supabase
     .from('profiles')
-    .select('email_alias, email_enabled')
+    .select('email_alias, has_email_access')
     .eq('id', user.id)
     .single();
 
-  if (!profile?.email_enabled || !profile?.email_alias) {
+  if (!profile?.has_email_access || !profile?.email_alias) {
     return { error: 'E-post er ikke aktivert' };
   }
 

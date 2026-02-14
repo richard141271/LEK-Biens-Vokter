@@ -101,7 +101,8 @@ export default function DashboardPage() {
             is_course_friend: isCourseFriend,
             is_founder: isFounder,
             // Ensure email alias is also synced if possible, though usually in profile
-            email_alias: profileData?.email_alias || user.user_metadata?.email_alias
+            email_alias: profileData?.email_alias || user.user_metadata?.email_alias,
+            email_enabled: profileData?.has_email_access // Map has_email_access to email_enabled
         };
 
         setProfile(mergedProfile);
@@ -393,7 +394,7 @@ export default function DashboardPage() {
                 </div>
                 <div>
                     <h3 className="font-bold text-blue-900 text-sm">Oppfølgingsmøte planlagt</h3>
-                    <p className="text-blue-700 text-xs mt-1">
+                    <p className="text-blue-700 text-xs mt-1 break-words">
                         Du har et oppfølgingsmøte med Aurora & Richard: <br/>
                         <span className="font-semibold">{new Date(meetingDate).toLocaleString('nb-NO', { dateStyle: 'long', timeStyle: 'short' })}</span>
                     </p>
@@ -428,7 +429,7 @@ export default function DashboardPage() {
                                 </span>
                             )}
                         </h3>
-                        <p className="text-red-700 text-xs mt-1">
+                        <p className="text-red-700 text-xs mt-1 break-words">
                             {nearbyAlerts[0].details}
                         </p>
                         <p className="text-[10px] text-red-500 mt-2 font-medium">
@@ -455,7 +456,7 @@ export default function DashboardPage() {
 
           {/* KIAS Mail Card */}
                   <div>
-                      <h2 className="text-sm font-bold text-gray-900">{profile?.full_name || 'Laster...'}</h2>
+                      <h2 className="text-sm font-bold text-gray-900 break-words">{profile?.full_name || 'Laster...'}</h2>
                       <p className="text-[10px] text-gray-500">Medlem #{profile?.member_number || 'Ikke registrert'}</p>
                   </div>
               </div>
@@ -488,7 +489,7 @@ export default function DashboardPage() {
                         </div>
                         <div>
                             <h2 className="text-sm font-bold text-gray-900">Min e-post</h2>
-                            <p className="text-[10px] text-gray-500">{profile.email_alias}</p>
+                            <p className="text-[10px] text-gray-500 break-all">{profile.email_alias}</p>
                         </div>
                     </div>
                     <div className="mt-2">
@@ -624,7 +625,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="space-y-2">
                     {nearbyAlerts.map((alert) => (
-                        <div key={alert.id} className="bg-white/60 p-2 rounded-lg text-[10px] text-red-700">
+                        <div key={alert.id} className="bg-white/60 p-2 rounded-lg text-[10px] text-red-700 break-words">
                             <span className="font-bold block mb-0.5">⚠️ Mulig smitte oppdaget</span>
                             {alert.details}
                         </div>

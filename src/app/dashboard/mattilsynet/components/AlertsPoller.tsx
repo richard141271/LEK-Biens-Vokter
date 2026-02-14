@@ -159,20 +159,20 @@ export default function AlertsPoller() {
           
           <div className="bg-red-50 p-4 rounded-xl border border-red-100 mb-6 shadow-inner">
             <div className="flex justify-between mb-2">
-                <span className="text-sm text-gray-500">Sykdom/Mistanke:</span>
-                <span className="font-bold text-red-700">{newAlert.details?.split('Sykdom: ')[1]?.split(',')[0] || 'Ukjent'}</span>
+                <span className="text-sm text-gray-500 shrink-0">Sykdom/Mistanke:</span>
+                <span className="font-bold text-red-700 text-right flex-1 break-words ml-4">{newAlert.details?.split('Sykdom: ')[1]?.split(',')[0] || 'Ukjent'}</span>
             </div>
             <div className="flex justify-between mb-2">
-                <span className="text-sm text-gray-500">Bigård:</span>
-                <span className="font-bold text-gray-900">{newAlert.hives?.apiaries?.name || 'Ukjent'}</span>
+                <span className="text-sm text-gray-500 shrink-0">Bigård:</span>
+                <span className="font-bold text-gray-900 text-right flex-1 break-words ml-4">{newAlert.hives?.apiaries?.name || 'Ukjent'}</span>
             </div>
             <div className="flex justify-between mb-2">
-                <span className="text-sm text-gray-500">Lokasjon:</span>
-                <span className="font-bold text-gray-900">{newAlert.hives?.apiaries?.location || 'Ukjent'}</span>
+                <span className="text-sm text-gray-500 shrink-0">Lokasjon:</span>
+                <span className="font-bold text-gray-900 text-right flex-1 break-words ml-4">{newAlert.hives?.apiaries?.location || 'Ukjent'}</span>
             </div>
             <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Tidspunkt:</span>
-                <span className="font-bold text-gray-900">{newAlert.created_at ? new Date(newAlert.created_at).toLocaleTimeString('no-NO') : 'Nå'}</span>
+                <span className="text-sm text-gray-500 shrink-0">Tidspunkt:</span>
+                <span className="font-bold text-gray-900 text-right flex-1 break-words ml-4">{newAlert.created_at ? new Date(newAlert.created_at).toLocaleTimeString('no-NO') : 'Nå'}</span>
             </div>
           </div>
 

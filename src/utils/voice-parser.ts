@@ -23,34 +23,34 @@ export function parseVoiceCommand(text: string): ParsedInspection {
     }
 
     // --- Queen ---
-    if (has(['ingen dronning', 'ikke sett dronning', 'finner ikke dronning', 'mangler dronning'])) {
+    if (has(['ingen dronning', 'ikke sett dronning', 'finner ikke dronning', 'mangler dronning', 'ser ikke dronning', 'hvor er hun', 'ingen dronning å se'])) {
         result.queenSeen = false;
-    } else if (has(['dronning sett', 'ser dronning', 'så dronning', 'dronninga er her', 'merket dronning', 'fant dronning'])) {
+    } else if (has(['dronning sett', 'ser dronning', 'så dronning', 'dronninga er her', 'merket dronning', 'fant dronning', 'der er hun', 'hun er her', 'dronning observert'])) {
         result.queenSeen = true;
     }
 
     // --- Eggs ---
-    if (has(['ingen egg', 'ikke sett egg', 'tom for egg', 'ingen stift'])) {
+    if (has(['ingen egg', 'ikke sett egg', 'tom for egg', 'ingen stift', 'tomme celler', 'ser ingen egg', 'ingen yngelstift'])) {
         result.eggsSeen = false;
-    } else if (has(['egg sett', 'ser egg', 'masse egg', 'dagsferske', 'så egg', 'fant egg', 'stifter'])) {
+    } else if (has(['egg sett', 'ser egg', 'masse egg', 'dagsferske', 'så egg', 'fant egg', 'stifter', 'nylagt egg', 'ser stift', 'egg i cellene'])) {
         result.eggsSeen = true;
     }
 
     // --- Honey (Fôr) ---
-    if (has(['lite honning', 'tomt for honning', 'sulten', 'lite mat', 'lite fôr'])) {
+    if (has(['lite honning', 'tomt for honning', 'sulten', 'lite mat', 'lite fôr', 'trenger fôr', 'tomme tavler', 'sultne bier'])) {
         result.honeyStores = 'lite';
     } else if (has(['middels honning', 'greit med honning', 'litt honning', 'ok med mat', 'middels fôr'])) {
         result.honeyStores = 'middels';
-    } else if (has(['mye honning', 'fullt av honning', 'tunge rammer', 'masse mat', 'full skattekasse', 'mye fôr'])) {
+    } else if (has(['mye honning', 'fullt av honning', 'tunge rammer', 'masse mat', 'full skattekasse', 'mye fôr', 'tunge tavler', 'godt med mat'])) {
         result.honeyStores = 'mye';
     }
 
     // --- Temperament (Gemytt) ---
-    if (has(['rolig', 'snille', 'greie bier', 'rolige bier'])) {
+    if (has(['rolig', 'snille', 'greie bier', 'rolige bier', 'snille jenter', 'rolig på tavla'])) {
         result.temperament = 'rolig';
-    } else if (has(['urolig', 'løper', 'stressede', 'nervøse'])) {
+    } else if (has(['urolig', 'løper', 'stressede', 'nervøse', 'løper rundt'])) {
         result.temperament = 'urolig';
-    } else if (has(['aggressiv', 'sint', 'stikker', 'vonde', 'angriper'])) {
+    } else if (has(['aggressiv', 'sint', 'stikker', 'vonde', 'angriper', 'stikker meg', 'angrep', 'vonde bier'])) {
         result.temperament = 'aggressiv';
     }
 
