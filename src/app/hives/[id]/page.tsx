@@ -625,19 +625,32 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                         <p className="text-gray-800 whitespace-pre-wrap">{inspection.notes}</p>
                       </div>
                     )}
-                    
-                    {inspection.image_url && (
-                      <div className="mt-4">
-                        <span className="block text-xs font-bold text-gray-500 uppercase mb-2">Bilde</span>
-                        <div className="rounded-lg overflow-hidden border border-gray-200 max-w-sm">
-                          <img 
-                            src={inspection.image_url} 
-                            alt="Inspeksjonsbilde" 
-                            className="w-full h-auto object-cover"
-                          />
+                    {(() => {
+                      // Collect images: primary + any URLs inside notes
+                      const images: string[] = [];
+                      if (inspection.image_url) images.push(inspection.image_url);
+                      if (inspection.notes) {
+                        const iter = inspection.notes.matchAll(/https?:\/\/[^\s)'"`]+/g) as Iterable<RegExpMatchArray>;
+                        const urls = Array.from(iter).map(m => m[0]);
+                        // Keep only inspection-images bucket URLs to avoid noise
+                        urls.forEach(u => {
+                          if (u.includes('/inspection-images/')) images.push(u);
+                        });
+                      }
+                      const uniq = Array.from(new Set(images));
+                      return uniq.length > 0 ? (
+                        <div className="mt-4">
+                          <span className="block text-xs font-bold text-gray-500 uppercase mb-2">Bilder</span>
+                          <div className="grid grid-cols-2 gap-3">
+                            {uniq.map((src) => (
+                              <div key={src} className="rounded-lg overflow-hidden border border-gray-200">
+                                <img src={src} alt="Inspeksjon" className="w-full h-auto object-cover" />
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      ) : null;
+                    })()}
                     
                     <div className="mt-4 flex justify-end">
                         <button 

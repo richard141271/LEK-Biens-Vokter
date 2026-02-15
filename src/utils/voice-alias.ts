@@ -2,6 +2,18 @@ export type AliasMap = Record<string, string>;
 
 const KEY = 'voice_alias_map';
 const TTL_MS = 1000 * 60 * 30;
+const DEFAULTS: AliasMap = {
+  // Fôr-nivå (vanlig tale uten ø)
+  'for lite': 'lite honning',
+  'for middels': 'middels honning',
+  'for mye': 'mye honning',
+  'for bra': 'mye honning',
+  // Yngelleie varianter
+  'yngelleie': 'yngel',
+  'yngle leie': 'yngel',
+  'ynglelei': 'yngel',
+  'innleie': 'yngel'
+};
 
 export async function loadAliases(): Promise<void> {
   if (typeof window === 'undefined') return;
@@ -31,12 +43,12 @@ export function getAliasMap(): AliasMap {
   if (typeof window === 'undefined') return {};
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return {};
+    if (!raw) return { ...DEFAULTS };
     const obj = JSON.parse(raw);
     const personal = obj?.personal || {};
     const approved = obj?.approved || {};
-    return { ...approved, ...personal, ...personal };
+    return { ...DEFAULTS, ...approved, ...personal, ...personal };
   } catch {
-    return {};
+    return { ...DEFAULTS };
   }
 }

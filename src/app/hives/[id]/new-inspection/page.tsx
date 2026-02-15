@@ -51,13 +51,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 const file = new File([blob], `voice_capture_${Date.now()}.jpg`, { type: 'image/jpeg' });
                 setPhotoCount((n) => {
                   const next = n + 1;
+                  // Announce inside updater to use correct next number
+                  speak(`Bilde tatt. Dette er bilde nummer ${next}`);
                   return next;
                 });
                 setSelectedImage((prev) => prev ? prev : file);
                 setExtraImages((prev) => prev ? [...prev, file] : [file]);
                 setImagePreview((prev) => prev || URL.createObjectURL(file));
                 setLastCommand("Bilde tatt!");
-                speak(`Bilde tatt. Dette er bilde nummer ${photoCount + 1}`);
                 // Optional: Flash effect or sound here
                 setTimeout(() => setLastCommand(null), 3000);
             }
@@ -290,10 +291,35 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     loadAliases();
   }, []);
 
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const beep = (freq = 880, ms = 120) => {
+    try {
+      if (typeof window === 'undefined') return;
+      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!Ctx) return;
+      if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+      if (ctx.state === 'suspended') void ctx.resume();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.type = 'sine';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 0.02);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + ms / 1000);
+      o.stop(ctx.currentTime + ms / 1000 + 0.02);
+    } catch {}
+  };
   const speak = (text: string) => {
     try {
       if (typeof window === 'undefined') return;
-      const s = window.speechSynthesis;
+      // Short cue to ensure audio context is unlocked on iOS
+      beep(1046, 60);
+      const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       if (!s) return;
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'nb-NO';
