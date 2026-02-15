@@ -27,6 +27,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   // Camera State
   const [cameraActive, setCameraActive] = useState(false);
+  const [pendingCapture, setPendingCapture] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -84,6 +85,19 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 videoRef.current.srcObject = s;
                 videoRef.current.play();
             }
+            // Trigger pending capture once video is ready
+            if (pendingCapture) {
+                const attempt = () => {
+                    const v = videoRef.current;
+                    if (v && v.readyState >= 2) {
+                        capturePhoto();
+                        setPendingCapture(false);
+                    } else {
+                        setTimeout(attempt, 200);
+                    }
+                };
+                setTimeout(attempt, 250);
+            }
         })
         .catch(err => {
             console.error("Camera error:", err);
@@ -97,7 +111,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             stream.getTracks().forEach(track => track.stop());
         }
     };
-  }, [cameraActive]);
+  }, [cameraActive, pendingCapture, capturePhoto]);
 
   const [lastCorrection, setLastCorrection] = useState<{ phrase?: string; similarity?: number } | null>(null);
 
@@ -177,12 +191,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               capturePhoto();
               feedback.push("Tar bilde...");
           } else {
-              feedback.push("Kamera er ikke aktivt. Si 'Start kamera' (ikke implementert) eller trykk på knappen.");
-              // Auto-start camera? Maybe risky if permissions prompt.
-              setCameraActive(true); // Let's try to auto-start if they ask for photo
-              feedback.push("Starter kamera...");
-              // We can't capture immediately because stream takes time to start.
-              // Just starting it is a good first step.
+              // Start camera and schedule capture when ready
+              setPendingCapture(true);
+              setCameraActive(true);
+              feedback.push("Starter kamera og tar bilde...");
           }
       }
 

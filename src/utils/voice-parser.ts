@@ -20,6 +20,7 @@ export function parseVoiceCommand(text: string): ParsedInspection {
 
     const has = (patterns: string[]) => patterns.some(p => t.includes(p));
     const hasWord = (w: string) => new RegExp(`\\b${w}\\b`).test(t);
+    const pickLast = <T extends string>(arr: T[]): T | undefined => arr.length ? arr[arr.length - 1] : undefined;
 
     const cmd = parseStructured(t);
     if (cmd.status) result.status = cmd.status;
@@ -67,6 +68,26 @@ export function parseVoiceCommand(text: string): ParsedInspection {
         result.honeyStores = 'mye';
     }
 
+    // --- Robust Fallback: Honey (Fôr) with mixed phrases / conflicting values ---
+    if (!result.honeyStores) {
+        const matches: ('lite'|'middels'|'mye')[] = [];
+        // Pattern 1: context word before value
+        const re1 = /\b(f[oø]r|for|honning|mat)\s+(lite|middels|mye)\b/g;
+        // Pattern 2: value before context word
+        const re2 = /\b(lite|middels|mye)\s+(f[oø]r|for|honning|mat)\b/g;
+        let m: RegExpExecArray | null;
+        while ((m = re1.exec(t)) !== null) matches.push(m[2] as any);
+        while ((m = re2.exec(t)) !== null) matches.push(m[1] as any);
+        // Pattern 3: if context exists anywhere, pick last mentioned scalar
+        if (matches.length === 0 && /\b(honning|f[oø]r|for|mat)\b/.test(t)) {
+            if (/\bmye\b/.test(t)) matches.push('mye');
+            if (/\bmiddels\b/.test(t)) matches.push('middels');
+            if (/\blite\b|\btomt\b/.test(t)) matches.push('lite');
+        }
+        const last = pickLast(matches);
+        if (last) result.honeyStores = last;
+    }
+
     // --- Temperament (Gemytt) ---
     // Viktig: sjekk 'urolig' før 'rolig' for å unngå at 'urolig' matcher 'rolig'
     if (has(['urolig', 'løper', 'stressede', 'nervøse', 'løper rundt'])) {
@@ -84,6 +105,18 @@ export function parseVoiceCommand(text: string): ParsedInspection {
         result.broodCondition = 'bra';
     } else if (has(['normal yngel', 'grei yngel'])) {
         result.broodCondition = 'normal';
+    }
+
+    // --- Robust Fallback: Brood (Yngelleie) with mixed grammar / reordering ---
+    if (!result.broodCondition) {
+        if (/\byngel\b/.test(t)) {
+            const order: ('darlig'|'normal'|'bra')[] = [];
+            if (/\bd[åa]rlig\b|\blite\b/.test(t)) order.push('darlig');
+            if (/\bnormal(t)?\b|\bgrei\b/.test(t)) order.push('normal');
+            if (/\bbra\b|\bmye\b|\bmasse\b|\btett\b|\bfin\b/.test(t)) order.push('bra');
+            const last = pickLast(order);
+            if (last) result.broodCondition = last;
+        }
     }
 
     // --- Status (Kubestatus) ---
