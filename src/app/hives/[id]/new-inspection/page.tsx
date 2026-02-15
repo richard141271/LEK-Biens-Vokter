@@ -21,6 +21,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   // Voice State
   const [lastCommand, setLastCommand] = useState<string | null>(null);
+  const [notesActive, setNotesActive] = useState(false);
+  const [history, setHistory] = useState<Array<{ type: string; prev: any }>>([]);
   useEffect(() => { loadAliases(); }, []);
 
   // Camera State
@@ -47,9 +49,15 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         canvas.toBlob((blob) => {
             if (blob) {
                 const file = new File([blob], `voice_capture_${Date.now()}.jpg`, { type: 'image/jpeg' });
-                setSelectedImage(file);
-                setImagePreview(URL.createObjectURL(file));
+                setPhotoCount((n) => {
+                  const next = n + 1;
+                  return next;
+                });
+                setSelectedImage((prev) => prev ? prev : file);
+                setExtraImages((prev) => prev ? [...prev, file] : [file]);
+                setImagePreview((prev) => prev || URL.createObjectURL(file));
                 setLastCommand("Bilde tatt!");
+                speak(`Bilde tatt. Dette er bilde nummer ${photoCount + 1}`);
                 // Optional: Flash effect or sound here
                 setTimeout(() => setLastCommand(null), 3000);
             }
@@ -94,6 +102,65 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   const handleVoiceCommand = (text: string) => {
       console.log("Voice Command:", text);
+      const raw = text || '';
+      const lower = raw.toLowerCase();
+      if (/\b(start|aktiver)\s+(body|bodey)?cam\b/.test(lower) || /\bstart kamera\b/.test(lower)) {
+          setCameraActive(true);
+          speak('Bodycam aktivert');
+          setLastCommand('Bodycam aktivert');
+          setTimeout(() => setLastCommand(null), 3000);
+          if (notesActive) setNotes(prev => prev + (prev ? '\n' : '') + raw);
+          return;
+      }
+      if (/\b(stopp|deaktiver)\s+(body|bodey)?cam\b/.test(lower) || /\bstopp kamera\b/.test(lower)) {
+          setCameraActive(false);
+          speak('Bodycam stoppet');
+          setLastCommand('Bodycam stoppet');
+          setTimeout(() => setLastCommand(null), 3000);
+          if (notesActive) setNotes(prev => prev + (prev ? '\n' : '') + raw);
+          return;
+      }
+      if (/\bnotat\b(?!\s*avslutt)/.test(lower)) {
+          setNotesActive(true);
+          speak('Notat startet');
+          setLastCommand('Notat startet');
+          setTimeout(() => setLastCommand(null), 3000);
+          setNotes(prev => prev + (prev ? '\n' : '') + raw.replace(/^\s*notat[:\-\s]*/i, ''));
+          return;
+      }
+      if (/\b(avslutt notat|notat avsluttet|notat avslutt(et)?)\b/.test(lower)) {
+          setNotesActive(false);
+          speak('Notat avsluttet');
+          setLastCommand('Notat avsluttet');
+          setTimeout(() => setLastCommand(null), 3000);
+          return;
+      }
+      if (/\b(avbryt siste|angre siste|undo)\b/.test(lower)) {
+          const last = history[history.length - 1];
+          if (last) {
+              if (last.type === 'queenSeen') setQueenSeen(last.prev);
+              if (last.type === 'eggsSeen') setEggsSeen(last.prev);
+              if (last.type === 'honeyStores') setHoneyStores(last.prev);
+              if (last.type === 'temperament') setTemperament(last.prev);
+              if (last.type === 'broodCondition') setBroodCondition(last.prev);
+              if (last.type === 'status') setStatus(last.prev);
+              if (last.type === 'temperature') setTemperature(last.prev);
+              if (last.type === 'weather') setWeather(last.prev);
+              if (last.type === 'photo') {
+                  setExtraImages((prev) => {
+                      const copy = [...(prev || [])];
+                      copy.pop();
+                      return copy;
+                  });
+                  setPhotoCount((n) => Math.max(0, n - 1));
+              }
+              setHistory(prev => prev.slice(0, -1));
+              speak('Siste endring avbrutt');
+              setLastCommand('Siste endring avbrutt');
+              setTimeout(() => setLastCommand(null), 3000);
+              return;
+          }
+      }
       let parsed = parseVoiceCommand(text);
       const res = analyzeAndCorrect(text, parsed);
       parsed = res.parsed;
@@ -126,41 +193,49 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       // Update State based on parsed result
       if (parsed.queenSeen !== undefined) {
+          setHistory(prev => [...prev, { type: 'queenSeen', prev: queenSeen }]);
           setQueenSeen(parsed.queenSeen);
           feedback.push(parsed.queenSeen ? 'Dronning sett' : 'Ingen dronning');
       }
 
       if (parsed.eggsSeen !== undefined) {
+          setHistory(prev => [...prev, { type: 'eggsSeen', prev: eggsSeen }]);
           setEggsSeen(parsed.eggsSeen);
           feedback.push(parsed.eggsSeen ? 'Egg sett' : 'Ingen egg');
       }
 
       if (parsed.honeyStores) {
+          setHistory(prev => [...prev, { type: 'honeyStores', prev: honeyStores }]);
           setHoneyStores(parsed.honeyStores);
           feedback.push(`Honning: ${parsed.honeyStores}`);
       }
 
       if (parsed.temperament) {
+          setHistory(prev => [...prev, { type: 'temperament', prev: temperament }]);
           setTemperament(parsed.temperament);
           feedback.push(`Gemytt: ${parsed.temperament}`);
       }
 
       if (parsed.broodCondition) {
+          setHistory(prev => [...prev, { type: 'broodCondition', prev: broodCondition }]);
           setBroodCondition(parsed.broodCondition);
           feedback.push(`Yngel: ${parsed.broodCondition}`);
       }
 
       if (parsed.status) {
+          setHistory(prev => [...prev, { type: 'status', prev: status }]);
           setStatus(parsed.status);
           feedback.push(`Status: ${parsed.status}`);
       }
 
       if (parsed.temperature) {
+          setHistory(prev => [...prev, { type: 'temperature', prev: temperature }]);
           setTemperature(parsed.temperature);
           feedback.push(`Temp: ${parsed.temperature}°C`);
       }
 
       if (parsed.weather) {
+          setHistory(prev => [...prev, { type: 'weather', prev: weather }]);
           setWeather(parsed.weather);
           feedback.push(`Vær: ${parsed.weather}`);
       }
@@ -168,12 +243,16 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       // Show feedback if we understood something
       if (feedback.length > 0) {
           setLastCommand(feedback.join(', '));
+          speak(feedback.join('. '));
           // Clear feedback after 4s
           setTimeout(() => setLastCommand(null), 4000);
       }
 
-      // Add everything to notes as well for safety
-      setNotes(prev => prev + (prev ? '\n' : '') + "Stemme: " + text);
+      if (notesActive) {
+          setNotes(prev => prev + (prev ? '\n' : '') + raw);
+      } else {
+          setNotes(prev => prev + (prev ? '\n' : '') + "Stemme: " + raw);
+      }
   };
 
   const { isListening, toggleListening, isSupported } = useVoiceRecognition(handleVoiceCommand);
@@ -195,6 +274,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   // Image Upload State
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [extraImages, setExtraImages] = useState<File[] | null>(null);
+  const [photoCount, setPhotoCount] = useState(0);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
@@ -205,6 +286,20 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     fetchHiveAndWeather();
   }, [params.id]);
 
+  useEffect(() => {
+    loadAliases();
+  }, []);
+
+  const speak = (text: string) => {
+    try {
+      if (typeof window === 'undefined') return;
+      const s = window.speechSynthesis;
+      if (!s) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'nb-NO';
+      s.speak(u);
+    } catch {}
+  };
 
 
   const fetchHiveAndWeather = async () => {
@@ -375,9 +470,22 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
 
       let imageUrl = null;
+      const allPhotos: string[] = [];
       if (selectedImage) {
         setUploadingImage(true);
-        imageUrl = await uploadImage(selectedImage);
+        const u = await uploadImage(selectedImage);
+        if (u) {
+          imageUrl = u;
+          allPhotos.push(u);
+        }
+        setUploadingImage(false);
+      }
+      if (extraImages && extraImages.length > 0) {
+        setUploadingImage(true);
+        for (const f of extraImages) {
+          const u = await uploadImage(f);
+          if (u) allPhotos.push(u);
+        }
         setUploadingImage(false);
       }
 
@@ -394,7 +502,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           brood_condition: broodCondition,
           honey_stores: honeyStores,
           temperament: temperament,
-          notes: notes,
+          notes: allPhotos.length > 1 ? `${notes}\n${allPhotos.slice(1).map((u, i) => `Bilde ${i + 2}: ${u}`).join('\n')}` : notes,
           status: status, 
           temperature: temperature ? parseFloat(temperature) : null,
           weather: weather,
