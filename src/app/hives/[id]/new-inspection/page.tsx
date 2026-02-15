@@ -304,7 +304,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   }, []);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const beep = (freq = 880, ms = 120) => {
+  const beep = (freq = 880, ms = 220) => {
     try {
       if (typeof window === 'undefined') return;
       const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
@@ -317,24 +317,27 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       const g = ctx.createGain();
       o.connect(g);
       g.connect(ctx.destination);
-      o.type = 'sine';
+      o.type = 'square';
       o.frequency.value = freq;
       g.gain.setValueAtTime(0.0001, ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + 0.03);
       o.start();
       g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + ms / 1000);
-      o.stop(ctx.currentTime + ms / 1000 + 0.02);
+      o.stop(ctx.currentTime + ms / 1000 + 0.05);
     } catch {}
   };
   const speak = (text: string) => {
     try {
       if (typeof window === 'undefined') return;
       // Short cue to ensure audio context is unlocked on iOS
-      beep(1046, 60);
+      beep(1200, 260);
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       if (!s) return;
+      s.cancel();
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'nb-NO';
+      u.rate = 0.95;
+      u.pitch = 1.0;
       s.speak(u);
     } catch {}
   };
