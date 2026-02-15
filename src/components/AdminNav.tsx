@@ -10,7 +10,8 @@ import {
   Mail, 
   LogOut, 
   LayoutDashboard,
-  MessageSquare
+  MessageSquare,
+  Mic
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
@@ -41,6 +42,7 @@ export default function AdminNav() {
     { href: '/dashboard/admin/users', label: 'Brukere', icon: Users },
     { href: '/dashboard/admin/founders', label: 'Gründer-oppfølging', icon: Activity, badge: alertCount },
     { href: '/dashboard/admin/community', label: 'War Room', icon: MessageSquare },
+    { href: '/dashboard/admin/voice', label: 'Tale', icon: Mic },
     { href: '/dashboard/admin/shop', label: 'Nettbutikk', icon: ShoppingBag },
     { href: '/dashboard/admin/email', label: 'E-post', icon: Mail },
   ];
