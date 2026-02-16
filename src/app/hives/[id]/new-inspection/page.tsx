@@ -333,12 +333,59 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       beep(1200, 260);
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       if (!s) return;
+      const wasListening = isListening;
+      // Pause lytte-modus mens vi snakker (Safari kan prioritere input ellers)
+      if (wasListening) {
+        try { toggleListening(); } catch {}
+      }
       s.cancel();
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'nb-NO';
-      u.rate = 0.95;
+      u.rate = 0.92;
       u.pitch = 1.0;
-      s.speak(u);
+      u.volume = 1.0;
+      // Velg norsk stemme hvis tilgjengelig
+      const pickVoice = () => {
+        try {
+          const voices = s.getVoices ? s.getVoices() : [];
+          const nb = voices.find(v => (v.lang || '').toLowerCase().startsWith('nb'));
+          const no = voices.find(v => (v.lang || '').toLowerCase().startsWith('no'));
+          const nn = voices.find(v => (v.lang || '').toLowerCase().includes('nor'));
+          u.voice = nb || no || nn || u.voice || null;
+        } catch {}
+      };
+      if (!s.getVoices || s.getVoices().length === 0) {
+        const prev = (s as any)._voicesChanged;
+        (s as any)._voicesChanged = true;
+        s.onvoiceschanged = () => {
+          if (!(s as any)._voicesChanged) return;
+          (s as any)._voicesChanged = false;
+          pickVoice();
+          s.speak(u);
+        };
+        // Fallback timeout
+        setTimeout(() => {
+          if ((s as any)._voicesChanged) {
+            (s as any)._voicesChanged = false;
+            pickVoice();
+            s.speak(u);
+          }
+        }, 300);
+      } else {
+        pickVoice();
+        s.speak(u);
+      }
+      u.onend = () => {
+        if (wasListening) {
+          // Liten pause før vi gjenopptar lytting
+          setTimeout(() => { try { toggleListening(); } catch {} }, 120);
+        }
+      };
+      u.onerror = () => {
+        if (wasListening) {
+          setTimeout(() => { try { toggleListening(); } catch {} }, 120);
+        }
+      };
     } catch {}
   };
 
