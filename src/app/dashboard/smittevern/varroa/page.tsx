@@ -1,11 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Camera, UploadCloud, Activity, AlertTriangle, CheckCircle } from 'lucide-react';
-
-const DEFAULT_MODEL_ID = 'varroa-detection-sgqvj';
-const DEFAULT_MODEL_VERSION = '2';
+const VARROA_DEMO_URL = process.env.NEXT_PUBLIC_VARROA_DEMO_URL;
 
 type InferenceResult = {
   count: number;
@@ -58,26 +56,12 @@ function resizeImage(file: File): Promise<File> {
 }
 
 export default function VarroaDemoPage() {
-  const [mode, setMode] = useState<'mock' | 'live'>('mock');
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<InferenceResult | null>(null);
-  const [modelId] = useState<string>(DEFAULT_MODEL_ID);
-  const [modelVersion] = useState<string>(DEFAULT_MODEL_VERSION);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const m = localStorage.getItem('varroa_mode') as 'mock' | 'live' | null;
-    if (m) setMode(m);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem('varroa_mode', mode);
-  }, [mode]);
 
   const risk = useMemo(() => {
     const c = result?.count ?? 0;
@@ -117,45 +101,12 @@ export default function VarroaDemoPage() {
     }
   };
 
-  const inferLive = async () => {
-    if (!image) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const fd = new FormData();
-      fd.append('image', image);
-      fd.append('model', modelId);
-      fd.append('version', modelVersion);
-      const res = await fetch('/api/varroa/infer', { method: 'POST', body: fd });
-      if (!res.ok) {
-        const txt = await res.text();
-        if (res.status === 413 || txt.includes('PAYLOAD_TOO_LARGE') || txt.includes('Entity Too Large')) {
-          throw new Error('Bildet er for stort. Prøv et bilde med lavere oppløsning eller zoom litt inn.');
-        }
-        throw new Error(txt || 'Ukjent feil fra Roboflow-proxy');
-      }
-      const data = await res.json();
-      // Normalize common Roboflow responses
-      const preds = data?.predictions || data?.outputs || [];
-      const count = Array.isArray(preds) ? preds.length : Number(data?.count ?? 0);
-      setResult({
-        count: count,
-        boxes: Array.isArray(preds) ? preds.map((p: any) => ({ x: p.x, y: p.y, w: p.width || p.w, h: p.height || p.h, conf: p.confidence || p.conf })) : undefined
-      });
-    } catch (e: any) {
-      setError(e?.message || 'Feil ved inferens');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const run = async () => {
     if (!image) {
       setError('Last opp et bilde av bunnbrettet først.');
       return;
     }
-    if (mode === 'mock') return inferMock();
-    return inferLive();
+    return inferMock();
   };
 
   return (
@@ -174,20 +125,20 @@ export default function VarroaDemoPage() {
       <main className="p-4 max-w-3xl mx-auto space-y-6">
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
           <div className="flex flex-wrap items-center gap-3 mb-3">
-            <button
-              onClick={() => setMode('mock')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-bold border ${mode === 'mock' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-gray-100 text-gray-700 border-gray-200'}`}
-            >
-              Mock
-            </button>
-            <button
-              onClick={() => setMode('live')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-bold border ${mode === 'live' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-700 border-gray-200'}`}
-            >
-              Live (Roboflow API)
-            </button>
+            <span className="px-3 py-1.5 rounded-lg text-xs font-bold border bg-amber-100 text-amber-800 border-amber-200">
+              Demo-modus (Mock) – for testing i Birøkterregisteret
+            </span>
+            {VARROA_DEMO_URL && (
+              <a
+                href={VARROA_DEMO_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="ml-auto text-xs font-bold text-indigo-700 underline"
+              >
+                Åpne ekte live-demo
+              </a>
+            )}
           </div>
-
           <div className="flex items-center gap-3">
             <input
               ref={fileInputRef}
