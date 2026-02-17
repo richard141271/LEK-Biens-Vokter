@@ -268,7 +268,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
   };
 
-  const { isListening, toggleListening, isSupported } = useVoiceRecognition(handleVoiceCommand);
+  const { isListening, startListening, stopListening, toggleListening, isSupported } = useVoiceRecognition(handleVoiceCommand);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(new Date().toTimeString().split(' ')[0].substring(0, 5));
   const [queenSeen, setQueenSeen] = useState(false);
@@ -334,9 +334,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       if (!s) return;
       const wasListening = isListening;
-      // Pause lytte-modus mens vi snakker (Safari kan prioritere input ellers)
+      // Pause lytte-modus mens vi snakker; bruk eksplisitt stop/start for forutsigbarhet
       if (wasListening) {
-        try { toggleListening(); } catch {}
+        try { stopListening(); } catch {}
       }
       s.cancel();
       const u = new SpeechSynthesisUtterance(text);
@@ -378,12 +378,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       u.onend = () => {
         if (wasListening) {
           // Liten pause før vi gjenopptar lytting
-          setTimeout(() => { try { toggleListening(); } catch {} }, 120);
+          setTimeout(() => { try { startListening(); } catch {} }, 120);
         }
       };
       u.onerror = () => {
         if (wasListening) {
-          setTimeout(() => { try { toggleListening(); } catch {} }, 120);
+          setTimeout(() => { try { startListening(); } catch {} }, 120);
         }
       };
     } catch {}

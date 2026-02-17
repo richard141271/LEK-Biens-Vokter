@@ -5,6 +5,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
   const onResultRef = useRef(onResult);
+  const keepAliveRef = useRef(false);
 
   useEffect(() => {
     onResultRef.current = onResult;
@@ -30,11 +31,29 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
 
             recognition.onend = () => {
                 setIsListening(false);
+                // Auto-restart if we intended to keep listening (prevents random stop on iOS)
+                if (keepAliveRef.current) {
+                  try {
+                    recognition.start();
+                    setIsListening(true);
+                  } catch (e) {
+                    // Swallow restart errors silently; will try again on next user action
+                  }
+                }
             };
 
             recognition.onerror = (event: any) => {
                 console.error("Speech recognition error", event.error);
                 setIsListening(false);
+                // Some errors are transient; attempt restart if keepAlive is requested
+                if (keepAliveRef.current) {
+                  setTimeout(() => {
+                    try {
+                      recognition.start();
+                      setIsListening(true);
+                    } catch (e) {}
+                  }, 500);
+                }
             };
 
             recognitionRef.current = recognition;
@@ -47,6 +66,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
         try {
             recognitionRef.current.start();
             setIsListening(true);
+            keepAliveRef.current = true;
         } catch (e) {
             console.error("Could not start recognition", e);
         }
@@ -57,6 +77,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
     if (recognitionRef.current) {
         recognitionRef.current.stop();
         setIsListening(false);
+        keepAliveRef.current = false;
     }
   }, []);
 
