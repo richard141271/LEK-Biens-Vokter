@@ -48,8 +48,17 @@ export function parseVoiceCommand(text: string): ParsedInspection {
     // --- Queen ---
     if (has(['ingen dronning', 'ikke sett dronning', 'finner ikke dronning', 'mangler dronning', 'ser ikke dronning', 'hvor er hun', 'ingen dronning å se'])) {
         result.queenSeen = false;
-    } else if (has(['dronning sett', 'ser dronning', 'så dronning', 'dronninga er her', 'merket dronning', 'fant dronning', 'der er hun', 'hun er her', 'dronning observert'])) {
+    } else if (has(['dronning sett', 'sett dronning', 'ser dronning', 'så dronning', 'dronninga er her', 'merket dronning', 'fant dronning', 'der er hun', 'hun er her', 'dronning observert'])) {
         result.queenSeen = true;
+    }
+
+    // Ekstra fallback: hvis vi tydelig nevner dronning uten negative ord, tolkes som sett
+    if (result.queenSeen === undefined) {
+        const hasQueenWord = /\bdronning(a)?\b/.test(t);
+        const hasNegator = /\bingen\b|\bikke\b|\bmangler\b|\bbytt\b/.test(t);
+        if (hasQueenWord && !hasNegator) {
+            result.queenSeen = true;
+        }
     }
 
     // --- Eggs ---
@@ -62,7 +71,7 @@ export function parseVoiceCommand(text: string): ParsedInspection {
     // --- Honey (Fôr) ---
     if (has(['lite honning', 'tomt for honning', 'sulten', 'lite mat', 'lite fôr', 'trenger fôr', 'tomme tavler', 'sultne bier'])) {
         result.honeyStores = 'lite';
-    } else if (has(['middels honning', 'greit med honning', 'litt honning', 'ok med mat', 'middels fôr'])) {
+    } else if (has(['middels honning', 'greit med honning', 'litt honning', 'ok med mat', 'middels fôr', 'middel fôr', 'middel for'])) {
         result.honeyStores = 'middels';
     } else if (has(['mye honning', 'fullt av honning', 'tunge rammer', 'masse mat', 'full skattekasse', 'mye fôr', 'tunge tavler', 'godt med mat'])) {
         result.honeyStores = 'mye';
@@ -72,16 +81,22 @@ export function parseVoiceCommand(text: string): ParsedInspection {
     if (!result.honeyStores) {
         const matches: ('lite'|'middels'|'mye')[] = [];
         // Pattern 1: context word before value
-        const re1 = /\b(f[oø]r|for|honning|mat)\s+(lite|middels|mye)\b/g;
+        const re1 = /\b(f[oø]r|for|thor|honning|mat)\s+(lite|middels|middel|mye)\b/g;
         // Pattern 2: value before context word
-        const re2 = /\b(lite|middels|mye)\s+(f[oø]r|for|honning|mat)\b/g;
+        const re2 = /\b(lite|middels|middel|mye)\s+(f[oø]r|for|thor|honning|mat)\b/g;
         let m: RegExpExecArray | null;
-        while ((m = re1.exec(t)) !== null) matches.push(m[2] as any);
-        while ((m = re2.exec(t)) !== null) matches.push(m[1] as any);
+        while ((m = re1.exec(t)) !== null) {
+            const scalar = m[2] === 'middel' ? 'middels' : m[2];
+            matches.push(scalar as any);
+        }
+        while ((m = re2.exec(t)) !== null) {
+            const scalar = m[1] === 'middel' ? 'middels' : m[1];
+            matches.push(scalar as any);
+        }
         // Pattern 3: if context exists anywhere, pick last mentioned scalar
-        if (matches.length === 0 && /\b(honning|f[oø]r|for|mat)\b/.test(t)) {
+        if (matches.length === 0 && /\b(honning|f[oø]r|for|thor|mat)\b/.test(t)) {
             if (/\bmye\b/.test(t)) matches.push('mye');
-            if (/\bmiddels\b/.test(t)) matches.push('middels');
+            if (/\bmiddels\b|\bmiddel\b/.test(t)) matches.push('middels');
             if (/\blite\b|\btomt\b/.test(t)) matches.push('lite');
         }
         const last = pickLast(matches);
@@ -107,9 +122,15 @@ export function parseVoiceCommand(text: string): ParsedInspection {
         result.broodCondition = 'normal';
     }
 
-    // --- Robust Fallback: Brood (Yngelleie) with mixed grammar / reordering ---
+    // --- Robust Fallback: Brood (Yngelleie) with mixed grammar / reordering / mishearing ---
     if (!result.broodCondition) {
-        if (/\byngel\b/.test(t)) {
+        const hasYngelWord = /\byngel\b|\byngle\b|\byngre\b/.test(t);
+        const hasYngleLike =
+            hasYngelWord ||
+            /(england|engel|engle|yngleie|yngelleie)/.test(t) ||
+            /\blei(e)?\b/.test(t);
+
+        if (hasYngleLike) {
             const order: ('darlig'|'normal'|'bra')[] = [];
             if (/\bd[åa]rlig\b|\blite\b/.test(t)) order.push('darlig');
             if (/\bnormal(t)?\b|\bgrei\b/.test(t)) order.push('normal');
