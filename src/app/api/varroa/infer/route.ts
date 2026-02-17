@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const runtime = 'edge';
-
 export async function POST(req: NextRequest) {
   try {
     const apiKey = process.env.ROBOWFLOW_API_KEY || process.env.ROBoflow_API_KEY || process.env.ROBOWFLOW_KEY || process.env.ROBOFLOW_API_KEY;
@@ -38,4 +36,3 @@ export async function POST(req: NextRequest) {
     return new NextResponse(e?.message || 'Ukjent feil', { status: 500 });
   }
 }
-

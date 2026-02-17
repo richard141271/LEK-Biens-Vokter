@@ -4,10 +4,58 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Camera, UploadCloud, Activity, AlertTriangle, CheckCircle } from 'lucide-react';
 
+const DEFAULT_MODEL_ID = 'varroa-detection-sgqvj';
+const DEFAULT_MODEL_VERSION = '2';
+
 type InferenceResult = {
   count: number;
   boxes?: Array<{ x: number; y: number; w: number; h: number; conf?: number }>;
 };
+
+function resizeImage(file: File): Promise<File> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') {
+      resolve(file);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      const maxSide = 1600;
+      let width = img.width;
+      let height = img.height;
+      if (width > height && width > maxSide) {
+        height = Math.round((height * maxSide) / width);
+        width = maxSide;
+      } else if (height > maxSide) {
+        width = Math.round((width * maxSide) / height);
+        height = maxSide;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file);
+            return;
+          }
+          const out = new File([blob], file.name.replace(/\.[^.]+$/, '') + '-scaled.jpg', { type: 'image/jpeg' });
+          resolve(out);
+        },
+        'image/jpeg',
+        0.85
+      );
+    };
+    img.onerror = () => resolve(file);
+    img.src = URL.createObjectURL(file);
+  });
+}
 
 export default function VarroaDemoPage() {
   const [mode, setMode] = useState<'mock' | 'live'>('mock');
@@ -15,26 +63,22 @@ export default function VarroaDemoPage() {
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<InferenceResult | null>(null);
-  const [modelId, setModelId] = useState<string>('');
-  const [modelVersion, setModelVersion] = useState<string>('');
+  const [modelId, setModelId] = useState<string>(DEFAULT_MODEL_ID);
+  const [modelVersion, setModelVersion] = useState<string>(DEFAULT_MODEL_VERSION);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Load any local settings
-    const sId = localStorage.getItem('varroa_model_id') || '';
-    const sVer = localStorage.getItem('varroa_model_version') || '';
+    if (typeof window === 'undefined') return;
     const m = localStorage.getItem('varroa_mode') as 'mock' | 'live' | null;
-    if (sId) setModelId(sId);
-    if (sVer) setModelVersion(sVer);
     if (m) setMode(m);
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('varroa_model_id', modelId);
-    localStorage.setItem('varroa_model_version', modelVersion);
+    if (typeof window === 'undefined') return;
     localStorage.setItem('varroa_mode', mode);
-  }, [modelId, modelVersion, mode]);
+  }, [mode]);
 
   const risk = useMemo(() => {
     const c = result?.count ?? 0;
@@ -51,9 +95,10 @@ export default function VarroaDemoPage() {
     return [...base.slice(0, -1), today];
   }, [result]);
 
-  const handleFile = (f: File) => {
-    setImage(f);
-    setPreview(URL.createObjectURL(f));
+  const handleFile = async (f: File) => {
+    const resized = await resizeImage(f);
+    setImage(resized);
+    setPreview(URL.createObjectURL(resized));
     setResult(null);
     setError(null);
   };
@@ -85,6 +130,9 @@ export default function VarroaDemoPage() {
       const res = await fetch('/api/varroa/infer', { method: 'POST', body: fd });
       if (!res.ok) {
         const txt = await res.text();
+        if (res.status === 413 || txt.includes('PAYLOAD_TOO_LARGE') || txt.includes('Entity Too Large')) {
+          throw new Error('Bildet er for stort. Prøv et bilde med lavere oppløsning eller zoom litt inn.');
+        }
         throw new Error(txt || 'Ukjent feil fra Roboflow-proxy');
       }
       const data = await res.json();
@@ -108,10 +156,6 @@ export default function VarroaDemoPage() {
       return;
     }
     if (mode === 'mock') return inferMock();
-    if (!modelId || !modelVersion) {
-      setError('Sett modell-ID og versjon for Live-modus, eller bruk Mock-modus.');
-      return;
-    }
     return inferLive();
   };
 
@@ -143,12 +187,15 @@ export default function VarroaDemoPage() {
             >
               Live (Roboflow API)
             </button>
-            <div className="text-xs text-gray-500 ml-auto">
-              Live krever API‑nøkkel i servermiljøet og modell‑ID/versjon her.
-            </div>
+            <button
+              onClick={() => setShowAdvanced((v) => !v)}
+              className="ml-auto text-xs text-gray-600 underline"
+            >
+              {showAdvanced ? 'Skjul avansert' : 'Avansert'}
+            </button>
           </div>
 
-          {mode === 'live' && (
+          {mode === 'live' && showAdvanced && (
             <div className="grid grid-cols-2 gap-3 mb-3">
               <input
                 type="text"
@@ -253,4 +300,3 @@ export default function VarroaDemoPage() {
     </div>
   );
 }
-
