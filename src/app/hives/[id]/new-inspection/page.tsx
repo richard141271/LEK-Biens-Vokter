@@ -268,7 +268,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
   };
 
-  const { isListening, startListening, stopListening, toggleListening, isSupported } = useVoiceRecognition(handleVoiceCommand);
+  const { isListening, startListening, stopListening, pauseListening, resumeListening, toggleListening, isSupported } = useVoiceRecognition(handleVoiceCommand);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(new Date().toTimeString().split(' ')[0].substring(0, 5));
   const [queenSeen, setQueenSeen] = useState(false);
@@ -332,11 +332,16 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       // Short cue to ensure audio context is unlocked on iOS
       beep(1200, 260);
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
-      if (!s) return;
       const wasListening = isListening;
-      // Pause lytte-modus mens vi snakker; bruk eksplisitt stop/start for forutsigbarhet
+      // Pause lytte-modus mens vi snakker; bruk midlertidig pause
       if (wasListening) {
-        try { stopListening(); } catch {}
+        try { pauseListening(); } catch {}
+      }
+      if (!s) {
+        // Fallback: gi tydelig dobbel-tone og gjenoppta lytting
+        setTimeout(() => beep(900, 180), 120);
+        if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 250);
+        return;
       }
       s.cancel();
       const u = new SpeechSynthesisUtterance(text);
@@ -375,19 +380,31 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         pickVoice();
         s.speak(u);
       }
+      // Safety fallback: om onend ikke fyrer (plattformbegrensning), gjenoppta etter 3s
+      const safety = setTimeout(() => {
+        if (wasListening) { try { resumeListening(); } catch {} }
+      }, 3000);
       u.onend = () => {
+        clearTimeout(safety);
         if (wasListening) {
           // Liten pause før vi gjenopptar lytting
-          setTimeout(() => { try { startListening(); } catch {} }, 120);
+          setTimeout(() => { try { resumeListening(); } catch {} }, 120);
         }
       };
       u.onerror = () => {
+        clearTimeout(safety);
         if (wasListening) {
-          setTimeout(() => { try { startListening(); } catch {} }, 120);
+          setTimeout(() => { try { resumeListening(); } catch {} }, 120);
         }
       };
     } catch {}
   };
+
+  // Sikre kontinuerlig lytting gjennom hele inspeksjonen
+  useEffect(() => {
+    try { startListening(); } catch {}
+    return () => { try { stopListening(); } catch {} };
+  }, []);
 
 
   const fetchHiveAndWeather = async () => {

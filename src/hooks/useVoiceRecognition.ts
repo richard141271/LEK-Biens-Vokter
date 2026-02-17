@@ -6,6 +6,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
   const recognitionRef = useRef<any>(null);
   const onResultRef = useRef(onResult);
   const keepAliveRef = useRef(false);
+  const pausedRef = useRef(false);
 
   useEffect(() => {
     onResultRef.current = onResult;
@@ -67,6 +68,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
             recognitionRef.current.start();
             setIsListening(true);
             keepAliveRef.current = true;
+            pausedRef.current = false;
         } catch (e) {
             console.error("Could not start recognition", e);
         }
@@ -78,6 +80,36 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
         recognitionRef.current.stop();
         setIsListening(false);
         keepAliveRef.current = false;
+        pausedRef.current = false;
+    }
+  }, []);
+
+  // Temporarily stop without clearing keepAlive, so auto-restart is allowed
+  const pauseListening = useCallback(() => {
+    if (recognitionRef.current && isListening) {
+      try {
+        recognitionRef.current.stop();
+        setIsListening(false);
+        // keepAliveRef remains true; mark paused to allow resume explicitly
+        keepAliveRef.current = true;
+        pausedRef.current = true;
+      } catch (e) {
+        console.error("Could not pause recognition", e);
+      }
+    }
+  }, [isListening]);
+
+  const resumeListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        // Ensure we intend to keep listening and not toggled off by user
+        keepAliveRef.current = true;
+        recognitionRef.current.start();
+        setIsListening(true);
+        pausedRef.current = false;
+      } catch (e) {
+        console.error("Could not resume recognition", e);
+      }
     }
   }, []);
 
@@ -91,5 +123,5 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
       }
   }, [isListening, startListening, stopListening]);
 
-  return { isListening, startListening, stopListening, toggleListening, isSupported };
+  return { isListening, startListening, stopListening, pauseListening, resumeListening, toggleListening, isSupported };
 }
