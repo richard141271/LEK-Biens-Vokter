@@ -12,7 +12,11 @@ const DEFAULTS: AliasMap = {
   'yngelleie': 'yngel',
   'yngle leie': 'yngel',
   'ynglelei': 'yngel',
-  'innleie': 'yngel'
+  'innleie': 'yngel',
+  // Bigård/Apiary feilhøringer
+  'bygård': 'bigård',
+  'by gård': 'bigård',
+  'bigard': 'bigård'
 };
 
 export async function loadAliases(): Promise<void> {

@@ -71,35 +71,28 @@ export default function SmittevernPage() {
           </div>
         </Link>
 
-        {/* Varroamidd Teller – Konsept / Kommer snart */}
-        <div className="bg-gradient-to-br from-amber-50 to-rose-50 p-6 rounded-xl border border-amber-100 hover:border-amber-500 hover:shadow-md transition-all h-full">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-amber-500 text-white rounded-lg shadow-lg shadow-amber-200">
-              <Activity className="w-8 h-8" />
+        {/* Varroamidd Teller – Konsept / Demo */}
+        <Link href="/dashboard/smittevern/varroa" className="group">
+          <div className="bg-gradient-to-br from-amber-50 to-rose-50 p-6 rounded-xl border border-amber-100 hover:border-amber-500 hover:shadow-md transition-all h-full">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-amber-500 text-white rounded-lg shadow-lg shadow-amber-200">
+                <Activity className="w-8 h-8" />
+              </div>
+              <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full border border-amber-200">
+                Demo
+              </span>
             </div>
-            <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full border border-amber-200">
-              Kommer snart
-            </span>
+            <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-amber-800 transition-colors">
+              Varroamidd Teller
+            </h3>
+            <p className="text-gray-700 mb-3 text-sm">
+              Ta bilde av bunnbrett og få antall midd, risikoindikator og enkel trend (demo).
+            </p>
+            <div className="text-amber-800 text-xs font-semibold flex items-center gap-2">
+              Åpne demo <ChevronRight className="w-4 h-4" />
+            </div>
           </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">
-            Varroamidd Teller
-          </h3>
-          <p className="text-gray-700 mb-3 text-sm">
-            Ta bilde av bunnbrettet, få automatisk telling av varroamidd, risikovurdering
-            og forslag til tiltak basert på årstid, yngelstatus og historikk.
-          </p>
-          <ul className="text-xs text-gray-700 space-y-1 mb-4">
-            <li>• Se utvikling over tid per kube</li>
-            <li>• Sammenlign kuber og bigårder</li>
-            <li>• Få varsler ved høy risiko (planlagt)</li>
-          </ul>
-          <div className="text-amber-800 text-xs font-semibold flex items-center gap-2">
-            AI-basert varroaovervåkning
-            <span className="bg-amber-100 border border-amber-200 rounded-full px-2 py-0.5 text-[10px]">
-              Konseptskisse
-            </span>
-          </div>
-        </div>
+        </Link>
 
         {/* Manuell Rapportering */}
         <button 

@@ -67,6 +67,14 @@ export function parseVoiceCommand(text: string): ParsedInspection {
     } else if (has(['egg sett', 'egseth', 'engeset', 'eggset', 'eggsatt', 'ser egg', 'masse egg', 'dagsferske', 'så egg', 'fant egg', 'stifter', 'nylagt egg', 'ser stift', 'egg i cellene'])) {
         result.eggsSeen = true;
     }
+    // Ekstra fallback: nevnes 'egg' uten negasjon => tolkes som sett
+    if (result.eggsSeen === undefined) {
+        const hasEggWord = /\begg\b|\bstift\b/.test(t);
+        const hasNegator = /\bingen\b|\bikke\b|\btomt\b/.test(t);
+        if (hasEggWord && !hasNegator) {
+            result.eggsSeen = true;
+        }
+    }
 
     // --- Honey (Fôr) ---
     if (has(['lite honning', 'tomt for honning', 'sulten', 'lite mat', 'lite fôr', 'trenger fôr', 'tomme tavler', 'sultne bier'])) {
