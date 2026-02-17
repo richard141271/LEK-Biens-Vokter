@@ -63,9 +63,8 @@ export default function VarroaDemoPage() {
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<InferenceResult | null>(null);
-  const [modelId, setModelId] = useState<string>(DEFAULT_MODEL_ID);
-  const [modelVersion, setModelVersion] = useState<string>(DEFAULT_MODEL_VERSION);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [modelId] = useState<string>(DEFAULT_MODEL_ID);
+  const [modelVersion] = useState<string>(DEFAULT_MODEL_VERSION);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -187,32 +186,7 @@ export default function VarroaDemoPage() {
             >
               Live (Roboflow API)
             </button>
-            <button
-              onClick={() => setShowAdvanced((v) => !v)}
-              className="ml-auto text-xs text-gray-600 underline"
-            >
-              {showAdvanced ? 'Skjul avansert' : 'Avansert'}
-            </button>
           </div>
-
-          {mode === 'live' && showAdvanced && (
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <input
-                type="text"
-                placeholder="Modell-ID (f.eks. varroa-mitt/1)"
-                value={modelId}
-                onChange={(e) => setModelId(e.target.value)}
-                className="p-2 border border-gray-300 rounded-lg text-sm"
-              />
-              <input
-                type="text"
-                placeholder="Versjon (f.eks. 1)"
-                value={modelVersion}
-                onChange={(e) => setModelVersion(e.target.value)}
-                className="p-2 border border-gray-300 rounded-lg text-sm"
-              />
-            </div>
-          )}
 
           <div className="flex items-center gap-3">
             <input
