@@ -227,7 +227,7 @@ export default function VarroaDemoPage() {
               Last ned noen ferdige bunnbrett‑bilder som kan vises på skjerm eller skrives ut. Bruk dem sammen
               med live‑demoen for å teste modellen uten å måtte lage egne brett først.
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="bg-gray-50 aspect-video flex items-center justify-center text-xs text-gray-400">
                   varroa-demo-1.jpg
@@ -262,6 +262,30 @@ export default function VarroaDemoPage() {
                   className="block text-center text-xs font-semibold text-amber-700 py-2 hover:bg-amber-50 border-t border-gray-200"
                 >
                   Last ned bilde 3
+                </a>
+              </div>
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 aspect-video flex items-center justify-center text-xs text-gray-400">
+                  varroa-demo-4.jpg
+                </div>
+                <a
+                  href="/varroa-samples/varroa-demo-4.jpg"
+                  download
+                  className="block text-center text-xs font-semibold text-amber-700 py-2 hover:bg-amber-50 border-t border-gray-200"
+                >
+                  Last ned bilde 4
+                </a>
+              </div>
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 aspect-video flex items-center justify-center text-xs text-gray-400">
+                  varroa-demo-5.jpg
+                </div>
+                <a
+                  href="/varroa-samples/varroa-demo-5.jpg"
+                  download
+                  className="block text-center text-xs font-semibold text-amber-700 py-2 hover:bg-amber-50 border-t border-gray-200"
+                >
+                  Last ned bilde 5
                 </a>
               </div>
             </div>
