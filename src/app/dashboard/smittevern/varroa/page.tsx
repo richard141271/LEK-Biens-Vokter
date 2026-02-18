@@ -212,12 +212,63 @@ export default function VarroaDemoPage() {
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-          <div className="text-xs font-bold text-gray-500 uppercase mb-2">Om</div>
-          <p className="text-sm text-gray-600">
-            Dette er en demo. Live‑modus bruker Roboflow API via en sikker server‑proxy (krever API‑nøkkel i miljøvariabler).
-            Resultatet viser ikke bare antall, men også enkel risiko og trend – for å støtte beslutninger om tiltak.
-          </p>
+        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-3">
+          <div>
+            <div className="text-xs font-bold text-gray-500 uppercase mb-2">Om</div>
+            <p className="text-sm text-gray-600">
+              Dette er en demo. Tellingen i appen er simulert (mock) for å vise hvordan produktet vil fungere,
+              uten å være avhengig av nettet eller Roboflow‑kontoen din.
+            </p>
+          </div>
+
+          <div className="border-t border-dashed border-gray-200 pt-3">
+            <div className="text-xs font-bold text-gray-500 uppercase mb-2">Eksempelbilder til live-demo</div>
+            <p className="text-sm text-gray-600 mb-3">
+              Last ned noen ferdige bunnbrett‑bilder som kan vises på skjerm eller skrives ut. Bruk dem sammen
+              med live‑demoen for å teste modellen uten å måtte lage egne brett først.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 aspect-video flex items-center justify-center text-xs text-gray-400">
+                  varroa-demo-1.jpg
+                </div>
+                <a
+                  href="/varroa-samples/varroa-demo-1.jpg"
+                  download
+                  className="block text-center text-xs font-semibold text-amber-700 py-2 hover:bg-amber-50 border-t border-gray-200"
+                >
+                  Last ned bilde 1
+                </a>
+              </div>
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 aspect-video flex items-center justify-center text-xs text-gray-400">
+                  varroa-demo-2.jpg
+                </div>
+                <a
+                  href="/varroa-samples/varroa-demo-2.jpg"
+                  download
+                  className="block text-center text-xs font-semibold text-amber-700 py-2 hover:bg-amber-50 border-t border-gray-200"
+                >
+                  Last ned bilde 2
+                </a>
+              </div>
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 aspect-video flex items-center justify-center text-xs text-gray-400">
+                  varroa-demo-3.jpg
+                </div>
+                <a
+                  href="/varroa-samples/varroa-demo-3.jpg"
+                  download
+                  className="block text-center text-xs font-semibold text-amber-700 py-2 hover:bg-amber-50 border-t border-gray-200"
+                >
+                  Last ned bilde 3
+                </a>
+              </div>
+            </div>
+            <p className="mt-2 text-[11px] text-gray-400">
+              Legg inn filer med disse navnene i mappen <span className="font-mono text-gray-500">/public/varroa-samples</span> for at nedlasting skal fungere.
+            </p>
+          </div>
         </div>
       </main>
     </div>
