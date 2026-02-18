@@ -2,8 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Camera, UploadCloud, Activity, AlertTriangle, CheckCircle } from 'lucide-react';
-const VARROA_DEMO_URL = process.env.NEXT_PUBLIC_VARROA_DEMO_URL;
+import { ArrowLeft, Camera, UploadCloud, Activity, AlertTriangle, CheckCircle, ExternalLink } from 'lucide-react';
 
 type InferenceResult = {
   count: number;
@@ -128,16 +127,15 @@ export default function VarroaDemoPage() {
             <span className="px-3 py-1.5 rounded-lg text-xs font-bold border bg-amber-100 text-amber-800 border-amber-200">
               Demo-modus (Mock) – for testing i Birøkterregisteret
             </span>
-            {VARROA_DEMO_URL && (
-              <a
-                href={VARROA_DEMO_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="ml-auto text-xs font-bold text-indigo-700 underline"
-              >
-                Åpne ekte live-demo
-              </a>
-            )}
+            <a
+              href="https://demo.roboflow.com/varroa-detection-sqgvi/1?publishable_key=rf_iw8Xkt6B2oWxpbnTivdUBFwvxY82"
+              target="_blank"
+              rel="noreferrer"
+              className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border bg-indigo-50 text-indigo-700 border-indigo-200"
+            >
+              Åpne live-demo
+              <ExternalLink className="w-3 h-3" />
+            </a>
           </div>
           <div className="flex items-center gap-3">
             <input
