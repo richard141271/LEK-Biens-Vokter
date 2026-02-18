@@ -67,6 +67,11 @@ export default function WarRoomDashboard({
     const [newPostType, setNewPostType] = useState<WarRoomPostType | null>(null);
     const [newPostContent, setNewPostContent] = useState('');
     const [sending, setSending] = useState(false);
+    // Structured "Sak" (problem) fields
+    const [caseAbout, setCaseAbout] = useState('');
+    const [caseNotWorking, setCaseNotWorking] = useState('');
+    const [caseExpected, setCaseExpected] = useState('');
+    const [caseTried, setCaseTried] = useState('');
 
     // My Status State
     const [myWorkingOn, setMyWorkingOn] = useState('');
@@ -127,11 +132,27 @@ export default function WarRoomDashboard({
     };
 
     const handlePost = async () => {
-        if (!newPostType || !newPostContent.trim() || sending) return;
+        if (!newPostType || sending) return;
+        // Build content for "Sak" (problem) with structured fields
+        let contentToSend = newPostContent.trim();
+        if (newPostType === 'problem') {
+            const parts: string[] = [];
+            if (caseAbout.trim()) parts.push(`Hva gjelder: ${caseAbout.trim()}`);
+            if (caseNotWorking.trim()) parts.push(`Hva fungerer ikke: ${caseNotWorking.trim()}`);
+            if (caseExpected.trim()) parts.push(`Hva forventet du: ${caseExpected.trim()}`);
+            if (caseTried.trim()) parts.push(`Hva har du prøvd: ${caseTried.trim()}`);
+            if (newPostContent.trim()) parts.push(newPostContent.trim());
+            contentToSend = parts.join('\n');
+        }
+        if (!contentToSend) return;
         setSending(true);
         try {
-            await postWarRoomEntry(newPostType, newPostContent);
+            await postWarRoomEntry(newPostType, contentToSend);
             setNewPostContent('');
+            setCaseAbout('');
+            setCaseNotWorking('');
+            setCaseExpected('');
+            setCaseTried('');
             setNewPostType(null);
             loadData();
         } catch (e) {
@@ -214,9 +235,9 @@ export default function WarRoomDashboard({
         switch (type) {
             case 'done': return 'Utført';
             case 'plan': return 'Planlegger';
-            case 'help': return 'Trenger hjelp';
+            case 'help': return 'Sak'; // slått sammen i UI (help/problem) -> "Sak"
             case 'idea': return 'Idé';
-            case 'problem': return 'Problem';
+            case 'problem': return 'Sak';
             default: return type;
         }
     };
@@ -292,9 +313,9 @@ export default function WarRoomDashboard({
                     )}
                 </div>
 
-                {/* Stats & Activity */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                    {['done', 'plan', 'help', 'idea', 'problem'].map(type => (
+                {/* Stats & Activity (collapse help+problem -> Sak) */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {(['done', 'plan', 'idea'] as string[]).map(type => (
                         <div key={type} className={`p-2 rounded-lg border flex items-center justify-between ${getTypeColor(type)}`}>
                             <div className="flex items-center gap-2">
                                 {getTypeIcon(type)}
@@ -303,6 +324,14 @@ export default function WarRoomDashboard({
                             <span className="text-lg font-bold">{stats[type] || 0}</span>
                         </div>
                     ))}
+                    {/* Combined Sak = help + problem */}
+                    <div className={`p-2 rounded-lg border flex items-center justify-between ${getTypeColor('problem')}`}>
+                        <div className="flex items-center gap-2">
+                            {getTypeIcon('problem')}
+                            <span className="text-xs font-medium capitalize">Sak</span>
+                        </div>
+                        <span className="text-lg font-bold">{(stats['help'] || 0) + (stats['problem'] || 0)}</span>
+                    </div>
                 </div>
             </div>
 
@@ -341,7 +370,7 @@ export default function WarRoomDashboard({
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
                                     <p className="text-sm font-medium text-gray-700">Ny oppdatering:</p>
                                     <div className="flex gap-2 overflow-x-auto pb-2">
-                                        {(['done', 'plan', 'help', 'idea', 'problem'] as WarRoomPostType[]).map(type => (
+                                        {(['done', 'plan', 'idea', 'problem'] as WarRoomPostType[]).map(type => (
                                             <button
                                                 key={type}
                                                 onClick={() => setNewPostType(type)}
@@ -359,12 +388,49 @@ export default function WarRoomDashboard({
                                     
                                     {newPostType && (
                                         <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
-                                            <textarea
-                                                value={newPostContent}
-                                                onChange={(e) => setNewPostContent(e.target.value)}
-                                                placeholder={`Hva vil du dele om ${getTypeLabel(newPostType).toLowerCase()}?`}
-                                                className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[80px]"
-                                            />
+                                            {newPostType === 'problem' ? (
+                                                <div className="space-y-2">
+                                                    <input
+                                                        type="text"
+                                                        value={caseAbout}
+                                                        onChange={(e) => setCaseAbout(e.target.value)}
+                                                        placeholder="Hva gjelder dette?"
+                                                        className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm"
+                                                    />
+                                                    <textarea
+                                                        value={caseNotWorking}
+                                                        onChange={(e) => setCaseNotWorking(e.target.value)}
+                                                        placeholder="Hva fungerer ikke?"
+                                                        className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[60px]"
+                                                    />
+                                                    <textarea
+                                                        value={caseExpected}
+                                                        onChange={(e) => setCaseExpected(e.target.value)}
+                                                        placeholder="Hva forventet du skulle skje?"
+                                                        className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[60px]"
+                                                    />
+                                                    <textarea
+                                                        value={caseTried}
+                                                        onChange={(e) => setCaseTried(e.target.value)}
+                                                        placeholder="Hva har du prøvd?"
+                                                        className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[60px]"
+                                                    />
+                                                    <textarea
+                                                        value={newPostContent}
+                                                        onChange={(e) => setNewPostContent(e.target.value)}
+                                                        placeholder="Tilleggsinfo (valgfritt)"
+                                                        className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[60px]"
+                                                    />
+                                                    <p className="text-[11px] text-gray-500">Bilder kan legges ved i neste versjon.</p>
+                                                </div>
+                                            ) : (
+                                                <textarea
+                                                    value={newPostContent}
+                                                    onChange={(e) => setNewPostContent(e.target.value)}
+                                                    placeholder={`Hva vil du dele om ${getTypeLabel(newPostType).toLowerCase()}?`}
+                                                    className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[80px]"
+                                                />
+                                            )}
                                             <div className="flex justify-end gap-2">
                                                 <button
                                                     onClick={() => setNewPostType(null)}
@@ -374,7 +440,9 @@ export default function WarRoomDashboard({
                                                 </button>
                                                 <button
                                                     onClick={handlePost}
-                                                    disabled={!newPostContent.trim() || sending}
+                                                    disabled={sending || (newPostType === 'problem'
+                                                        ? (!caseAbout && !caseNotWorking && !caseExpected && !caseTried && !newPostContent.trim())
+                                                        : !newPostContent.trim())}
                                                     className="px-4 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-700 disabled:opacity-50 flex items-center gap-2"
                                                 >
                                                     <Send className="w-3 h-3" />
@@ -390,7 +458,8 @@ export default function WarRoomDashboard({
                                     {loading && posts.length === 0 ? (
                                         <p className="text-center text-gray-500 py-8">Laster...</p>
                                     ) : (
-                                        posts.map(post => (
+                                        // Vis alle som ikke er 'Utført' i hovedfeed
+                                        posts.filter(p => p.type !== 'done').map(post => (
                                             <div key={post.id} className={`bg-white p-4 rounded-xl shadow-sm border border-gray-200 ${post.is_resolved ? 'opacity-60 bg-gray-50' : ''}`}>
                                                 <div className="flex items-start justify-between mb-2">
                                                     <div className="flex items-center gap-2">
@@ -474,6 +543,51 @@ export default function WarRoomDashboard({
                                         ))
                                     )}
                                 </div>
+                                
+                                {/* Siste 5 utførte (dempet) */}
+                                {posts.some(p => p.type === 'done') && (
+                                    <div className="mt-6">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="text-xs font-bold text-gray-500 uppercase">Siste utførte</span>
+                                            <span className="text-[10px] text-gray-400">(viser inntil 5)</span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {posts
+                                                .filter(p => p.type === 'done')
+                                                .slice(0, 5)
+                                                .map(post => (
+                                                    <div key={post.id} className="bg-white p-3 rounded-lg border border-green-200 opacity-70">
+                                                        <div className="flex items-start justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                                                <div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-xs font-bold text-green-700 uppercase">Utført</span>
+                                                                        <span className="text-[11px] text-gray-500">
+                                                                            {post.profile?.full_name} • {format(new Date(post.created_at), 'd. MMM yyyy HH:mm', { locale: nb })}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="text-xs text-gray-700 line-through mt-1 whitespace-pre-wrap">
+                                                                        {post.content}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            {isAdmin && (
+                                                                <button 
+                                                                    onClick={() => handleDeletePost(post.id)}
+                                                                    className="p-1 text-gray-400 hover:text-green-700 rounded-full hover:bg-green-50"
+                                                                    title="Arkiver (fjern fra feed)"
+                                                                >
+                                                                    <Trash2 className="w-3 h-3" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            }
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         ) : activeTab === 'ideas' ? (
                             <div className="space-y-3">
