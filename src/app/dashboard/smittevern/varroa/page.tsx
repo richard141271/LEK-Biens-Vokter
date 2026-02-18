@@ -128,7 +128,7 @@ export default function VarroaDemoPage() {
               Demo-modus (Mock) – for testing i Birøkterregisteret
             </span>
             <a
-              href="https://demo.roboflow.com/varroa-detection-sqgvi/1?publishable_key=rf_iw8Xkt6B2oWxpbnTivdUBFwvxY82"
+              href="https://demo.roboflow.com/varroa-detection-sqgvi/2?publishable_key=rf_iw8Xkt6B2oWxpbnTivdUBFwvxY82"
               target="_blank"
               rel="noreferrer"
               className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border bg-indigo-50 text-indigo-700 border-indigo-200"
