@@ -236,15 +236,9 @@ export default function VarroaDemoPage() {
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <a
-                  href="/varroa-samples/varroa-demo-1.jpg"
-                  download
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block text-center text-xs font-semibold text-amber-700 py-2 hover:bg-amber-50 border-t border-gray-200"
-                >
-                  Åpne / last ned bilde 1
-                </a>
+                <div className="block text-center text-xs font-semibold text-amber-700 py-2 border-t border-gray-200">
+                  Bilde 1 – hold inne for å lagre eller dele
+                </div>
               </div>
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="bg-gray-50 aspect-video flex items-center justify-center overflow-hidden">
@@ -254,15 +248,9 @@ export default function VarroaDemoPage() {
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <a
-                  href="/varroa-samples/varroa-demo-2.jpg"
-                  download
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block text-center text-xs font-semibold text-amber-700 py-2 hover:bg-amber-50 border-t border-gray-200"
-                >
-                  Åpne / last ned bilde 2
-                </a>
+                <div className="block text-center text-xs font-semibold text-amber-700 py-2 border-t border-gray-200">
+                  Bilde 2 – hold inne for å lagre eller dele
+                </div>
               </div>
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="bg-gray-50 aspect-video flex items-center justify-center overflow-hidden">
@@ -272,15 +260,9 @@ export default function VarroaDemoPage() {
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <a
-                  href="/varroa-samples/varroa-demo-3.jpg"
-                  download
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block text-center text-xs font-semibold text-amber-700 py-2 hover:bg-amber-50 border-t border-gray-200"
-                >
-                  Åpne / last ned bilde 3
-                </a>
+                <div className="block text-center text-xs font-semibold text-amber-700 py-2 border-t border-gray-200">
+                  Bilde 3 – hold inne for å lagre eller dele
+                </div>
               </div>
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="bg-gray-50 aspect-video flex items-center justify-center overflow-hidden">
@@ -290,15 +272,9 @@ export default function VarroaDemoPage() {
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <a
-                  href="/varroa-samples/varroa-demo-4.jpg"
-                  download
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block text-center text-xs font-semibold text-amber-700 py-2 hover:bg-amber-50 border-t border-gray-200"
-                >
-                  Åpne / last ned bilde 4
-                </a>
+                <div className="block text-center text-xs font-semibold text-amber-700 py-2 border-t border-gray-200">
+                  Bilde 4 – hold inne for å lagre eller dele
+                </div>
               </div>
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="bg-gray-50 aspect-video flex items-center justify-center overflow-hidden">
@@ -308,15 +284,9 @@ export default function VarroaDemoPage() {
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <a
-                  href="/varroa-samples/varroa-demo-5.jpg"
-                  download
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block text-center text-xs font-semibold text-amber-700 py-2 hover:bg-amber-50 border-t border-gray-200"
-                >
-                  Åpne / last ned bilde 5
-                </a>
+                <div className="block text-center text-xs font-semibold text-amber-700 py-2 border-t border-gray-200">
+                  Bilde 5 – hold inne for å lagre eller dele
+                </div>
               </div>
             </div>
             <p className="mt-2 text-[11px] text-gray-400">
