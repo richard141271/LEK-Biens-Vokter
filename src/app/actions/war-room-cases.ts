@@ -20,7 +20,7 @@ export async function createCase(input: CreateCaseInput) {
 
     const adminClient = createAdminClient();
 
-    const { data: created } = await adminClient
+    const { data: created, error } = await adminClient
         .from('cases')
         .insert({
             title: input.title.trim(),
@@ -33,7 +33,7 @@ export async function createCase(input: CreateCaseInput) {
         .select()
         .single();
 
-    if (!created) return { error: 'Kunne ikke opprette sak' };
+    if (error || !created) return { error: error?.message || 'Kunne ikke opprette sak' };
 
     await adminClient
         .from('case_updates')
@@ -59,7 +59,7 @@ export async function getCasesForFeed() {
 
     const { data: cases, error } = await adminClient
         .from('cases')
-        .select('*')
+        .select('*, creator:profiles!cases_created_by_fkey(full_name), assigned:profiles!cases_assigned_to_fkey(full_name)')
         .in('status', ['OPEN', 'IN_PROGRESS'])
         .order('updated_at', { ascending: false })
         .limit(100);
@@ -68,7 +68,7 @@ export async function getCasesForFeed() {
 
     const { data: resolved } = await adminClient
         .from('cases')
-        .select('*')
+        .select('*, creator:profiles!cases_created_by_fkey(full_name), assigned:profiles!cases_assigned_to_fkey(full_name)')
         .eq('status', 'RESOLVED')
         .order('resolved_at', { ascending: false })
         .limit(5);
@@ -170,6 +170,12 @@ export async function updateCaseStatus(caseId: string, status: CaseStatus) {
 
     if (status === 'RESOLVED') {
         payload.resolved_at = new Date().toISOString();
+    }
+    if (status === 'IN_PROGRESS') {
+        payload.assigned_to = user.id;
+    }
+    if (status === 'OPEN') {
+        payload.assigned_to = null;
     }
 
     const { error } = await adminClient

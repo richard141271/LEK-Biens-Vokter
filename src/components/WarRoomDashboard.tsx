@@ -438,9 +438,12 @@ export default function WarRoomDashboard({
                                         type="text"
                                         value={newCaseTitle}
                                         onChange={(e) => setNewCaseTitle(e.target.value)}
-                                        placeholder="Kort tittel"
+                                        placeholder="Kort tittel (min. 2 tegn)"
                                         className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm"
                                     />
+                                    {newCaseTitle.trim().length > 0 && newCaseTitle.trim().length < 2 && (
+                                        <p className="text-[11px] text-red-600">Tittelen må ha minst 2 tegn.</p>
+                                    )}
                                     {newCaseType === 'CASE' && (
                                         <div className="space-y-2">
                                             <input
@@ -493,7 +496,7 @@ export default function WarRoomDashboard({
                                         </button>
                                         <button
                                             onClick={async () => {
-                                                if (!newCaseType || newCaseTitle.trim().length < 5 || sending) return;
+                                                if (!newCaseType || newCaseTitle.trim().length < 2 || sending) return;
                                                 let description = newCaseDescription.trim();
                                                 if (newCaseType === 'CASE') {
                                                     const parts: string[] = [];
@@ -513,7 +516,7 @@ export default function WarRoomDashboard({
                                                 });
                                                 setSending(false);
                                                 if (res.error) {
-                                                    alert(res.error);
+                                                    alert(`Kunne ikke opprette sak: ${res.error}`);
                                                     return;
                                                 }
                                                 setNewCaseType(null);
@@ -528,7 +531,7 @@ export default function WarRoomDashboard({
                                             disabled={
                                                 sending ||
                                                 !newCaseType ||
-                                                newCaseTitle.trim().length < 5
+                                                newCaseTitle.trim().length < 2
                                             }
                                             className="px-4 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-700 disabled:opacity-50 flex items-center gap-2"
                                         >
@@ -567,7 +570,7 @@ export default function WarRoomDashboard({
                                                                 <span>{getCaseTypeLabel(item.type)}</span>
                                                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold border border-gray-200">
                                                                     {item.status === 'OPEN' && 'ÅPEN'}
-                                                                    {item.status === 'IN_PROGRESS' && 'PÅGÅR'}
+                                                                    {item.status === 'IN_PROGRESS' && `PÅGÅR${item.assigned?.full_name ? ` • ${item.assigned.full_name}` : ''}`}
                                                                 </span>
                                                             </div>
                                                             <span className="block text-sm font-semibold text-gray-900">
@@ -900,7 +903,37 @@ export default function WarRoomDashboard({
                             </>
                         ) : activeTab === 'ideas' ? (
                             <div className="space-y-3">
-                                {/* Ideas List */}
+                                {/* Nye ideer (saker av type IDÉ) */}
+                                {cases.filter(c => c.type === 'IDEA').length > 0 && (
+                                    <div>
+                                        <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Nye ideer</div>
+                                        <div className="space-y-2">
+                                            {cases.filter(c => c.type === 'IDEA').map(item => (
+                                                <div key={item.id} className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
+                                                    <div className="flex items-center gap-2 mb-1 text-yellow-800">
+                                                        <Lightbulb className="w-4 h-4" />
+                                                        <span className="text-xs font-bold uppercase">Idé</span>
+                                                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold border border-yellow-300">
+                                                            {item.status === 'OPEN' ? 'ÅPEN' : 'PÅGÅR'}
+                                                            {item.status === 'IN_PROGRESS' && item.assigned?.full_name ? ` • ${item.assigned.full_name}` : ''}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-gray-900 text-sm font-semibold">{item.title}</div>
+                                                    <p className="text-gray-800 text-sm whitespace-pre-wrap mt-1">{item.description}</p>
+                                                    <p className="text-xs text-yellow-700/70 mt-2">
+                                                        Lagret {format(new Date(item.created_at), 'd. MMM yyyy HH:mm', { locale: nb })} ({formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: nb })})
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {/* Tidligere idébank (legacy) */}
+                                {ideas.length > 0 && (
+                                    <div className="pt-2">
+                                        <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Tidligere idébank</div>
+                                    </div>
+                                )}
                                 {ideas.map(idea => (
                                     <div key={idea.id} className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
                                         <div className="flex items-center gap-2 mb-2 text-yellow-800">
