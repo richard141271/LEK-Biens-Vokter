@@ -158,8 +158,9 @@ export async function updateCaseStatus(caseId: string, status: CaseStatus) {
 
     const isAdmin = profile?.role === 'admin' || user.email === 'richard141271@gmail.com';
 
-    if (!isAdmin && status !== 'IN_PROGRESS') {
-        return { error: 'Kun admin kan sette til løst eller arkivert' };
+    // Kursvenn kan endre mellom ÅPEN <-> PÅGÅR. Admin kan sette LØST og ARKIV.
+    if (!isAdmin && !['IN_PROGRESS', 'OPEN'].includes(status)) {
+        return { error: 'Kun admin kan sette til Løst eller Arkivert' };
     }
 
     const payload: any = {
@@ -191,4 +192,22 @@ export async function updateCaseStatus(caseId: string, status: CaseStatus) {
     revalidatePath('/dashboard/founder/community');
 
     return { success: true };
+}
+
+export async function getArchivedCases() {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    const adminClient = createAdminClient();
+
+    const { data: archived, error } = await adminClient
+        .from('cases')
+        .select('*')
+        .eq('status', 'ARCHIVED')
+        .order('updated_at', { ascending: false })
+        .limit(100);
+
+    if (error) return { error: error.message };
+    return { archived: archived || [] };
 }

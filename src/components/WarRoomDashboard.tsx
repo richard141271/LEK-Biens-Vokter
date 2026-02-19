@@ -16,7 +16,7 @@ import {
     WarRoomPostType
 } from '@/app/actions/war-room';
 import { resolveWarRoomPost } from '@/app/actions/war-room-resolve';
-import { createCase, getCasesForFeed, updateCaseStatus } from '@/app/actions/war-room-cases';
+import { createCase, getCasesForFeed, updateCaseStatus, getArchivedCases } from '@/app/actions/war-room-cases';
 import { formatDistanceToNow, format } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { 
@@ -34,7 +34,8 @@ import {
     Trash2,
     Edit2,
     X,
-    Check
+    Check,
+    Archive as ArchiveIcon
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -51,13 +52,14 @@ export default function WarRoomDashboard({
     backLink,
     backText = 'Tilbake'
 }: WarRoomDashboardProps) {
-    const [activeTab, setActiveTab] = useState<'feed' | 'ideas' | 'status'>('feed');
+    const [activeTab, setActiveTab] = useState<'feed' | 'ideas' | 'status' | 'archive'>('feed');
     const [posts, setPosts] = useState<any[]>([]);
     const [cases, setCases] = useState<any[]>([]);
     const [recentResolvedCases, setRecentResolvedCases] = useState<any[]>([]);
     const [expandedCaseId, setExpandedCaseId] = useState<string | null>(null);
     const [ideas, setIdeas] = useState<any[]>([]);
     const [resolvedCount, setResolvedCount] = useState<number>(0);
+    const [archived, setArchived] = useState<any[]>([]);
     const [focus, setFocus] = useState('');
     const [focusAuthor, setFocusAuthor] = useState('');
     const [stats, setStats] = useState<any>({});
@@ -142,6 +144,8 @@ export default function WarRoomDashboard({
             setRecentResolvedCases(casesRes.recentResolved || []);
             setResolvedCount(casesRes.resolvedCount || 0);
         }
+        const archivedRes = await getArchivedCases();
+        if (!archivedRes.error) setArchived(archivedRes.archived || []);
         
         setLoading(false);
     };
@@ -392,6 +396,13 @@ export default function WarRoomDashboard({
                             Idébank
                         </button>
                         <button 
+                            onClick={() => setActiveTab('archive')}
+                            className={`hidden md:flex flex-1 py-3 text-sm font-medium border-b-2 ${activeTab === 'archive' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <ArchiveIcon className="w-4 h-4 inline-block mr-2" />
+                            Arkiv
+                        </button>
+                        <button 
                             onClick={() => setActiveTab('status')}
                             className={`flex-1 py-3 text-sm font-medium border-b-2 md:hidden ${activeTab === 'status' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                         >
@@ -579,6 +590,19 @@ export default function WarRoomDashboard({
                                                                 title="Sett til Pågår"
                                                             >
                                                                 Pågår
+                                                            </button>
+                                                        )}
+                                                        {/* Kursvenn/Admin: Tilbake til Åpen */}
+                                                        {item.status === 'IN_PROGRESS' && (
+                                                            <button
+                                                                onClick={async () => {
+                                                                    await updateCaseStatus(item.id, 'OPEN');
+                                                                    loadData();
+                                                                }}
+                                                                className="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700 hover:bg-gray-50"
+                                                                title="Sett tilbake til Åpen"
+                                                            >
+                                                                Tilbake til Åpen
                                                             </button>
                                                         )}
                                                         {/* Admin: Løst */}
@@ -829,11 +853,11 @@ export default function WarRoomDashboard({
                                     )}
                                 </div>
                                 
-                                {/* Siste 5 utførte (dempet) */}
+                                {/* Siste 5 løste (dempet) */}
                                 {posts.some(p => p.type === 'done') && (
                                     <div className="mt-6">
                                         <div className="flex items-center gap-2 mb-2">
-                                            <span className="text-xs font-bold text-gray-500 uppercase">Siste utførte</span>
+                                            <span className="text-xs font-bold text-gray-500 uppercase">Siste løste</span>
                                             <span className="text-[10px] text-gray-400">(viser inntil 5)</span>
                                         </div>
                                         <div className="space-y-2">
@@ -847,7 +871,7 @@ export default function WarRoomDashboard({
                                                                 <CheckCircle2 className="w-5 h-5 text-green-600" />
                                                                 <div>
                                                                     <div className="flex items-center gap-2">
-                                                                        <span className="text-xs font-bold text-green-700 uppercase">Utført</span>
+                                                                        <span className="text-xs font-bold text-green-700 uppercase">Løst</span>
                                                                         <span className="text-[11px] text-gray-500">
                                                                             {post.profile?.full_name} • {format(new Date(post.created_at), 'd. MMM yyyy HH:mm', { locale: nb })}
                                                                         </span>
@@ -893,6 +917,48 @@ export default function WarRoomDashboard({
                                     <div className="text-center py-12 text-gray-500">
                                         <Lightbulb className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                                         <p>Ingen ideer registrert ennå.</p>
+                                    </div>
+                                )}
+                            </div>
+                        ) : activeTab === 'archive' ? (
+                            <div className="space-y-3">
+                                {archived.map(item => (
+                                    <div key={item.id} className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-200">
+                                        <div className="flex items-start justify-between mb-1">
+                                            <div>
+                                                <div className="flex items-center gap-2 text-xs font-bold text-gray-900 uppercase tracking-wide">
+                                                    <span>Arkivert</span>
+                                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold border border-gray-200">SAK</span>
+                                                </div>
+                                                <span className="block text-sm font-semibold text-gray-900">
+                                                    {item.title}
+                                                </span>
+                                                <span className="text-xs text-gray-500">
+                                                    {format(new Date(item.updated_at || item.created_at), 'd. MMM yyyy HH:mm', { locale: nb })}
+                                                </span>
+                                            </div>
+                                            {isAdmin && (
+                                                <button
+                                                    onClick={async () => {
+                                                        await updateCaseStatus(item.id, 'OPEN');
+                                                        loadData();
+                                                    }}
+                                                    className="px-2 py-1 text-[11px] rounded border border-amber-200 text-amber-700 hover:bg-amber-50"
+                                                    title="Gjenåpne"
+                                                >
+                                                    Gjenåpne
+                                                </button>
+                                            )}
+                                        </div>
+                                        <div className="text-gray-700 text-sm whitespace-pre-wrap line-clamp-2">
+                                            {item.description}
+                                        </div>
+                                    </div>
+                                ))}
+                                {archived.length === 0 && (
+                                    <div className="text-center py-12 text-gray-500">
+                                        <ArchiveIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                                        <p>Ingen arkiverte saker.</p>
                                     </div>
                                 )}
                             </div>
