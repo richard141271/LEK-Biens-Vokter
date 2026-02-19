@@ -61,7 +61,7 @@ export async function getCasesForFeed() {
         .from('cases')
         .select('*')
         .in('status', ['OPEN', 'IN_PROGRESS'])
-        .order('updated_at', { ascending: false })
+        .order('created_at', { ascending: true })
         .limit(100);
 
     if (error) return { error: error.message };
