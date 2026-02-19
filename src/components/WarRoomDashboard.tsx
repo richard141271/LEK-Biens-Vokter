@@ -16,6 +16,7 @@ import {
     WarRoomPostType
 } from '@/app/actions/war-room';
 import { resolveWarRoomPost } from '@/app/actions/war-room-resolve';
+import { createCase, getCasesForFeed } from '@/app/actions/war-room-cases';
 import { formatDistanceToNow, format } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { 
@@ -52,6 +53,8 @@ export default function WarRoomDashboard({
 }: WarRoomDashboardProps) {
     const [activeTab, setActiveTab] = useState<'feed' | 'ideas' | 'status'>('feed');
     const [posts, setPosts] = useState<any[]>([]);
+    const [cases, setCases] = useState<any[]>([]);
+    const [recentResolvedCases, setRecentResolvedCases] = useState<any[]>([]);
     const [ideas, setIdeas] = useState<any[]>([]);
     const [focus, setFocus] = useState('');
     const [focusAuthor, setFocusAuthor] = useState('');
@@ -72,6 +75,9 @@ export default function WarRoomDashboard({
     const [caseNotWorking, setCaseNotWorking] = useState('');
     const [caseExpected, setCaseExpected] = useState('');
     const [caseTried, setCaseTried] = useState('');
+    const [newCaseType, setNewCaseType] = useState<'IDEA' | 'PLAN' | 'CASE' | null>(null);
+    const [newCaseTitle, setNewCaseTitle] = useState('');
+    const [newCaseDescription, setNewCaseDescription] = useState('');
 
     // My Status State
     const [myWorkingOn, setMyWorkingOn] = useState('');
@@ -127,6 +133,12 @@ export default function WarRoomDashboard({
             // But we don't have "me" here easily. We'll skip pre-filling "my" status for now or assume empty.
         }
         if (ideasRes.ideas) setIdeas(ideasRes.ideas);
+
+        const casesRes = await getCasesForFeed();
+        if (!casesRes.error) {
+            setCases(casesRes.cases || []);
+            setRecentResolvedCases(casesRes.recentResolved || []);
+        }
         
         setLoading(false);
     };
@@ -253,6 +265,13 @@ export default function WarRoomDashboard({
         }
     };
 
+    const getCaseTypeLabel = (type: string) => {
+        if (type === 'IDEA') return 'Idé';
+        if (type === 'PLAN') return 'Plan';
+        if (type === 'CASE') return 'Sak';
+        return type;
+    };
+
     return (
         <div className="flex flex-col h-full bg-gray-50/50">
             {/* Header / Stats */}
@@ -366,9 +385,202 @@ export default function WarRoomDashboard({
                     <div className="flex-1 overflow-y-auto p-4 space-y-4">
                         {activeTab === 'feed' ? (
                             <>
-                                {/* New Post Input */}
                                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
-                                    <p className="text-sm font-medium text-gray-700">Ny oppdatering:</p>
+                                    <p className="text-sm font-medium text-gray-700">Ny sak:</p>
+                                    <div className="flex gap-2 overflow-x-auto pb-2">
+                                        {(['IDEA', 'PLAN', 'CASE'] as const).map(type => (
+                                            <button
+                                                key={type}
+                                                onClick={() => setNewCaseType(type)}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
+                                                    newCaseType === type 
+                                                    ? 'bg-gray-900 text-white border-gray-900' 
+                                                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                                                }`}
+                                            >
+                                                {type === 'IDEA' && <Lightbulb className="w-3 h-3" />}
+                                                {type === 'PLAN' && <Calendar className="w-3 h-3" />}
+                                                {type === 'CASE' && <AlertTriangle className="w-3 h-3" />}
+                                                {getCaseTypeLabel(type)}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={newCaseTitle}
+                                        onChange={(e) => setNewCaseTitle(e.target.value)}
+                                        placeholder="Kort tittel"
+                                        className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm"
+                                    />
+                                    {newCaseType === 'CASE' && (
+                                        <div className="space-y-2">
+                                            <input
+                                                type="text"
+                                                value={caseAbout}
+                                                onChange={(e) => setCaseAbout(e.target.value)}
+                                                placeholder="Hva gjelder dette?"
+                                                className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm"
+                                            />
+                                            <textarea
+                                                value={caseNotWorking}
+                                                onChange={(e) => setCaseNotWorking(e.target.value)}
+                                                placeholder="Hva fungerer ikke?"
+                                                className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[60px]"
+                                            />
+                                            <textarea
+                                                value={caseExpected}
+                                                onChange={(e) => setCaseExpected(e.target.value)}
+                                                placeholder="Hva forventet du skulle skje?"
+                                                className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[60px]"
+                                            />
+                                            <textarea
+                                                value={caseTried}
+                                                onChange={(e) => setCaseTried(e.target.value)}
+                                                placeholder="Hva har du prøvd?"
+                                                className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[60px]"
+                                            />
+                                        </div>
+                                    )}
+                                    <textarea
+                                        value={newCaseDescription}
+                                        onChange={(e) => setNewCaseDescription(e.target.value)}
+                                        placeholder={newCaseType === 'PLAN' ? 'Beskriv planen kort' : 'Beskriv kort hva dette gjelder'}
+                                        className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[80px]"
+                                    />
+                                    <div className="flex justify-end gap-2">
+                                        <button
+                                            onClick={() => {
+                                                setNewCaseType(null);
+                                                setNewCaseTitle('');
+                                                setNewCaseDescription('');
+                                                setCaseAbout('');
+                                                setCaseNotWorking('');
+                                                setCaseExpected('');
+                                                setCaseTried('');
+                                            }}
+                                            className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700"
+                                        >
+                                            Avbryt
+                                        </button>
+                                        <button
+                                            onClick={async () => {
+                                                if (!newCaseType || newCaseTitle.trim().length < 5 || sending) return;
+                                                let description = newCaseDescription.trim();
+                                                if (newCaseType === 'CASE') {
+                                                    const parts: string[] = [];
+                                                    if (caseAbout.trim()) parts.push(`Hva gjelder: ${caseAbout.trim()}`);
+                                                    if (caseNotWorking.trim()) parts.push(`Hva fungerer ikke: ${caseNotWorking.trim()}`);
+                                                    if (caseExpected.trim()) parts.push(`Hva forventet du: ${caseExpected.trim()}`);
+                                                    if (caseTried.trim()) parts.push(`Hva har du prøvd: ${caseTried.trim()}`);
+                                                    if (description) parts.push(description);
+                                                    description = parts.join('\n');
+                                                }
+                                                if (!description) return;
+                                                setSending(true);
+                                                const res = await createCase({
+                                                    type: newCaseType,
+                                                    title: newCaseTitle,
+                                                    description
+                                                });
+                                                setSending(false);
+                                                if (res.error) {
+                                                    alert(res.error);
+                                                    return;
+                                                }
+                                                setNewCaseType(null);
+                                                setNewCaseTitle('');
+                                                setNewCaseDescription('');
+                                                setCaseAbout('');
+                                                setCaseNotWorking('');
+                                                setCaseExpected('');
+                                                setCaseTried('');
+                                                loadData();
+                                            }}
+                                            disabled={
+                                                sending ||
+                                                !newCaseType ||
+                                                newCaseTitle.trim().length < 5
+                                            }
+                                            className="px-4 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-700 disabled:opacity-50 flex items-center gap-2"
+                                        >
+                                            <Send className="w-3 h-3" />
+                                            Opprett sak
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {loading && cases.length === 0 ? (
+                                        <p className="text-center text-gray-500 py-8">Laster...</p>
+                                    ) : (
+                                        cases.map(item => (
+                                            <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                                                <div className="flex items-start justify-between mb-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`p-1.5 rounded-full ${item.type === 'CASE' ? 'bg-red-50 border border-red-200 text-red-700' : item.type === 'PLAN' ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'bg-yellow-50 border border-yellow-200 text-yellow-700'}`}>
+                                                            {item.type === 'CASE' && <AlertTriangle className="w-3 h-3" />}
+                                                            {item.type === 'PLAN' && <Calendar className="w-3 h-3" />}
+                                                            {item.type === 'IDEA' && <Lightbulb className="w-3 h-3" />}
+                                                        </div>
+                                                        <div>
+                                                            <div className="flex items-center gap-2 text-xs font-bold text-gray-900 uppercase tracking-wide">
+                                                                <span>{getCaseTypeLabel(item.type)}</span>
+                                                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold border border-gray-200">
+                                                                    {item.status === 'OPEN' && 'ÅPEN'}
+                                                                    {item.status === 'IN_PROGRESS' && 'PÅGÅR'}
+                                                                </span>
+                                                            </div>
+                                                            <span className="block text-sm font-semibold text-gray-900">
+                                                                {item.title}
+                                                            </span>
+                                                            <span className="text-xs text-gray-500">
+                                                                {format(new Date(item.created_at), 'd. MMM yyyy HH:mm', { locale: nb })} ({formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: nb })})
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-gray-800 text-sm whitespace-pre-wrap mt-1 line-clamp-2">
+                                                    {item.description}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                {recentResolvedCases.length > 0 && (
+                                    <div className="mt-6">
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="text-xs font-bold text-gray-500 uppercase">Siste løste</span>
+                                            <span className="text-[10px] text-gray-400">(viser inntil 5)</span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {recentResolvedCases.map(item => (
+                                                <div key={item.id} className="bg-white p-3 rounded-lg border border-green-200 opacity-70">
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-xs font-bold text-green-700 uppercase">Løst</span>
+                                                                    <span className="text-[11px] text-gray-500">
+                                                                        {format(new Date(item.resolved_at || item.updated_at || item.created_at), 'd. MMM yyyy HH:mm', { locale: nb })}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="text-xs text-gray-700 line-through mt-1 whitespace-pre-wrap">
+                                                                    {item.title}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Legacy War Room posts under ny modell */}
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3 mt-6">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase">Tidligere War Room-oppdateringer</p>
                                     <div className="flex gap-2 overflow-x-auto pb-2">
                                         {(['done', 'plan', 'idea', 'problem'] as WarRoomPostType[]).map(type => (
                                             <button
