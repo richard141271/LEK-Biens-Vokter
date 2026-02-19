@@ -592,12 +592,15 @@ export default function WarRoomDashboard({
                                                             <div className="flex items-center gap-2 text-xs font-bold text-gray-900 uppercase tracking-wide">
                                                                 <span>{getCaseTypeLabel(item.type)}</span>
                                                                 <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
-                                                                    item.status === 'IN_PROGRESS' 
-                                                                      ? 'bg-blue-100 text-blue-700 border-blue-300' 
-                                                                      : 'bg-gray-50 text-gray-600 border-gray-300'
+                                                                    item.status === 'IN_PROGRESS'
+                                                                        ? 'bg-blue-100 text-blue-700 border-blue-300'
+                                                                        : item.status === 'PAUSED'
+                                                                            ? 'bg-amber-100 text-amber-700 border-amber-300'
+                                                                            : 'bg-gray-50 text-gray-600 border-gray-300'
                                                                 }`}>
                                                                     {item.status === 'OPEN' && 'ÅPEN'}
                                                                     {item.status === 'IN_PROGRESS' && `PÅGÅR${item.assigned?.full_name ? ` • ${item.assigned.full_name}` : ''}`}
+                                                                    {item.status === 'PAUSED' && `PAUSE${item.assigned?.full_name ? ` • ${item.assigned.full_name}` : ''}`}
                                                                 </span>
                                                                 {(updatesByCase[item.id]?.length || 0) > 0 && (
                                                                     <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-red-500 text-[10px] font-bold text-red-600 bg-white">
@@ -614,8 +617,8 @@ export default function WarRoomDashboard({
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        {/* Kursvenn: Pågår */}
-                                                        {item.status === 'OPEN' && (
+                                                        {/* Kursvenn: Start (ÅPEN/PAUSE → PÅGÅR) */}
+                                                        {(item.status === 'OPEN' || item.status === 'PAUSED') && (
                                                             <button
                                                                 onClick={async () => { 
                                                                     await updateCaseStatus(item.id, 'IN_PROGRESS'); 
@@ -627,7 +630,7 @@ export default function WarRoomDashboard({
                                                                 Start
                                                             </button>
                                                         )}
-                                                        {/* Kursvenn/Admin: Tilbake til Åpen */}
+                                                        {/* Kursvenn/Admin: Stans (PÅGÅR → ÅPEN) */}
                                                         {item.status === 'IN_PROGRESS' && (
                                                             <button
                                                                 onClick={async () => {
@@ -638,6 +641,24 @@ export default function WarRoomDashboard({
                                                                 title="Stans (sett til ÅPEN)"
                                                             >
                                                                 Stans
+                                                            </button>
+                                                        )}
+                                                        {/* Kursvenn/Admin: Pause (ÅPEN/PÅGÅR → PAUSE) */}
+                                                        {(item.status === 'OPEN' || item.status === 'IN_PROGRESS') && (
+                                                            <button
+                                                                onClick={async () => {
+                                                                    const reason = window.prompt('Hvorfor skal denne saken pauses? (valgfritt)');
+                                                                    const trimmed = (reason || '').trim();
+                                                                    if (trimmed) {
+                                                                        await addCaseComment(item.id, `Pause: ${trimmed}`);
+                                                                    }
+                                                                    await updateCaseStatus(item.id, 'PAUSED');
+                                                                    loadData();
+                                                                }}
+                                                                className="px-2 py-1 text-[11px] rounded border border-amber-200 text-amber-700 hover:bg-amber-50"
+                                                                title="Pause (sett til PAUSE)"
+                                                            >
+                                                                Pause
                                                             </button>
                                                         )}
                                                         {/* Admin: Løst */}

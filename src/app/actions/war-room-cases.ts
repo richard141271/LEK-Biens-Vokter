@@ -5,7 +5,7 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 type CaseType = 'IDEA' | 'PLAN' | 'CASE';
-type CaseStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'ARCHIVED';
+type CaseStatus = 'OPEN' | 'IN_PROGRESS' | 'PAUSED' | 'RESOLVED' | 'ARCHIVED';
 
 interface CreateCaseInput {
     type: CaseType;
@@ -60,7 +60,7 @@ export async function getCasesForFeed() {
     const { data: cases, error } = await adminClient
         .from('cases')
         .select('*')
-        .in('status', ['OPEN', 'IN_PROGRESS'])
+        .in('status', ['OPEN', 'IN_PROGRESS', 'PAUSED'])
         .order('created_at', { ascending: true })
         .limit(100);
 
@@ -275,9 +275,9 @@ export async function updateCaseStatus(caseId: string, status: CaseStatus) {
 
     const isAdmin = profile?.role === 'admin' || user.email === 'richard141271@gmail.com';
 
-    // Kursvenn kan endre mellom ÅPEN <-> PÅGÅR. Admin kan sette LØST og ARKIV.
-    if (!isAdmin && !['IN_PROGRESS', 'OPEN'].includes(status)) {
-        return { error: 'Kun admin kan sette til Løst eller Arkivert' };
+    // Kursvenn kan endre mellom ÅPEN <-> PÅGÅR og PAUSE. Admin kan sette LØST og ARKIV.
+    if (!isAdmin && !['IN_PROGRESS', 'OPEN', 'PAUSED'].includes(status)) {
+        return { error: 'Kun admin kan sette til Løst, Pause eller Arkivert' };
     }
 
     const payload: any = {
