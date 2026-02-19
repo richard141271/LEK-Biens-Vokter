@@ -677,229 +677,6 @@ export default function WarRoomDashboard({
                                         </div>
                                     </div>
                                 )}
-
-                                {/* Legacy War Room posts under ny modell */}
-                                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3 mt-6">
-                                    <p className="text-xs font-semibold text-gray-500 uppercase">Tidligere War Room-oppdateringer</p>
-                                    <div className="flex gap-2 overflow-x-auto pb-2">
-                                        {(['done', 'plan', 'idea', 'problem'] as WarRoomPostType[]).map(type => (
-                                            <button
-                                                key={type}
-                                                onClick={() => setNewPostType(type)}
-                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors whitespace-nowrap ${
-                                                    newPostType === type 
-                                                    ? 'bg-gray-900 text-white border-gray-900' 
-                                                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-                                                }`}
-                                            >
-                                                {getTypeIcon(type)}
-                                                {getTypeLabel(type)}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    
-                                    {newPostType && (
-                                        <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
-                                            {newPostType === 'problem' ? (
-                                                <div className="space-y-2">
-                                                    <input
-                                                        type="text"
-                                                        value={caseAbout}
-                                                        onChange={(e) => setCaseAbout(e.target.value)}
-                                                        placeholder="Hva gjelder dette?"
-                                                        className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm"
-                                                    />
-                                                    <textarea
-                                                        value={caseNotWorking}
-                                                        onChange={(e) => setCaseNotWorking(e.target.value)}
-                                                        placeholder="Hva fungerer ikke?"
-                                                        className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[60px]"
-                                                    />
-                                                    <textarea
-                                                        value={caseExpected}
-                                                        onChange={(e) => setCaseExpected(e.target.value)}
-                                                        placeholder="Hva forventet du skulle skje?"
-                                                        className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[60px]"
-                                                    />
-                                                    <textarea
-                                                        value={caseTried}
-                                                        onChange={(e) => setCaseTried(e.target.value)}
-                                                        placeholder="Hva har du prøvd?"
-                                                        className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[60px]"
-                                                    />
-                                                    <textarea
-                                                        value={newPostContent}
-                                                        onChange={(e) => setNewPostContent(e.target.value)}
-                                                        placeholder="Tilleggsinfo (valgfritt)"
-                                                        className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[60px]"
-                                                    />
-                                                    <p className="text-[11px] text-gray-500">Bilder kan legges ved i neste versjon.</p>
-                                                </div>
-                                            ) : (
-                                                <textarea
-                                                    value={newPostContent}
-                                                    onChange={(e) => setNewPostContent(e.target.value)}
-                                                    placeholder={`Hva vil du dele om ${getTypeLabel(newPostType).toLowerCase()}?`}
-                                                    className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[80px]"
-                                                />
-                                            )}
-                                            <div className="flex justify-end gap-2">
-                                                <button
-                                                    onClick={() => setNewPostType(null)}
-                                                    className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700"
-                                                >
-                                                    Avbryt
-                                                </button>
-                                                <button
-                                                    onClick={handlePost}
-                                                    disabled={sending || (newPostType === 'problem'
-                                                        ? (!caseAbout && !caseNotWorking && !caseExpected && !caseTried && !newPostContent.trim())
-                                                        : !newPostContent.trim())}
-                                                    className="px-4 py-1.5 bg-amber-600 text-white text-xs font-medium rounded-lg hover:bg-amber-700 disabled:opacity-50 flex items-center gap-2"
-                                                >
-                                                    <Send className="w-3 h-3" />
-                                                    Publiser
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Feed Items */}
-                                <div className="space-y-3">
-                                    {loading && posts.length === 0 ? (
-                                        <p className="text-center text-gray-500 py-8">Laster...</p>
-                                    ) : (
-                                        // Vis alle som ikke er 'Utført' i hovedfeed
-                                        posts.filter(p => p.type !== 'done').map(post => (
-                                            <div key={post.id} className={`bg-white p-4 rounded-xl shadow-sm border border-gray-200 ${post.is_resolved ? 'opacity-60 bg-gray-50' : ''}`}>
-                                                <div className="flex items-start justify-between mb-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className={`p-1.5 rounded-full ${getTypeColor(post.type)}`}>
-                                                            {getTypeIcon(post.type)}
-                                                        </div>
-                                                        <div>
-                                                            <span className="flex items-center gap-2 text-xs font-bold text-gray-900 uppercase tracking-wide">
-                                                                {getTypeLabel(post.type)}
-                                                                {post.is_resolved && (
-                                                                    <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-bold border border-green-200">
-                                                                        LØST
-                                                                    </span>
-                                                                )}
-                                                            </span>
-                                                            <span className="text-xs text-gray-500">
-                                                                {post.profile?.full_name} • {format(new Date(post.created_at), 'd. MMM yyyy HH:mm', { locale: nb })} ({formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: nb })})
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    {isAdmin && (
-                                                        <div className="flex items-center gap-1">
-                                                            {/* Show Resolve button only if NOT resolved */}
-                                                            {!post.is_resolved && (
-                                                                <button 
-                                                                    onClick={() => handleResolvePost(post.id)}
-                                                                    className="p-1 text-gray-400 hover:text-green-600 rounded-full hover:bg-green-50"
-                                                                    title="Markér som avklart/løst"
-                                                                >
-                                                                    <Check className="w-3 h-3" />
-                                                                </button>
-                                                            )}
-                                                            <button 
-                                                                onClick={() => handleStartEdit(post)}
-                                                                className="p-1 text-gray-400 hover:text-blue-600 rounded-full hover:bg-blue-50"
-                                                                title="Rediger"
-                                                            >
-                                                                <Edit2 className="w-3 h-3" />
-                                                            </button>
-                                                            <button 
-                                                                onClick={() => handleDeletePost(post.id)}
-                                                                className="p-1 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50"
-                                                                title="Slett"
-                                                            >
-                                                                <Trash2 className="w-3 h-3" />
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                {editingPostId === post.id ? (
-                                                    <div className="pl-9 mt-2 space-y-2">
-                                                        <textarea
-                                                            value={editContent}
-                                                            onChange={(e) => setEditContent(e.target.value)}
-                                                            className="w-full rounded-lg border-gray-300 text-sm focus:ring-amber-500 focus:border-amber-500"
-                                                            rows={3}
-                                                        />
-                                                        <div className="flex justify-end gap-2">
-                                                            <button 
-                                                                onClick={() => setEditingPostId(null)}
-                                                                className="p-1 text-gray-500 hover:bg-gray-100 rounded"
-                                                                title="Avbryt"
-                                                            >
-                                                                <X className="w-4 h-4" />
-                                                            </button>
-                                                            <button 
-                                                                onClick={handleSaveEdit}
-                                                                className="p-1 text-green-600 hover:bg-green-50 rounded"
-                                                                title="Lagre"
-                                                            >
-                                                                <Check className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-gray-800 text-sm whitespace-pre-wrap pl-9">
-                                                        {post.content}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                                
-                                {/* Siste 5 løste (dempet) */}
-                                {posts.some(p => p.type === 'done') && (
-                                    <div className="mt-6">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <span className="text-xs font-bold text-gray-500 uppercase">Siste løste</span>
-                                            <span className="text-[10px] text-gray-400">(viser inntil 5)</span>
-                                        </div>
-                                        <div className="space-y-2">
-                                            {posts
-                                                .filter(p => p.type === 'done')
-                                                .slice(0, 5)
-                                                .map(post => (
-                                                    <div key={post.id} className="bg-white p-3 rounded-lg border border-green-200 opacity-70">
-                                                        <div className="flex items-start justify-between">
-                                                            <div className="flex items-center gap-2">
-                                                                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                                                                <div>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <span className="text-xs font-bold text-green-700 uppercase">Løst</span>
-                                                                        <span className="text-[11px] text-gray-500">
-                                                                            {post.profile?.full_name} • {format(new Date(post.created_at), 'd. MMM yyyy HH:mm', { locale: nb })}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className="text-xs text-gray-700 line-through mt-1 whitespace-pre-wrap">
-                                                                        {post.content}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                            {isAdmin && (
-                                                                <button 
-                                                                    onClick={() => handleDeletePost(post.id)}
-                                                                    className="p-1 text-gray-400 hover:text-green-700 rounded-full hover:bg-green-50"
-                                                                    title="Arkiver (fjern fra feed)"
-                                                                >
-                                                                    <Trash2 className="w-3 h-3" />
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            }
-                                        </div>
-                                    </div>
-                                )}
                             </>
                         ) : activeTab === 'ideas' ? (
                             <div className="space-y-3">
@@ -992,6 +769,38 @@ export default function WarRoomDashboard({
                                     <div className="text-center py-12 text-gray-500">
                                         <ArchiveIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                                         <p>Ingen arkiverte saker.</p>
+                                    </div>
+                                )}
+                                {posts.length > 0 && (
+                                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
+                                        <p className="text-xs font-semibold text-gray-500 uppercase">Tidligere War Room-oppdateringer</p>
+                                        <div className="space-y-3">
+                                            {posts.map(post => (
+                                                <div key={post.id} className={`bg-white p-4 rounded-xl border border-gray-200 ${post.is_resolved ? 'opacity-60 bg-gray-50' : ''}`}>
+                                                    <div className="flex items-start gap-2 mb-2">
+                                                        <div className={`p-1.5 rounded-full ${getTypeColor(post.type)}`}>
+                                                            {getTypeIcon(post.type)}
+                                                        </div>
+                                                        <div>
+                                                            <span className="flex items-center gap-2 text-xs font-bold text-gray-900 uppercase tracking-wide">
+                                                                {getTypeLabel(post.type)}
+                                                                {post.is_resolved && (
+                                                                    <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-bold border border-green-200">
+                                                                        LØST
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                            <span className="text-xs text-gray-500">
+                                                                {post.profile?.full_name} • {format(new Date(post.created_at), 'd. MMM yyyy HH:mm', { locale: nb })} ({formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: nb })})
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-gray-800 text-sm whitespace-pre-wrap pl-9">
+                                                        {post.content}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                             </div>
