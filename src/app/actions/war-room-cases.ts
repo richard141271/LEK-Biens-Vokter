@@ -59,7 +59,7 @@ export async function getCasesForFeed() {
 
     const { data: cases, error } = await adminClient
         .from('cases')
-        .select('*, creator:profiles!cases_created_by_fkey(full_name), assigned:profiles!cases_assigned_to_fkey(full_name)')
+        .select('*')
         .in('status', ['OPEN', 'IN_PROGRESS'])
         .order('updated_at', { ascending: false })
         .limit(100);
@@ -68,7 +68,7 @@ export async function getCasesForFeed() {
 
     const { data: resolved } = await adminClient
         .from('cases')
-        .select('*, creator:profiles!cases_created_by_fkey(full_name), assigned:profiles!cases_assigned_to_fkey(full_name)')
+        .select('*')
         .eq('status', 'RESOLVED')
         .order('resolved_at', { ascending: false })
         .limit(5);
@@ -79,7 +79,36 @@ export async function getCasesForFeed() {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'RESOLVED');
 
-    return { cases: cases || [], recentResolved: resolved || [], resolvedCount: resolvedCount || 0 };
+    // Map assigned_to -> profilnavn for visning (uten å være avhengig av FK-navn)
+    const allAssignedIds = Array.from(new Set([
+        ...(cases || []).map((c: any) => c.assigned_to).filter(Boolean),
+        ...(resolved || []).map((c: any) => c.assigned_to).filter(Boolean)
+    ]));
+
+    let profilesById: Record<string, any> = {};
+    if (allAssignedIds.length > 0) {
+        const { data: profiles } = await adminClient
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', allAssignedIds as string[]);
+        profilesById = Object.fromEntries(
+            (profiles || []).map((p: any) => [p.id, p])
+        );
+    }
+
+    const withAssignedName = (list: any[] | null) => 
+        (list || []).map((c: any) => ({
+            ...c,
+            assigned: c.assigned_to 
+                ? { full_name: profilesById[c.assigned_to]?.full_name || '' } 
+                : null
+        }));
+
+    return { 
+        cases: withAssignedName(cases || []), 
+        recentResolved: withAssignedName(resolved || []), 
+        resolvedCount: resolvedCount || 0 
+    };
 }
 
 export async function getCaseById(id: string) {
