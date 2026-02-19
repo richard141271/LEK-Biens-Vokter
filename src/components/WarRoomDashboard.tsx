@@ -341,11 +341,11 @@ export default function WarRoomDashboard({
 
                 {/* Stats & Activity (cases-driven) */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {/* Utført = total RESOLVED (cases) */}
+                    {/* Løst = total RESOLVED (cases) */}
                     <div className={`p-2 rounded-lg border flex items-center justify-between ${getTypeColor('done')}`}>
                         <div className="flex items-center gap-2">
                             {getTypeIcon('done')}
-                            <span className="text-xs font-medium capitalize">Utført</span>
+                            <span className="text-xs font-medium capitalize">Løst</span>
                         </div>
                         <span className="text-lg font-bold">{resolvedCount}</span>
                     </div>
