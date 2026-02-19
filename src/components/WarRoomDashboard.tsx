@@ -670,6 +670,10 @@ export default function WarRoomDashboard({
                                                                     const trimmed = (reason || '').trim();
                                                                     if (trimmed) {
                                                                         await addCaseComment(item.id, `Pause: ${trimmed}`);
+                                                                        const upd = await getCaseUpdates(item.id);
+                                                                        if (!('error' in upd) && (upd as any).updates) {
+                                                                            setUpdatesByCase(prev => ({ ...prev, [item.id]: (upd as any).updates }));
+                                                                        }
                                                                     }
                                                                     await updateCaseStatus(item.id, 'PAUSED');
                                                                     loadData();
