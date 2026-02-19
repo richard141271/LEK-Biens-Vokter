@@ -423,11 +423,24 @@ export async function getDailyFocus() {
         return { error: error.message };
     }
 
-    if (data && data.created_by) {
+    let focusRow = data;
+
+    // If no focus for today, fall back to latest available (persist until changed)
+    if (!focusRow) {
+        const { data: latest } = await adminClient
+            .from('warroom_daily_focus')
+            .select('*')
+            .order('date', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        focusRow = latest || null;
+    }
+
+    if (focusRow && focusRow.created_by) {
         let authorName = 'Ukjent';
         
         // Check if Admin
-        const { data: { user: authUser } } = await adminClient.auth.admin.getUserById(data.created_by);
+        const { data: { user: authUser } } = await adminClient.auth.admin.getUserById(focusRow.created_by);
         if (authUser) {
             if (authUser.email === 'richard141271@gmail.com') {
                 authorName = 'Admin';
@@ -436,7 +449,7 @@ export async function getDailyFocus() {
                 const { data: profile } = await adminClient
                     .from('profiles')
                     .select('full_name')
-                    .eq('id', data.created_by)
+                    .eq('id', focusRow.created_by)
                     .single();
                 
                 if (profile) {
@@ -447,10 +460,10 @@ export async function getDailyFocus() {
             }
         }
         
-        return { focus: { ...data, author: authorName } };
+        return { focus: { ...focusRow, author: authorName } };
     }
 
-    return { focus: data };
+    return { focus: focusRow };
 }
 
 export async function setDailyFocus(text: string) {

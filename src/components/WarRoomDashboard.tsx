@@ -55,6 +55,7 @@ export default function WarRoomDashboard({
     const [posts, setPosts] = useState<any[]>([]);
     const [cases, setCases] = useState<any[]>([]);
     const [recentResolvedCases, setRecentResolvedCases] = useState<any[]>([]);
+    const [expandedCaseId, setExpandedCaseId] = useState<string | null>(null);
     const [ideas, setIdeas] = useState<any[]>([]);
     const [focus, setFocus] = useState('');
     const [focusAuthor, setFocusAuthor] = useState('');
@@ -289,10 +290,10 @@ export default function WarRoomDashboard({
                     </div>
                 </div>
 
-                {/* Daily Focus */}
+                {/* Weekly Focus */}
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 relative group">
                     <label className="block text-xs font-semibold text-amber-800 uppercase tracking-wide mb-1">
-                        Dagens Fokus
+                        Ukens fokus
                     </label>
                     <div className="flex items-center">
                         <input 
@@ -332,24 +333,39 @@ export default function WarRoomDashboard({
                     )}
                 </div>
 
-                {/* Stats & Activity (collapse help+problem -> Sak) */}
+                {/* Stats & Activity (cases-driven) */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {(['done', 'plan', 'idea'] as string[]).map(type => (
-                        <div key={type} className={`p-2 rounded-lg border flex items-center justify-between ${getTypeColor(type)}`}>
-                            <div className="flex items-center gap-2">
-                                {getTypeIcon(type)}
-                                <span className="text-xs font-medium capitalize">{getTypeLabel(type)}</span>
-                            </div>
-                            <span className="text-lg font-bold">{stats[type] || 0}</span>
+                    {/* Utført = siste løste (cases) */}
+                    <div className={`p-2 rounded-lg border flex items-center justify-between ${getTypeColor('done')}`}>
+                        <div className="flex items-center gap-2">
+                            {getTypeIcon('done')}
+                            <span className="text-xs font-medium capitalize">Utført</span>
                         </div>
-                    ))}
-                    {/* Combined Sak = help + problem */}
+                        <span className="text-lg font-bold">{recentResolvedCases.length}</span>
+                    </div>
+                    {/* Planlegger = åpne/pågår PLAN */}
+                    <div className={`p-2 rounded-lg border flex items-center justify-between ${getTypeColor('plan')}`}>
+                        <div className="flex items-center gap-2">
+                            {getTypeIcon('plan')}
+                            <span className="text-xs font-medium capitalize">Planlegger</span>
+                        </div>
+                        <span className="text-lg font-bold">{cases.filter(c => c.type === 'PLAN' && (c.status === 'OPEN' || c.status === 'IN_PROGRESS')).length}</span>
+                    </div>
+                    {/* Idé = åpne/pågår IDEA */}
+                    <div className={`p-2 rounded-lg border flex items-center justify-between ${getTypeColor('idea')}`}>
+                        <div className="flex items-center gap-2">
+                            {getTypeIcon('idea')}
+                            <span className="text-xs font-medium capitalize">Idé</span>
+                        </div>
+                        <span className="text-lg font-bold">{cases.filter(c => c.type === 'IDEA' && (c.status === 'OPEN' || c.status === 'IN_PROGRESS')).length}</span>
+                    </div>
+                    {/* Sak = åpne/pågår CASE */}
                     <div className={`p-2 rounded-lg border flex items-center justify-between ${getTypeColor('problem')}`}>
                         <div className="flex items-center gap-2">
                             {getTypeIcon('problem')}
                             <span className="text-xs font-medium capitalize">Sak</span>
                         </div>
-                        <span className="text-lg font-bold">{(stats['help'] || 0) + (stats['problem'] || 0)}</span>
+                        <span className="text-lg font-bold">{cases.filter(c => c.type === 'CASE' && (c.status === 'OPEN' || c.status === 'IN_PROGRESS')).length}</span>
                     </div>
                 </div>
             </div>
@@ -514,7 +530,13 @@ export default function WarRoomDashboard({
                                         <p className="text-center text-gray-500 py-8">Laster...</p>
                                     ) : (
                                         cases.map(item => (
-                                            <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                                            <div 
+                                                key={item.id} 
+                                                className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 cursor-pointer"
+                                                onClick={() => setExpandedCaseId(expandedCaseId === item.id ? null : item.id)}
+                                                role="button"
+                                                aria-expanded={expandedCaseId === item.id}
+                                            >
                                                 <div className="flex items-start justify-between mb-1">
                                                     <div className="flex items-center gap-2">
                                                         <div className={`p-1.5 rounded-full ${item.type === 'CASE' ? 'bg-red-50 border border-red-200 text-red-700' : item.type === 'PLAN' ? 'bg-blue-50 border border-blue-200 text-blue-700' : 'bg-yellow-50 border border-yellow-200 text-yellow-700'}`}>
@@ -539,8 +561,11 @@ export default function WarRoomDashboard({
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="text-gray-800 text-sm whitespace-pre-wrap mt-1 line-clamp-2">
+                                                <div className={`text-gray-800 text-sm whitespace-pre-wrap mt-1 ${expandedCaseId === item.id ? '' : 'line-clamp-2'}`}>
                                                     {item.description}
+                                                </div>
+                                                <div className="mt-1 text-[11px] text-gray-400">
+                                                    {expandedCaseId === item.id ? 'Trykk for å lukke' : 'Trykk for å åpne'}
                                                 </div>
                                             </div>
                                         ))
