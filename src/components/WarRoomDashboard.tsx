@@ -590,7 +590,11 @@ export default function WarRoomDashboard({
                                                         <div>
                                                             <div className="flex items-center gap-2 text-xs font-bold text-gray-900 uppercase tracking-wide">
                                                                 <span>{getCaseTypeLabel(item.type)}</span>
-                                                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold border border-gray-200">
+                                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                                                                    item.status === 'IN_PROGRESS' 
+                                                                      ? 'bg-blue-100 text-blue-700 border-blue-300' 
+                                                                      : 'bg-gray-50 text-gray-600 border-gray-300'
+                                                                }`}>
                                                                     {item.status === 'OPEN' && 'ÅPEN'}
                                                                     {item.status === 'IN_PROGRESS' && `PÅGÅR${item.assigned?.full_name ? ` • ${item.assigned.full_name}` : ''}`}
                                                                 </span>
@@ -629,10 +633,10 @@ export default function WarRoomDashboard({
                                                                     await updateCaseStatus(item.id, 'OPEN');
                                                                     loadData();
                                                                 }}
-                                                            className="px-2 py-1 text-[11px] rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
-                                                                title="Sett tilbake til Åpen"
+                                                                className="px-2 py-1 text-[11px] rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+                                                                title="Stans (sett til ÅPEN)"
                                                             >
-                                                                Tilbake til Åpen
+                                                                Stans
                                                             </button>
                                                         )}
                                                         {/* Admin: Løst */}
