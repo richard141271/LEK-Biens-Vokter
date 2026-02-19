@@ -625,7 +625,7 @@ export default function WarRoomDashboard({
                                                             <span className="block text-sm font-semibold text-gray-900">
                                                                 {item.title}
                                                             </span>
-                                                            {getLastPauseReason(item.id) && (
+                                                            {item.status === 'PAUSED' && getLastPauseReason(item.id) && (
                                                                 <span className="block text-[11px] text-gray-500">
                                                                     {getLastPauseReason(item.id)}
                                                                 </span>
