@@ -616,10 +616,10 @@ export default function WarRoomDashboard({
                                                                     await updateCaseStatus(item.id, 'IN_PROGRESS'); 
                                                                     loadData();
                                                                 }}
-                                                                className="px-2 py-1 text-[11px] rounded border border-blue-200 text-blue-700 hover:bg-blue-50"
-                                                                title="Sett til Pågår"
+                                                                className="px-2 py-1 text-[11px] rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+                                                                title="Start (sett til PÅGÅR)"
                                                             >
-                                                                Pågår
+                                                                Start
                                                             </button>
                                                         )}
                                                         {/* Kursvenn/Admin: Tilbake til Åpen */}
@@ -629,7 +629,7 @@ export default function WarRoomDashboard({
                                                                     await updateCaseStatus(item.id, 'OPEN');
                                                                     loadData();
                                                                 }}
-                                                                className="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700 hover:bg-gray-50"
+                                                            className="px-2 py-1 text-[11px] rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
                                                                 title="Sett tilbake til Åpen"
                                                             >
                                                                 Tilbake til Åpen
