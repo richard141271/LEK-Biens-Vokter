@@ -16,7 +16,7 @@ import {
     WarRoomPostType
 } from '@/app/actions/war-room';
 import { resolveWarRoomPost } from '@/app/actions/war-room-resolve';
-import { createCase, getCasesForFeed, updateCaseStatus, getArchivedCases, addCaseComment, getCaseAttachments, getCaseSignedUploadUrl, addCaseAttachment } from '@/app/actions/war-room-cases';
+import { createCase, getCasesForFeed, updateCaseStatus, getArchivedCases, addCaseComment, getCaseAttachments, getCaseSignedUploadUrl, addCaseAttachment, getCaseUpdates } from '@/app/actions/war-room-cases';
 import { formatDistanceToNow, format } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { 
@@ -59,6 +59,7 @@ export default function WarRoomDashboard({
     const [recentResolvedCases, setRecentResolvedCases] = useState<any[]>([]);
     const [expandedCaseId, setExpandedCaseId] = useState<string | null>(null);
     const [attachmentsByCase, setAttachmentsByCase] = useState<Record<string, any[]>>({});
+    const [updatesByCase, setUpdatesByCase] = useState<Record<string, any[]>>({});
     const [noteByCase, setNoteByCase] = useState<Record<string, string>>({});
     const [ideas, setIdeas] = useState<any[]>([]);
     const [resolvedCount, setResolvedCount] = useState<number>(0);
@@ -565,6 +566,12 @@ export default function WarRoomDashboard({
                                                                 setAttachmentsByCase(prev => ({ ...prev, [item.id]: (res as any).attachments }));
                                                             }
                                                         }
+                                                        if (!updatesByCase[item.id]) {
+                                                            const upd = await getCaseUpdates(item.id);
+                                                            if (!('error' in upd) && (upd as any).updates) {
+                                                                setUpdatesByCase(prev => ({ ...prev, [item.id]: (upd as any).updates }));
+                                                            }
+                                                        }
                                                         if (!noteByCase[item.id]) {
                                                             setNoteByCase(prev => ({ ...prev, [item.id]: '' }));
                                                         }
@@ -587,6 +594,11 @@ export default function WarRoomDashboard({
                                                                     {item.status === 'OPEN' && 'ÅPEN'}
                                                                     {item.status === 'IN_PROGRESS' && `PÅGÅR${item.assigned?.full_name ? ` • ${item.assigned.full_name}` : ''}`}
                                                                 </span>
+                                                                {(updatesByCase[item.id]?.length || 0) > 0 && (
+                                                                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-red-500 text-[10px] font-bold text-red-600 bg-white">
+                                                                        {updatesByCase[item.id].length}
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             <span className="block text-sm font-semibold text-gray-900">
                                                                 {item.title}
@@ -716,7 +728,21 @@ export default function WarRoomDashboard({
                                                         </div>
                                                         {/* Notater */}
                                                         <div className="space-y-2">
-                                                            <span className="text-xs font-semibold text-gray-700">Notat</span>
+                                                            <span className="text-xs font-semibold text-gray-700">Notater og oppdateringer</span>
+                                                            {(updatesByCase[item.id] || []).length > 0 && (
+                                                                <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                                                                    {(updatesByCase[item.id] || []).map((u: any) => (
+                                                                        <div key={u.id} className="text-[11px] text-gray-700 flex flex-col border-l border-gray-200 pl-2">
+                                                                            <span className="text-[10px] text-gray-400">
+                                                                                {format(new Date(u.created_at), 'd. MMM HH:mm', { locale: nb })} • {u.type === 'COMMENT' ? 'Notat' : 'System'}
+                                                                            </span>
+                                                                            <span className="whitespace-pre-wrap">
+                                                                                {u.message}
+                                                                            </span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
                                                             <textarea
                                                                 value={noteByCase[item.id] || ''}
                                                                 onChange={(e) => setNoteByCase(prev => ({ ...prev, [item.id]: e.target.value }))}
@@ -733,7 +759,10 @@ export default function WarRoomDashboard({
                                                                         const res = await addCaseComment(item.id, msg);
                                                                         if ((res as any).error) { alert((res as any).error); return; }
                                                                         setNoteByCase(prev => ({ ...prev, [item.id]: '' }));
-                                                                        loadData();
+                                                                        const upd = await getCaseUpdates(item.id);
+                                                                        if (!('error' in upd) && (upd as any).updates) {
+                                                                            setUpdatesByCase(prev => ({ ...prev, [item.id]: (upd as any).updates }));
+                                                                        }
                                                                     }}
                                                                     className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-800"
                                                                 >

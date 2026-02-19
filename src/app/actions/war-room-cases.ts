@@ -177,6 +177,21 @@ export async function addCaseComment(caseId: string, message: string) {
     return { success: true };
 }
 
+export async function getCaseUpdates(caseId: string) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient
+        .from('case_updates')
+        .select('*')
+        .eq('case_id', caseId)
+        .order('created_at', { ascending: true });
+    if (error) return { error: error.message };
+    return { updates: data || [] };
+}
+
 export async function getCaseAttachments(caseId: string) {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
