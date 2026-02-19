@@ -61,6 +61,7 @@ export default function WarRoomDashboard({
     const [attachmentsByCase, setAttachmentsByCase] = useState<Record<string, any[]>>({});
     const [updatesByCase, setUpdatesByCase] = useState<Record<string, any[]>>({});
     const [noteByCase, setNoteByCase] = useState<Record<string, string>>({});
+    const [showSystemByCase, setShowSystemByCase] = useState<Record<string, boolean>>({});
     const [ideas, setIdeas] = useState<any[]>([]);
     const [resolvedCount, setResolvedCount] = useState<number>(0);
     const [archived, setArchived] = useState<any[]>([]);
@@ -733,20 +734,51 @@ export default function WarRoomDashboard({
                                                         {/* Notater */}
                                                         <div className="space-y-2">
                                                             <span className="text-xs font-semibold text-gray-700">Notater og oppdateringer</span>
-                                                            {(updatesByCase[item.id] || []).length > 0 && (
-                                                                <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
-                                                                    {(updatesByCase[item.id] || []).map((u: any) => (
-                                                                        <div key={u.id} className="text-[11px] text-gray-700 flex flex-col border-l border-gray-200 pl-2">
-                                                                            <span className="text-[10px] text-gray-400">
-                                                                                {format(new Date(u.created_at), 'd. MMM HH:mm', { locale: nb })} • {u.type === 'COMMENT' ? 'Notat' : 'System'}
-                                                                            </span>
-                                                                            <span className="whitespace-pre-wrap">
-                                                                                {u.message}
-                                                                            </span>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
+                                                            {(updatesByCase[item.id] || []).length > 0 && (() => {
+                                                                const all = updatesByCase[item.id] || [];
+                                                                const comments = all.filter((u: any) => u.type === 'COMMENT');
+                                                                const systemVisible = all.filter((u: any) => u.type !== 'COMMENT' && u.message === 'Sak opprettet');
+                                                                const systemHidden = all.filter((u: any) => u.type !== 'COMMENT' && u.message !== 'Sak opprettet');
+                                                                const showSystem = showSystemByCase[item.id];
+                                                                const list = [
+                                                                    ...systemVisible,
+                                                                    ...(showSystem ? systemHidden : []),
+                                                                    ...comments
+                                                                ];
+                                                                return (
+                                                                    <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                                                                        {list.map((u: any) => (
+                                                                            <div 
+                                                                                key={u.id} 
+                                                                                className={`text-[11px] flex flex-col border-l pl-2 ${
+                                                                                    u.type === 'COMMENT' 
+                                                                                        ? 'text-gray-800 border-gray-300' 
+                                                                                        : 'text-gray-500 border-gray-200'
+                                                                                }`}
+                                                                            >
+                                                                                <span className="text-[10px] text-gray-400">
+                                                                                    {format(new Date(u.created_at), 'd. MMM HH:mm', { locale: nb })} • {u.type === 'COMMENT' ? 'Notat' : 'System'}
+                                                                                </span>
+                                                                                <span className="whitespace-pre-wrap">
+                                                                                    {u.message}
+                                                                                </span>
+                                                                            </div>
+                                                                        ))}
+                                                                        {systemHidden.length > 0 && !showSystem && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setShowSystemByCase(prev => ({ ...prev, [item.id]: true }));
+                                                                                }}
+                                                                                className="mt-1 text-[10px] text-gray-500 underline"
+                                                                            >
+                                                                                Vis systemlogg ({systemHidden.length})
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                             <textarea
                                                                 value={noteByCase[item.id] || ''}
                                                                 onChange={(e) => setNoteByCase(prev => ({ ...prev, [item.id]: e.target.value }))}
