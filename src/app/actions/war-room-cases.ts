@@ -177,6 +177,74 @@ export async function addCaseComment(caseId: string, message: string) {
     return { success: true };
 }
 
+export async function getCaseAttachments(caseId: string) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient
+        .from('case_attachments')
+        .select('*')
+        .eq('case_id', caseId)
+        .order('created_at', { ascending: false });
+    if (error) return { error: error.message };
+    return { attachments: data || [] };
+}
+
+export async function getCaseSignedUploadUrl(fileName: string) {
+    const adminClient = createAdminClient();
+    // Ensure bucket exists
+    const { error: bucketError } = await adminClient.storage.createBucket('case-attachments', {
+        public: true,
+        fileSizeLimit: 10485760,
+        allowedMimeTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif']
+    });
+    if (bucketError && !bucketError.message.includes('already exists')) {
+        console.error('Bucket ensure error (case-attachments):', bucketError);
+    }
+
+    const { data, error } = await adminClient.storage
+        .from('case-attachments')
+        .createSignedUploadUrl(fileName);
+    if (error) return { error: error.message };
+    return { signedUrl: data!.signedUrl, token: data!.token, path: data!.path };
+}
+
+export async function addCaseAttachment(caseId: string, filePath: string, fileType: string) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    const adminClient = createAdminClient();
+
+    const { data: { publicUrl } } = adminClient.storage
+        .from('case-attachments')
+        .getPublicUrl(filePath);
+
+    const { error } = await adminClient
+        .from('case_attachments')
+        .insert({
+            case_id: caseId,
+            uploaded_by: user.id,
+            file_url: publicUrl,
+            file_type: fileType
+        });
+    if (error) return { error: error.message };
+
+    // Touch case updated_at and add history
+    await adminClient.from('cases').update({ updated_at: new Date().toISOString() }).eq('id', caseId);
+    await adminClient.from('case_updates').insert({
+        case_id: caseId,
+        user_id: user.id,
+        message: 'La til vedlegg',
+        type: 'SYSTEM'
+    });
+
+    revalidatePath('/dashboard/war-room');
+    return { success: true, publicUrl };
+}
+
 export async function updateCaseStatus(caseId: string, status: CaseStatus) {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();

@@ -16,7 +16,7 @@ import {
     WarRoomPostType
 } from '@/app/actions/war-room';
 import { resolveWarRoomPost } from '@/app/actions/war-room-resolve';
-import { createCase, getCasesForFeed, updateCaseStatus, getArchivedCases } from '@/app/actions/war-room-cases';
+import { createCase, getCasesForFeed, updateCaseStatus, getArchivedCases, addCaseComment, getCaseAttachments, getCaseSignedUploadUrl, addCaseAttachment } from '@/app/actions/war-room-cases';
 import { formatDistanceToNow, format } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { 
@@ -38,6 +38,7 @@ import {
     Archive as ArchiveIcon
 } from 'lucide-react';
 import Link from 'next/link';
+import { createClient } from '@/utils/supabase/client';
 
 interface WarRoomDashboardProps {
     title?: string;
@@ -57,6 +58,8 @@ export default function WarRoomDashboard({
     const [cases, setCases] = useState<any[]>([]);
     const [recentResolvedCases, setRecentResolvedCases] = useState<any[]>([]);
     const [expandedCaseId, setExpandedCaseId] = useState<string | null>(null);
+    const [attachmentsByCase, setAttachmentsByCase] = useState<Record<string, any[]>>({});
+    const [noteByCase, setNoteByCase] = useState<Record<string, string>>({});
     const [ideas, setIdeas] = useState<any[]>([]);
     const [resolvedCount, setResolvedCount] = useState<number>(0);
     const [archived, setArchived] = useState<any[]>([]);
@@ -549,11 +552,23 @@ export default function WarRoomDashboard({
                                             <div 
                                                 key={item.id} 
                                                 className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 cursor-pointer"
-                                                onClick={(e) => {
+                                                onClick={async (e) => {
                                                     // un-bubble clicks from buttons
                                                     const target = e.target as HTMLElement;
                                                     if (target.closest('button')) return;
-                                                    setExpandedCaseId(expandedCaseId === item.id ? null : item.id);
+                                                    const nextId = expandedCaseId === item.id ? null : item.id;
+                                                    setExpandedCaseId(nextId);
+                                                    if (nextId) {
+                                                        if (!attachmentsByCase[item.id]) {
+                                                            const res = await getCaseAttachments(item.id);
+                                                            if (!('error' in res) && (res as any).attachments) {
+                                                                setAttachmentsByCase(prev => ({ ...prev, [item.id]: (res as any).attachments }));
+                                                            }
+                                                        }
+                                                        if (!noteByCase[item.id]) {
+                                                            setNoteByCase(prev => ({ ...prev, [item.id]: '' }));
+                                                        }
+                                                    }
                                                 }}
                                                 role="button"
                                                 aria-expanded={expandedCaseId === item.id}
@@ -640,8 +655,94 @@ export default function WarRoomDashboard({
                                                     {item.description}
                                                 </div>
                                                 <div className="mt-1 text-[11px] text-gray-400">
-                                                    {expandedCaseId === item.id ? 'Trykk for å lukke' : 'Trykk for å åpne'}
+                                                    {item.updated_at && item.updated_at !== item.created_at 
+                                                      ? `Oppdatert ${formatDistanceToNow(new Date(item.updated_at), { addSuffix: true, locale: nb })}`
+                                                      : (expandedCaseId === item.id ? 'Trykk for å lukke' : 'Trykk for å åpne')}
                                                 </div>
+                                                {expandedCaseId === item.id && (
+                                                    <div className="mt-3 border-t pt-3 space-y-3">
+                                                        {/* Vedlegg (bilder) */}
+                                                        <div>
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <span className="text-xs font-semibold text-gray-700">Bilder</span>
+                                                                <button
+                                                                    onClick={async (e) => {
+                                                                        e.stopPropagation();
+                                                                        const input = document.createElement('input');
+                                                                        input.type = 'file';
+                                                                        input.accept = 'image/*';
+                                                                        input.multiple = true;
+                                                                        input.onchange = async (ev: any) => {
+                                                                            const files: File[] = Array.from(ev.target.files || []);
+                                                                            for (const f of files.slice(0, 4)) {
+                                                                                try {
+                                                                                    const ext = f.name.split('.').pop();
+                                                                                    const name = `${Math.random().toString(36).slice(2)}.${ext}`;
+                                                                                    const res = await getCaseSignedUploadUrl(name);
+                                                                                    if ((res as any).error) { alert((res as any).error); continue; }
+                                                                                    const { path, token } = res as any;
+                                                                                    const supabase = createClient();
+                                                                                    const { error: upErr } = await supabase.storage
+                                                                                        .from('case-attachments')
+                                                                                        .uploadToSignedUrl(path, token, f);
+                                                                                    if (upErr) { alert(upErr.message); continue; }
+                                                                                    await addCaseAttachment(item.id, path, f.type);
+                                                                                } catch (err: any) {
+                                                                                    alert('Opplasting feilet: ' + (err?.message || 'ukjent feil'));
+                                                                                }
+                                                                            }
+                                                                            const latest = await getCaseAttachments(item.id);
+                                                                            if (!('error' in latest) && (latest as any).attachments) {
+                                                                                setAttachmentsByCase(prev => ({ ...prev, [item.id]: (latest as any).attachments }));
+                                                                            }
+                                                                        };
+                                                                        input.click();
+                                                                    }}
+                                                                    className="px-2 py-1 text-[11px] rounded border border-amber-200 text-amber-700 hover:bg-amber-50"
+                                                                >
+                                                                    Legg til bilder
+                                                                </button>
+                                                            </div>
+                                                            <div className="grid grid-cols-3 gap-2">
+                                                                {(attachmentsByCase[item.id] || []).map((att: any) => (
+                                                                    <a key={att.id} href={att.file_url} target="_blank" rel="noreferrer" className="block">
+                                                                        <img src={att.file_url} alt="Vedlegg" className="w-full h-24 object-cover rounded border" />
+                                                                    </a>
+                                                                ))}
+                                                                {(!attachmentsByCase[item.id] || attachmentsByCase[item.id].length === 0) && (
+                                                                    <p className="text-[11px] text-gray-500">Ingen vedlegg.</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        {/* Notater */}
+                                                        <div className="space-y-2">
+                                                            <span className="text-xs font-semibold text-gray-700">Notat</span>
+                                                            <textarea
+                                                                value={noteByCase[item.id] || ''}
+                                                                onChange={(e) => setNoteByCase(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                                                placeholder="Skriv et kort notat…"
+                                                                className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[60px]"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                            <div className="flex justify-end">
+                                                                <button
+                                                                    onClick={async (e) => {
+                                                                        e.stopPropagation();
+                                                                        const msg = (noteByCase[item.id] || '').trim();
+                                                                        if (!msg) return;
+                                                                        const res = await addCaseComment(item.id, msg);
+                                                                        if ((res as any).error) { alert((res as any).error); return; }
+                                                                        setNoteByCase(prev => ({ ...prev, [item.id]: '' }));
+                                                                        loadData();
+                                                                    }}
+                                                                    className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-800"
+                                                                >
+                                                                    Legg til notat
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         ))
                                     )}
