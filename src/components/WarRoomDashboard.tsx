@@ -284,6 +284,16 @@ export default function WarRoomDashboard({
         return type;
     };
 
+    const getLastPauseReason = (caseId: string): string => {
+        const all = updatesByCase[caseId] || [];
+        const pauseNotes = all.filter((u: any) => 
+            u.type === 'COMMENT' && typeof u.message === 'string' && u.message.startsWith('Pause:')
+        );
+        if (!pauseNotes.length) return '';
+        const last = pauseNotes[pauseNotes.length - 1].message as string;
+        return last.replace(/^Pause:\s*/, 'Pause: ');
+    };
+
     return (
         <div className="flex flex-col h-full bg-gray-50/50">
             {/* Header / Stats */}
@@ -558,8 +568,12 @@ export default function WarRoomDashboard({
                                                     // un-bubble clicks from buttons
                                                     const target = e.target as HTMLElement;
                                                     if (target.closest('button')) return;
+                                                    const previousId = expandedCaseId;
                                                     const nextId = expandedCaseId === item.id ? null : item.id;
                                                     setExpandedCaseId(nextId);
+                                                    if (previousId) {
+                                                        setShowSystemByCase(prev => ({ ...prev, [previousId]: false }));
+                                                    }
                                                     if (nextId) {
                                                         if (!attachmentsByCase[item.id]) {
                                                             const res = await getCaseAttachments(item.id);
@@ -611,6 +625,11 @@ export default function WarRoomDashboard({
                                                             <span className="block text-sm font-semibold text-gray-900">
                                                                 {item.title}
                                                             </span>
+                                                            {getLastPauseReason(item.id) && (
+                                                                <span className="block text-[11px] text-gray-500">
+                                                                    {getLastPauseReason(item.id)}
+                                                                </span>
+                                                            )}
                                                             <span className="text-xs text-gray-500">
                                                                 {format(new Date(item.created_at), 'd. MMM yyyy HH:mm', { locale: nb })} ({formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: nb })})
                                                             </span>

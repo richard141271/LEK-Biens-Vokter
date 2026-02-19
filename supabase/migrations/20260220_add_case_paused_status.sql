@@ -1,0 +1,6 @@
+DO $$ BEGIN
+    ALTER TYPE case_status ADD VALUE IF NOT EXISTS 'PAUSED';
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
