@@ -89,7 +89,7 @@ export async function getCasesForFeed() {
     if (allAssignedIds.length > 0) {
         const { data: profiles } = await adminClient
             .from('profiles')
-            .select('id, full_name')
+            .select('id, full_name, role, email')
             .in('id', allAssignedIds as string[]);
         profilesById = Object.fromEntries(
             (profiles || []).map((p: any) => [p.id, p])
@@ -97,12 +97,17 @@ export async function getCasesForFeed() {
     }
 
     const withAssignedName = (list: any[] | null) => 
-        (list || []).map((c: any) => ({
-            ...c,
-            assigned: c.assigned_to 
-                ? { full_name: profilesById[c.assigned_to]?.full_name || '' } 
-                : null
-        }));
+        (list || []).map((c: any) => {
+            if (!c.assigned_to) return { ...c, assigned: null };
+            const p = profilesById[c.assigned_to];
+            const isAdminProfile = p?.role === 'admin' || p?.email === 'richard141271@gmail.com';
+            return {
+                ...c,
+                assigned: {
+                    full_name: isAdminProfile ? 'Admin' : (p?.full_name || '')
+                }
+            };
+        });
 
     return { 
         cases: withAssignedName(cases || []), 
