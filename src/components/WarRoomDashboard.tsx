@@ -680,8 +680,8 @@ export default function WarRoomDashboard({
                             </>
                         ) : activeTab === 'ideas' ? (
                             <div className="space-y-3">
-                                {/* Nye ideer (saker av type IDÉ) */}
-                                {cases.filter(c => c.type === 'IDEA').length > 0 && (
+                                {/* Idébank viser kun nye ideer (cases av type IDÉ) */}
+                                {cases.filter(c => c.type === 'IDEA').length > 0 ? (
                                     <div>
                                         <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Nye ideer</div>
                                         <div className="space-y-2">
@@ -704,26 +704,7 @@ export default function WarRoomDashboard({
                                             ))}
                                         </div>
                                     </div>
-                                )}
-                                {/* Tidligere idébank (legacy) */}
-                                {ideas.length > 0 && (
-                                    <div className="pt-2">
-                                        <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Tidligere idébank</div>
-                                    </div>
-                                )}
-                                {ideas.map(idea => (
-                                    <div key={idea.id} className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
-                                        <div className="flex items-center gap-2 mb-2 text-yellow-800">
-                                            <Lightbulb className="w-4 h-4" />
-                                            <span className="text-xs font-bold uppercase">Idé</span>
-                                        </div>
-                                        <p className="text-gray-900 text-sm">{idea.content}</p>
-                                        <p className="text-xs text-yellow-600/70 mt-2">
-                                            Lagret {format(new Date(idea.created_at), 'd. MMM yyyy HH:mm', { locale: nb })} ({formatDistanceToNow(new Date(idea.created_at), { addSuffix: true, locale: nb })})
-                                        </p>
-                                    </div>
-                                ))}
-                                {ideas.length === 0 && (
+                                ) : (
                                     <div className="text-center py-12 text-gray-500">
                                         <Lightbulb className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                                         <p>Ingen ideer registrert ennå.</p>
