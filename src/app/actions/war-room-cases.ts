@@ -73,7 +73,13 @@ export async function getCasesForFeed() {
         .order('resolved_at', { ascending: false })
         .limit(5);
 
-    return { cases: cases || [], recentResolved: resolved || [] };
+    // Count total resolved for header
+    const { count: resolvedCount } = await adminClient
+        .from('cases')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'RESOLVED');
+
+    return { cases: cases || [], recentResolved: resolved || [], resolvedCount: resolvedCount || 0 };
 }
 
 export async function getCaseById(id: string) {

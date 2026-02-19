@@ -16,7 +16,7 @@ import {
     WarRoomPostType
 } from '@/app/actions/war-room';
 import { resolveWarRoomPost } from '@/app/actions/war-room-resolve';
-import { createCase, getCasesForFeed } from '@/app/actions/war-room-cases';
+import { createCase, getCasesForFeed, updateCaseStatus } from '@/app/actions/war-room-cases';
 import { formatDistanceToNow, format } from 'date-fns';
 import { nb } from 'date-fns/locale';
 import { 
@@ -57,6 +57,7 @@ export default function WarRoomDashboard({
     const [recentResolvedCases, setRecentResolvedCases] = useState<any[]>([]);
     const [expandedCaseId, setExpandedCaseId] = useState<string | null>(null);
     const [ideas, setIdeas] = useState<any[]>([]);
+    const [resolvedCount, setResolvedCount] = useState<number>(0);
     const [focus, setFocus] = useState('');
     const [focusAuthor, setFocusAuthor] = useState('');
     const [stats, setStats] = useState<any>({});
@@ -139,6 +140,7 @@ export default function WarRoomDashboard({
         if (!casesRes.error) {
             setCases(casesRes.cases || []);
             setRecentResolvedCases(casesRes.recentResolved || []);
+            setResolvedCount(casesRes.resolvedCount || 0);
         }
         
         setLoading(false);
@@ -335,13 +337,13 @@ export default function WarRoomDashboard({
 
                 {/* Stats & Activity (cases-driven) */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {/* Utført = siste løste (cases) */}
+                    {/* Utført = total RESOLVED (cases) */}
                     <div className={`p-2 rounded-lg border flex items-center justify-between ${getTypeColor('done')}`}>
                         <div className="flex items-center gap-2">
                             {getTypeIcon('done')}
                             <span className="text-xs font-medium capitalize">Utført</span>
                         </div>
-                        <span className="text-lg font-bold">{recentResolvedCases.length}</span>
+                        <span className="text-lg font-bold">{resolvedCount}</span>
                     </div>
                     {/* Planlegger = åpne/pågår PLAN */}
                     <div className={`p-2 rounded-lg border flex items-center justify-between ${getTypeColor('plan')}`}>
@@ -533,7 +535,12 @@ export default function WarRoomDashboard({
                                             <div 
                                                 key={item.id} 
                                                 className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 cursor-pointer"
-                                                onClick={() => setExpandedCaseId(expandedCaseId === item.id ? null : item.id)}
+                                                onClick={(e) => {
+                                                    // un-bubble clicks from buttons
+                                                    const target = e.target as HTMLElement;
+                                                    if (target.closest('button')) return;
+                                                    setExpandedCaseId(expandedCaseId === item.id ? null : item.id);
+                                                }}
                                                 role="button"
                                                 aria-expanded={expandedCaseId === item.id}
                                             >
@@ -559,6 +566,47 @@ export default function WarRoomDashboard({
                                                                 {format(new Date(item.created_at), 'd. MMM yyyy HH:mm', { locale: nb })} ({formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: nb })})
                                                             </span>
                                                         </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {/* Kursvenn: Pågår */}
+                                                        {item.status === 'OPEN' && (
+                                                            <button
+                                                                onClick={async () => { 
+                                                                    await updateCaseStatus(item.id, 'IN_PROGRESS'); 
+                                                                    loadData();
+                                                                }}
+                                                                className="px-2 py-1 text-[11px] rounded border border-blue-200 text-blue-700 hover:bg-blue-50"
+                                                                title="Sett til Pågår"
+                                                            >
+                                                                Pågår
+                                                            </button>
+                                                        )}
+                                                        {/* Admin: Løst */}
+                                                        {isAdmin && item.status !== 'RESOLVED' && (
+                                                            <button
+                                                                onClick={async () => { 
+                                                                    await updateCaseStatus(item.id, 'RESOLVED'); 
+                                                                    loadData();
+                                                                }}
+                                                                className="px-2 py-1 text-[11px] rounded border border-green-200 text-green-700 hover:bg-green-50"
+                                                                title="Sett til Løst"
+                                                            >
+                                                                Løst
+                                                            </button>
+                                                        )}
+                                                        {/* Admin: Arkiver */}
+                                                        {isAdmin && item.status !== 'ARCHIVED' && (
+                                                            <button
+                                                                onClick={async () => { 
+                                                                    await updateCaseStatus(item.id, 'ARCHIVED'); 
+                                                                    loadData();
+                                                                }}
+                                                                className="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700 hover:bg-gray-50"
+                                                                title="Arkiver"
+                                                            >
+                                                                Arkiver
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className={`text-gray-800 text-sm whitespace-pre-wrap mt-1 ${expandedCaseId === item.id ? '' : 'line-clamp-2'}`}>
