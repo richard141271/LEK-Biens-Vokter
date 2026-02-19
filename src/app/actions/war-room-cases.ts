@@ -244,9 +244,9 @@ export async function getArchivedCases() {
     const { data: archived, error } = await adminClient
         .from('cases')
         .select('*')
-        .eq('status', 'ARCHIVED')
+        .in('status', ['RESOLVED', 'ARCHIVED'])
         .order('updated_at', { ascending: false })
-        .limit(100);
+        .limit(200);
 
     if (error) return { error: error.message };
     return { archived: archived || [] };

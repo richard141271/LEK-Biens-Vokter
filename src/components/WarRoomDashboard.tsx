@@ -718,8 +718,10 @@ export default function WarRoomDashboard({
                                         <div className="flex items-start justify-between mb-1">
                                             <div>
                                                 <div className="flex items-center gap-2 text-xs font-bold text-gray-900 uppercase tracking-wide">
-                                                    <span>Arkivert</span>
-                                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold border border-gray-200">SAK</span>
+                                                    <span>{item.status === 'RESOLVED' ? 'Løst' : 'Arkivert'}</span>
+                                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold border border-gray-200">
+                                                        {item.type === 'IDEA' ? 'IDÉ' : item.type === 'PLAN' ? 'PLAN' : 'SAK'}
+                                                    </span>
                                                 </div>
                                                 <span className="block text-sm font-semibold text-gray-900">
                                                     {item.title}
