@@ -586,11 +586,14 @@ export default function WarRoomDashboard({
                                                 }
                                                 if (!description) return;
                                                 setSending(true);
-                                                const res = await createCase({
-                                                    type: newCaseType,
-                                                    title: newCaseTitle,
-                                                    description
-                                                });
+                                                const res = await createCase(
+                                                    {
+                                                        type: newCaseType,
+                                                        title: newCaseTitle,
+                                                        description
+                                                    },
+                                                    currentUserId
+                                                );
                                                 setSending(false);
                                                 if (res.error) {
                                                     alert(`Kunne ikke opprette sak: ${res.error}`);
@@ -776,7 +779,7 @@ export default function WarRoomDashboard({
                                                                     setUpdatingCaseId(item.id);
                                                                     try {
                                                                         if (trimmed) {
-                                                                            await addCaseComment(item.id, `Pause: ${trimmed}`);
+                                                                            await addCaseComment(item.id, `Pause: ${trimmed}`, currentUserId);
                                                                             const upd = await getCaseUpdates(item.id);
                                                                             if (!('error' in upd) && (upd as any).updates) {
                                                                                 setUpdatesByCase(prev => ({ ...prev, [item.id]: (upd as any).updates }));
@@ -885,7 +888,7 @@ export default function WarRoomDashboard({
                                                                                         .from('case-attachments')
                                                                                         .uploadToSignedUrl(path, token, f);
                                                                                     if (upErr) { alert(upErr.message); continue; }
-                                                                                    await addCaseAttachment(item.id, path, f.type);
+                                                                                    await addCaseAttachment(item.id, path, f.type, currentUserId);
                                                                                 } catch (err: any) {
                                                                                     alert('Opplasting feilet: ' + (err?.message || 'ukjent feil'));
                                                                                 }
@@ -976,7 +979,7 @@ export default function WarRoomDashboard({
                                                                         if (!msg || sendingNoteByCase[item.id]) return;
                                                                         setSendingNoteByCase(prev => ({ ...prev, [item.id]: true }));
                                                                         try {
-                                                                            const res = await addCaseComment(item.id, msg);
+                                                                            const res = await addCaseComment(item.id, msg, currentUserId);
                                                                             if ((res as any).error) { alert((res as any).error); return; }
                                                                             setNoteByCase(prev => ({ ...prev, [item.id]: '' }));
                                                                             const upd = await getCaseUpdates(item.id);

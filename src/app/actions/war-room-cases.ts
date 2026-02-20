@@ -13,12 +13,16 @@ interface CreateCaseInput {
     description: string;
 }
 
-export async function createCase(input: CreateCaseInput) {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'Not authenticated' };
-
+export async function createCase(input: CreateCaseInput, userId?: string | null) {
     const adminClient = createAdminClient();
+
+    let effectiveUserId = userId || null;
+    if (!effectiveUserId) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return { error: 'Not authenticated' };
+        effectiveUserId = user.id;
+    }
 
     const { data: created, error } = await adminClient
         .from('cases')
@@ -27,8 +31,8 @@ export async function createCase(input: CreateCaseInput) {
             description: input.description.trim(),
             type: input.type,
             status: 'OPEN',
-            created_by: user.id,
-            assigned_to: user.id
+            created_by: effectiveUserId,
+            assigned_to: effectiveUserId
         })
         .select()
         .single();
@@ -39,7 +43,7 @@ export async function createCase(input: CreateCaseInput) {
         .from('case_updates')
         .insert({
             case_id: created.id,
-            user_id: user.id,
+            user_id: effectiveUserId,
             message: 'Sak opprettet',
             type: 'SYSTEM'
         });
@@ -150,20 +154,24 @@ export async function getCaseById(id: string) {
     return { item, updates: updates || [], attachments: attachments || [] };
 }
 
-export async function addCaseComment(caseId: string, message: string) {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'Not authenticated' };
-
+export async function addCaseComment(caseId: string, message: string, userId?: string | null) {
     if (!message.trim()) return { error: 'Tom kommentar' };
 
     const adminClient = createAdminClient();
+
+    let effectiveUserId = userId || null;
+    if (!effectiveUserId) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return { error: 'Not authenticated' };
+        effectiveUserId = user.id;
+    }
 
     const { error } = await adminClient
         .from('case_updates')
         .insert({
             case_id: caseId,
-            user_id: user.id,
+            user_id: effectiveUserId,
             message: message.trim(),
             type: 'COMMENT'
         });
@@ -182,10 +190,6 @@ export async function addCaseComment(caseId: string, message: string) {
 }
 
 export async function getCaseUpdates(caseId: string) {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'Not authenticated' };
-
     const adminClient = createAdminClient();
     const { data, error } = await adminClient
         .from('case_updates')
@@ -197,10 +201,6 @@ export async function getCaseUpdates(caseId: string) {
 }
 
 export async function getCaseAttachments(caseId: string) {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'Not authenticated' };
-
     const adminClient = createAdminClient();
     const { data, error } = await adminClient
         .from('case_attachments')
@@ -230,12 +230,21 @@ export async function getCaseSignedUploadUrl(fileName: string) {
     return { signedUrl: data!.signedUrl, token: data!.token, path: data!.path };
 }
 
-export async function addCaseAttachment(caseId: string, filePath: string, fileType: string) {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'Not authenticated' };
-
+export async function addCaseAttachment(
+    caseId: string,
+    filePath: string,
+    fileType: string,
+    userId?: string | null
+) {
     const adminClient = createAdminClient();
+
+    let effectiveUserId = userId || null;
+    if (!effectiveUserId) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return { error: 'Not authenticated' };
+        effectiveUserId = user.id;
+    }
 
     const { data: { publicUrl } } = adminClient.storage
         .from('case-attachments')
@@ -245,17 +254,16 @@ export async function addCaseAttachment(caseId: string, filePath: string, fileTy
         .from('case_attachments')
         .insert({
             case_id: caseId,
-            uploaded_by: user.id,
+            uploaded_by: effectiveUserId,
             file_url: publicUrl,
             file_type: fileType
         });
     if (error) return { error: error.message };
 
-    // Touch case updated_at and add history
     await adminClient.from('cases').update({ updated_at: new Date().toISOString() }).eq('id', caseId);
     await adminClient.from('case_updates').insert({
         case_id: caseId,
-        user_id: user.id,
+        user_id: effectiveUserId,
         message: 'La til vedlegg',
         type: 'SYSTEM'
     });
