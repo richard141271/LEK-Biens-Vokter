@@ -56,6 +56,7 @@ export async function getCasesForFeed() {
     const { data: cases, error } = await adminClient
         .from('cases')
         .select('*')
+        .in('status', ['OPEN', 'IN_PROGRESS', 'PAUSED'])
         .order('created_at', { ascending: true })
         .limit(100);
 
