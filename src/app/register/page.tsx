@@ -22,7 +22,7 @@ function RegisterForm() {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [role, setRole] = useState<'beekeeper' | 'tenant'>('beekeeper');
+  const [role] = useState<'beekeeper' | 'tenant'>('beekeeper');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -54,14 +54,9 @@ function RegisterForm() {
   // Check for referral code and role in URL
   useEffect(() => {
     const ref = searchParams.get('ref');
-    const roleParam = searchParams.get('role');
     
     if (ref) {
       setFormData(prev => ({ ...prev, referralCode: ref }));
-    }
-    
-    if (roleParam === 'beekeeper' || roleParam === 'tenant') {
-      setRole(roleParam);
     }
   }, [searchParams]);
 
@@ -182,30 +177,11 @@ function RegisterForm() {
         <div className="bg-white shadow-xl rounded-2xl overflow-hidden border border-honey-100">
           <form onSubmit={handleSubmit} className="p-8 space-y-8">
             
-            {/* Account Type Toggle */}
+            {/* Account Type (låst til birøkter) */}
             <div className="flex bg-gray-100 p-1 rounded-xl mb-8">
-              <button
-                type="button"
-                onClick={() => setRole('beekeeper')}
-                className={`flex-1 py-3 rounded-lg font-bold transition-all ${
-                  role === 'beekeeper' 
-                    ? 'bg-white text-orange-600 shadow-sm' 
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
+              <div className="flex-1 py-3 rounded-lg font-bold bg-white text-orange-600 shadow-sm text-center">
                 Jeg er Birøkter
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole('tenant')}
-                className={`flex-1 py-3 rounded-lg font-bold transition-all ${
-                  role === 'tenant' 
-                    ? 'bg-white text-green-600 shadow-sm' 
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Jeg vil Leie Kube
-              </button>
+              </div>
             </div>
 
             {/* Error Message */}
@@ -232,26 +208,6 @@ function RegisterForm() {
                   />
                 </div>
 
-                {/* Referral Code */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-bold text-honey-700 mb-1 flex items-center gap-2">
-                    Har du en vervekode?
-                    <span className="text-xs font-normal text-gray-500">(Valgfritt)</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="referralCode"
-                    value={(formData as any).referralCode || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, referralCode: e.target.value.toUpperCase() }))}
-                    className="w-full px-4 py-2 border border-honey-200 bg-honey-50/50 rounded-lg focus:ring-honey-500 focus:border-honey-500 placeholder-gray-400 font-mono tracking-wider"
-                    placeholder="ABC12345"
-                    maxLength={8}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Bruk koden fra den som inviterte deg for å koble deg til nettverket.
-                  </p>
-                </div>
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">E-post *</label>
                   <input

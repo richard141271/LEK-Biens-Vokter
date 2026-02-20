@@ -18,7 +18,6 @@ export async function signup(formData: any) {
     postalCode,
     city,
     phoneNumber,
-    referralCode,
     isNorgesBirokterlagMember,
     memberNumber,
     localAssociation,
