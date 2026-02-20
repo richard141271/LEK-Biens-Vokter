@@ -73,6 +73,8 @@ export default function WarRoomDashboard({
     const [loading, setLoading] = useState(true);
     const [updatingCaseId, setUpdatingCaseId] = useState<string | null>(null);
     const [isAdmin, setIsAdmin] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
     const [editingPostId, setEditingPostId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState('');
     const [isEditingFocus, setIsEditingFocus] = useState(false);
@@ -106,6 +108,9 @@ export default function WarRoomDashboard({
             try {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
+                    setCurrentUserId(user.id || null);
+                    setCurrentUserEmail(user.email || null);
+
                     const { data: profile } = await supabase
                         .from('profiles')
                         .select('role')
@@ -689,7 +694,12 @@ export default function WarRoomDashboard({
                                                                     if (updatingCaseId === item.id) return;
                                                                     setUpdatingCaseId(item.id);
                                                                     try {
-                                                                        const res = await updateCaseStatus(item.id, 'IN_PROGRESS'); 
+                                                                        const res = await updateCaseStatus(
+                                                                            item.id,
+                                                                            'IN_PROGRESS',
+                                                                            currentUserId,
+                                                                            currentUserEmail
+                                                                        ); 
                                                                         if ('error' in (res as any)) {
                                                                             alert(`Kunne ikke starte sak: ${(res as any).error}`);
                                                                             return;
@@ -713,7 +723,12 @@ export default function WarRoomDashboard({
                                                                     if (updatingCaseId === item.id) return;
                                                                     setUpdatingCaseId(item.id);
                                                                     try {
-                                                                        const res = await updateCaseStatus(item.id, 'OPEN');
+                                                                        const res = await updateCaseStatus(
+                                                                            item.id,
+                                                                            'OPEN',
+                                                                            currentUserId,
+                                                                            currentUserEmail
+                                                                        );
                                                                         if ('error' in (res as any)) {
                                                                             alert(`Kunne ikke stanse sak: ${(res as any).error}`);
                                                                             return;
@@ -746,7 +761,12 @@ export default function WarRoomDashboard({
                                                                                 setUpdatesByCase(prev => ({ ...prev, [item.id]: (upd as any).updates }));
                                                                             }
                                                                         }
-                                                                        const res = await updateCaseStatus(item.id, 'PAUSED');
+                                                                        const res = await updateCaseStatus(
+                                                                            item.id,
+                                                                            'PAUSED',
+                                                                            currentUserId,
+                                                                            currentUserEmail
+                                                                        );
                                                                         if ('error' in (res as any)) {
                                                                             alert(`Kunne ikke pause sak: ${(res as any).error}`);
                                                                             return;
@@ -767,7 +787,12 @@ export default function WarRoomDashboard({
                                                         {item.status !== 'RESOLVED' && (
                                                             <button
                                                                 onClick={async () => { 
-                                                                    const res = await updateCaseStatus(item.id, 'RESOLVED'); 
+                                                                    const res = await updateCaseStatus(
+                                                                        item.id,
+                                                                        'RESOLVED',
+                                                                        currentUserId,
+                                                                        currentUserEmail
+                                                                    ); 
                                                                     if ('error' in (res as any)) {
                                                                         alert(`Kunne ikke sette til Løst: ${(res as any).error}`);
                                                                         return;
@@ -784,7 +809,12 @@ export default function WarRoomDashboard({
                                                         {item.status !== 'ARCHIVED' && (
                                                             <button
                                                                 onClick={async () => { 
-                                                                    const res = await updateCaseStatus(item.id, 'ARCHIVED'); 
+                                                                    const res = await updateCaseStatus(
+                                                                        item.id,
+                                                                        'ARCHIVED',
+                                                                        currentUserId,
+                                                                        currentUserEmail
+                                                                    ); 
                                                                     if ('error' in (res as any)) {
                                                                         alert(`Kunne ikke arkivere sak: ${(res as any).error}`);
                                                                         return;
@@ -1035,7 +1065,12 @@ export default function WarRoomDashboard({
                                             {isAdmin && (
                                                 <button
                                                     onClick={async () => {
-                                                        const res = await updateCaseStatus(item.id, 'OPEN');
+                                                        const res = await updateCaseStatus(
+                                                            item.id,
+                                                            'OPEN',
+                                                            currentUserId,
+                                                            currentUserEmail
+                                                        );
                                                         if ('error' in (res as any)) {
                                                             alert(`Kunne ikke gjenåpne sak: ${(res as any).error}`);
                                                             return;

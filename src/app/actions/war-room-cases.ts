@@ -264,36 +264,37 @@ export async function addCaseAttachment(caseId: string, filePath: string, fileTy
     return { success: true, publicUrl };
 }
 
-export async function updateCaseStatus(caseId: string, status: CaseStatus) {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+export async function updateCaseStatus(
+    caseId: string,
+    status: CaseStatus,
+    userId?: string | null,
+    userEmail?: string | null
+) {
     const adminClient = createAdminClient();
 
-    let userId = user?.id as string | undefined;
-    let userEmail = user?.email as string | null | undefined;
+    let effectiveUserId = userId || null;
+    let effectiveEmail = userEmail || null;
 
-    if (!userId) {
-        const { data: adminProfile } = await adminClient
-            .from('profiles')
-            .select('id, email')
-            .eq('email', 'richard141271@gmail.com')
-            .single();
-
-        if (!adminProfile) {
-            return { error: 'Not authenticated' };
-        }
-
-        userId = adminProfile.id as string;
-        userEmail = (adminProfile as any).email || 'richard141271@gmail.com';
+    if (!effectiveUserId) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        effectiveUserId = user?.id ?? null;
+        effectiveEmail = user?.email ?? null;
     }
 
-    const { data: profile } = await adminClient
-        .from('profiles')
-        .select('role')
-        .eq('id', userId)
-        .single();
+    let profileRole: string | null = null;
+    if (effectiveUserId) {
+        const { data: profile } = await adminClient
+            .from('profiles')
+            .select('role')
+            .eq('id', effectiveUserId)
+            .single();
+        profileRole = profile?.role || null;
+    }
 
-    const isAdmin = profile?.role === 'admin' || userEmail === 'richard141271@gmail.com';
+    const isAdmin =
+        profileRole === 'admin' ||
+        effectiveEmail === 'richard141271@gmail.com';
 
     // Kursvenn kan endre mellom ÅPEN <-> PÅGÅR og PAUSE. Admin kan sette LØST og ARKIV.
     if (!isAdmin && !['IN_PROGRESS', 'OPEN', 'PAUSED'].includes(status)) {
@@ -308,8 +309,8 @@ export async function updateCaseStatus(caseId: string, status: CaseStatus) {
     if (status === 'RESOLVED') {
         payload.resolved_at = new Date().toISOString();
     }
-    if (status === 'IN_PROGRESS') {
-        payload.assigned_to = userId;
+    if (status === 'IN_PROGRESS' && effectiveUserId) {
+        payload.assigned_to = effectiveUserId;
     }
     if (status === 'OPEN') {
         payload.assigned_to = null;
@@ -326,7 +327,7 @@ export async function updateCaseStatus(caseId: string, status: CaseStatus) {
         .from('case_updates')
         .insert({
             case_id: caseId,
-            user_id: userId,
+            user_id: effectiveUserId,
             message: `Status → ${status}`,
             type: 'STATUS_CHANGE'
         });
