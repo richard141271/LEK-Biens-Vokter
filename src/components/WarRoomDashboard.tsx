@@ -751,8 +751,8 @@ export default function WarRoomDashboard({
                                                                 Pause
                                                             </button>
                                                         )}
-                                                        {/* Admin: Løst */}
-                                                        {isAdmin && item.status !== 'RESOLVED' && (
+                                                        {/* Løst (server sjekker admin-rettigheter) */}
+                                                        {item.status !== 'RESOLVED' && (
                                                             <button
                                                                 onClick={async () => { 
                                                                     await updateCaseStatus(item.id, 'RESOLVED'); 
@@ -764,8 +764,8 @@ export default function WarRoomDashboard({
                                                                 Løst
                                                             </button>
                                                         )}
-                                                        {/* Admin: Arkiver */}
-                                                        {isAdmin && item.status !== 'ARCHIVED' && (
+                                                        {/* Arkiver (server sjekker admin-rettigheter) */}
+                                                        {item.status !== 'ARCHIVED' && (
                                                             <button
                                                                 onClick={async () => { 
                                                                     await updateCaseStatus(item.id, 'ARCHIVED'); 
