@@ -243,11 +243,38 @@ export async function getIncidentData(incidentId: string) {
             if (users) {
                 users.forEach((u: any) => usersMap[u.id] = u);
             }
+
+            const missingUserIds = userIds.filter(id => !usersMap[id]);
+            if (missingUserIds.length > 0) {
+                for (const id of missingUserIds) {
+                    const { data: { user: authUser } } = await adminClient.auth.admin.getUserById(id);
+                    if (authUser) {
+                        const fullName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Uten navn';
+                        const { error: insertError } = await adminClient
+                            .from('profiles')
+                            .insert({
+                                id,
+                                email: authUser.email,
+                                full_name: fullName,
+                                phone_number: null,
+                                role: 'beekeeper'
+                            });
+                        if (!insertError) {
+                            usersMap[id] = {
+                                id,
+                                email: authUser.email,
+                                full_name: fullName,
+                                phone_number: null
+                            };
+                        }
+                    }
+                }
+            }
         }
 
         apiaries = rawApiaries.map((a: any) => ({
             ...a,
-            users: usersMap[a.user_id] || { full_name: 'Ukjent' }
+            users: usersMap[a.user_id] || { full_name: 'Uten navn' }
         }));
     }
 
@@ -442,11 +469,36 @@ export async function getAllAlerts() {
             if (reporters) {
                 reporters.forEach(r => reportersMap[r.id] = r);
             }
+
+            const missingReporterIds = userIds.filter(id => !reportersMap[id]);
+            if (missingReporterIds.length > 0) {
+                for (const id of missingReporterIds) {
+                    const { data: { user: authUser } } = await adminClient.auth.admin.getUserById(id);
+                    if (authUser) {
+                        const fullName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Uten navn';
+                        const { error: insertError } = await adminClient
+                            .from('profiles')
+                            .insert({
+                                id,
+                                email: authUser.email,
+                                full_name: fullName,
+                                role: 'beekeeper'
+                            });
+                        if (!insertError) {
+                            reportersMap[id] = {
+                                id,
+                                email: authUser.email,
+                                full_name: fullName
+                            };
+                        }
+                    }
+                }
+            }
         }
 
         const enrichedAlerts = alerts.map(alert => ({
             ...alert,
-            reporter: reportersMap[alert.user_id] || { full_name: 'Ukjent' }
+            reporter: reportersMap[alert.user_id] || { full_name: 'Uten navn' }
         }));
 
         return { alerts: enrichedAlerts };

@@ -94,6 +94,31 @@ export async function getCasesForFeed() {
         profilesById = Object.fromEntries(
             (profiles || []).map((p: any) => [p.id, p])
         );
+
+        const missingIds = allAssignedIds.filter(id => !profilesById[id]);
+        if (missingIds.length > 0) {
+            for (const id of missingIds) {
+                const { data: { user: authUser } } = await adminClient.auth.admin.getUserById(id);
+                if (authUser) {
+                    const { error: insertError } = await adminClient
+                        .from('profiles')
+                        .insert({
+                            id,
+                            email: authUser.email,
+                            full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Uten navn',
+                            role: 'beekeeper'
+                        });
+                    if (!insertError) {
+                        profilesById[id] = {
+                            id,
+                            email: authUser.email,
+                            full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Uten navn',
+                            role: 'beekeeper'
+                        };
+                    }
+                }
+            }
+        }
     }
 
     const withAssignedName = (list: any[] | null) => 
@@ -101,11 +126,10 @@ export async function getCasesForFeed() {
             if (!c.assigned_to) return { ...c, assigned: null };
             const p = profilesById[c.assigned_to];
             const isAdminProfile = p?.role === 'admin' || p?.email === 'richard141271@gmail.com';
-            const fallbackName = p?.email ? p.email.split('@')[0] : 'Ukjent';
             return {
                 ...c,
                 assigned: {
-                    full_name: isAdminProfile ? 'Admin' : (p?.full_name || fallbackName)
+                    full_name: isAdminProfile ? 'Admin' : (p?.full_name || 'Uten navn')
                 }
             };
         });
