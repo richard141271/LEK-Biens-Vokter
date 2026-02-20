@@ -100,13 +100,40 @@ export default function WarRoomDashboard({
     const isSavingRef = useRef(false);
 
     useEffect(() => {
-        loadData();
+        const supabase = createClient();
+
+        const init = async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('role')
+                        .eq('id', user.id)
+                        .single();
+
+                    const adminFlag =
+                        profile?.role === 'admin' ||
+                        user.email === 'richard141271@gmail.com' ||
+                        user.email === 'richard141271@gmail.no';
+
+                    setIsAdmin(!!adminFlag);
+                }
+            } catch {
+                // ignore, fallback to server flag from feed
+            }
+
+            await loadData();
+        };
+
+        init();
+
         const interval = setInterval(() => {
-            // Only poll if NOT editing focus AND not saving
             if (!isEditingFocusRef.current && !isSavingRef.current) {
                 loadData();
             }
-        }, 10000); // Poll every 10s
+        }, 10000);
+
         return () => clearInterval(interval);
     }, []);
 
