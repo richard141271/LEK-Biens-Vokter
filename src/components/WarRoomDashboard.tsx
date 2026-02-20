@@ -618,15 +618,25 @@ export default function WarRoomDashboard({
                                                                     {item.status === 'IN_PROGRESS' && `PÅGÅR${item.assigned?.full_name ? ` • ${item.assigned.full_name}` : ''}`}
                                                                     {item.status === 'PAUSED' && `PAUSE${item.assigned?.full_name ? ` • ${item.assigned.full_name}` : ''}`}
                                                                 </span>
-                                                                {(updatesByCase[item.id]?.length || 0) > 0 && (
+                                                                {(() => {
+                                                                    const all = updatesByCase[item.id] || [];
+                                                                    const commentsCount = all.filter((u: any) => u.type === 'COMMENT').length;
+                                                                    if (!commentsCount) return null;
+                                                                    return (
                                                                     <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-red-500 text-[10px] font-bold text-red-600 bg-white">
-                                                                        {updatesByCase[item.id].length}
+                                                                        {commentsCount}
                                                                     </span>
-                                                                )}
+                                                                    );
+                                                                })()}
                                                             </div>
                                                             <span className="block text-sm font-semibold text-gray-900">
                                                                 {item.title}
                                                             </span>
+                                                            {item.assigned && item.status === 'IN_PROGRESS' && (
+                                                                <span className="block text-[11px] text-gray-500">
+                                                                    Ansvarlig: {item.assigned.full_name}
+                                                                </span>
+                                                            )}
                                                             {item.status === 'PAUSED' && getLastPauseReason(item.id) && (
                                                                 <span className="block text-[11px] text-gray-500">
                                                                     {getLastPauseReason(item.id)}

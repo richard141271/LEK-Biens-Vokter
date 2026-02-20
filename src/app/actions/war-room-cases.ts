@@ -101,10 +101,11 @@ export async function getCasesForFeed() {
             if (!c.assigned_to) return { ...c, assigned: null };
             const p = profilesById[c.assigned_to];
             const isAdminProfile = p?.role === 'admin' || p?.email === 'richard141271@gmail.com';
+            const fallbackName = p?.email ? p.email.split('@')[0] : 'Ukjent';
             return {
                 ...c,
                 assigned: {
-                    full_name: isAdminProfile ? 'Admin' : (p?.full_name || '')
+                    full_name: isAdminProfile ? 'Admin' : (p?.full_name || fallbackName)
                 }
             };
         });
