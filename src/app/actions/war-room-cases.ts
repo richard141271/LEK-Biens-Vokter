@@ -73,70 +73,44 @@ export async function getCasesForFeed() {
         .order('resolved_at', { ascending: false })
         .limit(5);
 
-    // Count total resolved for header
     const { count: resolvedCount } = await adminClient
         .from('cases')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'RESOLVED');
 
-    // Map assigned_to -> profilnavn for visning (uten å være avhengig av FK-navn)
-    const allAssignedIds = Array.from(new Set([
+    const profileIds = Array.from(new Set([
         ...(cases || []).map((c: any) => c.assigned_to).filter(Boolean),
-        ...(resolved || []).map((c: any) => c.assigned_to).filter(Boolean)
+        ...(cases || []).map((c: any) => c.created_by).filter(Boolean),
+        ...(resolved || []).map((c: any) => c.assigned_to).filter(Boolean),
+        ...(resolved || []).map((c: any) => c.created_by).filter(Boolean)
     ]));
 
-    let profilesById: Record<string, any> = {};
-    if (allAssignedIds.length > 0) {
+    let profilesById: Record<string, string> = {};
+    if (profileIds.length > 0) {
         const { data: profiles } = await adminClient
             .from('profiles')
-            .select('id, full_name, role, email')
-            .in('id', allAssignedIds as string[]);
+            .select('id, full_name')
+            .in('id', profileIds as string[]);
         profilesById = Object.fromEntries(
-            (profiles || []).map((p: any) => [p.id, p])
+            (profiles || []).map((p: any) => [p.id, p.full_name as string])
         );
 
-        const missingIds = allAssignedIds.filter(id => !profilesById[id]);
+        const missingIds = profileIds.filter(id => !profilesById[id]);
         if (missingIds.length > 0) {
-            for (const id of missingIds) {
-                const { data: { user: authUser } } = await adminClient.auth.admin.getUserById(id);
-                if (authUser) {
-                    const { error: insertError } = await adminClient
-                        .from('profiles')
-                        .insert({
-                            id,
-                            email: authUser.email,
-                            full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Uten navn',
-                            role: 'beekeeper'
-                        });
-                    if (!insertError) {
-                        profilesById[id] = {
-                            id,
-                            email: authUser.email,
-                            full_name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Uten navn',
-                            role: 'beekeeper'
-                        };
-                    }
-                }
-            }
+            console.error('War Room cases: missing profiles for user IDs', missingIds);
         }
     }
 
-    const withAssignedName = (list: any[] | null) => 
-        (list || []).map((c: any) => {
-            if (!c.assigned_to) return { ...c, assigned: null };
-            const p = profilesById[c.assigned_to];
-            const isAdminProfile = p?.role === 'admin' || p?.email === 'richard141271@gmail.com';
-            return {
-                ...c,
-                assigned: {
-                    full_name: isAdminProfile ? 'Admin' : (p?.full_name || 'Uten navn')
-                }
-            };
-        });
+    const mapCaseList = (list: any[] | null) =>
+        (list || []).map((c: any) => ({
+            ...c,
+            assigned: c.assigned_to ? { full_name: profilesById[c.assigned_to] } : null,
+            created_by_name: c.created_by ? profilesById[c.created_by] : null
+        }));
 
     return { 
-        cases: withAssignedName(cases || []), 
-        recentResolved: withAssignedName(resolved || []), 
+        cases: mapCaseList(cases || []), 
+        recentResolved: mapCaseList(resolved || []), 
         resolvedCount: resolvedCount || 0 
     };
 }
