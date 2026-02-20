@@ -286,6 +286,13 @@ export default function WarRoomDashboard({
         return type;
     };
 
+    const getAssignedSuffix = (item: any) => {
+        if (!item.assigned) return '';
+        if (item.assigned.full_name) return ` • ${item.assigned.full_name}`;
+        if (item.assigned.missing_profile) return ' • [MANGLER PROFIL]';
+        return '';
+    };
+
     const getLastPauseReason = (caseId: string): string => {
         const all = updatesByCase[caseId] || [];
         const pauseNotes = all.filter((u: any) => 
@@ -615,8 +622,8 @@ export default function WarRoomDashboard({
                                                                             : 'bg-gray-50 text-gray-600 border-gray-300'
                                                                 }`}>
                                                                     {item.status === 'OPEN' && 'ÅPEN'}
-                                                                    {item.status === 'IN_PROGRESS' && `PÅGÅR${item.assigned?.full_name ? ` • ${item.assigned.full_name}` : ''}`}
-                                                                    {item.status === 'PAUSED' && `PAUSE${item.assigned?.full_name ? ` • ${item.assigned.full_name}` : ''}`}
+                                                                    {item.status === 'IN_PROGRESS' && `PÅGÅR${getAssignedSuffix(item)}`}
+                                                                    {item.status === 'PAUSED' && `PAUSE${getAssignedSuffix(item)}`}
                                                                 </span>
                                                                 {(() => {
                                                                     const all = updatesByCase[item.id] || [];
@@ -632,7 +639,7 @@ export default function WarRoomDashboard({
                                                             <span className="block text-sm font-semibold text-gray-900">
                                                                 {item.title}
                                                             </span>
-                                                            {item.assigned && item.status === 'IN_PROGRESS' && (
+                                                            {item.assigned && item.status === 'IN_PROGRESS' && item.assigned.full_name && (
                                                                 <span className="block text-[11px] text-gray-500">
                                                                     Ansvarlig: {item.assigned.full_name}
                                                                 </span>
@@ -940,8 +947,7 @@ export default function WarRoomDashboard({
                                                         <Lightbulb className="w-4 h-4" />
                                                         <span className="text-xs font-bold uppercase">Idé</span>
                                                         <span className="px-1.5 py-0.5 rounded text-[10px] font-bold border border-yellow-300">
-                                                            {item.status === 'OPEN' ? 'ÅPEN' : 'PÅGÅR'}
-                                                            {item.status === 'IN_PROGRESS' && item.assigned?.full_name ? ` • ${item.assigned.full_name}` : ''}
+                                                            {item.status === 'OPEN' ? 'ÅPEN' : `PÅGÅR${getAssignedSuffix(item)}`}
                                                         </span>
                                                     </div>
                                                     <div className="text-gray-900 text-sm font-semibold">{item.title}</div>

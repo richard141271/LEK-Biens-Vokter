@@ -102,11 +102,20 @@ export async function getCasesForFeed() {
     }
 
     const mapCaseList = (list: any[] | null) =>
-        (list || []).map((c: any) => ({
-            ...c,
-            assigned: c.assigned_to ? { full_name: profilesById[c.assigned_to] } : null,
-            created_by_name: c.created_by ? profilesById[c.created_by] : null
-        }));
+        (list || []).map((c: any) => {
+            const hasAssigned = !!c.assigned_to;
+            const assignedName = hasAssigned ? profilesById[c.assigned_to] : undefined;
+            return {
+                ...c,
+                assigned: hasAssigned
+                    ? {
+                        full_name: assignedName || null,
+                        missing_profile: !assignedName
+                    }
+                    : null,
+                created_by_name: c.created_by ? profilesById[c.created_by] : null
+            };
+        });
 
     return { 
         cases: mapCaseList(cases || []), 
