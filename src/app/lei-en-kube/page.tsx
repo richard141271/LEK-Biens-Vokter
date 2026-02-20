@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { jsPDF } from 'jspdf';
@@ -415,23 +416,31 @@ export default function RentHivePage() {
         <div className="absolute top-0 right-0 p-32 bg-white/10 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
         
         <div className="max-w-4xl mx-auto relative z-10">
-          <button 
-            onClick={() => {
-              if (step !== 'info') {
-                setStep('info');
-                return;
-              }
-              if (user) {
-                router.push('/dashboard');
-              } else {
-                router.push('/');
-              }
-            }}
-            className="mb-6 flex items-center gap-2 text-white/80 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            {step === 'info' ? 'Tilbake til Portal' : 'Avbryt bestilling'}
-          </button>
+          <div className="flex items-center justify-between mb-6">
+            <button 
+              onClick={() => {
+                if (step !== 'info') {
+                  setStep('info');
+                  return;
+                }
+                if (user) {
+                  router.push('/dashboard');
+                } else {
+                  router.push('/');
+                }
+              }}
+              className="flex items-center gap-2 text-white/80 hover:text-white transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              {step === 'info' ? 'Tilbake til Portal' : 'Avbryt bestilling'}
+            </button>
+            <Link
+              href="/shop"
+              className="text-white/80 hover:text-white text-xs md:text-sm font-semibold"
+            >
+              Nettbutikk
+            </Link>
+          </div>
           
           <div className="flex items-center gap-4">
             <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm">

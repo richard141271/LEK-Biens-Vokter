@@ -28,13 +28,6 @@ export default function Home() {
 
         <div className="flex items-center gap-6">
             <InstallPrompt mode="inline" />
-            <Link 
-              href="/shop"
-              className="text-gray-900 font-medium hover:text-orange-600 transition-colors"
-            >
-              Nettbutikk
-            </Link>
-        
             {user ? (
               <Link 
                 href="/dashboard"
@@ -67,35 +60,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Segmentation Section - The 3 Cards */}
+      {/* Segmentation Section - Birøkter */}
       <section className="pb-24 px-4 -mt-10">
-        <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-8">
-          
-          {/* Card 1: Leietaker */}
-          <div className="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 group">
-            <div className="h-48 bg-green-50 flex items-center justify-center relative overflow-hidden">
-                <div className="absolute inset-0 bg-[url('/BILDER/Gemini_Generated_Image_mqh04tmqh04tmqh0.png')] bg-cover bg-center opacity-90 group-hover:scale-105 transition-transform duration-500"></div>
-                <div className="absolute inset-0 bg-black/20"></div>
-                <h3 className="relative z-10 text-white font-bold text-2xl shadow-black drop-shadow-md">Lei en bikube</h3>
-            </div>
-            <div className="p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-3">Vil du leie en bikube?</h2>
-              <p className="text-gray-600 mb-6 min-h-[80px]">
-                Støtt biene og få din egen, eksklusive honning. 
-                Vi kobler deg med sertifiserte, lokale birøktere. 
-                Perfekt for familier og bedrifter.
-              </p>
-              <Link 
-                href="/lei-en-kube"
-                className="w-full block text-center bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-colors"
-              >
-                Les mer om leie
-              </Link>
-            </div>
-          </div>
-
-          {/* Card 2: Birøkter */}
-          <div className="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 group relative transform md:-translate-y-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Birøkter-kort */}
+          <div className="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 group relative">
             <div className="absolute top-0 right-0 bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg z-20">
               POPULÆRT
             </div>
@@ -124,31 +93,6 @@ export default function Home() {
               </div>
             </div>
           </div>
-
-          {/* Card 3: Mattilsynet */}
-          <div className="bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 group">
-            <div className="h-48 bg-white flex items-center justify-center relative overflow-hidden p-8">
-                <img 
-                  src="/BILDER/446d4ea1-a638-458b-97f1-109a7177d3da.png" 
-                  alt="Mattilsynet Logo" 
-                  className="w-full h-full object-contain relative z-10"
-                />
-            </div>
-            <div className="p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-3">Mattilsynet</h2>
-              <p className="text-gray-600 mb-6 min-h-[80px]">
-                Sanntidsovervåkning av sykdom og bikubehelse. 
-                Effektivt verktøy for forvaltning og smittesporing.
-              </p>
-              <Link 
-                href="/mattilsynet"
-                className="w-full block text-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-colors"
-              >
-                Gå til Mattilsynet-portalen
-              </Link>
-            </div>
-          </div>
-
         </div>
       </section>
 
@@ -206,12 +150,26 @@ export default function Home() {
             <div className="text-gray-400">
               © {new Date().getFullYear()} AI Innovate AS. Alle rettigheter reservert.
             </div>
-            <Link 
-              href="/admin" 
-              className="text-gray-400 hover:text-white hover:underline text-xs"
-            >
-              Admin
-            </Link>
+            <div className="flex gap-4 text-xs">
+              <Link 
+                href="/lei-en-kube" 
+                className="text-gray-400 hover:text-white hover:underline"
+              >
+                Lei en kube
+              </Link>
+              <Link 
+                href="/mattilsynet" 
+                className="text-gray-400 hover:text-white hover:underline"
+              >
+                Mattilsynet
+              </Link>
+              <Link 
+                href="/admin" 
+                className="text-gray-400 hover:text-white hover:underline"
+              >
+                Admin
+              </Link>
+            </div>
           </div>
         </div>
       </footer>
