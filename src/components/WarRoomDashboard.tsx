@@ -689,7 +689,11 @@ export default function WarRoomDashboard({
                                                                     if (updatingCaseId === item.id) return;
                                                                     setUpdatingCaseId(item.id);
                                                                     try {
-                                                                        await updateCaseStatus(item.id, 'IN_PROGRESS'); 
+                                                                        const res = await updateCaseStatus(item.id, 'IN_PROGRESS'); 
+                                                                        if ('error' in (res as any)) {
+                                                                            alert(`Kunne ikke starte sak: ${(res as any).error}`);
+                                                                            return;
+                                                                        }
                                                                         loadData();
                                                                     } finally {
                                                                         setUpdatingCaseId(null);
@@ -709,7 +713,11 @@ export default function WarRoomDashboard({
                                                                     if (updatingCaseId === item.id) return;
                                                                     setUpdatingCaseId(item.id);
                                                                     try {
-                                                                        await updateCaseStatus(item.id, 'OPEN');
+                                                                        const res = await updateCaseStatus(item.id, 'OPEN');
+                                                                        if ('error' in (res as any)) {
+                                                                            alert(`Kunne ikke stanse sak: ${(res as any).error}`);
+                                                                            return;
+                                                                        }
                                                                         loadData();
                                                                     } finally {
                                                                         setUpdatingCaseId(null);
@@ -738,7 +746,11 @@ export default function WarRoomDashboard({
                                                                                 setUpdatesByCase(prev => ({ ...prev, [item.id]: (upd as any).updates }));
                                                                             }
                                                                         }
-                                                                        await updateCaseStatus(item.id, 'PAUSED');
+                                                                        const res = await updateCaseStatus(item.id, 'PAUSED');
+                                                                        if ('error' in (res as any)) {
+                                                                            alert(`Kunne ikke pause sak: ${(res as any).error}`);
+                                                                            return;
+                                                                        }
                                                                         loadData();
                                                                     } finally {
                                                                         setUpdatingCaseId(null);
@@ -755,7 +767,11 @@ export default function WarRoomDashboard({
                                                         {item.status !== 'RESOLVED' && (
                                                             <button
                                                                 onClick={async () => { 
-                                                                    await updateCaseStatus(item.id, 'RESOLVED'); 
+                                                                    const res = await updateCaseStatus(item.id, 'RESOLVED'); 
+                                                                    if ('error' in (res as any)) {
+                                                                        alert(`Kunne ikke sette til Løst: ${(res as any).error}`);
+                                                                        return;
+                                                                    }
                                                                     loadData();
                                                                 }}
                                                                 className="px-2 py-1 text-[11px] rounded border border-green-200 text-green-700 hover:bg-green-50"
@@ -768,7 +784,11 @@ export default function WarRoomDashboard({
                                                         {item.status !== 'ARCHIVED' && (
                                                             <button
                                                                 onClick={async () => { 
-                                                                    await updateCaseStatus(item.id, 'ARCHIVED'); 
+                                                                    const res = await updateCaseStatus(item.id, 'ARCHIVED'); 
+                                                                    if ('error' in (res as any)) {
+                                                                        alert(`Kunne ikke arkivere sak: ${(res as any).error}`);
+                                                                        return;
+                                                                    }
                                                                     loadData();
                                                                 }}
                                                                 className="px-2 py-1 text-[11px] rounded border border-gray-200 text-gray-700 hover:bg-gray-50"
@@ -1015,7 +1035,11 @@ export default function WarRoomDashboard({
                                             {isAdmin && (
                                                 <button
                                                     onClick={async () => {
-                                                        await updateCaseStatus(item.id, 'OPEN');
+                                                        const res = await updateCaseStatus(item.id, 'OPEN');
+                                                        if ('error' in (res as any)) {
+                                                            alert(`Kunne ikke gjenåpne sak: ${(res as any).error}`);
+                                                            return;
+                                                        }
                                                         loadData();
                                                     }}
                                                     className="px-2 py-1 text-[11px] rounded border border-amber-200 text-amber-700 hover:bg-amber-50"
