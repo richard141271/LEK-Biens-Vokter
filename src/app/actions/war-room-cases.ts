@@ -51,10 +51,6 @@ export async function createCase(input: CreateCaseInput) {
 }
 
 export async function getCasesForFeed() {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'Not authenticated' };
-
     const adminClient = createAdminClient();
 
     const { data: cases, error } = await adminClient
@@ -325,10 +321,6 @@ export async function updateCaseStatus(caseId: string, status: CaseStatus) {
 }
 
 export async function getArchivedCases() {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'Not authenticated' };
-
     const adminClient = createAdminClient();
 
     const { data: archived, error } = await adminClient
