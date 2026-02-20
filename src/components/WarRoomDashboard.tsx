@@ -61,6 +61,7 @@ export default function WarRoomDashboard({
     const [attachmentsByCase, setAttachmentsByCase] = useState<Record<string, any[]>>({});
     const [updatesByCase, setUpdatesByCase] = useState<Record<string, any[]>>({});
     const [noteByCase, setNoteByCase] = useState<Record<string, string>>({});
+    const [sendingNoteByCase, setSendingNoteByCase] = useState<Record<string, boolean>>({});
     const [showSystemByCase, setShowSystemByCase] = useState<Record<string, boolean>>({});
     const [ideas, setIdeas] = useState<any[]>([]);
     const [resolvedCount, setResolvedCount] = useState<number>(0);
@@ -70,6 +71,7 @@ export default function WarRoomDashboard({
     const [stats, setStats] = useState<any>({});
     const [statuses, setStatuses] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [updatingCaseId, setUpdatingCaseId] = useState<string | null>(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [editingPostId, setEditingPostId] = useState<string | null>(null);
     const [editContent, setEditContent] = useState('');
@@ -640,10 +642,17 @@ export default function WarRoomDashboard({
                                                         {(item.status === 'OPEN' || item.status === 'PAUSED') && (
                                                             <button
                                                                 onClick={async () => { 
-                                                                    await updateCaseStatus(item.id, 'IN_PROGRESS'); 
-                                                                    loadData();
+                                                                    if (updatingCaseId === item.id) return;
+                                                                    setUpdatingCaseId(item.id);
+                                                                    try {
+                                                                        await updateCaseStatus(item.id, 'IN_PROGRESS'); 
+                                                                        loadData();
+                                                                    } finally {
+                                                                        setUpdatingCaseId(null);
+                                                                    }
                                                                 }}
-                                                                className="px-2 py-1 text-[11px] rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+                                                                disabled={updatingCaseId === item.id}
+                                                                className={`px-2 py-1 text-[11px] rounded border border-gray-300 text-gray-700 hover:bg-gray-50 ${updatingCaseId === item.id ? 'opacity-50 cursor-default' : ''}`}
                                                                 title="Start (sett til PÅGÅR)"
                                                             >
                                                                 Start
@@ -653,10 +662,17 @@ export default function WarRoomDashboard({
                                                         {item.status === 'IN_PROGRESS' && (
                                                             <button
                                                                 onClick={async () => {
-                                                                    await updateCaseStatus(item.id, 'OPEN');
-                                                                    loadData();
+                                                                    if (updatingCaseId === item.id) return;
+                                                                    setUpdatingCaseId(item.id);
+                                                                    try {
+                                                                        await updateCaseStatus(item.id, 'OPEN');
+                                                                        loadData();
+                                                                    } finally {
+                                                                        setUpdatingCaseId(null);
+                                                                    }
                                                                 }}
-                                                                className="px-2 py-1 text-[11px] rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+                                                                disabled={updatingCaseId === item.id}
+                                                                className={`px-2 py-1 text-[11px] rounded border border-gray-300 text-gray-700 hover:bg-gray-50 ${updatingCaseId === item.id ? 'opacity-50 cursor-default' : ''}`}
                                                                 title="Stans (sett til ÅPEN)"
                                                             >
                                                                 Stans
@@ -666,19 +682,26 @@ export default function WarRoomDashboard({
                                                         {(item.status === 'OPEN' || item.status === 'IN_PROGRESS') && (
                                                             <button
                                                                 onClick={async () => {
+                                                                    if (updatingCaseId === item.id) return;
                                                                     const reason = window.prompt('Hvorfor skal denne saken pauses? (valgfritt)');
                                                                     const trimmed = (reason || '').trim();
-                                                                    if (trimmed) {
-                                                                        await addCaseComment(item.id, `Pause: ${trimmed}`);
-                                                                        const upd = await getCaseUpdates(item.id);
-                                                                        if (!('error' in upd) && (upd as any).updates) {
-                                                                            setUpdatesByCase(prev => ({ ...prev, [item.id]: (upd as any).updates }));
+                                                                    setUpdatingCaseId(item.id);
+                                                                    try {
+                                                                        if (trimmed) {
+                                                                            await addCaseComment(item.id, `Pause: ${trimmed}`);
+                                                                            const upd = await getCaseUpdates(item.id);
+                                                                            if (!('error' in upd) && (upd as any).updates) {
+                                                                                setUpdatesByCase(prev => ({ ...prev, [item.id]: (upd as any).updates }));
+                                                                            }
                                                                         }
+                                                                        await updateCaseStatus(item.id, 'PAUSED');
+                                                                        loadData();
+                                                                    } finally {
+                                                                        setUpdatingCaseId(null);
                                                                     }
-                                                                    await updateCaseStatus(item.id, 'PAUSED');
-                                                                    loadData();
                                                                 }}
-                                                                className="px-2 py-1 text-[11px] rounded border border-amber-200 text-amber-700 hover:bg-amber-50"
+                                                                disabled={updatingCaseId === item.id}
+                                                                className={`px-2 py-1 text-[11px] rounded border border-amber-200 text-amber-700 hover:bg-amber-50 ${updatingCaseId === item.id ? 'opacity-50 cursor-default' : ''}`}
                                                                 title="Pause (sett til PAUSE)"
                                                             >
                                                                 Pause
@@ -835,18 +858,24 @@ export default function WarRoomDashboard({
                                                                     onClick={async (e) => {
                                                                         e.stopPropagation();
                                                                         const msg = (noteByCase[item.id] || '').trim();
-                                                                        if (!msg) return;
-                                                                        const res = await addCaseComment(item.id, msg);
-                                                                        if ((res as any).error) { alert((res as any).error); return; }
-                                                                        setNoteByCase(prev => ({ ...prev, [item.id]: '' }));
-                                                                        const upd = await getCaseUpdates(item.id);
-                                                                        if (!('error' in upd) && (upd as any).updates) {
-                                                                            setUpdatesByCase(prev => ({ ...prev, [item.id]: (upd as any).updates }));
+                                                                        if (!msg || sendingNoteByCase[item.id]) return;
+                                                                        setSendingNoteByCase(prev => ({ ...prev, [item.id]: true }));
+                                                                        try {
+                                                                            const res = await addCaseComment(item.id, msg);
+                                                                            if ((res as any).error) { alert((res as any).error); return; }
+                                                                            setNoteByCase(prev => ({ ...prev, [item.id]: '' }));
+                                                                            const upd = await getCaseUpdates(item.id);
+                                                                            if (!('error' in upd) && (upd as any).updates) {
+                                                                                setUpdatesByCase(prev => ({ ...prev, [item.id]: (upd as any).updates }));
+                                                                            }
+                                                                        } finally {
+                                                                            setSendingNoteByCase(prev => ({ ...prev, [item.id]: false }));
                                                                         }
                                                                     }}
-                                                                    className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-800"
+                                                                    disabled={!!sendingNoteByCase[item.id]}
+                                                                    className={`px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-800 ${sendingNoteByCase[item.id] ? 'opacity-50 cursor-default' : ''}`}
                                                                 >
-                                                                    Legg til notat
+                                                                    {sendingNoteByCase[item.id] ? 'Lagrer…' : 'Legg til notat'}
                                                                 </button>
                                                             </div>
                                                         </div>
