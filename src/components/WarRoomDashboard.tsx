@@ -494,7 +494,7 @@ export default function WarRoomDashboard({
                                         value={newCaseDescription}
                                         onChange={(e) => setNewCaseDescription(e.target.value)}
                                         placeholder={newCaseType === 'PLAN' ? 'Beskriv planen kort' : 'Beskriv kort hva dette gjelder'}
-                                        className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[80px]"
+                                        className="w-full rounded-lg border-gray-300 focus:border-amber-500 focus:ring-amber-500 text-sm min-h-[100px] px-3 py-2"
                                     />
                                     <div className="flex justify-end gap-2">
                                         <button
