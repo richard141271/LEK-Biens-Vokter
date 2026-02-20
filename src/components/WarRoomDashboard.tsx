@@ -179,9 +179,30 @@ export default function WarRoomDashboard({
 
         const casesRes = await getCasesForFeed();
         if (!casesRes.error) {
-            setCases(casesRes.cases || []);
+            const caseList = casesRes.cases || [];
+            setCases(caseList);
             setRecentResolvedCases(casesRes.recentResolved || []);
             setResolvedCount(casesRes.resolvedCount || 0);
+
+            const paused = caseList.filter((c: any) => c.status === 'PAUSED');
+            if (paused.length > 0) {
+                const updatesResults = await Promise.all(
+                    paused.map(async (c: any) => {
+                        const res = await getCaseUpdates(c.id);
+                        if ('error' in (res as any)) return { id: c.id, updates: null };
+                        return { id: c.id, updates: (res as any).updates || [] };
+                    })
+                );
+                setUpdatesByCase(prev => {
+                    const next = { ...prev };
+                    for (const r of updatesResults) {
+                        if (r.updates) {
+                            next[r.id] = r.updates;
+                        }
+                    }
+                    return next;
+                });
+            }
         }
         const archivedRes = await getArchivedCases();
         if (!archivedRes.error) setArchived(archivedRes.archived || []);
