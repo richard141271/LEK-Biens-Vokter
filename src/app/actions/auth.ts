@@ -85,7 +85,8 @@ export async function signup(formData: any) {
   }
 
   const { error: beekeeperError } = await adminClient
-    .from('lek_core.beekeepers')
+    .schema('lek_core')
+    .from('beekeepers')
     .insert({
       auth_user_id: authData.user.id,
       full_name: fullName,

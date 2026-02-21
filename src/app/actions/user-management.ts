@@ -862,7 +862,8 @@ export async function getBeekeeperByAuthUser(authUserId: string) {
   const adminClient = createAdminClient()
 
   const { data, error } = await adminClient
-    .from('lek_core.beekeepers')
+    .schema('lek_core')
+    .from('beekeepers')
     .select('beekeeper_id, is_active')
     .eq('auth_user_id', authUserId)
     .maybeSingle()

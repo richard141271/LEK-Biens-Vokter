@@ -9,7 +9,8 @@ export async function GET() {
         const admin = createAdminClient();
 
         const { data: beekeeper, error: beekeeperError } = await admin
-            .from('lek_core.beekeepers')
+            .schema('lek_core')
+            .from('beekeepers')
             .insert({
                 full_name: 'Test Birøkter',
                 email: 'test.birokter@example.com',
@@ -30,7 +31,8 @@ export async function GET() {
         }
 
         const { data: apiary, error: apiaryError } = await admin
-            .from('lek_core.apiaries')
+            .schema('lek_core')
+            .from('apiaries')
             .insert({
                 beekeeper_id: beekeeper.beekeeper_id,
                 name: 'Testbigård'
@@ -46,7 +48,8 @@ export async function GET() {
         }
 
         const { data: hive, error: hiveError } = await admin
-            .from('lek_core.hives')
+            .schema('lek_core')
+            .from('hives')
             .insert({
                 apiary_id: apiary.apiary_id
             })
@@ -75,4 +78,3 @@ export async function GET() {
         );
     }
 }
-
