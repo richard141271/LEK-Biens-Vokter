@@ -6,10 +6,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
-        const admin = createAdminClient('lek_core');
+        const admin = createAdminClient();
 
         const { data: beekeeper, error: beekeeperError } = await admin
-            .from('beekeepers')
+            .from('lek_core_beekeepers')
             .insert({
                 full_name: 'Test Birøkter',
                 email: 'test.birokter@example.com',
@@ -30,7 +30,7 @@ export async function GET() {
         }
 
         const { data: apiary, error: apiaryError } = await admin
-            .from('apiaries')
+            .from('lek_core_apiaries')
             .insert({
                 beekeeper_id: beekeeper.beekeeper_id,
                 name: 'Testbigård'
@@ -46,7 +46,7 @@ export async function GET() {
         }
 
         const { data: hive, error: hiveError } = await admin
-            .from('hives')
+            .from('lek_core_hives')
             .insert({
                 apiary_id: apiary.apiary_id
             })

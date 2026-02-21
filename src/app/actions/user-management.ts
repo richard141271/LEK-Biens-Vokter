@@ -859,10 +859,10 @@ export async function toggleEmailAccess(userId: string, hasAccess: boolean) {
 export async function getBeekeeperByAuthUser(authUserId: string) {
   if (!authUserId) return { error: 'Mangler authUserId' }
 
-  const adminClient = createAdminClient('lek_core')
+  const adminClient = createAdminClient()
 
   const { data, error } = await adminClient
-    .from('beekeepers')
+    .from('lek_core_beekeepers')
     .select('beekeeper_id, is_active')
     .eq('auth_user_id', authUserId)
     .maybeSingle()

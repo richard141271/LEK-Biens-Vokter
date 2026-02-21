@@ -55,7 +55,6 @@ export async function signup(formData: any) {
   // 2. Create Profile (using Admin Client to bypass RLS)
   // This ensures profile is created even if email verification is pending
   const adminClient = createAdminClient()
-  const lekCoreAdmin = createAdminClient('lek_core')
   
   const { error: profileError } = await adminClient
     .from('profiles')
@@ -85,8 +84,8 @@ export async function signup(formData: any) {
     return { error: 'Bruker opprettet, men profilfeil: ' + profileError.message }
   }
 
-  const { error: beekeeperError } = await lekCoreAdmin
-    .from('beekeepers')
+  const { error: beekeeperError } = await adminClient
+    .from('lek_core_beekeepers')
     .insert({
       auth_user_id: authData.user.id,
       full_name: fullName,
