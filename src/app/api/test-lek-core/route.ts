@@ -6,10 +6,9 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
-        const admin = createAdminClient();
+        const admin = createAdminClient('lek_core');
 
         const { data: beekeeper, error: beekeeperError } = await admin
-            .schema('lek_core')
             .from('beekeepers')
             .insert({
                 full_name: 'Test Birøkter',
@@ -31,7 +30,6 @@ export async function GET() {
         }
 
         const { data: apiary, error: apiaryError } = await admin
-            .schema('lek_core')
             .from('apiaries')
             .insert({
                 beekeeper_id: beekeeper.beekeeper_id,
@@ -48,7 +46,6 @@ export async function GET() {
         }
 
         const { data: hive, error: hiveError } = await admin
-            .schema('lek_core')
             .from('hives')
             .insert({
                 apiary_id: apiary.apiary_id
