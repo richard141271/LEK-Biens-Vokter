@@ -81,9 +81,24 @@ export async function signup(formData: any) {
 
   if (profileError) {
     console.error('Profile creation failed:', profileError)
-    // If profile creation fails, we might want to clean up the user?
-    // Or just return error.
     return { error: 'Bruker opprettet, men profilfeil: ' + profileError.message }
+  }
+
+  const { error: beekeeperError } = await adminClient
+    .from('lek_core.beekeepers')
+    .insert({
+      auth_user_id: authData.user.id,
+      full_name: fullName,
+      email,
+      phone_number: phoneNumber,
+      address,
+      postal_code: postalCode,
+      city
+    })
+
+  if (beekeeperError) {
+    console.error('LEK Core beekeeper creation failed:', beekeeperError)
+    return { error: 'Bruker opprettet, men LEK Core-birøkterfeil: ' + beekeeperError.message }
   }
 
   return { success: true, user: authData.user }
