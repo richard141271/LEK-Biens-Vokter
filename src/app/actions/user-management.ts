@@ -855,3 +855,21 @@ export async function toggleEmailAccess(userId: string, hasAccess: boolean) {
   revalidatePath('/dashboard/admin/users')
   return { success: true }
 }
+
+export async function getBeekeeperByAuthUser(authUserId: string) {
+  if (!authUserId) return { error: 'Mangler authUserId' }
+
+  const adminClient = createAdminClient()
+
+  const { data, error } = await adminClient
+    .from('lek_core.beekeepers')
+    .select('beekeeper_id, is_active')
+    .eq('auth_user_id', authUserId)
+    .maybeSingle()
+
+  if (error) return { error: error.message }
+  if (!data) return { error: 'Ingen birøkter koblet til auth-bruker' }
+  if (data.is_active === false) return { error: 'Birøkter er deaktivert' }
+
+  return { beekeeper_id: data.beekeeper_id as string }
+}
