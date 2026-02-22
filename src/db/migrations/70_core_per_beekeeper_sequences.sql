@@ -35,6 +35,14 @@ from lek_core.apiaries a
 where a.apiary_id = h.apiary_id
 and h.beekeeper_id is null;
 
+update lek_core.hives h
+set beekeeper_id = b.beekeeper_id
+from public.hives lh
+join public.apiaries la on la.id = lh.apiary_id
+join lek_core.beekeepers b on b.auth_user_id = la.user_id
+where h.local_hive_id = lh.id
+and h.beekeeper_id is null;
+
 do $$
 declare cnt integer;
 begin
