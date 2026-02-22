@@ -92,9 +92,6 @@ export default function DashboardPage() {
             return;
         }
 
-        // Ensure member number exists
-        await ensureMemberNumber();
-
         // Fetch Profile Data
         const { data: profileData } = await supabase
         .from('profiles')
@@ -106,6 +103,18 @@ export default function DashboardPage() {
         const isCourseFriend = user.user_metadata?.is_course_friend || profileData?.is_course_friend;
         const isFounder = user.user_metadata?.is_founder || profileData?.is_founder;
 
+        // Fetch LEK Core Beekeeper ID (BR-ID)
+        let brId: string | null = null;
+        const { data: lekBeekeeper } = await supabase
+          .from('lek_core_beekeepers')
+          .select('beekeeper_id')
+          .eq('auth_user_id', user.id)
+          .maybeSingle();
+
+        if (lekBeekeeper?.beekeeper_id) {
+          brId = lekBeekeeper.beekeeper_id as string;
+        }
+
         const mergedProfile = {
             ...(profileData || {}),
             full_name: profileData?.full_name || user.user_metadata?.full_name || user.email,
@@ -113,7 +122,8 @@ export default function DashboardPage() {
             is_founder: isFounder,
             // Ensure email alias is also synced if possible, though usually in profile
             email_alias: profileData?.email_alias || user.user_metadata?.email_alias,
-            email_enabled: profileData?.has_email_access // Map has_email_access to email_enabled
+            email_enabled: profileData?.has_email_access, // Map has_email_access to email_enabled
+            br_id: brId
         };
 
         setProfile(mergedProfile);
@@ -479,7 +489,12 @@ export default function DashboardPage() {
           {/* KIAS Mail Card */}
                   <div>
                       <h2 className="text-sm font-bold text-gray-900 break-words">{profile?.full_name || 'Laster...'}</h2>
-                      <p className="text-[10px] text-gray-500">Medlem #{profile?.member_number || 'Ikke registrert'}</p>
+                      {profile?.br_id && (
+                        <p className="text-[10px] text-gray-700 font-semibold">BR-{String(profile.br_id).replace(/^BR-/, '')}</p>
+                      )}
+                      <p className="text-[10px] text-gray-500">
+                        Medlem #{profile?.member_number || (profile?.br_id ? String(profile.br_id).replace(/^BR-/, '') : 'Ikke registrert')}
+                      </p>
                   </div>
               </div>
               

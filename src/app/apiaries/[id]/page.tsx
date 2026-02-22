@@ -627,6 +627,11 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             <div>
               <h1 className="text-xl font-bold text-gray-900">{apiary.name}</h1>
               <p className="text-sm text-gray-500">{apiary.apiary_number}</p>
+              {apiary.br_id && (
+                <p className="text-[11px] text-gray-500">
+                  Core: {apiary.core_apiary_id} • Birøkter: {apiary.br_id}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
