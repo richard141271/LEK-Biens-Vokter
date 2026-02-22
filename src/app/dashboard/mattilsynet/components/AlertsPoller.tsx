@@ -9,7 +9,6 @@ export default function AlertsPoller() {
   const [lastAlertId, setLastAlertId] = useState<string | null>(null);
   const [newAlert, setNewAlert] = useState<any | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize Audio Context lazily
   const getAudioContext = () => {
@@ -115,20 +114,6 @@ export default function AlertsPoller() {
         }
     };
   }, []);
-
-  // Sound Loop Effect
-  useEffect(() => {
-    if (newAlert) {
-        // Start sound loop (every 3 seconds for urgency)
-        intervalRef.current = setInterval(playSound, 3000);
-    } else {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-    }
-
-    return () => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [newAlert]);
 
   if (!newAlert) return null;
 

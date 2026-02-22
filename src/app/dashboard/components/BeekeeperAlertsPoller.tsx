@@ -8,7 +8,6 @@ import Link from 'next/link';
 export default function BeekeeperAlertsPoller() {
   const [newAlert, setNewAlert] = useState<any | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const supabase = createClient();
 
   // Initialize Audio Context lazily
@@ -133,20 +132,6 @@ export default function BeekeeperAlertsPoller() {
         }
     };
   }, []);
-
-  // Sound Loop Effect
-  useEffect(() => {
-    if (newAlert) {
-        // Start sound loop (every 3 seconds for urgency)
-        intervalRef.current = setInterval(playSound, 3000);
-    } else {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-    }
-
-    return () => {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [newAlert]);
 
   if (!newAlert) return null;
 

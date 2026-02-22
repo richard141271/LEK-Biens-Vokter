@@ -409,18 +409,18 @@ export async function hardDeleteUser(userId: string) {
         return { error: 'Kunne ikke slette profil (database constraint): ' + profileError.message }
       }
 
-      // 2b. Delete from Auth
       const { error: authError } = await adminClient.auth.admin.deleteUser(userId)
       if (authError) {
-        console.error('Error deleting auth user:', authError)
-        return { error: 'Kunne ikke slette bruker fra Auth: ' + authError.message }
+        const message = authError.message || ''
+        const normalized = message.toLowerCase()
+        const isNotFound = normalized.includes('user not found')
+        if (!isNotFound) {
+          console.error('Error deleting auth user:', authError)
+          return { error: 'Kunne ikke slette bruker fra Auth: ' + message }
+        }
+        console.warn('Auth user already missing, continuing hard delete for:', userId)
       }
 
-      // Note: If Postgres uses ON DELETE CASCADE on the foreign key to auth.users, 
-      // the profile and related data will be gone. 
-      // If not, we might need to delete from 'profiles' manually. 
-      // Let's assume standard Supabase setup where profiles.id references auth.users.id with CASCADE.
-      
       revalidatePath('/dashboard/admin/users')
       return { success: true }
   } catch (error: any) {
