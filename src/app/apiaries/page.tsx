@@ -405,8 +405,8 @@ export default function ApiariesPage() {
                   <div className={`bg-white p-4 rounded-xl border shadow-sm flex items-center gap-4 transition-colors cursor-pointer ${
                     isSelected ? 'border-honey-500 ring-1 ring-honey-500' : 'border-gray-200 hover:border-honey-500'
                   }`}>
-                    <div className="w-12 h-12 bg-honey-50 rounded-full flex items-center justify-center text-honey-600 shrink-0">
-                      <Icon className="w-6 h-6" />
+                    <div className="w-12 h-12 bg-honey-50 rounded-lg flex items-center justify-center text-honey-700 font-mono font-bold text-sm shrink-0">
+                      {apiary.apiary_number}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start gap-2">
@@ -418,12 +418,12 @@ export default function ApiariesPage() {
                               {activeHiveCount}
                             </span>
                           )}
-                          <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-600">
-                            {apiary.apiary_number}
-                          </span>
                         </div>
                       </div>
-                      <p className="text-sm text-gray-500 truncate">{apiary.location || 'Ingen adresse'}</p>
+                      <div className="flex items-center gap-1 text-sm text-gray-500 min-w-0">
+                        <MapPin className="w-4 h-4 shrink-0 text-honey-600" />
+                        <span className="truncate">{apiary.location || 'Ingen adresse'}</span>
+                      </div>
                       {apiary.registration_number && (
                         <p className="text-xs text-gray-400 mt-1">Skilt: {apiary.registration_number}</p>
                       )}
