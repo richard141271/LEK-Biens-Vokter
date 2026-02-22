@@ -58,6 +58,7 @@ export async function POST(request: Request) {
       .from('lek_core_hives')
       .insert({
         apiary_id: localApiary.core_apiary_id,
+        local_hive_id: hiveLocalId,
       })
       .select('hive_id, apiary_id')
       .single();

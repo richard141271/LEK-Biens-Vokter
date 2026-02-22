@@ -51,6 +51,7 @@ export async function POST(request: Request) {
       .insert({
         beekeeper_id: beekeeper.beekeeper_id,
         name: apiaryName,
+        local_apiary_id: localApiaryId,
       })
       .select('apiary_id, beekeeper_id, name')
       .single();
