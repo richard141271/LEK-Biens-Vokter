@@ -227,7 +227,7 @@ export default function SettingsPage() {
           doc.text(
             "100 % ekte honning  •  Norsk naturprodukt",
             cx,
-            y + 35,
+            y + 33,
             { align: "center" }
           );
         } else {
