@@ -83,7 +83,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
     // Fetch Hive with Apiary info
     const { data: hiveData, error: hiveError } = await supabase
       .from('hives')
-      .select('*, apiaries(name, location, type)')
+      .select('*, apiaries(name, location, type, apiary_number)')
       .eq('id', params.id)
       .single();
 
@@ -91,7 +91,48 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
       console.error('Error fetching hive:', hiveError);
       return;
     }
-    setHive(hiveData);
+
+    let brId: string | null = null;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: lekBeekeeper } = await supabase
+        .from('lek_core_beekeepers')
+        .select('beekeeper_id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      if (lekBeekeeper?.beekeeper_id) {
+        brId = String(lekBeekeeper.beekeeper_id);
+      }
+    }
+
+    let coreApiaryId: string | null = null;
+    if (hiveData?.apiaries?.apiary_number && brId) {
+      const apiaryNumber = hiveData.apiaries.apiary_number as string;
+      const numberMatch = apiaryNumber.match(/^([A-Z]+)-(\d+)/);
+      const prefix = numberMatch ? numberMatch[1] : 'BG';
+      const indexPart = numberMatch ? numberMatch[2] : '';
+      if (indexPart) {
+        coreApiaryId = `${prefix}-${brId}-${indexPart.padStart(3, '0')}`;
+      }
+    }
+
+    let coreHiveId: string | null = null;
+    if (coreApiaryId && hiveData?.hive_number) {
+      const hiveMatch = String(hiveData.hive_number).match(/(\d+)/);
+      const hiveIndex = hiveMatch ? hiveMatch[1].padStart(3, '0') : null;
+      if (hiveIndex) {
+        coreHiveId = `KUBE-${coreApiaryId}-${hiveIndex}`;
+      }
+    }
+
+    setHive({
+      ...hiveData,
+      core_apiary_id: coreApiaryId,
+      core_hive_id: coreHiveId,
+      br_id: brId,
+    });
 
     // Fetch Logs
     const { data: logsData } = await supabase
@@ -431,8 +472,19 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
               <ArrowLeft className="w-6 h-6 text-gray-600" />
             </button>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">{hive.name}</h1>
-              <p className="text-sm text-gray-500">{hive.hive_number}</p>
+              <h1 className="text-2xl font-black text-gray-900 font-mono tracking-tight">
+                {hive.hive_number}
+              </h1>
+              {hive.name && hive.name !== hive.hive_number && (
+                <p className="text-sm text-gray-600">
+                  {hive.name}
+                </p>
+              )}
+              {hive.core_hive_id && (
+                <p className="text-[11px] text-gray-500 font-mono mt-1">
+                  Core: {hive.core_hive_id}
+                </p>
+              )}
             </div>
           </div>
           <button onClick={handlePrint} className="p-2 hover:bg-gray-100 rounded-full text-gray-600">

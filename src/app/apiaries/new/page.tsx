@@ -3,8 +3,18 @@
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { MapPin, Warehouse, Store, Truck, ArrowLeft, ClipboardCheck } from 'lucide-react';
+import { MapPin, Warehouse, Store, Truck, ArrowLeft, ClipboardCheck, Map as MapIcon, X } from 'lucide-react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+
+const Map = dynamic(() => import('@/components/Map'), { 
+  ssr: false,
+  loading: () => (
+    <div className="h-full w-full bg-gray-100 animate-pulse rounded-lg flex items-center justify-center text-gray-400">
+      Laster kart...
+    </div>
+  ),
+});
 
 export default function NewApiaryPage() {
   const [name, setName] = useState('');
@@ -16,6 +26,7 @@ export default function NewApiaryPage() {
   const [pendingRentals, setPendingRentals] = useState<any[]>([]);
   const [nextApiaryNumber, setNextApiaryNumber] = useState(1);
   const [memberNumber, setMemberNumber] = useState<string>('');
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -426,27 +437,39 @@ export default function NewApiaryPage() {
 
           {/* Lokasjon */}
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-            <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-medium text-gray-700">Adresse / Beskrivelse</label>
-                <button 
-                    type="button"
-                    onClick={handleGetLocation}
-                    className="text-xs bg-honey-100 text-honey-700 px-2 py-1 rounded hover:bg-honey-200 flex items-center gap-1"
-                >
-                    <MapPin className="w-3 h-3" />
-                    Hent min posisjon
-                </button>
-            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Adresse / Beskrivelse</label>
             <textarea
               value={locationStr}
               onChange={(e) => setLocationStr(e.target.value)}
               placeholder="Hvor er dette?"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none h-24 resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 outline-none h-24 resize-none mb-3"
             />
+
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              <button
+                  type="button"
+                  onClick={handleGetLocation}
+                  disabled={loading}
+                  className="flex items-center justify-center gap-2 py-3 bg-blue-50 text-blue-700 font-bold rounded-lg border border-blue-100 hover:bg-blue-100 transition-colors"
+              >
+                  <MapPin className="w-5 h-5" />
+                  {coordinates ? 'Oppdater (GPS)' : 'Hent (GPS)'}
+              </button>
+              
+              <button
+                  type="button"
+                  onClick={() => setShowMapPicker(true)}
+                  disabled={loading}
+                  className="flex items-center justify-center gap-2 py-3 bg-green-50 text-green-700 font-bold rounded-lg border border-green-100 hover:bg-green-100 transition-colors"
+              >
+                  <MapPin className="w-5 h-5" />
+                  Velg i kart
+              </button>
+            </div>
+
             {coordinates && (
-                <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
-                    <MapPin className="w-3 h-3" />
-                    Koordinater lagret: {coordinates}
+                <p className="text-xs text-center text-gray-500 mt-2 font-mono">
+                    Lagret: {coordinates}
                 </p>
             )}
           </div>
@@ -460,6 +483,43 @@ export default function NewApiaryPage() {
           </button>
         </form>
       </main>
+
+      {showMapPicker && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg h-[80vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-white z-10">
+              <h3 className="font-bold text-lg text-gray-900">Velg posisjon</h3>
+              <button 
+                onClick={() => setShowMapPicker(false)}
+                className="p-2 hover:bg-gray-100 rounded-full text-gray-500"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="flex-1 relative bg-gray-100">
+               <Map 
+                 center={coordinates ? [parseFloat(coordinates.split(',')[0]), parseFloat(coordinates.split(',')[1])] : [59.9139, 10.7522]}
+                 zoom={coordinates ? 15 : 10}
+                 onMapClick={(lat, lng) => {
+                   const coordString = `${lat},${lng}`;
+                   setCoordinates(coordString);
+                   if (!locationStr || locationStr.startsWith('Koordinater:')) {
+                     setLocationStr(`Koordinater: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+                   }
+                   setShowMapPicker(false);
+                 }}
+                 markers={coordinates ? [{
+                   id: 'selected',
+                   position: [parseFloat(coordinates.split(',')[0]), parseFloat(coordinates.split(',')[1])],
+                   title: 'Valgt posisjon',
+                   type: 'user',
+                 }] : []}
+               />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

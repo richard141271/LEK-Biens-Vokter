@@ -192,27 +192,33 @@ export default function SettingsPage() {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(7);
         doc.setTextColor(184, 134, 11);
-        doc.text("LEK-HONNING", cx, y + 6, { align: "center" });
+        doc.text("LEK-HONNING\u2122", cx, y + 6, { align: "center" });
 
         doc.setTextColor(0);
 
         if (type === "standard") {
           doc.setFont("times", "italic");
           doc.setFontSize(11);
-          doc.text("Norsk Honning", cx, y + 16, { align: "center" });
+          doc.text("Norsk Honning", cx, y + 15, { align: "center" });
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(7);
+          doc.text("Birøkter:", cx, y + 21, { align: "center" });
+
+          doc.setFont("times", "bold");
+          doc.setFontSize(8.5);
+          doc.text(beekeeperName, cx, y + 25, { align: "center" });
 
           doc.setFont("helvetica", "normal");
           doc.setFontSize(7);
-          doc.text(`Birøkter: ${beekeeperName}`, cx, y + 22, { align: "center" });
-
-          doc.text(`Sommer ${year}`, cx, y + 26, { align: "center" });
+          doc.text(`Sommer ${year}`, cx, y + 29, { align: "center" });
 
           if (isLekMember && memberNumber) {
             doc.setFontSize(6);
             doc.text(
               `LEK-sertifisert birøkter  •  Medlem #${memberNumber}`,
               cx,
-              y + 30,
+              y + 32,
               { align: "center" }
             );
           }
@@ -221,7 +227,7 @@ export default function SettingsPage() {
           doc.text(
             "100 % ekte honning  •  Norsk naturprodukt",
             cx,
-            y + 33,
+            y + 35,
             { align: "center" }
           );
         } else {

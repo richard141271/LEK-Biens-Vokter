@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Archive, Truck, Trash2, X, Check, ClipboardList, Edit, QrCode, Calendar, List, CreditCard } from 'lucide-react';
+import { ArrowLeft, Archive, Truck, Trash2, X, Check, ClipboardList, Edit, QrCode, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store, MapPin } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -31,7 +31,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   // Scan Modal State
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [scanInput, setScanInput] = useState('');
-  const [scannedHives, setScannedHives] = useState<{ number: string, status: 'created' | 'moved' | 'error', msg: string }[]>([]);
+  const [scannedHives, setScannedHives] = useState<{ number: string, status: 'selected' | 'error', msg: string }[]>([]);
   const [isProcessingScan, setIsProcessingScan] = useState(false);
 
   // RSVP State
@@ -93,15 +93,28 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     const { data: { user } } = await supabase.auth.getUser();
     setCurrentUser(user);
 
+    let brId: string | null = null;
+
     if (user) {
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('member_number')
-            .eq('id', user.id)
-            .single();
-        if (profile?.member_number) {
-            setMemberNumber(profile.member_number);
-        }
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('member_number')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.member_number) {
+        setMemberNumber(profile.member_number);
+      }
+
+      const { data: lekBeekeeper } = await supabase
+        .from('lek_core_beekeepers')
+        .select('beekeeper_id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      if (lekBeekeeper?.beekeeper_id) {
+        brId = String(lekBeekeeper.beekeeper_id);
+      }
     }
 
     // 1. Fetch Apiary
@@ -116,7 +129,25 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       router.push('/dashboard');
       return;
     }
-    setApiary(apiaryData);
+
+    let coreApiaryId: string | null = null;
+
+    if (brId && apiaryData.apiary_number) {
+      const apiaryNumber = apiaryData.apiary_number as string;
+      const numberMatch = apiaryNumber.match(/^([A-Z]+)-(\d+)/);
+      const prefix = numberMatch ? numberMatch[1] : 'BG';
+      const indexPart = numberMatch ? numberMatch[2] : '';
+
+      if (indexPart) {
+        coreApiaryId = `${prefix}-${brId}-${indexPart.padStart(3, '0')}`;
+      }
+    }
+
+    setApiary({
+      ...apiaryData,
+      br_id: brId,
+      core_apiary_id: coreApiaryId,
+    });
 
     // 1.1 Fetch Rental Info (if rental type)
     if (apiaryData.type === 'rental') {
@@ -230,87 +261,131 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     if (!scanInput.trim() || isProcessingScan) return;
 
     setIsProcessingScan(true);
-    const input = scanInput.trim(); 
-    
-    // 1. Construct the standardized ID (New Format)
+    const input = scanInput.trim();
+
     let hiveNumber = input;
     const suffix = memberNumber ? `.${memberNumber}` : '';
 
     if (/^\d+$/.test(input)) {
-        // Input: "1" -> "KUBE-001.12345"
-        hiveNumber = `KUBE-${input.padStart(3, '0')}${suffix}`;
+      hiveNumber = `KUBE-${input.padStart(3, '0')}${suffix}`;
     } else if (/^KUBE-\d+$/i.test(input)) {
-        // Input: "KUBE-1" -> "KUBE-001.12345"
-        const numPart = input.split('-')[1];
-        hiveNumber = `KUBE-${numPart.padStart(3, '0')}${suffix}`;
+      const numPart = input.split('-')[1];
+      hiveNumber = `KUBE-${numPart.padStart(3, '0')}${suffix}`;
     }
-    // Else: Assume it's already a full ID or UUID
 
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        // Check if hive exists (Search for Modern ID, Original Input, or UUID)
-        const { data: existingHive } = await supabase
-            .from('hives')
-            .select('*')
-            .or(`hive_number.eq.${hiveNumber},hive_number.eq.${input},id.eq.${input}`)
+      const { data: existingHive, error } = await supabase
+        .from('hives')
+        .select('id, hive_number, apiary_id')
+        .or(`hive_number.eq.${hiveNumber},hive_number.eq.${input},id.eq.${input}`)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!existingHive) {
+        setScannedHives(prev => [
+          { number: input, status: 'error', msg: 'Kube ikke funnet' },
+          ...prev,
+        ]);
+        return;
+      }
+
+      if (existingHive.apiary_id && existingHive.apiary_id !== params.id) {
+        try {
+          const { data: sourceApiary } = await supabase
+            .from('apiaries')
+            .select('id, name, apiary_number')
+            .eq('id', existingHive.apiary_id)
             .maybeSingle();
 
-        if (existingHive) {
-            // Move to this apiary if not already here
-            if (existingHive.apiary_id !== params.id) {
-                await supabase
-                    .from('hives')
-                    .update({ apiary_id: params.id })
-                    .eq('id', existingHive.id);
-                
-                await supabase.from('hive_logs').insert({
-                    hive_id: existingHive.id,
-                    user_id: user?.id,
-                    action: 'FLYTTET',
-                    details: `Flyttet til ${apiary.name} (via skanning)`
-                });
+          const fromLabel = sourceApiary?.apiary_number || sourceApiary?.name || 'annen bigård';
+          const toLabel = apiary?.apiary_number || apiary?.name || 'denne bigården';
 
-                setScannedHives(prev => [{ number: existingHive.hive_number, status: 'moved', msg: 'Flyttet hit' }, ...prev]);
-            } else {
-                setScannedHives(prev => [{ number: existingHive.hive_number, status: 'moved', msg: 'Allerede her' }, ...prev]);
-            }
-        } else {
-            // Create new hive
-            const { data: newHive, error: createError } = await supabase
-                .from('hives')
-                .insert({
-                    hive_number: hiveNumber,
-                    apiary_id: params.id,
-                    user_id: user?.id,
-                    name: hiveNumber,
-                    status: 'AKTIV',
-                    type: 'PRODUKSJON'
-                })
-                .select()
-                .single();
+          const confirmMessage = `Kuben står registrert i ${fromLabel}. Er det riktig at du har flyttet denne bikuben til ${toLabel}?`;
+          const confirmed = typeof window !== 'undefined' ? window.confirm(confirmMessage) : false;
 
-            if (createError) throw createError;
+          if (!confirmed) {
+            setScannedHives(prev => [
+              { number: existingHive.hive_number || input, status: 'error', msg: 'Flytting avbrutt' },
+              ...prev,
+            ]);
+            return;
+          }
 
-            await supabase.from('hive_logs').insert({
-                hive_id: newHive.id,
-                user_id: user?.id,
-                action: 'OPPRETTET',
-                details: `Opprettet via skanning i ${apiary.name}`
+          const { data: authData } = await supabase.auth.getUser();
+
+          const { error: updateError } = await supabase
+            .from('hives')
+            .update({ apiary_id: params.id })
+            .eq('id', existingHive.id);
+
+          if (updateError) throw updateError;
+
+          const { error: logError } = await supabase
+            .from('hive_logs')
+            .insert({
+              hive_id: existingHive.id,
+              user_id: authData?.user?.id,
+              action: 'FLYTTET',
+              details: `Flyttet fra ${fromLabel} til ${toLabel} (via skann)`,
             });
 
-            setScannedHives(prev => [{ number: hiveNumber, status: 'created', msg: 'Opprettet ny' }, ...prev]);
-        }
-        
-        setScanInput('');
-        fetchData();
+          if (logError) throw logError;
 
-    } catch (error: any) {
-        setScannedHives(prev => [{ number: hiveNumber, status: 'error', msg: 'Feil: ' + error.message }, ...prev]);
+          await fetchData();
+
+          setScannedHives(prev => [
+            { number: existingHive.hive_number || input, status: 'selected', msg: 'Kube flyttet til denne bigården' },
+            ...prev,
+          ]);
+
+          setSelectedHiveIds(prev => {
+            const next = new Set(prev);
+            next.add(existingHive.id);
+            return next;
+          });
+
+          setScanInput('');
+          return;
+        } catch (moveError: any) {
+          setScannedHives(prev => [
+            { number: existingHive.hive_number || input, status: 'error', msg: 'Feil ved flytting: ' + moveError.message },
+            ...prev,
+          ]);
+          return;
+        }
+      }
+
+      setSelectedHiveIds(prev => {
+        const next = new Set(prev);
+        const alreadySelected = next.has(existingHive.id);
+
+        if (!alreadySelected) {
+          next.add(existingHive.id);
+          setScannedHives(prevScans => [
+            { number: existingHive.hive_number || input, status: 'selected', msg: 'Lagt til i valget' },
+            ...prevScans,
+          ]);
+        } else {
+          setScannedHives(prevScans => [
+            { number: existingHive.hive_number || input, status: 'selected', msg: 'Allerede valgt' },
+            ...prevScans,
+          ]);
+        }
+
+        return next;
+      });
+
+      setScanInput('');
+    } catch (err: any) {
+      setScannedHives(prev => [
+        { number: input, status: 'error', msg: 'Feil: ' + err.message },
+        ...prev,
+      ]);
     } finally {
-        setIsProcessingScan(false);
-        const inputEl = document.getElementById('scan-input');
-        if (inputEl) inputEl.focus();
+      setIsProcessingScan(false);
+      const inputEl = document.getElementById('scan-input');
+      if (inputEl) inputEl.focus();
     }
   };
 
@@ -621,14 +696,20 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       <div className={`bg-white border-b border-gray-200 px-4 py-4 ${printLayout === 'list' ? '' : 'print:hidden'}`}>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
+            <Link href="/apiaries" className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
               <ArrowLeft className="w-6 h-6 text-gray-600" />
             </Link>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">{apiary.name}</h1>
-              <p className="text-sm text-gray-500">{apiary.apiary_number}</p>
-              {apiary.br_id && (
-                <p className="text-[11px] text-gray-500">
+              <h1 className="text-2xl font-black text-gray-900 font-mono tracking-tight">
+                {apiary.apiary_number}
+              </h1>
+              {apiary.name && (
+                <p className="text-sm text-gray-600">
+                  {apiary.name}
+                </p>
+              )}
+              {apiary.core_apiary_id && apiary.br_id && (
+                <p className="text-[11px] text-gray-500 font-mono mt-1">
                   Core: {apiary.core_apiary_id} • Birøkter: {apiary.br_id}
                 </p>
               )}
@@ -670,7 +751,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-800 whitespace-nowrap"
              >
                 <QrCode className="w-4 h-4" />
-                Skann / Ny
+                Skann
              </button>
 
              {isSelectionMode && selectedHiveIds.size > 0 && (
@@ -683,39 +764,33 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                         setMassActionType('inspeksjon');
                         setIsMassActionModalOpen(true);
                     }}
-                    className="px-3 py-1.5 rounded-lg text-sm font-medium bg-honey-100 text-honey-800 hover:bg-honey-200 whitespace-nowrap flex items-center gap-2"
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium bg-honey-500 text-white hover:bg-honey-600 whitespace-nowrap flex items-center gap-2"
                   >
                     <ClipboardList className="w-4 h-4" />
-                    <span className="hidden md:inline">Registrer Hendelse</span>
-                    <span className="md:hidden">Hendelse</span>
+                    <span>Registrer Hendelse</span>
                   </button>
-
+                
                   <div className="h-6 w-px bg-gray-300 mx-1 hidden md:block"></div>
-
-                  {/* Print Buttons */}
-                  <div className="flex gap-1">
-                      <button 
-                        onClick={() => handlePrint('list')}
-                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
-                        title="Skriv ut liste"
-                      >
-                        <List className="w-5 h-5" />
-                      </button>
-                      <button 
-                        onClick={() => handlePrint('cards')}
-                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
-                        title="Skriv ut kort"
-                      >
-                        <CreditCard className="w-5 h-5" />
-                      </button>
-                      <button 
-                        onClick={() => handlePrint('qr')}
-                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
-                        title="Skriv ut QR-koder"
-                      >
-                        <QrCode className="w-5 h-5" />
-                      </button>
-                  </div>
+                
+                  {/* Print Buttons - match Alle Bikuber */}
+                  <button 
+                    onClick={() => handlePrint('list')}
+                    className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap"
+                  >
+                    Liste
+                  </button>
+                  <button 
+                    onClick={() => handlePrint('cards')}
+                    className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap"
+                  >
+                    Kort
+                  </button>
+                  <button 
+                    onClick={() => handlePrint('qr')}
+                    className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap"
+                  >
+                    QR-Koder
+                  </button>
                 </>
              )}
 
@@ -740,7 +815,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                    }`}
                  >
-                   {isSelectionMode ? 'Avbryt' : 'Velg'}
+                   {isSelectionMode ? 'Avbryt' : 'Valg'}
                  </button>
                </>
              )}
@@ -925,7 +1000,14 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
           </div>
         ) : (
           <div className="space-y-3">
-            {hives.map((hive) => (
+            {hives.map((hive) => {
+              const hiveMatch = hive.hive_number ? String(hive.hive_number).match(/(\d+)/) : null;
+              const hiveIndex = hiveMatch ? hiveMatch[1].padStart(3, '0') : null;
+              const coreHiveId = apiary?.core_apiary_id && hiveIndex
+                ? `KUBE-${apiary.core_apiary_id}-${hiveIndex}`
+                : null;
+
+              return (
               <div 
                 key={hive.id} 
                 className={`bg-white p-4 rounded-xl border shadow-sm transition-all hover:border-honey-300 ${
@@ -979,6 +1061,12 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                             </div>
                         </div>
 
+                        {coreHiveId && (
+                          <p className="text-[11px] text-gray-500 font-mono mt-0.5">
+                            Core: {coreHiveId}
+                          </p>
+                        )}
+
                         {/* Secondary Info */}
                         <div className="flex items-center gap-4 text-xs text-gray-500">
                             <div className="flex items-center gap-1">
@@ -1005,7 +1093,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                     )}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
       </main>
@@ -1222,8 +1310,8 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             
             <div className="p-6 flex-1 overflow-y-auto">
               <p className="text-sm text-gray-600 mb-6">
-                Skann QR-koden på kuben eller skriv inn nummeret manuelt og trykk enter. 
-                Hvis kuben ikke finnes, blir den opprettet her. Hvis den finnes, flyttes den hit.
+                Skann QR-koden på en kube i denne bigården, eller skriv inn nummeret manuelt og trykk Enter.
+                Kuber som ikke finnes, eller som tilhører en annen bigård, gir bare feilmelding.
               </p>
 
               <form onSubmit={handleScanSubmit} className="mb-8">
