@@ -987,11 +987,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         ) : (
           <div className="space-y-3">
             {hives.map((hive) => {
-              const hiveMatch = hive.hive_number ? String(hive.hive_number).match(/(\d+)/) : null;
-              const hiveIndex = hiveMatch ? hiveMatch[1].padStart(3, '0') : null;
-              const coreHiveId = apiary?.core_apiary_id && hiveIndex
-                ? `KUBE-${apiary.core_apiary_id}-${hiveIndex}`
-                : null;
+              const coreHiveId = hive.core_hive_id || null;
 
               return (
               <div 
