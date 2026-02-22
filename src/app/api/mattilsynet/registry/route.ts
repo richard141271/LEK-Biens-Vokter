@@ -57,26 +57,7 @@ export async function GET() {
       );
     }
 
-    // 2. Hent alle bigårder med eier-info
-    const { data: apiaries, error: apiaryError } = await adminClient
-      .from('apiaries')
-      .select('*, profiles(full_name)');
-
-    if (apiaryError) {
-      console.error('Feil ved henting av bigårder:', apiaryError);
-      // Ikke stopp hele requesten, men logg feilen
-    }
-
-    // 3. Hent alle bikuber med bigård og eier-info
-    const { data: hives, error: hiveError } = await adminClient
-      .from('hives')
-      .select('*, apiaries(name, location), profiles(full_name)');
-
-    if (hiveError) {
-      console.error('Feil ved henting av bikuber:', hiveError);
-    }
-
-    // 4. Hent e-postadresser fra Auth API (da de ikke ligger i profiles)
+    // 2. Hent e-postadresser fra Auth API (da de ikke ligger i profiles)
     let enrichedBeekeepers = beekeepers || [];
     try {
       const { data: { users: authUsers }, error: authError } = await adminClient.auth.admin.listUsers({
@@ -97,11 +78,85 @@ export async function GET() {
       console.error('Feil ved berikelse av e-post:', err);
     }
 
+    // 3. Hent alle LEK Core-birøktere (autoritativt register)
+    const { data: coreBeekeepers, error: coreBeekeeperError } = await adminClient
+      .from('lek_core_beekeepers')
+      .select('beekeeper_id, full_name');
+
+    if (coreBeekeeperError) {
+      console.error('Feil ved henting av LEK Core-birøktere:', coreBeekeeperError);
+    }
+
+    const coreBeekeeperMap = new Map(
+      (coreBeekeepers || []).map((b: any) => [b.beekeeper_id, b])
+    );
+
+    // 4. Hent alle LEK Core-bigårder
+    const { data: coreApiaries, error: coreApiaryError } = await adminClient
+      .from('lek_core_apiaries')
+      .select('apiary_id, beekeeper_id, name');
+
+    if (coreApiaryError) {
+      console.error('Feil ved henting av LEK Core-bigårder:', coreApiaryError);
+    }
+
+    const apiaries =
+      coreApiaries?.map((a: any) => {
+        const owner = coreBeekeeperMap.get(a.beekeeper_id);
+        return {
+          id: a.apiary_id,
+          apiary_number: a.apiary_id,
+          name: a.name,
+          location: '',
+          type: 'bigård',
+          core_apiary_id: a.apiary_id,
+          profiles: owner
+            ? {
+                full_name: owner.full_name,
+              }
+            : null,
+        };
+      }) || [];
+
+    const apiaryMap = new Map(apiaries.map((a: any) => [a.core_apiary_id, a]));
+
+    // 5. Hent alle LEK Core-bikuber og koble til bigård + eier
+    const { data: coreHives, error: coreHiveError } = await adminClient
+      .from('lek_core_hives')
+      .select('hive_id, apiary_id');
+
+    if (coreHiveError) {
+      console.error('Feil ved henting av LEK Core-bikuber:', coreHiveError);
+    }
+
+    const hives =
+      coreHives?.map((h: any) => {
+        const apiary = apiaryMap.get(h.apiary_id);
+        const ownerName = apiary?.profiles?.full_name;
+        return {
+          id: h.hive_id,
+          hive_number: h.hive_id,
+          apiary_id: h.apiary_id,
+          status: 'aktiv',
+          apiaries: apiary
+            ? {
+                name: apiary.name,
+                location: apiary.location,
+              }
+            : null,
+          profiles: ownerName
+            ? {
+                full_name: ownerName,
+              }
+            : null,
+        };
+      }) || [];
+
     return NextResponse.json(
       {
         beekeepers: enrichedBeekeepers,
-        apiaries: apiaries || [],
-        hives: hives || [],
+        apiaries,
+        hives,
       },
       { status: 200 }
     );
