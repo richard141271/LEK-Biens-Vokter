@@ -81,7 +81,7 @@ export async function GET() {
     // 3. Hent alle LEK Core-birøktere (autoritativt register)
     const { data: coreBeekeepers, error: coreBeekeeperError } = await adminClient
       .from('lek_core_beekeepers')
-      .select('beekeeper_id, full_name');
+      .select('beekeeper_id, full_name, auth_user_id');
 
     if (coreBeekeeperError) {
       console.error('Feil ved henting av LEK Core-birøktere:', coreBeekeeperError);
@@ -90,8 +90,50 @@ export async function GET() {
     const coreBeekeeperMap = new Map(
       (coreBeekeepers || []).map((b: any) => [b.beekeeper_id, b])
     );
+    const coreBeekeeperByAuthMap = new Map(
+      (coreBeekeepers || []).map((b: any) => [b.auth_user_id, b])
+    );
 
-    // 4. Hent alle LEK Core-bigårder
+    // 4a. Backfill: Opprett manglende Core-bigårder for lokale bigårder uten core_id
+    const { data: localApiariesNoCore, error: localNoCoreError } = await adminClient
+      .from('apiaries')
+      .select('id, user_id, name, core_apiary_id')
+      .is('core_apiary_id', null);
+
+    if (localNoCoreError) {
+      console.error('Feil ved henting av lokale bigårder uten core_id:', localNoCoreError);
+    } else if (localApiariesNoCore && localApiariesNoCore.length > 0) {
+      for (const a of localApiariesNoCore) {
+        try {
+          const beek = coreBeekeeperByAuthMap.get(a.user_id);
+          if (!beek || !beek.beekeeper_id) continue;
+          const { data: createdCore, error: createErr } = await adminClient
+            .from('lek_core_apiaries')
+            .insert({
+              beekeeper_id: beek.beekeeper_id,
+              name: a.name,
+              local_apiary_id: a.id,
+            })
+            .select('apiary_id')
+            .single();
+          if (createErr || !createdCore) {
+            console.error('Backfill: Feil ved oppretting av LEK Core-bigård:', createErr);
+            continue;
+          }
+          const { error: linkErr } = await adminClient
+            .from('apiaries')
+            .update({ core_apiary_id: createdCore.apiary_id })
+            .eq('id', a.id);
+          if (linkErr) {
+            console.error('Backfill: Feil ved linking av core_apiary_id til lokal bigård:', linkErr);
+          }
+        } catch (e) {
+          console.error('Backfill: Uventet feil for lokal bigård:', e);
+        }
+      }
+    }
+
+    // 4b. Hent alle LEK Core-bigårder
     const { data: coreApiaries, error: coreApiaryError } = await adminClient
       .from('lek_core_apiaries')
       .select('apiary_id, beekeeper_id, name');
