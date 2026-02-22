@@ -499,6 +499,22 @@ export default function DashboardPage() {
               </div>
           </div>
 
+          {/* System Upgrade Info */}
+          <div className="bg-honey-50 border border-honey-200 rounded-xl p-3 space-y-1">
+              <div className="text-xs font-semibold text-honey-900">
+                  🔧 Vi oppgraderer kjernen i systemet
+              </div>
+              <p className="text-[11px] text-honey-900">
+                  Vi jobber nå med en større opprydding og forbedring av kjernen i appen. Målet er å gjøre systemet mer stabilt, mer logisk og mer pålitelig fremover.
+              </p>
+              <p className="text-[11px] text-honey-900">
+                  I en kort periode kan enkelte funksjoner oppføre seg litt annerledes enn vanlig, eller være midlertidig utilgjengelige. Dette er en del av arbeidet med å gjøre løsningen bedre og mer robust.
+              </p>
+              <p className="text-[11px] text-honey-900">
+                  Takk for tålmodigheten – vi bygger for langsiktig kvalitet og trygg drift 🌱
+              </p>
+          </div>
+
           {/* Mail & Founder/Kursvenn Grid */}
           {(profile?.email_enabled || profile?.is_founder || profile?.is_course_friend) && (
             <div className="grid grid-cols-2 gap-2">

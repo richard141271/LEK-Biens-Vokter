@@ -54,8 +54,8 @@ export default function Home() {
             <span className="text-orange-600">- for Alle</span>
           </h1>
           <p className="text-xl text-gray-700 mb-12 max-w-2xl mx-auto leading-relaxed">
-            Enten du vil leie din egen bikube, drive profesjonelt birøkt, 
-            eller jobber med mattrygghet - vi har løsningen for deg.
+            Enten du driver birøkt, utvikler bigårder eller jobber med mattrygghet 
+            – vi gir deg verktøyene du trenger.
           </p>
         </div>
       </section>
