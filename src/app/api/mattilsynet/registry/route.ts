@@ -136,22 +136,47 @@ export async function GET() {
     // 4b. Hent alle LEK Core-bigårder
     const { data: coreApiaries, error: coreApiaryError } = await adminClient
       .from('lek_core_apiaries')
-      .select('apiary_id, beekeeper_id, name');
+      .select('apiary_id, beekeeper_id, name, created_at');
 
     if (coreApiaryError) {
       console.error('Feil ved henting av LEK Core-bigårder:', coreApiaryError);
     }
 
+    // Bygg sekvensielle nummer per birøkter (001, 002, 003 ...)
+    const apiaryIndexMap = new Map<string, number>();
+    if (coreApiaries && coreApiaries.length > 0) {
+      const byBeekeeper = new Map<string, any[]>();
+      for (const a of coreApiaries) {
+        const list = byBeekeeper.get(a.beekeeper_id) || [];
+        list.push(a);
+        byBeekeeper.set(a.beekeeper_id, list);
+      }
+      for (const [, list] of byBeekeeper) {
+        list
+          .sort((a, b) => {
+            const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return aTime - bTime;
+          })
+          .forEach((a, idx) => {
+            apiaryIndexMap.set(a.apiary_id, idx + 1);
+          });
+      }
+    }
+
     const apiaries =
       coreApiaries?.map((a: any) => {
         const owner = coreBeekeeperMap.get(a.beekeeper_id);
+        const index = apiaryIndexMap.get(a.apiary_id) || 0;
+        const indexStr = index ? index.toString().padStart(3, '0') : '';
         return {
           id: a.apiary_id,
-          apiary_number: a.apiary_id,
+          apiary_number: indexStr ? `BG-${indexStr}` : a.apiary_id,
           name: a.name,
           location: '',
           type: 'bigård',
           core_apiary_id: a.apiary_id,
+          beekeeper_id: a.beekeeper_id,
           profiles: owner
             ? {
                 full_name: owner.full_name,
@@ -165,19 +190,46 @@ export async function GET() {
     // 5. Hent alle LEK Core-bikuber og koble til bigård + eier
     const { data: coreHives, error: coreHiveError } = await adminClient
       .from('lek_core_hives')
-      .select('hive_id, apiary_id');
+      .select('hive_id, apiary_id, created_at');
 
     if (coreHiveError) {
       console.error('Feil ved henting av LEK Core-bikuber:', coreHiveError);
+    }
+
+    // Bygg sekvensielle kube-nummer per birøkter (001, 002, 003 ...)
+    const hiveIndexMap = new Map<string, number>();
+    if (coreHives && coreHives.length > 0) {
+      const byBeekeeper = new Map<string, any[]>();
+      for (const h of coreHives) {
+        const apiary = apiaryMap.get(h.apiary_id);
+        const beekeeperId = apiary?.beekeeper_id;
+        if (!beekeeperId) continue;
+        const list = byBeekeeper.get(beekeeperId) || [];
+        list.push(h);
+        byBeekeeper.set(beekeeperId, list);
+      }
+      for (const [, list] of byBeekeeper) {
+        list
+          .sort((a, b) => {
+            const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return aTime - bTime;
+          })
+          .forEach((h, idx) => {
+            hiveIndexMap.set(h.hive_id, idx + 1);
+          });
+      }
     }
 
     const hives =
       coreHives?.map((h: any) => {
         const apiary = apiaryMap.get(h.apiary_id);
         const ownerName = apiary?.profiles?.full_name;
+        const index = hiveIndexMap.get(h.hive_id) || 0;
+        const indexStr = index ? index.toString().padStart(3, '0') : '';
         return {
           id: h.hive_id,
-          hive_number: h.hive_id,
+          hive_number: indexStr ? `KUBE-${indexStr}` : h.hive_id,
           apiary_id: h.apiary_id,
           status: 'aktiv',
           apiaries: apiary
