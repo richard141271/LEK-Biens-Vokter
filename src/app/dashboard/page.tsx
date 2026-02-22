@@ -320,7 +320,7 @@ export default function DashboardPage() {
           await fetch('/api/lek-core/create-apiary', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ apiaryName: wizardApiaryName }),
+            body: JSON.stringify({ apiaryName: wizardApiaryName, apiaryId: data.id }),
           });
         } catch (e) {
           console.error('LEK Core apiary creation failed', e);

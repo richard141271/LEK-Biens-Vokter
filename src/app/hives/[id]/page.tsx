@@ -92,46 +92,8 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
       return;
     }
 
-    let brId: string | null = null;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: lekBeekeeper } = await supabase
-        .from('lek_core_beekeepers')
-        .select('beekeeper_id')
-        .eq('auth_user_id', user.id)
-        .maybeSingle();
-
-      if (lekBeekeeper?.beekeeper_id) {
-        brId = String(lekBeekeeper.beekeeper_id);
-      }
-    }
-
-    let coreApiaryId: string | null = null;
-    if (hiveData?.apiaries?.apiary_number && brId) {
-      const apiaryNumber = hiveData.apiaries.apiary_number as string;
-      const numberMatch = apiaryNumber.match(/^([A-Z]+)-(\d+)/);
-      const prefix = numberMatch ? numberMatch[1] : 'BG';
-      const indexPart = numberMatch ? numberMatch[2] : '';
-      if (indexPart) {
-        coreApiaryId = `${prefix}-${brId}-${indexPart.padStart(3, '0')}`;
-      }
-    }
-
-    let coreHiveId: string | null = null;
-    if (coreApiaryId && hiveData?.hive_number) {
-      const hiveMatch = String(hiveData.hive_number).match(/(\d+)/);
-      const hiveIndex = hiveMatch ? hiveMatch[1].padStart(3, '0') : null;
-      if (hiveIndex) {
-        coreHiveId = `KUBE-${coreApiaryId}-${hiveIndex}`;
-      }
-    }
-
     setHive({
       ...hiveData,
-      core_apiary_id: coreApiaryId,
-      core_hive_id: coreHiveId,
-      br_id: brId,
     });
 
     // Fetch Logs

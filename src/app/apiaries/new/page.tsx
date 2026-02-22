@@ -271,7 +271,7 @@ export default function NewApiaryPage() {
       const apiaryNumber = `${prefix}-${nextNum.toString().padStart(3, '0')}${suffix}`;
 
       // 3. Lagre i databasen
-      const { error } = await supabase.from('apiaries').insert({
+      const { data: createdApiary, error } = await supabase.from('apiaries').insert({
         user_id: user.id,
         name,
         type,
@@ -279,16 +279,19 @@ export default function NewApiaryPage() {
         coordinates: coordinates, // Save coordinates
         apiary_number: apiaryNumber,
         registration_number: type === 'bil' ? registrationNumber : null, // Only for cars
-      });
+      }).select('id').single();
 
-      if (error) throw error;
+      if (error || !createdApiary) throw error || new Error('Kunne ikke opprette bigård');
 
       try {
-        await fetch('/api/lek-core/create-apiary', {
+        const response = await fetch('/api/lek-core/create-apiary', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ apiaryName: name }),
+          body: JSON.stringify({ apiaryName: name, apiaryId: createdApiary.id }),
         });
+        if (!response.ok) {
+          console.error('LEK Core apiary creation failed with status', response.status);
+        }
       } catch (e) {
         console.error('LEK Core apiary creation failed', e);
       }

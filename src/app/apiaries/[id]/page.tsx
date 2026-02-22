@@ -130,23 +130,9 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       return;
     }
 
-    let coreApiaryId: string | null = null;
-
-    if (brId && apiaryData.apiary_number) {
-      const apiaryNumber = apiaryData.apiary_number as string;
-      const numberMatch = apiaryNumber.match(/^([A-Z]+)-(\d+)/);
-      const prefix = numberMatch ? numberMatch[1] : 'BG';
-      const indexPart = numberMatch ? numberMatch[2] : '';
-
-      if (indexPart) {
-        coreApiaryId = `${prefix}-${brId}-${indexPart.padStart(3, '0')}`;
-      }
-    }
-
     setApiary({
       ...apiaryData,
       br_id: brId,
-      core_apiary_id: coreApiaryId,
     });
 
     // 1.1 Fetch Rental Info (if rental type)

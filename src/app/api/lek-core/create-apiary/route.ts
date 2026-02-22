@@ -7,11 +7,12 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { apiaryName?: string };
+    const body = (await request.json()) as { apiaryName?: string; apiaryId?: string };
     const apiaryName = body.apiaryName?.trim();
+    const localApiaryId = body.apiaryId;
 
-    if (!apiaryName) {
-      return NextResponse.json({ error: 'Mangler navn på bigård' }, { status: 400 });
+    if (!apiaryName || !localApiaryId) {
+      return NextResponse.json({ error: 'Mangler navn eller lokal apiary-id' }, { status: 400 });
     }
 
     const supabase = createClient();
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: apiary, error: apiaryError } = await admin
+    const { data: coreApiary, error: apiaryError } = await admin
       .from('lek_core_apiaries')
       .insert({
         beekeeper_id: beekeeper.beekeeper_id,
@@ -54,16 +55,31 @@ export async function POST(request: Request) {
       .select('apiary_id, beekeeper_id, name')
       .single();
 
-    if (apiaryError || !apiary) {
+    if (apiaryError || !coreApiary) {
       return NextResponse.json(
         { error: apiaryError?.message || 'Kunne ikke opprette LEK Core-bigård' },
         { status: 500 }
       );
     }
 
+    const supabaseWithRls = createClient();
+
+    const { error: linkError } = await supabaseWithRls
+      .from('apiaries')
+      .update({ core_apiary_id: coreApiary.apiary_id })
+      .eq('id', localApiaryId)
+      .eq('user_id', user.id);
+
+    if (linkError) {
+      return NextResponse.json(
+        { error: 'LEK Core-bigård opprettet, men kobling feilet: ' + linkError.message },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
       {
-        apiary,
+        coreApiaryId: coreApiary.apiary_id,
       },
       { status: 200 }
     );
@@ -74,4 +90,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
