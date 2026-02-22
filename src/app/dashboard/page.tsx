@@ -305,6 +305,16 @@ export default function DashboardPage() {
             .single();
 
         if (error) throw error;
+
+        try {
+          await fetch('/api/lek-core/create-apiary', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apiaryName: wizardApiaryName }),
+          });
+        } catch (e) {
+          console.error('LEK Core apiary creation failed', e);
+        }
         
         // Refresh apiaries
         setStats(prev => ({ ...prev, apiaries: prev.apiaries + 1 }));
