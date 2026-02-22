@@ -161,6 +161,8 @@ export default function NewApiaryPage() {
         const hivesToUpdate = inactiveHives.slice(0, rental.hive_count);
         const hivesToCreateCount = rental.hive_count - hivesToUpdate.length;
 
+        const updatedHiveIds: string[] = [];
+
         // Update existing inactive hives
         for (const hive of hivesToUpdate) {
             await supabase
@@ -170,6 +172,7 @@ export default function NewApiaryPage() {
                     status: 'aktiv' 
                 })
                 .eq('id', hive.id);
+            updatedHiveIds.push(hive.id);
         }
 
         // Create new hives if needed
@@ -183,7 +186,7 @@ export default function NewApiaryPage() {
                 }, 0);
              }
 
-             const newHives = [];
+             const newHives: any[] = [];
              for(let i=0; i<hivesToCreateCount; i++) {
                  newHives.push({
                      user_id: user.id,
@@ -192,8 +195,36 @@ export default function NewApiaryPage() {
                      status: 'aktiv'
                  });
              }
+             let createdHives: { id: string; apiary_id: string }[] = [];
              if (newHives.length > 0) {
-                 await supabase.from('hives').insert(newHives);
+                 const { data: inserted } = await supabase
+                   .from('hives')
+                   .insert(newHives)
+                   .select('id, apiary_id');
+                 createdHives = inserted || [];
+             }
+
+             const allHiveIds = [
+               ...updatedHiveIds.map(id => ({ id, apiary_id: newApiary.id })),
+               ...createdHives,
+             ];
+
+             try {
+               if (allHiveIds.length > 0) {
+                 await Promise.all(
+                   allHiveIds.map(hive =>
+                     fetch('/api/lek-core/create-hive', {
+                       method: 'POST',
+                       headers: { 'Content-Type': 'application/json' },
+                       body: JSON.stringify({ apiaryId: hive.apiary_id, hiveLocalId: hive.id }),
+                     }).catch(e => {
+                       console.error('LEK Core hive creation failed', e);
+                     })
+                   )
+                 );
+               }
+             } catch (e) {
+               console.error('LEK Core hive creation failed', e);
              }
         }
 

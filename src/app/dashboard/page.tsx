@@ -372,7 +372,7 @@ export default function DashboardPage() {
       }
       
       let startNum = maxNum + 1;
-      const newHives = [];
+      const newHives: any[] = [];
 
       for (let i = 0; i < createCount; i++) {
         const hiveNumber = `KUBE-${(startNum + i).toString().padStart(3, '0')}`;
@@ -384,8 +384,29 @@ export default function DashboardPage() {
         });
       }
 
-      const { error } = await supabase.from('hives').insert(newHives);
+      const { data: createdHives, error } = await supabase
+        .from('hives')
+        .insert(newHives)
+        .select('id, apiary_id');
       if (error) throw error;
+
+      try {
+        if (createdHives && createdHives.length > 0) {
+          await Promise.all(
+            createdHives.map(hive =>
+              fetch('/api/lek-core/create-hive', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ apiaryId: hive.apiary_id, hiveLocalId: hive.id }),
+              }).catch(e => {
+                console.error('LEK Core hive creation failed', e);
+              })
+            )
+          );
+        }
+      } catch (e) {
+        console.error('LEK Core hive creation failed', e);
+      }
       
       // Update stats locally
       setStats(prev => ({

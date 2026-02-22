@@ -89,6 +89,16 @@ export default function BeekeeperRentalsPage() {
 
       if (apiaryError) throw apiaryError;
 
+      try {
+        await fetch('/api/lek-core/create-apiary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiaryName: `${rental.contact_name} sin hage`, apiaryId: newApiary.id }),
+        });
+      } catch (e) {
+        console.error('LEK Core apiary creation failed', e);
+      }
+
       // 3. Create Hives
       const hivesToCreate = Array.from({ length: rental.hive_count }).map((_, index) => ({
         apiary_id: newApiary.id,
@@ -101,11 +111,30 @@ export default function BeekeeperRentalsPage() {
         installation_date: new Date().toISOString()
       }));
 
-      const { error: hivesError } = await supabase
+      const { data: createdHives, error: hivesError } = await supabase
         .from('hives')
-        .insert(hivesToCreate);
+        .insert(hivesToCreate)
+        .select('id, apiary_id');
 
       if (hivesError) console.error('Error creating hives:', hivesError);
+
+      try {
+        if (createdHives && createdHives.length > 0) {
+          await Promise.all(
+            createdHives.map(hive =>
+              fetch('/api/lek-core/create-hive', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ apiaryId: hive.apiary_id, hiveLocalId: hive.id }),
+              }).catch(e => {
+                console.error('LEK Core hive creation failed', e);
+              })
+            )
+          );
+        }
+      } catch (e) {
+        console.error('LEK Core hive creation failed', e);
+      }
 
       // 4. Update Rental Assignment & Link Apiary
       const { error: updateError } = await supabase
