@@ -84,7 +84,7 @@ export async function signup(formData: any) {
     return { error: 'Bruker opprettet, men profilfeil: ' + profileError.message }
   }
 
-  const { error: beekeeperError } = await adminClient
+  const { data: lekBeekeeper, error: beekeeperError } = await adminClient
     .from('lek_core_beekeepers')
     .insert({
       auth_user_id: authData.user.id,
@@ -95,11 +95,20 @@ export async function signup(formData: any) {
       postal_code: postalCode,
       city
     })
+    .select('beekeeper_id')
+    .single()
 
-  if (beekeeperError) {
+  if (beekeeperError || !lekBeekeeper) {
     console.error('LEK Core beekeeper creation failed:', beekeeperError)
-    return { error: 'Bruker opprettet, men LEK Core-birøkterfeil: ' + beekeeperError.message }
+    return { error: 'Bruker opprettet, men LEK Core-birøkterfeil: ' + (beekeeperError?.message || 'Ukjent feil') }
   }
+
+  const numericMember = (lekBeekeeper.beekeeper_id as string).replace(/^BR-/, '')
+
+  await adminClient
+    .from('profiles')
+    .update({ member_number: numericMember })
+    .eq('id', authData.user.id)
 
   return { success: true, user: authData.user }
 }

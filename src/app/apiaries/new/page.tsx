@@ -272,16 +272,14 @@ export default function NewApiaryPage() {
 
       if (error) throw error;
 
-      if (type === 'bigård') {
-        try {
-          await fetch('/api/lek-core/create-apiary', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ apiaryName: name }),
-          });
-        } catch (e) {
-          console.error('LEK Core apiary creation failed', e);
-        }
+      try {
+        await fetch('/api/lek-core/create-apiary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiaryName: name }),
+        });
+      } catch (e) {
+        console.error('LEK Core apiary creation failed', e);
       }
 
       router.push('/apiaries');
