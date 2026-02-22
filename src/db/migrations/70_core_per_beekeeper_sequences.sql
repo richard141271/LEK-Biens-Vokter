@@ -34,6 +34,18 @@ set beekeeper_id = a.beekeeper_id
 from lek_core.apiaries a
 where a.apiary_id = h.apiary_id
 and h.beekeeper_id is null;
+
+do $$
+declare cnt integer;
+begin
+  select count(*) into cnt from lek_core.hives where beekeeper_id is null;
+  if cnt > 0 then
+    raise exception 'Migration 70_core_per_beekeeper_sequences: % hives mangler beekeeper_id', cnt;
+  end if;
+end;
+$$;
+
+alter table lek_core.hives alter column beekeeper_id set not null;
 alter table lek_core.hives add column if not exists sequence_no integer;
 with s as (
   select h.id, row_number() over(partition by h.beekeeper_id order by h.created_at, h.id) as rn
