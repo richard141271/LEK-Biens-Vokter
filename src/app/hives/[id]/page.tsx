@@ -92,8 +92,26 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
       return;
     }
 
+    let coreSequenceNo: number | null = null;
+
+    if (hiveData.core_hive_id) {
+      const { data: coreHive } = await supabase
+        .from('lek_core_hives')
+        .select('hive_id, sequence_no')
+        .eq('hive_id', hiveData.core_hive_id)
+        .maybeSingle();
+
+      if (coreHive?.sequence_no != null) {
+        const seq = Number(coreHive.sequence_no);
+        if (!Number.isNaN(seq) && seq > 0) {
+          coreSequenceNo = seq;
+        }
+      }
+    }
+
     setHive({
       ...hiveData,
+      core_sequence_no: coreSequenceNo,
     });
 
     // Fetch Logs
@@ -442,14 +460,9 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                   {hive.name}
                 </p>
               )}
-              {hive.core_hive_id && (
+              {hive.core_sequence_no && (
                 <p className="text-[11px] text-gray-500 font-mono mt-1">
-                  Core:{' '}
-                  {(() => {
-                    const parts = hive.core_hive_id.split('-');
-                    const last = parts[parts.length - 1];
-                    return `KUBE-${last}`;
-                  })()}
+                  Core: {`KUBE-${String(hive.core_sequence_no).padStart(3, '0')}`}
                 </p>
               )}
             </div>

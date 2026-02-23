@@ -130,9 +130,27 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       return;
     }
 
+    let coreApiaryNumber: string | null = null;
+
+    if (apiaryData.core_apiary_id) {
+      const { data: coreApiary } = await supabase
+        .from('lek_core_apiaries')
+        .select('apiary_id, sequence_no')
+        .eq('apiary_id', apiaryData.core_apiary_id)
+        .maybeSingle();
+
+      if (coreApiary?.sequence_no != null) {
+        const seq = Number(coreApiary.sequence_no);
+        if (!Number.isNaN(seq) && seq > 0) {
+          coreApiaryNumber = `BG-${seq.toString().padStart(3, '0')}`;
+        }
+      }
+    }
+
     setApiary({
       ...apiaryData,
       br_id: brId,
+      core_apiary_number: coreApiaryNumber,
     });
 
     // 1.1 Fetch Rental Info (if rental type)
@@ -160,8 +178,35 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       .eq('apiary_id', params.id)
       .eq('active', true)
       .order('hive_number', { ascending: true });
+    
+    let finalHives = hivesData || [];
 
-    if (hivesData) setHives(hivesData);
+    if (finalHives.length > 0) {
+      const coreIds = finalHives
+        .map((h: any) => h.core_hive_id)
+        .filter((id: any) => !!id);
+
+      if (coreIds.length > 0) {
+        const { data: coreHives } = await supabase
+          .from('lek_core_hives')
+          .select('hive_id, sequence_no')
+          .in('hive_id', coreIds);
+
+        const coreMap = new Map<string, number>();
+        (coreHives || []).forEach((ch: any) => {
+          if (ch?.hive_id && ch.sequence_no != null) {
+            coreMap.set(ch.hive_id, Number(ch.sequence_no));
+          }
+        });
+
+        finalHives = finalHives.map((h: any) => ({
+          ...h,
+          core_sequence_no: h.core_hive_id ? coreMap.get(h.core_hive_id) ?? null : null,
+        }));
+      }
+    }
+
+    if (finalHives) setHives(finalHives);
     setLoading(false);
   };
 
@@ -694,15 +739,14 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                   {apiary.name}
                 </p>
               )}
-              {apiary.core_apiary_id && apiary.br_id && (
+              {apiary.core_apiary_number && (
                 <p className="text-[11px] text-gray-500 font-mono mt-1">
-                  Core:{' '}
-                  {(() => {
-                    const parts = apiary.core_apiary_id.split('-');
-                    const last = parts[parts.length - 1];
-                    return `BG-${last}`;
-                  })()}{' '}
-                  • Birøkter: {apiary.br_id}
+                  Core: {apiary.core_apiary_number}
+                </p>
+              )}
+              {apiary.br_id && (
+                <p className="text-[11px] text-gray-500 font-mono">
+                  Birøkter: {apiary.br_id}
                 </p>
               )}
             </div>
@@ -1049,14 +1093,9 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                             </div>
                         </div>
 
-                        {coreHiveId && (
+                        {hive.core_sequence_no && (
                           <p className="text-[11px] text-gray-500 font-mono mt-0.5">
-                            Core:{' '}
-                            {(() => {
-                              const parts = coreHiveId.split('-');
-                              const last = parts[parts.length - 1];
-                              return `KUBE-${last}`;
-                            })()}
+                            Core: {`KUBE-${String(hive.core_sequence_no).padStart(3, '0')}`}
                           </p>
                         )}
 
