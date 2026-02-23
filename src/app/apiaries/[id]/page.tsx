@@ -696,7 +696,13 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
               )}
               {apiary.core_apiary_id && apiary.br_id && (
                 <p className="text-[11px] text-gray-500 font-mono mt-1">
-                  Core: {apiary.core_apiary_id} • Birøkter: {apiary.br_id}
+                  Core:{' '}
+                  {(() => {
+                    const parts = apiary.core_apiary_id.split('-');
+                    const last = parts[parts.length - 1];
+                    return `BG-${last}`;
+                  })()}{' '}
+                  • Birøkter: {apiary.br_id}
                 </p>
               )}
             </div>
@@ -1045,7 +1051,12 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
                         {coreHiveId && (
                           <p className="text-[11px] text-gray-500 font-mono mt-0.5">
-                            Core: {coreHiveId}
+                            Core:{' '}
+                            {(() => {
+                              const parts = coreHiveId.split('-');
+                              const last = parts[parts.length - 1];
+                              return `KUBE-${last}`;
+                            })()}
                           </p>
                         )}
 

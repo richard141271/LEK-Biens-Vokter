@@ -444,7 +444,12 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
               )}
               {hive.core_hive_id && (
                 <p className="text-[11px] text-gray-500 font-mono mt-1">
-                  Core: {hive.core_hive_id}
+                  Core:{' '}
+                  {(() => {
+                    const parts = hive.core_hive_id.split('-');
+                    const last = parts[parts.length - 1];
+                    return `KUBE-${last}`;
+                  })()}
                 </p>
               )}
             </div>
