@@ -151,7 +151,7 @@ export async function GET() {
         list.push(a);
         byBeekeeper.set(a.beekeeper_id, list);
       }
-      for (const [, list] of byBeekeeper) {
+      byBeekeeper.forEach((list) => {
         list
           .sort((a, b) => {
             const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
@@ -161,7 +161,7 @@ export async function GET() {
           .forEach((a, idx) => {
             apiaryIndexMap.set(a.apiary_id, idx + 1);
           });
-      }
+      });
     }
 
     const apiaries =
@@ -208,7 +208,7 @@ export async function GET() {
         list.push(h);
         byBeekeeper.set(beekeeperId, list);
       }
-      for (const [, list] of byBeekeeper) {
+      byBeekeeper.forEach((list) => {
         list
           .sort((a, b) => {
             const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
@@ -218,7 +218,7 @@ export async function GET() {
           .forEach((h, idx) => {
             hiveIndexMap.set(h.hive_id, idx + 1);
           });
-      }
+      });
     }
 
     const hives =
