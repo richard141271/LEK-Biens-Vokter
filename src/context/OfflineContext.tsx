@@ -25,6 +25,27 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const supabase = createClient();
 
+  useEffect(() => {
+    const isEnabled =
+      process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_PWA === 'true';
+
+    if (!isEnabled) return;
+    if (typeof window === 'undefined') return;
+    if (!('serviceWorker' in navigator)) return;
+
+    navigator.serviceWorker
+      .register('/sw.js', { scope: '/' })
+      .then(() => navigator.serviceWorker.ready)
+      .then(() => {
+        if (navigator.serviceWorker.controller) return;
+        const key = 'sw_reload_once';
+        if (sessionStorage.getItem(key) === '1') return;
+        sessionStorage.setItem(key, '1');
+        window.location.reload();
+      })
+      .catch(() => {});
+  }, []);
+
   // Check initial count
   useEffect(() => {
     getPendingInspections().then(list => setPendingCount(list.length)).catch(console.error);
