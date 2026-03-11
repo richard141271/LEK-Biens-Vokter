@@ -47,16 +47,57 @@ export default function RootLayout({
               (function () {
                 try {
                   if (!('serviceWorker' in navigator)) return;
+                  var marker = '__sw_reload=1';
+                  var url = new URL(location.href);
+                  if (navigator.serviceWorker.controller && url.searchParams.has('__sw_reload')) {
+                    url.searchParams.delete('__sw_reload');
+                    history.replaceState(null, '', url.toString());
+                  }
+
+                  function hardReloadOnce() {
+                    var u = new URL(location.href);
+                    if (u.searchParams.get('__sw_reload') === '1') return;
+                    u.searchParams.set('__sw_reload', '1');
+                    location.replace(u.toString());
+                  }
+
+                  function selfHealAndReload() {
+                    try {
+                      Promise.all([
+                        navigator.serviceWorker.getRegistrations().then(function (regs) {
+                          return Promise.all(regs.map(function (r) { return r.unregister(); }));
+                        }),
+                        (self.caches && caches.keys
+                          ? caches.keys().then(function (keys) {
+                              return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+                            })
+                          : Promise.resolve())
+                      ]).finally(function () {
+                        navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function (reg) {
+                          try { reg.update(); } catch (e) {}
+                          navigator.serviceWorker.ready.then(function () {
+                            hardReloadOnce();
+                          }).catch(function () {});
+                        }).catch(function () {});
+                      });
+                    } catch (e) {
+                      hardReloadOnce();
+                    }
+                  }
+
                   navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function (reg) {
                     try { reg.update(); } catch (e) {}
+
                     navigator.serviceWorker.ready.then(function () {
                       if (navigator.serviceWorker.controller) return;
-                      try {
-                        var key = 'sw_reload_once';
-                        if (sessionStorage.getItem(key) === '1') return;
-                        sessionStorage.setItem(key, '1');
-                        location.reload();
-                      } catch (e) {}
+                      setTimeout(function () {
+                        if (navigator.serviceWorker.controller) return;
+                        if (url.searchParams.get('__sw_reload') === '1') {
+                          selfHealAndReload();
+                          return;
+                        }
+                        hardReloadOnce();
+                      }, 1200);
                     }).catch(function () {});
                   }).catch(function () {});
                 } catch (e) {}
