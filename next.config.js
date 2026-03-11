@@ -1,14 +1,19 @@
 const withPWA = require('next-pwa')({
   dest: 'public',
-  register: true,
+  register: false,
   skipWaiting: true,
   disable:
     process.env.NEXT_PUBLIC_PWA === 'true'
       ? false
       : process.env.NODE_ENV === 'development',
-  fallbacks: {
-    document: '/offline.html',
-  },
+  cleanupOutdatedCaches: true,
+  navigateFallback: '/offline.html',
+  navigateFallbackDenylist: [
+    /^\/api\//,
+    /^\/_next\//,
+    /^\/_vercel\//,
+    /\/[^/?]+\.[^/]+$/,
+  ],
   additionalManifestEntries: [
     { url: '/', revision: null },
     { url: '/dashboard', revision: null },
@@ -134,9 +139,9 @@ const withPWA = require('next-pwa')({
       },
     },
     {
-      urlPattern: ({ url }) => {
+      urlPattern: ({ url, request }) => {
         const isSameOrigin = self.origin === url.origin;
-        return isSameOrigin;
+        return isSameOrigin && (!request || request.mode !== 'navigate');
       },
       handler: 'NetworkFirst',
       options: {
