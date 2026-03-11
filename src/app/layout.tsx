@@ -88,6 +88,17 @@ export default function RootLayout({
                   navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function (reg) {
                     try { reg.update(); } catch (e) {}
 
+                    setTimeout(function () {
+                      try {
+                        if (navigator.serviceWorker.controller) return;
+                        if (url.searchParams.get('__sw_reload') === '1') {
+                          selfHealAndReload();
+                          return;
+                        }
+                        hardReloadOnce();
+                      } catch (e) {}
+                    }, 2500);
+
                     navigator.serviceWorker.ready.then(function () {
                       if (navigator.serviceWorker.controller) return;
                       setTimeout(function () {
