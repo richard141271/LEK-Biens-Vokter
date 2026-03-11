@@ -18,3 +18,17 @@ export const createClient = () => {
     supabaseKey!
   )
 }
+
+export async function getUserWithSessionFallback(supabase: any) {
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (!error && data?.user) return data.user;
+  } catch {}
+
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.user ?? null;
+  } catch {
+    return null;
+  }
+}

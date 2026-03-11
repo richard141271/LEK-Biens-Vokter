@@ -89,6 +89,28 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   }, [isMoveModalOpen]);
 
   const fetchData = async () => {
+    if (!navigator.onLine) {
+      try {
+        const offlineRaw = localStorage.getItem('offline_data');
+        if (offlineRaw) {
+          const parsed = JSON.parse(offlineRaw);
+          const offlineApiary = parsed.apiaries?.find((a: any) => a.id === params.id);
+          const offlineHives = (offlineApiary?.hives && Array.isArray(offlineApiary.hives))
+            ? offlineApiary.hives
+            : (parsed.hives || []).filter((h: any) => h.apiary_id === params.id);
+
+          if (offlineApiary) {
+            setApiary(offlineApiary);
+          }
+          if (offlineHives) {
+            setHives(offlineHives);
+          }
+        }
+      } catch {}
+      setLoading(false);
+      return;
+    }
+
     // 0. Fetch User
     const { data: { user } } = await supabase.auth.getUser();
     setCurrentUser(user);

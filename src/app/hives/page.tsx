@@ -1,6 +1,6 @@
 'use client';
 
-import { createClient } from '@/utils/supabase/client';
+import { createClient, getUserWithSessionFallback } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Filter, Box, MapPin, Calendar, ArrowRight, Printer, QrCode } from 'lucide-react';
@@ -60,7 +60,20 @@ export default function AllHivesPage() {
   }, []);
 
   const fetchHives = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    if (!navigator.onLine) {
+      try {
+        const offlineData = localStorage.getItem('offline_data');
+        if (offlineData) {
+          const parsed = JSON.parse(offlineData);
+          if (parsed.profile) setProfile(parsed.profile);
+          if (parsed.hives) setHives(parsed.hives);
+        }
+      } catch {}
+      setLoading(false);
+      return;
+    }
+
+    const user = await getUserWithSessionFallback(supabase);
     if (!user) {
       router.push('/login');
       return;
@@ -97,6 +110,20 @@ export default function AllHivesPage() {
     const { data, error } = await hiveQuery;
 
     if (data) setHives(data);
+
+    try {
+      const existingRaw = localStorage.getItem('offline_data');
+      const existing = existingRaw ? JSON.parse(existingRaw) : {};
+      localStorage.setItem(
+        'offline_data',
+        JSON.stringify({
+          ...existing,
+          hives: data || [],
+          profile: profileData || existing.profile || null,
+          timestamp: Date.now(),
+        })
+      );
+    } catch {}
     setLoading(false);
   };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { createClient } from '@/utils/supabase/client';
+import { createClient, getUserWithSessionFallback } from '@/utils/supabase/client';
 import { ensureMemberNumber } from '@/app/actions/profile';
 import { getFounderMeeting } from '@/app/actions/founder';
 import { useEffect, useState, useRef } from 'react';
@@ -86,7 +86,39 @@ export default function DashboardPage() {
 
   const fetchData = async () => {
     try {
-        const { data: { user } } = await supabase.auth.getUser();
+        if (!navigator.onLine) {
+            try {
+                const offlineRaw = localStorage.getItem('offline_data');
+                if (offlineRaw) {
+                    const parsed = JSON.parse(offlineRaw);
+                    if (parsed.profile) setProfile(parsed.profile);
+
+                    const offlineApiaries = Array.isArray(parsed.apiaries) ? parsed.apiaries : [];
+                    const offlineHives = Array.isArray(parsed.hives) ? parsed.hives : [];
+
+                    const activeHives = offlineHives.filter((h: any) => h?.active !== false).length;
+
+                    setStats({
+                        apiaries: offlineApiaries.length,
+                        hives: offlineHives.length,
+                        activeHives,
+                    });
+
+                    setAvailableApiaries(
+                        offlineApiaries.map((a: any) => ({
+                            id: a.id,
+                            name: a.name,
+                            type: a.type,
+                        }))
+                    );
+                    if (offlineApiaries.length > 0) setSelectedApiaryId(offlineApiaries[0].id);
+                }
+            } catch {}
+            setLoading(false);
+            return;
+        }
+
+        const user = await getUserWithSessionFallback(supabase);
         if (!user) {
             router.push('/login');
             return;

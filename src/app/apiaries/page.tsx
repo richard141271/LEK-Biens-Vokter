@@ -73,6 +73,16 @@ export default function ApiariesPage() {
 
       if (error) throw error;
       setApiaries(apiariesData || []);
+
+      try {
+        const offlineData = {
+          apiaries: apiariesData || [],
+          hives: (apiariesData || []).flatMap((a: any) => a.hives || []),
+          profile: profileData || null,
+          timestamp: Date.now(),
+        };
+        localStorage.setItem('offline_data', JSON.stringify(offlineData));
+      } catch {}
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
