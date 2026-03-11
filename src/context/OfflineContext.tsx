@@ -51,45 +51,6 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     getPendingInspections().then(list => setPendingCount(list.length)).catch(console.error);
   }, []);
 
-  // Network listeners
-  useEffect(() => {
-    const handleOnline = () => {
-      setIsOffline(false);
-      console.log('App is online - attempting sync...');
-      sync();
-    };
-    const handleOffline = () => {
-      setIsOffline(true);
-      console.log('App is offline');
-    };
-
-    // Set initial state
-    setIsOffline(!navigator.onLine);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  const saveInspection = async (data: Omit<OfflineInspection, 'id' | 'timestamp'>) => {
-    const inspection: OfflineInspection = {
-      ...data,
-      id: crypto.randomUUID(),
-      timestamp: Date.now(),
-    };
-    
-    await saveOfflineInspection(inspection);
-    setPendingCount(prev => prev + 1);
-    
-    // Feedback
-    // If we had a toast library we'd use it. For now, we rely on the calling component to show feedback,
-    // or we could add a global toast here.
-  };
-
   const sync = useCallback(async () => {
     if (isSyncing) return;
     
@@ -195,6 +156,45 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       setIsSyncing(false);
     }
   }, [isSyncing, supabase]);
+
+  // Network listeners
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      console.log('App is online - attempting sync...');
+      sync();
+    };
+    const handleOffline = () => {
+      setIsOffline(true);
+      console.log('App is offline');
+    };
+
+    // Set initial state
+    setIsOffline(!navigator.onLine);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [sync]);
+
+  const saveInspection = async (data: Omit<OfflineInspection, 'id' | 'timestamp'>) => {
+    const inspection: OfflineInspection = {
+      ...data,
+      id: crypto.randomUUID(),
+      timestamp: Date.now(),
+    };
+    
+    await saveOfflineInspection(inspection);
+    setPendingCount(prev => prev + 1);
+    
+    // Feedback
+    // If we had a toast library we'd use it. For now, we rely on the calling component to show feedback,
+    // or we could add a global toast here.
+  };
 
   return (
     <OfflineContext.Provider value={{ isOffline, pendingCount, saveInspection, sync }}>

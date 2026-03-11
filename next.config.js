@@ -7,9 +7,10 @@ const withPWA = require('next-pwa')({
       ? false
       : process.env.NODE_ENV === 'development',
   fallbacks: {
-    document: '/offline',
+    document: '/offline.html',
   },
   additionalManifestEntries: [
+    { url: '/offline.html', revision: null },
     { url: '/offline', revision: null },
   ],
   runtimeCaching: [
@@ -153,6 +154,33 @@ const nextConfig = {
   },
   experimental: {
     serverComponentsExternalPackages: ['puppeteer', '@sparticuz/chromium'],
+  },
+  async headers() {
+    const noCacheHeaders = [
+      { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+    ];
+
+    return [
+      {
+        source: '/sw.js',
+        headers: [
+          ...noCacheHeaders,
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+      {
+        source: '/workbox-:path*',
+        headers: noCacheHeaders,
+      },
+      {
+        source: '/fallback-:path*',
+        headers: noCacheHeaders,
+      },
+      {
+        source: '/manifest.json',
+        headers: noCacheHeaders,
+      },
+    ];
   },
   async redirects() {
     return [
