@@ -498,7 +498,7 @@ export default function ApiariesPage() {
 
       {/* Floating Action Buttons (Hide in selection mode and for tenants) */}
       {!isSelectionMode && profile?.role !== 'tenant' && (
-        <div className="fixed bottom-24 right-6 flex flex-col items-center gap-4 z-20 print:hidden">
+        <div className="fixed bottom-28 right-6 flex flex-col items-center gap-4 z-[200] print:hidden">
           
           {/* Offline Download Button */}
           <button
