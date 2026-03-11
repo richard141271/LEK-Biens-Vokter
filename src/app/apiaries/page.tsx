@@ -12,6 +12,7 @@ export default function ApiariesPage() {
   const [apiaries, setApiaries] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isServiceWorkerControlling, setIsServiceWorkerControlling] = useState<boolean | null>(null);
   
   // Offline Download State
   const [isDownloading, setIsDownloading] = useState(false);
@@ -27,6 +28,26 @@ export default function ApiariesPage() {
 
   useEffect(() => {
     fetchData();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!('serviceWorker' in navigator)) {
+      setIsServiceWorkerControlling(false);
+      return;
+    }
+
+    const update = () => {
+      setIsServiceWorkerControlling(!!navigator.serviceWorker.controller);
+    };
+
+    update();
+    navigator.serviceWorker.addEventListener('controllerchange', update);
+    navigator.serviceWorker.ready.then(update).catch(() => setIsServiceWorkerControlling(false));
+
+    return () => {
+      navigator.serviceWorker.removeEventListener('controllerchange', update);
+    };
   }, []);
 
   const fetchData = async () => {
@@ -231,19 +252,48 @@ export default function ApiariesPage() {
     setDownloadProgress(0);
     
     try {
+        if (!('serviceWorker' in navigator)) {
+            alert('Offline-nedlasting støttes ikke i denne nettleseren. Bruk installert app (hjemskjerm) eller Safari (ikke privat modus).');
+            return;
+        }
+
+        try {
+            await navigator.serviceWorker.ready;
+        } catch {}
+
+        if (!navigator.serviceWorker.controller) {
+            alert('Offline er ikke aktiv ennå. Åpne appen online, lukk den helt, åpne igjen, og trykk «Last ned» på nytt.');
+            return;
+        }
+
         const urls: string[] = [];
         const buildId = (window as any).__NEXT_DATA__?.buildId;
         
         // 0. Cache DATA in LocalStorage (Robust fallback)
+        const existingRaw = localStorage.getItem('offline_data');
+        let existing: any = {};
+        if (existingRaw) {
+            try {
+                existing = JSON.parse(existingRaw);
+            } catch {}
+        }
         const offlineData = {
+            ...existing,
             apiaries: apiaries,
             hives: apiaries.flatMap(a => a.hives || []),
+            profile: profile || existing.profile || null,
             timestamp: Date.now()
         };
         localStorage.setItem('offline_data', JSON.stringify(offlineData));
-        console.log('📦 Offline data saved to LocalStorage', offlineData);
 
         // 1. Apiary & Hive Pages (HTML & JSON Cache)
+        urls.push('/offline');
+        if (buildId) urls.push(`/_next/data/${buildId}/offline.json`);
+        urls.push('/apiaries');
+        if (buildId) urls.push(`/_next/data/${buildId}/apiaries.json`);
+        urls.push('/hives');
+        if (buildId) urls.push(`/_next/data/${buildId}/hives.json`);
+
         apiaries.forEach(a => {
             const apiaryPath = `/apiaries/${a.id}`;
             urls.push(apiaryPath);
@@ -466,7 +516,11 @@ export default function ApiariesPage() {
              ) : (
                  <div className="relative">
                     <Download className="w-6 h-6" />
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span
+                      className={`absolute -top-1 -right-1 w-2 h-2 rounded-full ${
+                        isServiceWorkerControlling ? 'bg-green-500' : 'bg-yellow-500'
+                      }`}
+                    ></span>
                  </div>
              )}
           </button>
