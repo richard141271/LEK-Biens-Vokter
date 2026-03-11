@@ -10,6 +10,10 @@ const withPWA = require('next-pwa')({
     document: '/offline.html',
   },
   additionalManifestEntries: [
+    { url: '/', revision: null },
+    { url: '/dashboard', revision: null },
+    { url: '/apiaries', revision: null },
+    { url: '/hives', revision: null },
     { url: '/offline.html', revision: null },
     { url: '/offline', revision: null },
   ],

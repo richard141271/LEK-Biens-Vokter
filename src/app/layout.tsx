@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -38,6 +39,31 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/icon.png" />
         <link rel="apple-touch-icon" href="/icon.png" />
+        <Script
+          id="sw-register"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                try {
+                  if (!('serviceWorker' in navigator)) return;
+                  navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function (reg) {
+                    try { reg.update(); } catch (e) {}
+                    navigator.serviceWorker.ready.then(function () {
+                      if (navigator.serviceWorker.controller) return;
+                      try {
+                        var key = 'sw_reload_once';
+                        if (sessionStorage.getItem(key) === '1') return;
+                        sessionStorage.setItem(key, '1');
+                        location.reload();
+                      } catch (e) {}
+                    }).catch(function () {});
+                  }).catch(function () {});
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
       </head>
       <body className={`${inter.className} bg-gray-50`}>
         <PWAProvider>
