@@ -13,6 +13,7 @@ export default function ApiariesPage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isServiceWorkerControlling, setIsServiceWorkerControlling] = useState<boolean | null>(null);
+  const [offlineReady, setOfflineReady] = useState(false);
   
   // Offline Download State
   const [isDownloading, setIsDownloading] = useState(false);
@@ -50,6 +51,16 @@ export default function ApiariesPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem('offline_data');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if ((parsed?.hives?.length || 0) > 0 || (parsed?.apiaries?.length || 0) > 0) setOfflineReady(true);
+    } catch {}
+  }, []);
+
   const fetchData = async () => {
     try {
       // Offline fallback for list
@@ -59,8 +70,7 @@ export default function ApiariesPage() {
                const parsed = JSON.parse(offlineData);
                if (parsed.apiaries) {
                    setApiaries(parsed.apiaries);
-                   // Assuming we stored profile in a separate key or just let it be null for now
-                   // Ideally we should cache profile too
+                   if (parsed.profile) setProfile(parsed.profile);
                }
            }
            setLoading(false);
@@ -103,6 +113,7 @@ export default function ApiariesPage() {
           timestamp: Date.now(),
         };
         localStorage.setItem('offline_data', JSON.stringify(offlineData));
+        setOfflineReady(true);
       } catch {}
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -251,49 +262,14 @@ export default function ApiariesPage() {
     setDownloadProgress(0);
     
     try {
-        if (!('serviceWorker' in navigator)) {
-            alert('Offline-nedlasting støttes ikke i denne nettleseren. Bruk installert app (hjemskjerm) eller Safari (ikke privat modus).');
-            return;
-        }
-
-        const DOWNLOAD_PENDING_KEY = 'offline_download_pending';
-        const SW_RELOAD_ONCE_KEY = 'sw_reload_once';
-
-        const ensureController = async () => {
-          try {
-            await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-          } catch {}
-
-          if (navigator.serviceWorker.controller) return true;
-
-          const deadline = Date.now() + 6000;
-          while (Date.now() < deadline) {
-            if (navigator.serviceWorker.controller) return true;
-            await new Promise((r) => setTimeout(r, 250));
-          }
-
-          try {
-            if (sessionStorage.getItem(SW_RELOAD_ONCE_KEY) !== '1') {
-              sessionStorage.setItem(SW_RELOAD_ONCE_KEY, '1');
-              sessionStorage.setItem(DOWNLOAD_PENDING_KEY, '1');
-              window.location.reload();
-              return false;
-            }
-          } catch {}
-
-          return !!navigator.serviceWorker.controller;
-        };
-
-        const hasController = await ensureController();
-        if (!hasController) {
-          alert('Offline er ikke aktiv ennå. Åpne appen fra hjemskjermen (installert PWA) og prøv igjen.');
-          return;
-        }
-
         if (!navigator.onLine) {
           alert('Slå på nett først, trykk «Last ned», og slå av nett etterpå.');
           return;
         }
+
+        try {
+          await navigator.serviceWorker?.register?.('/sw.js', { scope: '/' });
+        } catch {}
 
         const existingRaw = localStorage.getItem('offline_data');
         let existing: any = {};
@@ -306,10 +282,9 @@ export default function ApiariesPage() {
         const hives = apiaries.flatMap((a) => a.hives || []);
         const hiveIds = hives.map((h: any) => h?.id).filter(Boolean);
 
-        const documentPaths: string[] = ['/apiaries', '/hives', '/settings'];
+        const documentPaths: string[] = ['/dashboard', '/apiaries', '/hives', '/settings'];
         apiaries.forEach((a) => documentPaths.push(`/apiaries/${a.id}`));
         hiveIds.forEach((id: string) => documentPaths.push(`/hives/${id}`));
-        hiveIds.forEach((id: string) => documentPaths.push(`/hives/${id}/new-inspection`));
         [
           '/dashboard/smittevern/veileder',
           '/dashboard/smittevern/sykdommer/varroa',
@@ -337,8 +312,6 @@ export default function ApiariesPage() {
           completed += 1;
           setDownloadProgress(Math.min(100, Math.round((completed / totalSteps) * 100)));
         };
-
-        bump();
 
         const { data: inspectionsData } = await supabase
           .from('inspections')
@@ -408,6 +381,9 @@ export default function ApiariesPage() {
         };
 
         for (const path of documentPaths) {
+          try {
+            (router as any).prefetch?.(path);
+          } catch {}
           await loadIntoCache(path).catch(() => {});
           bump();
         }
@@ -417,6 +393,7 @@ export default function ApiariesPage() {
           bump();
         }
 
+        setOfflineReady(true);
         alert('Offline er klart: bigårder, bikuber og inspeksjoner er lagret lokalt.');
     } catch (e) {
         console.error(e);
@@ -425,18 +402,6 @@ export default function ApiariesPage() {
         setIsDownloading(false);
     }
   };
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (loading) return;
-    if (apiaries.length === 0) return;
-    const key = 'offline_download_pending';
-    if (sessionStorage.getItem(key) !== '1') return;
-    sessionStorage.removeItem(key);
-    setTimeout(() => {
-      handleOfflineDownload();
-    }, 400);
-  }, [loading, apiaries.length]);
 
   if (loading) return <div className="p-8 text-center">Laster bigårder...</div>;
 
@@ -590,7 +555,7 @@ export default function ApiariesPage() {
                 ? 'bg-blue-500 text-white ring-4 ring-blue-200' 
                 : 'bg-white text-gray-600 hover:text-blue-600 hover:bg-blue-50 border border-gray-200'
             }`}
-            title="Last ned for offline bruk (v1.3)"
+            title="Last ned for offline bruk (v1.4)"
           >
              {isDownloading ? (
                  <span className="text-[10px] font-bold">{downloadProgress}%</span>
@@ -599,7 +564,7 @@ export default function ApiariesPage() {
                     <Download className="w-6 h-6" />
                     <span
                       className={`absolute -top-1 -right-1 w-2 h-2 rounded-full ${
-                        isServiceWorkerControlling ? 'bg-green-500' : 'bg-yellow-500'
+                        offlineReady || isServiceWorkerControlling ? 'bg-green-500' : 'bg-yellow-500'
                       }`}
                     ></span>
                  </div>

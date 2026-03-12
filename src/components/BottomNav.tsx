@@ -11,9 +11,13 @@ export default function BottomNav() {
   const [hasMeeting, setHasMeeting] = useState(false);
 
   useEffect(() => {
-    getFounderMeeting().then(date => {
+    if (typeof window === 'undefined') return;
+    if (!navigator.onLine) return;
+    getFounderMeeting()
+      .then((date) => {
         if (date) setHasMeeting(true);
-    });
+      })
+      .catch(() => {});
   }, []);
 
   // Hide on login/register pages

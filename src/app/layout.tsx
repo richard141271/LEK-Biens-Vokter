@@ -142,7 +142,7 @@ export default function RootLayout({
               </div>
               
               <footer className="py-4 text-center text-xs text-gray-400 pb-20 md:pl-64 print:hidden">
-                v0.1.0
+                v0.1.1
               </footer>
             </CartProvider>
           </OfflineProvider>

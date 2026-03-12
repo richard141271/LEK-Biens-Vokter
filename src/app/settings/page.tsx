@@ -485,6 +485,38 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      if (!navigator.onLine) {
+        if (passwordData.newPassword) {
+          throw new Error('Passord kan ikke endres uten nett');
+        }
+
+        const { email, region, ...updateData } = formData;
+        try {
+          const existingRaw = localStorage.getItem('offline_data');
+          const existing = existingRaw ? JSON.parse(existingRaw) : {};
+          const nextProfile = {
+            ...(existing.profile || profile || {}),
+            ...updateData,
+            email,
+            region,
+          };
+          localStorage.setItem(
+            'offline_data',
+            JSON.stringify({
+              ...existing,
+              profile: nextProfile,
+              timestamp: Date.now(),
+            })
+          );
+          setProfile(nextProfile);
+          setIsEditing(false);
+          alert('Endringer lagret lokalt (offline). De synkes når du er på nett.');
+        } catch {
+          throw new Error('Kunne ikke lagre lokalt offline');
+        }
+        return;
+      }
+
       // 1. Update Password if provided
       if (passwordData.newPassword) {
         if (passwordData.newPassword.length < 6) {
