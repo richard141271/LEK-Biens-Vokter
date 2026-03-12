@@ -13,7 +13,9 @@ import {
 interface OfflineContextType {
   isOffline: boolean;
   pendingCount: number;
-  saveInspection: (data: Omit<OfflineInspection, 'id' | 'timestamp'>) => Promise<void>;
+  saveInspection: (
+    data: Omit<OfflineInspection, 'id' | 'timestamp'> & { id?: string }
+  ) => Promise<void>;
   sync: () => Promise<void>;
 }
 
@@ -97,30 +99,45 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
 
           if (item.action === 'FULL_INSPECTION') {
              // 1. Insert Inspection
+             const inspectionId = item?.data?.inspection?.id || item.id;
              const { error: inspectionError } = await supabase
                .from('inspections')
                .insert({
                  ...item.data.inspection,
+                 id: inspectionId,
                  image_url: imageUrl,
                  user_id: user.id
                });
-             if (inspectionError) throw inspectionError;
+             if (inspectionError) {
+               const msg = String((inspectionError as any)?.message || '');
+               const isDuplicate =
+                 (inspectionError as any)?.code === '23505' || msg.toLowerCase().includes('duplicate');
+               if (!isDuplicate) throw inspectionError;
+             }
 
              // 2. Update Hive
              await supabase.from('hives').update(item.data.hiveUpdate).eq('id', item.hiveId);
 
              // 3. Log
-             await supabase.from('hive_logs').insert({
+             const { error: logInsertError } = await supabase.from('hive_logs').insert({
+                id: item.id,
                 hive_id: item.hiveId,
                 user_id: user.id,
                 action: 'INSPEKSJON',
                 details: item.details,
                 created_at: new Date(item.timestamp).toISOString()
              });
+             if (logInsertError) {
+               const msg = String((logInsertError as any)?.message || '');
+               const isDuplicate =
+                 (logInsertError as any)?.code === '23505' || msg.toLowerCase().includes('duplicate');
+               if (!isDuplicate) throw logInsertError;
+             }
 
           } else {
             // Default/Simple Log (Modal)
             const { error: insertError } = await supabase.from('hive_logs').insert({
+                id: item.id,
                 user_id: user.id,
                 hive_id: item.hiveId,
                 action: item.action,
@@ -181,10 +198,11 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     };
   }, [sync]);
 
-  const saveInspection = async (data: Omit<OfflineInspection, 'id' | 'timestamp'>) => {
+  const saveInspection = async (data: Omit<OfflineInspection, 'id' | 'timestamp'> & { id?: string }) => {
+    const { id, ...rest } = data;
     const inspection: OfflineInspection = {
-      ...data,
-      id: crypto.randomUUID(),
+      ...rest,
+      id: id || crypto.randomUUID(),
       timestamp: Date.now(),
     };
     

@@ -514,12 +514,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   };
 
   const submitInspection = async () => {
+    const opId = crypto.randomUUID();
     setSubmitting(true);
 
     try {
       // 1. Check Offline Mode
       if (isOffline) {
         await saveInspection({
+          id: opId,
           hiveId: params.id,
           action: 'FULL_INSPECTION',
           details: `Inspeksjon utført (Offline). Status: ${status}.`,
@@ -531,6 +533,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           } : undefined,
           data: {
             inspection: {
+              id: opId,
               hive_id: params.id,
               inspection_date: date,
               time: time,
@@ -559,6 +562,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       const user = await getUserWithSessionFallback(supabase);
       if (!user) {
         await saveInspection({
+          id: opId,
           hiveId: params.id,
           action: 'FULL_INSPECTION',
           details: `Inspeksjon utført (Offline). Status: ${status}.`,
@@ -572,6 +576,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             : undefined,
           data: {
             inspection: {
+              id: opId,
               hive_id: params.id,
               inspection_date: date,
               time: time,
@@ -637,6 +642,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       const { error: inspectionError } = await supabase
         .from('inspections')
         .insert({
+          id: opId,
           hive_id: params.id,
           user_id: user.id,
           inspection_date: date,
@@ -668,6 +674,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       const { error: logError } = await supabase
         .from('hive_logs')
         .insert({
+          id: opId,
           hive_id: params.id,
           user_id: user.id,
           action: 'INSPEKSJON',
@@ -688,6 +695,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
         if (looksLikeNetwork) {
           await saveInspection({
+            id: opId,
             hiveId: params.id,
             action: 'FULL_INSPECTION',
             details: `Inspeksjon utført (Offline). Status: ${status}.`,
@@ -701,6 +709,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               : undefined,
             data: {
               inspection: {
+                id: opId,
                 hive_id: params.id,
                 inspection_date: date,
                 time: time,

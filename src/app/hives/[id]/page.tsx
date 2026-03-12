@@ -161,9 +161,11 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
 
   const submitOfflineInspection = async () => {
     if (!hive?.id) return;
+    const opId = crypto.randomUUID();
     setOfflineSubmitting(true);
     try {
       await saveInspection({
+        id: opId,
         hiveId: hive.id,
         action: 'FULL_INSPECTION',
         details: `Inspeksjon utført (Offline). Status: ${offlineStatus}.`,
@@ -177,6 +179,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
           : undefined,
         data: {
           inspection: {
+            id: opId,
             hive_id: hive.id,
             inspection_date: offlineDate,
             time: offlineTime,
