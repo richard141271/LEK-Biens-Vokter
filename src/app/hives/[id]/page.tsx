@@ -91,9 +91,10 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                         } : undefined
                     });
 
-                    // We might not have logs/inspections in the light cache
-                    // If we want them offline, we need to cache them in apiaries/page.tsx too
-                    // For now, at least show the hive info so page doesn't crash
+                    const offlineLogs = (parsed.logs || []).filter((l: any) => l?.hive_id === params.id);
+                    const offlineInspections = (parsed.inspections || []).filter((i: any) => i?.hive_id === params.id);
+                    setLogs(offlineLogs);
+                    setInspections(offlineInspections);
                 }
             }
         } catch (e) {

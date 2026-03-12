@@ -256,148 +256,168 @@ export default function ApiariesPage() {
             return;
         }
 
-        const waitForController = async (timeoutMs: number) => {
-          if (navigator.serviceWorker.controller) return true;
-          return await new Promise<boolean>((resolve) => {
-            let done = false;
-            const cleanup = (result: boolean) => {
-              if (done) return;
-              done = true;
-              clearTimeout(timer);
-              navigator.serviceWorker.removeEventListener('controllerchange', onChange);
-              resolve(result);
-            };
-            const onChange = () => cleanup(!!navigator.serviceWorker.controller);
-            const timer = setTimeout(() => cleanup(!!navigator.serviceWorker.controller), timeoutMs);
-            navigator.serviceWorker.addEventListener('controllerchange', onChange);
-          });
-        };
+        const DOWNLOAD_PENDING_KEY = 'offline_download_pending';
+        const SW_RELOAD_ONCE_KEY = 'sw_reload_once';
 
         const ensureController = async () => {
           try {
             await navigator.serviceWorker.register('/sw.js', { scope: '/' });
           } catch {}
 
-          if (await waitForController(2000)) return true;
+          if (navigator.serviceWorker.controller) return true;
+
+          const deadline = Date.now() + 6000;
+          while (Date.now() < deadline) {
+            if (navigator.serviceWorker.controller) return true;
+            await new Promise((r) => setTimeout(r, 250));
+          }
 
           try {
-            const regs = await navigator.serviceWorker.getRegistrations();
-            await Promise.all(regs.map((r) => r.unregister()));
-          } catch {}
-
-          try {
-            await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-          } catch {}
-
-          if (await waitForController(2000)) return true;
-
-          try {
-            const url = new URL(location.href);
-            if (sessionStorage.getItem('__sw_reload_once') !== '1') {
-              sessionStorage.setItem('__sw_reload_once', '1');
-              url.searchParams.set('__sw_reload', '1');
-              location.replace(url.toString());
+            if (sessionStorage.getItem(SW_RELOAD_ONCE_KEY) !== '1') {
+              sessionStorage.setItem(SW_RELOAD_ONCE_KEY, '1');
+              sessionStorage.setItem(DOWNLOAD_PENDING_KEY, '1');
+              window.location.reload();
               return false;
             }
           } catch {}
 
-          return false;
+          return !!navigator.serviceWorker.controller;
         };
 
         const hasController = await ensureController();
         if (!hasController) {
-          alert('Offline er nesten aktiv. Hvis siden nettopp lastet på nytt: trykk «Last ned» en gang til.');
+          alert('Offline er ikke aktiv ennå. Åpne appen fra hjemskjermen (installert PWA) og prøv igjen.');
           return;
         }
 
-        const urls: string[] = [];
-        const buildId = (window as any).__NEXT_DATA__?.buildId;
-        
-        // 0. Cache DATA in LocalStorage (Robust fallback)
+        if (!navigator.onLine) {
+          alert('Slå på nett først, trykk «Last ned», og slå av nett etterpå.');
+          return;
+        }
+
         const existingRaw = localStorage.getItem('offline_data');
         let existing: any = {};
         if (existingRaw) {
-            try {
-                existing = JSON.parse(existingRaw);
-            } catch {}
+          try {
+            existing = JSON.parse(existingRaw);
+          } catch {}
         }
-        const offlineData = {
-            ...existing,
-            apiaries: apiaries,
-            hives: apiaries.flatMap(a => a.hives || []),
-            profile: profile || existing.profile || null,
-            timestamp: Date.now()
-        };
-        localStorage.setItem('offline_data', JSON.stringify(offlineData));
 
-        // 1. Apiary & Hive Pages (HTML & JSON Cache)
-        urls.push('/offline');
-        if (buildId) urls.push(`/_next/data/${buildId}/offline.json`);
-        urls.push('/apiaries');
-        if (buildId) urls.push(`/_next/data/${buildId}/apiaries.json`);
-        urls.push('/hives');
-        if (buildId) urls.push(`/_next/data/${buildId}/hives.json`);
+        const hives = apiaries.flatMap((a) => a.hives || []);
+        const hiveIds = hives.map((h: any) => h?.id).filter(Boolean);
 
-        apiaries.forEach(a => {
-            const apiaryPath = `/apiaries/${a.id}`;
-            urls.push(apiaryPath);
-            if (buildId) urls.push(`/_next/data/${buildId}${apiaryPath}.json`);
+        const documentPaths: string[] = ['/apiaries', '/hives', '/settings'];
+        apiaries.forEach((a) => documentPaths.push(`/apiaries/${a.id}`));
+        hiveIds.forEach((id: string) => documentPaths.push(`/hives/${id}`));
+        hiveIds.forEach((id: string) => documentPaths.push(`/hives/${id}/new-inspection`));
+        [
+          '/dashboard/smittevern/veileder',
+          '/dashboard/smittevern/sykdommer/varroa',
+          '/dashboard/smittevern/sykdommer/lukket-yngelrate',
+          '/dashboard/smittevern/sykdommer/apen-yngelrate',
+          '/dashboard/smittevern/sykdommer/kalkyngel',
+          '/dashboard/smittevern/sykdommer/nosema',
+          '/dashboard/smittevern/sykdommer/frisk-kube',
+        ].forEach((p) => documentPaths.push(p));
 
-            a.hives?.forEach((h: any) => {
-                const hivePath = `/hives/${h.id}`;
-                const inspectionPath = `/hives/${h.id}/new-inspection`;
-                
-                urls.push(hivePath);
-                urls.push(inspectionPath);
-                
-                if (buildId) {
-                    urls.push(`/_next/data/${buildId}${hivePath}.json`);
-                    urls.push(`/_next/data/${buildId}${inspectionPath}.json`);
-                }
-            });
-        });
-
-        // 2. Disease Guide (Smittevern)
-        const diseasePaths = [
-            '/dashboard/smittevern/veileder',
-            '/dashboard/smittevern/sykdommer/varroa',
-            '/dashboard/smittevern/sykdommer/lukket-yngelrate',
-            '/dashboard/smittevern/sykdommer/apen-yngelrate',
-            '/dashboard/smittevern/sykdommer/kalkyngel',
-            '/dashboard/smittevern/sykdommer/nosema',
-            '/dashboard/smittevern/sykdommer/frisk-kube'
+        const assetUrls = [
+          '/images/sykdommer/sykdommer.png',
+          '/images/sykdommer/varroa.png',
+          '/images/sykdommer/lukket_yngelrate.png',
+          '/images/sykdommer/apen_yngelrate.png',
+          '/images/sykdommer/kalkyngel.png',
+          '/images/sykdommer/nosema.png',
+          '/images/sykdommer/frisk_kube.jpg',
         ];
 
-        diseasePaths.forEach(path => {
-            urls.push(path);
-            if (buildId) urls.push(`/_next/data/${buildId}${path}.json`);
-        });
+        const totalSteps = 1 + 2 + 1 + documentPaths.length + assetUrls.length;
 
-        // Images (Static assets, no JSON needed)
-        const imageUrls = [
-            '/images/sykdommer/sykdommer.png',
-            '/images/sykdommer/varroa.png',
-            '/images/sykdommer/lukket_yngelrate.png',
-            '/images/sykdommer/apen_yngelrate.png',
-            '/images/sykdommer/kalkyngel.png',
-            '/images/sykdommer/nosema.png',
-            '/images/sykdommer/frisk_kube.jpg'
-        ];
-        urls.push(...imageUrls);
-
-        const total = urls.length;
         let completed = 0;
+        const bump = () => {
+          completed += 1;
+          setDownloadProgress(Math.min(100, Math.round((completed / totalSteps) * 100)));
+        };
 
-        // Process in batches
-        const batchSize = 3;
-        for (let i = 0; i < total; i += batchSize) {
-            const batch = urls.slice(i, i + batchSize);
-            await Promise.all(batch.map(url => fetch(url, { cache: 'reload' }).catch(e => console.error('Failed to fetch', url))));
-            completed += batch.length;
-            setDownloadProgress(Math.min(100, Math.round((completed / total) * 100)));
+        bump();
+
+        const { data: inspectionsData } = await supabase
+          .from('inspections')
+          .select('*')
+          .in('hive_id', hiveIds)
+          .order('inspection_date', { ascending: false });
+        bump();
+
+        const { data: logsData } = await supabase
+          .from('hive_logs')
+          .select('*')
+          .in('hive_id', hiveIds)
+          .order('created_at', { ascending: false });
+        bump();
+
+        const offlineData = {
+          ...existing,
+          apiaries: apiaries,
+          hives,
+          inspections: inspectionsData || existing.inspections || [],
+          logs: logsData || existing.logs || [],
+          profile: profile || existing.profile || null,
+          timestamp: Date.now(),
+        };
+
+        localStorage.setItem('offline_data', JSON.stringify(offlineData));
+        bump();
+
+        const loadIntoCache = async (path: string, timeoutMs = 8000) => {
+          return await new Promise<void>((resolve) => {
+            const iframe = document.createElement('iframe');
+            iframe.style.position = 'absolute';
+            iframe.style.width = '1px';
+            iframe.style.height = '1px';
+            iframe.style.opacity = '0';
+            iframe.style.pointerEvents = 'none';
+            iframe.style.left = '-9999px';
+            iframe.style.top = '0';
+
+            let done = false;
+            const finish = () => {
+              if (done) return;
+              done = true;
+              iframe.onload = null;
+              iframe.onerror = null;
+              try {
+                iframe.remove();
+              } catch {
+                iframe.parentNode?.removeChild(iframe);
+              }
+              resolve();
+            };
+
+            const timer = window.setTimeout(finish, timeoutMs);
+            iframe.onload = () => {
+              window.clearTimeout(timer);
+              finish();
+            };
+            iframe.onerror = () => {
+              window.clearTimeout(timer);
+              finish();
+            };
+
+            iframe.src = path;
+            document.body.appendChild(iframe);
+          });
+        };
+
+        for (const path of documentPaths) {
+          await loadIntoCache(path).catch(() => {});
+          bump();
         }
 
-        alert('✅ Alt innhold er lastet ned!\n\n• Alle bigårder og kuber\n• Fullstendig sykdomsveileder med bilder\n\nDu er klar for skogen! 🌲🐝');
+        for (const url of assetUrls) {
+          await fetch(url, { cache: 'reload' }).catch(() => {});
+          bump();
+        }
+
+        alert('Offline er klart: bigårder, bikuber og inspeksjoner er lagret lokalt.');
     } catch (e) {
         console.error(e);
         alert('❌ Noe gikk galt. Sjekk nettet ditt og prøv igjen.');
@@ -405,6 +425,18 @@ export default function ApiariesPage() {
         setIsDownloading(false);
     }
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (loading) return;
+    if (apiaries.length === 0) return;
+    const key = 'offline_download_pending';
+    if (sessionStorage.getItem(key) !== '1') return;
+    sessionStorage.removeItem(key);
+    setTimeout(() => {
+      handleOfflineDownload();
+    }, 400);
+  }, [loading, apiaries.length]);
 
   if (loading) return <div className="p-8 text-center">Laster bigårder...</div>;
 
@@ -502,6 +534,11 @@ export default function ApiariesPage() {
                     if (isSelectionMode) {
                       e.preventDefault();
                       toggleSelection(apiary.id);
+                      return;
+                    }
+                    if (!navigator.onLine) {
+                      e.preventDefault();
+                      window.location.href = `/apiaries/${apiary.id}`;
                     }
                   }}
                   className={`block transition-all ${isSelectionMode ? 'pl-12' : ''}`}

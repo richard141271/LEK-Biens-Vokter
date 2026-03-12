@@ -695,7 +695,19 @@ export default function AllHivesPage() {
                     </div>
                 )}
                 
-                <Link href={isSelectionMode ? '#' : `/hives/${hive.id}`} onClick={(e) => isSelectionMode && e.preventDefault()}>
+                <Link
+                  href={isSelectionMode ? '#' : `/hives/${hive.id}`}
+                  onClick={(e) => {
+                    if (isSelectionMode) {
+                      e.preventDefault();
+                      return;
+                    }
+                    if (!navigator.onLine) {
+                      e.preventDefault();
+                      window.location.href = `/hives/${hive.id}`;
+                    }
+                  }}
+                >
                 <div 
                     onClick={() => isSelectionMode && toggleSelection(hive.id)}
                     className={`bg-white p-4 rounded-xl border border-gray-200 shadow-sm transition-all cursor-pointer ${
