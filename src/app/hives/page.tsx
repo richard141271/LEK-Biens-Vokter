@@ -702,10 +702,6 @@ export default function AllHivesPage() {
                       e.preventDefault();
                       return;
                     }
-                    if (!navigator.onLine) {
-                      e.preventDefault();
-                      window.location.href = `/hives/${hive.id}`;
-                    }
                   }}
                 >
                 <div 

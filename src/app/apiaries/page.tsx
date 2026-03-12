@@ -340,51 +340,10 @@ export default function ApiariesPage() {
         localStorage.setItem('offline_data', JSON.stringify(offlineData));
         bump();
 
-        const loadIntoCache = async (path: string, timeoutMs = 8000) => {
-          return await new Promise<void>((resolve) => {
-            const iframe = document.createElement('iframe');
-            iframe.style.position = 'absolute';
-            iframe.style.width = '1px';
-            iframe.style.height = '1px';
-            iframe.style.opacity = '0';
-            iframe.style.pointerEvents = 'none';
-            iframe.style.left = '-9999px';
-            iframe.style.top = '0';
-
-            let done = false;
-            const finish = () => {
-              if (done) return;
-              done = true;
-              iframe.onload = null;
-              iframe.onerror = null;
-              try {
-                iframe.remove();
-              } catch {
-                iframe.parentNode?.removeChild(iframe);
-              }
-              resolve();
-            };
-
-            const timer = window.setTimeout(finish, timeoutMs);
-            iframe.onload = () => {
-              window.clearTimeout(timer);
-              finish();
-            };
-            iframe.onerror = () => {
-              window.clearTimeout(timer);
-              finish();
-            };
-
-            iframe.src = path;
-            document.body.appendChild(iframe);
-          });
-        };
-
         for (const path of documentPaths) {
           try {
-            (router as any).prefetch?.(path);
+            await (router as any).prefetch?.(path);
           } catch {}
-          await loadIntoCache(path).catch(() => {});
           bump();
         }
 
@@ -501,10 +460,6 @@ export default function ApiariesPage() {
                       toggleSelection(apiary.id);
                       return;
                     }
-                    if (!navigator.onLine) {
-                      e.preventDefault();
-                      window.location.href = `/apiaries/${apiary.id}`;
-                    }
                   }}
                   className={`block transition-all ${isSelectionMode ? 'pl-12' : ''}`}
                 >
@@ -555,7 +510,7 @@ export default function ApiariesPage() {
                 ? 'bg-blue-500 text-white ring-4 ring-blue-200' 
                 : 'bg-white text-gray-600 hover:text-blue-600 hover:bg-blue-50 border border-gray-200'
             }`}
-            title="Last ned for offline bruk (v1.4)"
+            title="Last ned for offline bruk (v1.5)"
           >
              {isDownloading ? (
                  <span className="text-[10px] font-bold">{downloadProgress}%</span>

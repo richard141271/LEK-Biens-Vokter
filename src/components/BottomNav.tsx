@@ -30,12 +30,6 @@ export default function BottomNav() {
       <div className="flex justify-around items-center h-16">
         <Link 
           href="/dashboard" 
-          onClick={(e) => {
-            if (!navigator.onLine) {
-              e.preventDefault();
-              window.location.href = '/dashboard';
-            }
-          }}
           className={`flex flex-col items-center justify-center w-full h-full relative ${isActive('/dashboard') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
           <div className="relative">
@@ -49,12 +43,6 @@ export default function BottomNav() {
         
         <Link 
           href="/apiaries" 
-          onClick={(e) => {
-            if (!navigator.onLine) {
-              e.preventDefault();
-              window.location.href = '/apiaries';
-            }
-          }}
           className={`flex flex-col items-center justify-center w-full h-full ${isActive('/apiaries') ? 'text-honey-600' : 'text-gray-600 hover:text-gray-600'}`}
         >
           <Map className="w-6 h-6 mb-1" />
@@ -63,12 +51,6 @@ export default function BottomNav() {
 
         <Link 
           href="/hives"
-          onClick={(e) => {
-            if (!navigator.onLine) {
-              e.preventDefault();
-              window.location.href = '/hives';
-            }
-          }}
           className={`flex flex-col items-center justify-center w-full h-full ${isActive('/hives') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
           <Box className="w-6 h-6 mb-1" />
@@ -77,12 +59,6 @@ export default function BottomNav() {
 
         <Link 
           href="/settings" 
-          onClick={(e) => {
-            if (!navigator.onLine) {
-              e.preventDefault();
-              window.location.href = '/settings';
-            }
-          }}
           className={`flex flex-col items-center justify-center w-full h-full ${isActive('/settings') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
           <Settings className="w-6 h-6 mb-1" />
