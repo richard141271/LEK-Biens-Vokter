@@ -1301,11 +1301,11 @@ export default function RentHivePage() {
 
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                     <p className="text-sm text-amber-900 font-bold mb-1">
-                        Hvorfor 4 kuber er "Anbefalt"?
+                        Hvorfor 4 kuber er «Anbefalt»?
                     </p>
                     <p className="text-xs text-amber-800 leading-relaxed mb-3">
                         Med 4 kuber får du nok volum til at vi kan slynge din honning separat. 
-                        Du får da DIN EGEN unike "Single Estate" honning med ditt navn på, som kan selges som eksklusiv vare. 
+                        Du får da DIN EGEN unike «Single Estate» honning med ditt navn på, som kan selges som eksklusiv vare. 
                         Mindre volum må ofte blandes med andre (Standard).
                     </p>
                     

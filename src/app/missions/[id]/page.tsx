@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Box, CheckCircle, MapPin, Truck, AlertCircle, User, Phone, Mail } from 'lucide-react';
 
 export default function MissionDetailsPage({ params }: { params: { id: string } }) {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [mission, setMission] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -14,11 +14,7 @@ export default function MissionDetailsPage({ params }: { params: { id: string } 
   const [signature, setSignature] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchMission();
-  }, [params.id]);
-
-  const fetchMission = async () => {
+  const fetchMission = useCallback(async () => {
     const { data, error } = await supabase
       .from('rentals')
       .select('*')
@@ -34,7 +30,11 @@ export default function MissionDetailsPage({ params }: { params: { id: string } 
       }
     }
     setLoading(false);
-  };
+  }, [params.id, supabase]);
+
+  useEffect(() => {
+    fetchMission();
+  }, [fetchMission]);
 
   const PACKING_LIST = [
     { id: 'hive_complete', label: 'Bikube komplett (ramme, bunnbrett, tak, magasiner)', count: (mission?.hive_count || 0) },

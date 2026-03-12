@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { 
     getWarRoomFeed, 
     postWarRoomEntry, 
@@ -908,7 +909,14 @@ export default function WarRoomDashboard({
                                                             <div className="grid grid-cols-3 gap-2">
                                                                 {(attachmentsByCase[item.id] || []).map((att: any) => (
                                                                     <a key={att.id} href={att.file_url} target="_blank" rel="noreferrer" className="block">
-                                                                        <img src={att.file_url} alt="Vedlegg" className="w-full h-24 object-cover rounded border" />
+                                                                        <Image
+                                                                            src={att.file_url}
+                                                                            alt="Vedlegg"
+                                                                            width={240}
+                                                                            height={96}
+                                                                            unoptimized
+                                                                            className="w-full h-24 object-cover rounded border"
+                                                                        />
                                                                     </a>
                                                                 ))}
                                                                 {(!attachmentsByCase[item.id] || attachmentsByCase[item.id].length === 0) && (
@@ -1276,7 +1284,14 @@ export default function WarRoomDashboard({
                                 <div className="relative">
                                     <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden">
                                         {status.profile?.avatar_url ? (
-                                            <img src={status.profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                                            <Image
+                                                src={status.profile.avatar_url}
+                                                alt=""
+                                                width={32}
+                                                height={32}
+                                                unoptimized
+                                                className="w-full h-full object-cover"
+                                            />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-xs font-bold text-gray-500">
                                                 {status.profile?.full_name?.[0]}

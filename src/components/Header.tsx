@@ -1,10 +1,11 @@
 'use client';
 
 import { createClient } from '@/utils/supabase/client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { QrCode } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 // VoiceAssistant removed by user request
 
 export default function Header() {
@@ -12,7 +13,7 @@ export default function Header() {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     setMounted(true);
@@ -45,7 +46,7 @@ export default function Header() {
       };
       fetchData();
     }
-  }, [mounted]);
+  }, [mounted, supabase]);
 
   // Hide header on auth pages, landing page, and dedicated portals
   if (pathname === '/login' || 
@@ -107,7 +108,7 @@ export default function Header() {
         <div className="bg-[#F79009] text-black px-4 py-3 flex items-center justify-between shadow-sm relative z-50 h-[72px]">
           {/* Left: Logo */}
           <div className="flex-shrink-0">
-             <img src="/icon.png" alt="Logo" className="w-12 h-12 object-contain" />
+             <Image src="/icon.png" alt="Logo" width={48} height={48} className="w-12 h-12 object-contain" />
           </div>
           
           {/* Center: Title */}

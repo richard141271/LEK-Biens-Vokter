@@ -1,6 +1,6 @@
 'use client';
 
-import { createClient } from '@/utils/supabase/client';
+import { createClient, getUserWithSessionFallback } from '@/utils/supabase/client';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { parseVoiceCommand } from '@/utils/voice-parser';
 import { analyzeAndCorrect } from '@/utils/voice-diagnostics';
@@ -556,7 +556,46 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         return;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getUserWithSessionFallback(supabase);
+      if (!user) {
+        await saveInspection({
+          hiveId: params.id,
+          action: 'FULL_INSPECTION',
+          details: `Inspeksjon utført (Offline). Status: ${status}.`,
+          sharedWithMattilsynet: false,
+          image: selectedImage
+            ? {
+                name: selectedImage.name,
+                type: selectedImage.type,
+                blob: selectedImage,
+              }
+            : undefined,
+          data: {
+            inspection: {
+              hive_id: params.id,
+              inspection_date: date,
+              time: time,
+              queen_seen: queenSeen,
+              eggs_seen: eggsSeen,
+              brood_condition: broodCondition,
+              honey_stores: honeyStores,
+              temperament: temperament,
+              notes: notes,
+              status: status,
+              temperature: temperature ? parseFloat(temperature) : null,
+              weather: weather,
+            },
+            hiveUpdate: {
+              status: status === 'DØD' ? 'DØD' : 'AKTIV',
+              last_inspection_date: date,
+            },
+          },
+        });
+
+        alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
+        router.push('/hives');
+        return;
+      }
 
       // Update Apiary Location if we have coordinates
       if (coordinates && hive?.apiary_id) {
@@ -599,7 +638,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         .from('inspections')
         .insert({
           hive_id: params.id,
-          user_id: user?.id,
+          user_id: user.id,
           inspection_date: date,
           time: time,
           queen_seen: queenSeen,
@@ -630,7 +669,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         .from('hive_logs')
         .insert({
           hive_id: params.id,
-          user_id: user?.id,
+          user_id: user.id,
           action: 'INSPEKSJON',
           details: `Inspeksjon utført. Status: ${status}. Temp: ${temperature}°C. ${notes ? 'Notater lagt til.' : ''}`
         });
@@ -639,7 +678,55 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       router.push('/hives');
     } catch (error: any) {
-      alert('Feil ved lagring: ' + error.message);
+      try {
+        const msg = String(error?.message || '');
+        const looksLikeNetwork =
+          !navigator.onLine ||
+          msg.toLowerCase().includes('failed to fetch') ||
+          msg.toLowerCase().includes('network') ||
+          msg.toLowerCase().includes('timeout');
+
+        if (looksLikeNetwork) {
+          await saveInspection({
+            hiveId: params.id,
+            action: 'FULL_INSPECTION',
+            details: `Inspeksjon utført (Offline). Status: ${status}.`,
+            sharedWithMattilsynet: false,
+            image: selectedImage
+              ? {
+                  name: selectedImage.name,
+                  type: selectedImage.type,
+                  blob: selectedImage,
+                }
+              : undefined,
+            data: {
+              inspection: {
+                hive_id: params.id,
+                inspection_date: date,
+                time: time,
+                queen_seen: queenSeen,
+                eggs_seen: eggsSeen,
+                brood_condition: broodCondition,
+                honey_stores: honeyStores,
+                temperament: temperament,
+                notes: notes,
+                status: status,
+                temperature: temperature ? parseFloat(temperature) : null,
+                weather: weather,
+              },
+              hiveUpdate: {
+                status: status === 'DØD' ? 'DØD' : 'AKTIV',
+                last_inspection_date: date,
+              },
+            },
+          });
+          alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
+          router.push('/hives');
+          return;
+        }
+      } catch {}
+
+      alert('Feil ved lagring: ' + (error?.message || 'Ukjent feil'));
     } finally {
       setSubmitting(false);
     }
@@ -712,7 +799,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                     BODYCAM
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-white text-xs">
-                    Si "Ta bilde" for å knipse
+                    Si «Ta bilde» for å knipse
                 </div>
             </div>
         )}

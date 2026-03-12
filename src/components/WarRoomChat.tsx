@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { getCommunityMessages, postCommunityMessage } from '@/app/actions/founder-community';
 import { Send, MessageSquare } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -30,7 +31,7 @@ export default function WarRoomChat({
     const isUserAtBottomRef = useRef(true);
     const lastMessageIdRef = useRef<string | null>(null);
 
-    const loadMessages = async () => {
+    const loadMessages = useCallback(async () => {
         try {
             const res = await getCommunityMessages();
             if (res.error) {
@@ -53,14 +54,14 @@ export default function WarRoomChat({
         } finally {
             setLoading(false);
         }
-    };
+    }, [messages.length]);
 
     useEffect(() => {
         loadMessages();
         // Poll for new messages every 5 seconds
         const interval = setInterval(loadMessages, 5000);
         return () => clearInterval(interval);
-    }, []);
+    }, [loadMessages]);
 
     useEffect(() => {
         // Only scroll if user is at bottom OR it's the first load
@@ -148,9 +149,12 @@ export default function WarRoomChat({
                             <div key={msg.id} className="flex gap-3">
                                 <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0 border border-amber-200 overflow-hidden">
                                     {msg.founder_profiles?.profiles?.avatar_url ? (
-                                        <img 
-                                            src={msg.founder_profiles.profiles.avatar_url} 
-                                            alt="Avatar" 
+                                        <Image
+                                            src={msg.founder_profiles.profiles.avatar_url}
+                                            alt="Avatar"
+                                            width={40}
+                                            height={40}
+                                            unoptimized
                                             className="w-full h-full object-cover"
                                         />
                                     ) : (

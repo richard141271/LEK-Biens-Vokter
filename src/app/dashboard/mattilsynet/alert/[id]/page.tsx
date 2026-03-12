@@ -733,7 +733,7 @@ Mattilsynet`
                                 <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Beskrivelse fra birøkter</h4>
                                 <div className="bg-amber-50 border border-amber-100 p-4 rounded-lg">
                                     <p className="text-sm text-gray-900 whitespace-pre-wrap font-medium">
-                                        "{parsedDetails.description}"
+                                        «{parsedDetails.description}»
                                     </p>
                                 </div>
                             </div>
@@ -797,7 +797,7 @@ Mattilsynet`
                                 {parsedDetails.aiDetails ? (
                                     <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg">
                                         <p className="text-sm text-blue-800 italic whitespace-pre-wrap">
-                                            "{parsedDetails.aiDetails.trim()}"
+                                            «{parsedDetails.aiDetails.trim()}»
                                         </p>
                                     </div>
                                 ) : (

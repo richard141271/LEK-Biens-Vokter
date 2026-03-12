@@ -246,8 +246,7 @@ export default function ApiariesPage() {
   };
 
   const handleOfflineDownload = async () => {
-    if (!confirm('Vil du laste ned alle bigårder og kuber for offline bruk? Dette sikrer at du kan gjøre inspeksjoner i skogen uten dekning.')) return;
-    
+    if (isDownloading) return;
     setIsDownloading(true);
     setDownloadProgress(0);
     
@@ -257,13 +256,58 @@ export default function ApiariesPage() {
             return;
         }
 
-        try {
-            await navigator.serviceWorker.ready;
-        } catch {}
+        const waitForController = async (timeoutMs: number) => {
+          if (navigator.serviceWorker.controller) return true;
+          return await new Promise<boolean>((resolve) => {
+            let done = false;
+            const cleanup = (result: boolean) => {
+              if (done) return;
+              done = true;
+              clearTimeout(timer);
+              navigator.serviceWorker.removeEventListener('controllerchange', onChange);
+              resolve(result);
+            };
+            const onChange = () => cleanup(!!navigator.serviceWorker.controller);
+            const timer = setTimeout(() => cleanup(!!navigator.serviceWorker.controller), timeoutMs);
+            navigator.serviceWorker.addEventListener('controllerchange', onChange);
+          });
+        };
 
-        if (!navigator.serviceWorker.controller) {
-            alert('Offline er ikke aktiv ennå. Åpne appen online, lukk den helt, åpne igjen, og trykk «Last ned» på nytt.');
-            return;
+        const ensureController = async () => {
+          try {
+            await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+          } catch {}
+
+          if (await waitForController(2000)) return true;
+
+          try {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map((r) => r.unregister()));
+          } catch {}
+
+          try {
+            await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+          } catch {}
+
+          if (await waitForController(2000)) return true;
+
+          try {
+            const url = new URL(location.href);
+            if (sessionStorage.getItem('__sw_reload_once') !== '1') {
+              sessionStorage.setItem('__sw_reload_once', '1');
+              url.searchParams.set('__sw_reload', '1');
+              location.replace(url.toString());
+              return false;
+            }
+          } catch {}
+
+          return false;
+        };
+
+        const hasController = await ensureController();
+        if (!hasController) {
+          alert('Offline er nesten aktiv. Hvis siden nettopp lastet på nytt: trykk «Last ned» en gang til.');
+          return;
         }
 
         const urls: string[] = [];

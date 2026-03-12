@@ -1,23 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { MapPin, Box, Calendar, ChevronRight, Truck, User } from 'lucide-react';
 import Link from 'next/link';
 
 export default function MissionsPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [missions, setMissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchMissions();
-  }, []);
-
-  const fetchMissions = async () => {
-    // In a real app, filter by location or "assigned to me"
+  const fetchMissions = useCallback(async () => {
     const { data, error } = await supabase
       .from('rentals')
       .select('*')
@@ -30,7 +25,11 @@ export default function MissionsPage() {
       setMissions(data || []);
     }
     setLoading(false);
-  };
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchMissions();
+  }, [fetchMissions]);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">

@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { ArrowRight, Zap, ShieldCheck, CheckCircle, Heart, Users, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import InstallPrompt from "@/components/InstallPrompt";
+import Image from "next/image";
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -16,14 +17,14 @@ export default function Home() {
       setUser(user);
     };
     checkUser();
-  }, []);
+  }, [supabase]);
 
   return (
     <main className="min-h-screen flex flex-col relative bg-white">
       {/* Navbar */}
       <nav className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center max-w-6xl mx-auto z-10">
         <div className="font-bold text-xl text-gray-900 flex items-center gap-2">
-          <img src="/icon.png" alt="Logo" className="w-8 h-8 object-contain" /> Biens Vokter
+          <Image src="/icon.png" alt="Logo" width={32} height={32} className="w-8 h-8 object-contain" /> Biens Vokter
         </div>
 
         <div className="flex items-center gap-6">
@@ -69,7 +70,7 @@ export default function Home() {
               POPULÆRT
             </div>
             <div className="h-48 bg-orange-50 flex items-center justify-center relative overflow-hidden p-4">
-                <img src="/icon.png" alt="Biens Vokter Våpenskjold" className="h-full object-contain drop-shadow-lg group-hover:scale-110 transition-transform duration-500" />
+                <Image src="/icon.png" alt="Biens Vokter Våpenskjold" fill sizes="600px" className="object-contain drop-shadow-lg group-hover:scale-110 transition-transform duration-500" />
             </div>
             <div className="p-8">
               <h2 className="text-2xl font-bold text-gray-900 mb-3">Er du birøkter?</h2>
@@ -143,7 +144,7 @@ export default function Home() {
       <footer className="bg-gray-900 text-white py-12 px-4">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-3">
-            <img src="/icon.png" alt="Logo" className="w-10 h-10 object-contain" />
+            <Image src="/icon.png" alt="Logo" width={40} height={40} className="w-10 h-10 object-contain" />
             <span className="font-bold text-xl">Biens Vokter</span>
           </div>
           <div className="flex flex-col items-center md:items-end gap-1 text-sm">

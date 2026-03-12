@@ -512,7 +512,7 @@ export default function InnovationNorwayReport() {
                       <ul className="space-y-3">
                           {challenges.map((c, i) => (
                               <li key={i} className="flex gap-3 text-sm text-gray-700 italic bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
-                                  <span className="text-honey-400 font-serif text-xl">"</span>
+                                  <span className="text-honey-400 font-serif text-xl">«</span>
                                   {c}
                               </li>
                           ))}

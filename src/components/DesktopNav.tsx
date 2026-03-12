@@ -6,6 +6,7 @@ import { Home, Map, Box, Settings, LogOut, Archive, ShoppingBag, ShieldAlert, Fi
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { getFounderMeeting } from '@/app/actions/founder';
+import Image from 'next/image';
 
 export default function DesktopNav() {
   const pathname = usePathname();
@@ -51,7 +52,7 @@ export default function DesktopNav() {
     <aside className="hidden md:flex flex-col w-64 bg-white border-r border-gray-200 h-screen fixed left-0 top-0 z-50 print:hidden">
       <div className="p-6 border-b border-gray-100">
         <div className="flex items-center gap-3">
-          <img src="/icon.png" alt="Logo" className="w-8 h-8 object-contain" />
+          <Image src="/icon.png" alt="Logo" width={32} height={32} className="w-8 h-8 object-contain" />
           <Link href="/dashboard" className="cursor-default text-gray-900 hover:text-gray-900">
             <span className="font-bold text-lg text-gray-900">Biens Vokter</span>
           </Link>

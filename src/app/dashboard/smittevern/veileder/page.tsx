@@ -298,7 +298,7 @@ export default function SykdomsveilederPage() {
             <h3 className="text-lg font-bold mb-2">🧠 LEK-filosofi</h3>
             <p className="mb-4 text-gray-300">Dette er ikke skremsel. Dette er kompetanse, mestring og trygghet.</p>
             <blockquote className="text-xl font-medium text-honey-400 italic">
-                "Jo tidligere du forstår, jo mindre skade."
+                «Jo tidligere du forstår, jo mindre skade.»
             </blockquote>
         </div>
 

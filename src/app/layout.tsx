@@ -55,6 +55,10 @@ export default function RootLayout({
                   }
 
                   function hardReloadOnce() {
+                    try {
+                      if (sessionStorage.getItem('__sw_hard_reload_done') === '1') return;
+                      sessionStorage.setItem('__sw_hard_reload_done', '1');
+                    } catch (e) {}
                     var u = new URL(location.href);
                     if (u.searchParams.get('__sw_reload') === '1') return;
                     u.searchParams.set('__sw_reload', '1');
@@ -63,6 +67,10 @@ export default function RootLayout({
 
                   function selfHealAndReload() {
                     try {
+                      try {
+                        if (sessionStorage.getItem('__sw_self_heal_done') === '1') return;
+                        sessionStorage.setItem('__sw_self_heal_done', '1');
+                      } catch (e) {}
                       Promise.all([
                         navigator.serviceWorker.getRegistrations().then(function (regs) {
                           return Promise.all(regs.map(function (r) { return r.unregister(); }));

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import Image from 'next/image';
 import { X, Camera, Check, ChevronDown, ClipboardCheck } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useOffline } from '@/context/OfflineContext';
@@ -274,10 +275,13 @@ export default function InspectionModal({ isOpen, onClose, allHives, onSuccess }
                     >
                         {inspectionImage ? (
                             <div className="relative w-full h-48">
-                                <img 
-                                    src={URL.createObjectURL(inspectionImage)} 
-                                    alt="Preview" 
-                                    className="w-full h-full object-contain rounded-lg"
+                                <Image
+                                    src={URL.createObjectURL(inspectionImage)}
+                                    alt="Preview"
+                                    fill
+                                    sizes="100vw"
+                                    unoptimized
+                                    className="object-contain rounded-lg"
                                 />
                                 <button 
                                     onClick={(e) => {

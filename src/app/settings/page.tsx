@@ -1,9 +1,10 @@
 'use client';
 
-import { createClient } from '@/utils/supabase/client';
+import { createClient, getUserWithSessionFallback, withTimeout } from '@/utils/supabase/client';
 import { ensureMemberNumber } from '@/app/actions/profile';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight, Archive, Briefcase, Printer, Link as LinkIcon, X, CreditCard, List, QrCode, FileText, ClipboardCheck, ChevronDown, Mic } from 'lucide-react';
@@ -56,12 +57,124 @@ export default function SettingsPage() {
     role: 'beekeeper' // Default
   });
   
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
+  const fetchProfile = useCallback(async () => {
+    try {
+      let hasOfflineProfile = false;
+      try {
+        const offlineRaw = localStorage.getItem('offline_data');
+        if (offlineRaw) {
+          const parsed = JSON.parse(offlineRaw);
+          if (parsed?.profile) {
+            hasOfflineProfile = true;
+            setProfile(parsed.profile);
+            setFormData((prev: any) => ({
+              ...prev,
+              ...parsed.profile,
+              email: parsed.profile.email || prev.email || '',
+              interests: parsed.profile.interests || [],
+              beekeeping_type: parsed.profile.beekeeping_type || 'hobby',
+              company_email: parsed.profile.company_email || parsed.profile.email || prev.email || '',
+              company_phone: parsed.profile.company_phone || parsed.profile.phone_number || '',
+            }));
+          }
+        }
+      } catch {}
+
+      const user = await getUserWithSessionFallback(supabase);
+      if (!user) {
+        if (!hasOfflineProfile) router.push('/login');
+        return;
+      }
+
+      try {
+        if (navigator.onLine) {
+          await withTimeout(ensureMemberNumber(), 1500, 'ensureMemberNumber timeout');
+        }
+      } catch {}
+
+      const { data } = await withTimeout<any>(
+        supabase.from('profiles').select('*').eq('id', user.id).single(),
+        2500,
+        'profiles timeout'
+      );
+
+      if (data) {
+        setProfile(data);
+        setFormData({
+          ...data,
+          email: user.email,
+          interests: data.interests || [],
+          beekeeping_type: data.beekeeping_type || 'hobby',
+          company_email: data.company_email || user.email || '',
+          company_phone: data.company_phone || data.phone_number || ''
+        });
+
+        try {
+          const existingRaw = localStorage.getItem('offline_data');
+          const existing = existingRaw ? JSON.parse(existingRaw) : {};
+          localStorage.setItem(
+            'offline_data',
+            JSON.stringify({
+              ...existing,
+              profile: { ...data, email: user.email },
+              timestamp: Date.now(),
+            })
+          );
+        } catch {}
+      } else {
+        setFormData({ 
+          email: user.email,
+          full_name: (user as any).user_metadata?.full_name || '',
+          interests: [],
+          beekeeping_type: 'hobby',
+          company_email: user.email || '',
+          company_phone: ''
+        });
+      }
+    } catch {
+      try {
+        const offlineRaw = localStorage.getItem('offline_data');
+        if (offlineRaw) {
+          const parsed = JSON.parse(offlineRaw);
+          if (parsed?.profile) {
+            setProfile(parsed.profile);
+            setFormData((prev: any) => ({
+              ...prev,
+              ...parsed.profile,
+              email: parsed.profile.email || prev.email || '',
+              interests: parsed.profile.interests || [],
+              beekeeping_type: parsed.profile.beekeeping_type || 'hobby',
+              company_email: parsed.profile.company_email || parsed.profile.email || prev.email || '',
+              company_phone: parsed.profile.company_phone || parsed.profile.phone_number || '',
+            }));
+          }
+        }
+      } catch {}
+    } finally {
+      setLoading(false);
+    }
+  }, [router, supabase]);
+
   useEffect(() => {
-    fetchProfile();
-  }, []);
+    let isActive = true;
+    const timeoutId = window.setTimeout(() => {
+      if (isActive) setLoading(false);
+    }, 2000);
+
+    fetchProfile()
+      .catch(() => {})
+      .finally(() => {
+        window.clearTimeout(timeoutId);
+      });
+
+    return () => {
+      isActive = false;
+      window.clearTimeout(timeoutId);
+    };
+  }, [fetchProfile]);
 
   // Auto-fetch City based on Postal Code (Bring API)
   useEffect(() => {
@@ -84,48 +197,6 @@ export default function SettingsPage() {
     const timeoutId = setTimeout(fetchCity, 500); // Debounce
     return () => clearTimeout(timeoutId);
   }, [formData.postal_code, isEditing]);
-
-  const fetchProfile = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-
-    await ensureMemberNumber();
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-
-    if (data) {
-      setProfile(data);
-      setFormData({
-        ...data,
-        email: user.email, // Add email from auth user
-        interests: data.interests || [], // Ensure array
-        beekeeping_type: data.beekeeping_type || 'hobby',
-        // Auto-fill company contact info if empty
-        company_email: data.company_email || user.email || '',
-        company_phone: data.company_phone || data.phone_number || ''
-      });
-
-    } else {
-      // Fallback to auth metadata if profile doesn't exist yet
-      setFormData({ 
-        email: user.email,
-        full_name: user.user_metadata?.full_name || '',
-        // Initialize other fields as empty/default
-        interests: [],
-        beekeeping_type: 'hobby',
-        company_email: user.email || '',
-        company_phone: ''
-      });
-    }
-    setLoading(false);
-  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -1332,7 +1403,14 @@ export default function SettingsPage() {
 
                                             {printData[hive.id]?.qrDataUrl && (
                                                 <div className="w-32 flex flex-col items-center justify-start">
-                                                    <img src={printData[hive.id].qrDataUrl} alt="QR" className="w-32 h-32" />
+                                                    <Image
+                                                        src={printData[hive.id].qrDataUrl}
+                                                        alt="QR"
+                                                        width={128}
+                                                        height={128}
+                                                        unoptimized
+                                                        className="w-32 h-32"
+                                                    />
                                                     <span className="text-[10px] text-gray-500 mt-1">{hive.id.substring(0,8)}</span>
                                                 </div>
                                             )}
@@ -1384,7 +1462,14 @@ export default function SettingsPage() {
                             <span className="text-[10px] font-bold truncate max-w-[35mm] leading-tight mt-1">{hive.name}</span>
                          </div>
                          {printData[hive.id]?.qrDataUrl && (
-                            <img src={printData[hive.id]?.qrDataUrl} className="w-[28mm] h-[28mm] object-contain z-10" />
+                            <Image
+                                src={printData[hive.id].qrDataUrl}
+                                alt="QR"
+                                width={112}
+                                height={112}
+                                unoptimized
+                                className="w-[28mm] h-[28mm] object-contain z-10"
+                            />
                          )}
                       </div>
                    ))}

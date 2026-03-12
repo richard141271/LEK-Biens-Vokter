@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient } from '@/utils/supabase/client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Users, TrendingUp, ShieldCheck, Copy, CheckCircle, AlertCircle, ChevronRight, DollarSign } from 'lucide-react';
 
@@ -21,14 +21,41 @@ export default function NetworkPage() {
   const [copied, setCopied] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
   
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
-  useEffect(() => {
-    checkAccess();
-  }, []);
+  const fetchNetworkStats = useCallback(async (userId: string, referralCode?: string) => {
+    try {
+      const { data: projection } = await supabase
+        .from('view_mlm_monthly_projection')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
 
-  const checkAccess = async () => {
+      const { data: commissions } = await supabase
+        .from('commissions')
+        .select('amount')
+        .eq('beneficiary_id', userId)
+        .eq('type', 'sales_commission');
+
+      const totalSalesCommission = commissions?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
+
+      setStats({
+        level1: projection?.level_1_count || 0,
+        level2: projection?.level_2_count || 0,
+        level3: projection?.level_3_count || 0,
+        earnings: projection?.estimated_monthly_earnings || 0,
+        salesCommission: totalSalesCommission,
+        referralCode: referralCode || '---',
+      });
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase]);
+
+  const checkAccess = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       router.push('/login');
@@ -45,45 +72,16 @@ export default function NetworkPage() {
       setUserProfile(profile);
       if (profile.mlm_agreement_signed_at) {
         setAgreementSigned(true);
-        fetchNetworkStats(user.id);
+        fetchNetworkStats(user.id, profile.referral_code);
       } else {
         setLoading(false); // Stop loading to show agreement
       }
     }
-  };
+  }, [fetchNetworkStats, router, supabase]);
 
-  const fetchNetworkStats = async (userId: string) => {
-    try {
-      // Fetch the projection view we created
-      const { data: projection } = await supabase
-        .from('view_mlm_monthly_projection')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      // Fetch accumulated sales commissions
-      const { data: commissions } = await supabase
-        .from('commissions')
-        .select('amount')
-        .eq('beneficiary_id', userId)
-        .eq('type', 'sales_commission');
-
-      const totalSalesCommission = commissions?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
-
-      setStats({
-        level1: projection?.level_1_count || 0,
-        level2: projection?.level_2_count || 0,
-        level3: projection?.level_3_count || 0,
-        earnings: projection?.estimated_monthly_earnings || 0,
-        salesCommission: totalSalesCommission,
-        referralCode: userProfile?.referral_code || '---'
-      });
-    } catch (err) {
-      console.error('Error fetching stats:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    checkAccess();
+  }, [checkAccess]);
 
   const signAgreement = async () => {
     const { error } = await supabase
@@ -93,7 +91,7 @@ export default function NetworkPage() {
 
     if (!error) {
       setAgreementSigned(true);
-      fetchNetworkStats(userProfile.id);
+      fetchNetworkStats(userProfile.id, userProfile.referral_code);
     } else {
       console.error('Sign agreement error:', error);
       alert(`Kunne ikke signere avtalen. Feilmelding: ${error.message} (Kode: ${error.code || 'ukjent'})`);
@@ -133,7 +131,7 @@ export default function NetworkPage() {
             <div className="prose prose-sm text-gray-600 max-h-96 overflow-y-auto bg-gray-50 p-4 rounded-lg border border-gray-200">
               <h3 className="font-bold text-gray-900">1. Innledning</h3>
               <p>
-                Denne avtalen regulerer forholdet mellom LEK-Biens Vokter (heretter "Selskapet") og deg som selvstendig partner/frilanser.
+                Denne avtalen regulerer forholdet mellom LEK-Biens Vokter (heretter &quot;Selskapet&quot;) og deg som selvstendig partner/frilanser.
               </p>
               
               <h3 className="font-bold text-gray-900">2. Kompensasjonsplan</h3>

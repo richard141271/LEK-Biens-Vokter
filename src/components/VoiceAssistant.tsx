@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Mic, MicOff, Volume2 } from 'lucide-react';
 
 // Types for Web Speech API
@@ -20,6 +20,59 @@ export default function VoiceAssistant({ onCommand, apiaries }: VoiceAssistantPr
   const [step, setStep] = useState<'idle' | 'awaiting_location'>('idle');
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesis | null>(null);
+
+  const speak = useCallback((text: string) => {
+    if (synthRef.current) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'no-NO';
+      synthRef.current.speak(utterance);
+    }
+    setFeedback(text);
+  }, []);
+
+  const startListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+        setFeedback('Lytter...');
+      } catch (e) {
+        console.error('Already started', e);
+      }
+    } else {
+      alert('Nettleseren din støtter ikke stemmestyring.');
+    }
+  }, []);
+
+  const handleVoiceInput = useCallback((text: string) => {
+    console.log('Heard:', text);
+
+    if (step === 'idle') {
+      if (text.includes('ny kube') || text.includes('registrer kube')) {
+        setStep('awaiting_location');
+        speak('Hvor vil du ha kuben?');
+        setTimeout(startListening, 2000);
+      } else {
+        speak('Jeg forstod ikke. Prøv "Ny kube".');
+      }
+    } else if (step === 'awaiting_location') {
+      const foundApiary = apiaries.find(a => text.includes(a.name.toLowerCase()));
+
+      if (foundApiary) {
+        speak(`Oppretter kube på ${foundApiary.name}.`);
+        onCommand('create_hive', { apiaryId: foundApiary.id });
+        setStep('idle');
+      } else {
+        speak('Fant ikke den lokasjonen. Prøv igjen, eller si avbryt.');
+        if (text.includes('avbryt')) {
+          setStep('idle');
+          speak('Avbrutt.');
+        } else {
+          setTimeout(startListening, 2000);
+        }
+      }
+    }
+  }, [apiaries, onCommand, speak, startListening, step]);
 
   useEffect(() => {
     try {
@@ -59,62 +112,7 @@ export default function VoiceAssistant({ onCommand, apiaries }: VoiceAssistantPr
     } catch (e) {
       console.error("VoiceAssistant initialization error", e);
     }
-  }, [step, apiaries]); // Re-bind if dependencies change significantly, though mostly stable
-
-  const speak = (text: string) => {
-    if (synthRef.current) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'no-NO';
-      synthRef.current.speak(utterance);
-    }
-    setFeedback(text);
-  };
-
-  const startListening = () => {
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.start();
-        setIsListening(true);
-        setFeedback('Lytter...');
-      } catch (e) {
-        console.error('Already started', e);
-      }
-    } else {
-        alert('Nettleseren din støtter ikke stemmestyring.');
-    }
-  };
-
-  const handleVoiceInput = (text: string) => {
-    console.log('Heard:', text);
-
-    if (step === 'idle') {
-      if (text.includes('ny kube') || text.includes('registrer kube')) {
-        setStep('awaiting_location');
-        speak('Hvor vil du ha kuben?');
-        // Automatically restart listening after speaking (needs a small delay usually)
-        setTimeout(startListening, 2000); 
-      } else {
-        speak('Jeg forstod ikke. Prøv "Ny kube".');
-      }
-    } else if (step === 'awaiting_location') {
-      // Fuzzy match apiary name
-      const foundApiary = apiaries.find(a => text.includes(a.name.toLowerCase()));
-      
-      if (foundApiary) {
-        speak(`Oppretter kube på ${foundApiary.name}.`);
-        onCommand('create_hive', { apiaryId: foundApiary.id });
-        setStep('idle');
-      } else {
-        speak('Fant ikke den lokasjonen. Prøv igjen, eller si avbryt.');
-        if (text.includes('avbryt')) {
-            setStep('idle');
-            speak('Avbrutt.');
-        } else {
-            setTimeout(startListening, 2000);
-        }
-      }
-    }
-  };
+  }, [handleVoiceInput]);
 
   if (!recognitionRef.current) return null;
 

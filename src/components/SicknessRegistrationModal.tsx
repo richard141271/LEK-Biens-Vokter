@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import Image from 'next/image';
 import { Activity, X, Camera, ShieldCheck, Mic, MicOff } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
@@ -296,10 +297,13 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
                                     <div key={index} className="relative bg-gray-50 rounded-lg p-2 border border-gray-100">
                                         <div className="relative w-full h-24 mb-2 rounded overflow-hidden bg-gray-200">
                                             {previewUrls[index] ? (
-                                                <img 
-                                                    src={previewUrls[index]} 
-                                                    alt={`Preview ${index + 1}`} 
-                                                    className="w-full h-full object-cover" 
+                                                <Image
+                                                    src={previewUrls[index]}
+                                                    alt={`Preview ${index + 1}`}
+                                                    fill
+                                                    sizes="200px"
+                                                    unoptimized
+                                                    className="object-cover"
                                                 />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-500 text-center p-1">

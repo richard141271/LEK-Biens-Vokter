@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useCart } from '@/context/CartContext';
 import { X, Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -60,12 +61,17 @@ export default function CartSidebar() {
             ) : (
               items.map(item => (
                 <div key={item.id} className="flex gap-4 bg-white border border-gray-100 p-3 rounded-xl shadow-sm">
-                  <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0">
-                    <img 
-                      src={item.image_url || PRODUCT_IMAGES.FALLBACK} 
+                  <div className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden shrink-0">
+                    <Image
+                      src={item.image_url || PRODUCT_IMAGES.FALLBACK}
                       alt={item.name}
-                      className="w-full h-full object-cover"
-                      onError={(e) => e.currentTarget.src = PRODUCT_IMAGES.FALLBACK}
+                      fill
+                      sizes="80px"
+                      unoptimized
+                      className="object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = PRODUCT_IMAGES.FALLBACK;
+                      }}
                     />
                   </div>
                   <div className="flex-1 flex flex-col justify-between">

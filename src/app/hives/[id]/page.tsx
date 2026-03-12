@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, MapPin, Truck, Calendar, Activity, X, Check, Printer, ChevronDown, ChevronUp, History, AlertTriangle, Trash2, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store } from 'lucide-react';
+import { useOffline } from '@/context/OfflineContext';
 
 export default function HiveDetailsPage({ params }: { params: { id: string } }) {
   const [hive, setHive] = useState<any>(null);
@@ -13,6 +14,21 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   const [inspections, setInspections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedInspectionId, setExpandedInspectionId] = useState<string | null>(null);
+
+  const { isOffline, saveInspection } = useOffline();
+
+  const [offlineInspectionOpen, setOfflineInspectionOpen] = useState(false);
+  const [offlineSubmitting, setOfflineSubmitting] = useState(false);
+  const [offlineDate, setOfflineDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [offlineTime, setOfflineTime] = useState(() => new Date().toTimeString().slice(0, 5));
+  const [offlineQueenSeen, setOfflineQueenSeen] = useState(false);
+  const [offlineEggsSeen, setOfflineEggsSeen] = useState(false);
+  const [offlineBroodCondition, setOfflineBroodCondition] = useState('Bra');
+  const [offlineHoneyStores, setOfflineHoneyStores] = useState('middels');
+  const [offlineTemperament, setOfflineTemperament] = useState('rolig');
+  const [offlineStatus, setOfflineStatus] = useState('OK');
+  const [offlineNotes, setOfflineNotes] = useState('');
+  const [offlineImage, setOfflineImage] = useState<File | null>(null);
   
   // Move Modal State
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
@@ -43,6 +59,13 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   useEffect(() => {
     fetchHiveDetails();
   }, [params.id]);
+
+  useEffect(() => {
+    if (!navigator.onLine) return;
+    try {
+      router.prefetch(`/hives/${params.id}/new-inspection`);
+    } catch {}
+  }, [params.id, router]);
 
   const fetchHiveDetails = async () => {
     // 0. Check Offline Cache FIRST (if no network)
@@ -133,6 +156,54 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
     if (inspectionsData) setInspections(inspectionsData);
 
     setLoading(false);
+  };
+
+  const submitOfflineInspection = async () => {
+    if (!hive?.id) return;
+    setOfflineSubmitting(true);
+    try {
+      await saveInspection({
+        hiveId: hive.id,
+        action: 'FULL_INSPECTION',
+        details: `Inspeksjon utført (Offline). Status: ${offlineStatus}.`,
+        sharedWithMattilsynet: false,
+        image: offlineImage
+          ? {
+              name: offlineImage.name,
+              type: offlineImage.type,
+              blob: offlineImage,
+            }
+          : undefined,
+        data: {
+          inspection: {
+            hive_id: hive.id,
+            inspection_date: offlineDate,
+            time: offlineTime,
+            queen_seen: offlineQueenSeen,
+            eggs_seen: offlineEggsSeen,
+            brood_condition: offlineBroodCondition,
+            honey_stores: offlineHoneyStores,
+            temperament: offlineTemperament,
+            notes: offlineNotes,
+            status: offlineStatus,
+            temperature: null,
+            weather: null,
+          },
+          hiveUpdate: {
+            status: offlineStatus === 'DØD' ? 'DØD' : 'AKTIV',
+            last_inspection_date: offlineDate,
+          },
+        },
+      });
+      setOfflineInspectionOpen(false);
+      setOfflineNotes('');
+      setOfflineImage(null);
+      alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
+    } catch (e: any) {
+      alert('Kunne ikke lagre inspeksjon offline: ' + (e?.message || 'ukjent feil'));
+    } finally {
+      setOfflineSubmitting(false);
+    }
   };
 
   const moveHive = async () => {
@@ -552,28 +623,201 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
         <div className="grid grid-cols-2 gap-4 print:hidden">
           <button 
             onClick={moveHive}
+            disabled={isOffline}
             className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
           >
             <Truck className="w-8 h-8 text-blue-500" />
             <span className="font-medium text-gray-900">Flytt kube</span>
           </button>
           
-          <Link 
-            href={`/hives/${hive.id}/new-inspection`}
-            className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
-          >
-            <Calendar className="w-8 h-8 text-honey-500" />
-            <span className="font-medium text-gray-900">Ny inspeksjon</span>
-          </Link>
+          {isOffline ? (
+            <button
+              onClick={() => setOfflineInspectionOpen(true)}
+              className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
+            >
+              <Calendar className="w-8 h-8 text-honey-500" />
+              <span className="font-medium text-gray-900">Ny inspeksjon</span>
+            </button>
+          ) : (
+            <Link 
+              href={`/hives/${hive.id}/new-inspection`}
+              className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
+            >
+              <Calendar className="w-8 h-8 text-honey-500" />
+              <span className="font-medium text-gray-900">Ny inspeksjon</span>
+            </Link>
+          )}
 
           <button 
             onClick={() => setIsArchiveModalOpen(true)}
+            disabled={isOffline}
             className="col-span-2 p-4 bg-red-50 border border-red-200 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:bg-red-100 transition-colors text-red-700 mt-2"
           >
             <Trash2 className="w-5 h-5" />
             <span className="font-medium">Avslutt / Slett kube</span>
           </button>
         </div>
+
+        {offlineInspectionOpen && (
+          <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-[200] p-4 print:hidden">
+            <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden">
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-gray-500">Offline inspeksjon</div>
+                  <div className="font-bold text-gray-900">
+                    {hive?.hive_number ? `Kube ${hive.hive_number}` : 'Kube'}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setOfflineInspectionOpen(false)}
+                  className="p-2 rounded-full hover:bg-gray-100"
+                  type="button"
+                >
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Dato</label>
+                    <input
+                      value={offlineDate}
+                      onChange={(e) => setOfflineDate(e.target.value)}
+                      type="date"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tid</label>
+                    <input
+                      value={offlineTime}
+                      onChange={(e) => setOfflineTime(e.target.value)}
+                      type="time"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                    <input
+                      checked={offlineQueenSeen}
+                      onChange={(e) => setOfflineQueenSeen(e.target.checked)}
+                      type="checkbox"
+                      className="text-honey-600 focus:ring-honey-500"
+                    />
+                    <span className="text-sm font-medium text-gray-900">Dronning sett</span>
+                  </label>
+                  <label className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                    <input
+                      checked={offlineEggsSeen}
+                      onChange={(e) => setOfflineEggsSeen(e.target.checked)}
+                      type="checkbox"
+                      className="text-honey-600 focus:ring-honey-500"
+                    />
+                    <span className="text-sm font-medium text-gray-900">Egg sett</span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Yngel</label>
+                    <select
+                      value={offlineBroodCondition}
+                      onChange={(e) => setOfflineBroodCondition(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                    >
+                      <option value="Bra">Bra</option>
+                      <option value="Middels">Middels</option>
+                      <option value="Dårlig">Dårlig</option>
+                      <option value="Ingen">Ingen</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Honning</label>
+                    <select
+                      value={offlineHoneyStores}
+                      onChange={(e) => setOfflineHoneyStores(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                    >
+                      <option value="lite">Lite</option>
+                      <option value="middels">Middels</option>
+                      <option value="mye">Mye</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Gemytt</label>
+                    <select
+                      value={offlineTemperament}
+                      onChange={(e) => setOfflineTemperament(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                    >
+                      <option value="rolig">Rolig</option>
+                      <option value="normal">Normal</option>
+                      <option value="hissig">Hissig</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Status</label>
+                    <select
+                      value={offlineStatus}
+                      onChange={(e) => setOfflineStatus(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                    >
+                      <option value="OK">OK</option>
+                      <option value="SVAK">Svak</option>
+                      <option value="SYKDOM">Sykdom</option>
+                      <option value="DØD">Død</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Notater</label>
+                  <textarea
+                    value={offlineNotes}
+                    onChange={(e) => setOfflineNotes(e.target.value)}
+                    rows={4}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                    placeholder="Skriv notater (lagres lokalt)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bilde (valgfritt)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setOfflineImage(e.target.files?.[0] || null)}
+                    className="w-full text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="p-4 border-t border-gray-200 flex gap-3 justify-end">
+                <button
+                  onClick={() => setOfflineInspectionOpen(false)}
+                  type="button"
+                  className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-900 font-bold"
+                >
+                  Avbryt
+                </button>
+                <button
+                  onClick={submitOfflineInspection}
+                  type="button"
+                  disabled={offlineSubmitting}
+                  className="px-4 py-2 rounded-lg bg-honey-500 text-white font-bold disabled:opacity-50"
+                >
+                  {offlineSubmitting ? 'Lagrer...' : 'Lagre offline'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Inspections History - Screen View */}
         <div className="print:hidden">

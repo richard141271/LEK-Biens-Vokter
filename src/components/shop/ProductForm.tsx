@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { createClient } from '@/utils/supabase/client';
 import { Product, ProductInput } from '@/types/shop';
 import { useRouter } from 'next/navigation';
@@ -20,6 +21,7 @@ export default function ProductForm({ initialData, isEdit = false }: ProductForm
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
 
   const [formData, setFormData] = useState<ProductInput>({
     name: initialData?.name || '',
@@ -54,6 +56,7 @@ export default function ProductForm({ initialData, isEdit = false }: ProductForm
       const { data } = supabase.storage.from('product-images').getPublicUrl(filePath);
       
       setFormData(prev => ({ ...prev, image_url: data.publicUrl }));
+      setImageLoadFailed(false);
     } catch (error: any) {
       // If error is "Bucket not found", try to create it and retry upload
       if (error.message && error.message.includes('Bucket not found')) {
@@ -75,6 +78,7 @@ export default function ProductForm({ initialData, isEdit = false }: ProductForm
 
                 const { data } = supabase.storage.from('product-images').getPublicUrl(filePath);
                 setFormData(prev => ({ ...prev, image_url: data.publicUrl }));
+                setImageLoadFailed(false);
                 return; // Success after retry
              }
           }
@@ -124,28 +128,24 @@ export default function ProductForm({ initialData, isEdit = false }: ProductForm
       {/* Image Upload Section */}
       <div className="flex flex-col items-center justify-center mb-8">
         <div className="w-full h-64 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center relative overflow-hidden group hover:border-green-500 transition-colors">
-          {formData.image_url ? (
+          {formData.image_url && !imageLoadFailed ? (
             <>
-              <img 
-                src={formData.image_url} 
-                alt="Produktbilde" 
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    // Show upload placeholder instead
-                    const parent = e.currentTarget.parentElement;
-                    if (parent) {
-                        const icon = document.createElement('div');
-                        icon.innerHTML = '<span>Bilde feilet</span>';
-                        icon.className = 'text-red-500';
-                        parent.appendChild(icon);
-                    }
-                }}
+              <Image
+                src={formData.image_url}
+                alt="Produktbilde"
+                fill
+                sizes="800px"
+                unoptimized
+                className="object-contain"
+                onError={() => setImageLoadFailed(true)}
               />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <button
                   type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, image_url: '' }))}
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, image_url: '' }));
+                    setImageLoadFailed(false);
+                  }}
                   className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors"
                 >
                   <X className="w-5 h-5" />

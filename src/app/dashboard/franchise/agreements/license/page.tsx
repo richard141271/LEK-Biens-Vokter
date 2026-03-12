@@ -182,7 +182,7 @@ export default function LicenseAgreementPage() {
             <div className="prose prose-sm max-w-none bg-gray-50 p-8 rounded-lg border border-gray-200 h-[500px] overflow-y-auto">
               <h3 className="text-lg font-bold mb-4">1. Avtalens parter</h3>
               <p className="mb-4">
-                Denne avtalen inngås mellom LEK-Biens Vokter AS (heretter kalt "Franchisegiver") og 
+                Denne avtalen inngås mellom LEK-Biens Vokter AS (heretter kalt «Franchisegiver») og 
                 Franchisetaker (deg). Avtalen regulerer rettighetene til å drive en LEK-enhet.
               </p>
               
