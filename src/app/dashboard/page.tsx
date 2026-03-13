@@ -33,6 +33,9 @@ export default function DashboardPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [selectedApiaryId, setSelectedApiaryId] = useState('');
   const [availableApiaries, setAvailableApiaries] = useState<any[]>([]);
+  const createCountRepeatTimeoutRef = useRef<number | null>(null);
+  const createCountRepeatIntervalRef = useRef<number | null>(null);
+  const suppressCreateCountClickRef = useRef(false);
 
   // Wizard State
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -57,6 +60,40 @@ export default function DashboardPage() {
 
   const supabase = createClient();
   const router = useRouter();
+
+  const getApiaryTypeLabel = (t?: string) => {
+    if (t === 'bigård') return 'Bigård';
+    if (t === 'utleie' || t === 'rental') return 'Utleie';
+    if (t === 'lager') return 'Lager';
+    if (t === 'bil') return 'Bil';
+    if (t === 'oppstart') return 'Oppstart';
+    return 'Lokasjon';
+  };
+
+  const stopCreateCountRepeat = () => {
+    if (createCountRepeatTimeoutRef.current != null) {
+      window.clearTimeout(createCountRepeatTimeoutRef.current);
+      createCountRepeatTimeoutRef.current = null;
+    }
+    if (createCountRepeatIntervalRef.current != null) {
+      window.clearInterval(createCountRepeatIntervalRef.current);
+      createCountRepeatIntervalRef.current = null;
+    }
+    window.setTimeout(() => {
+      suppressCreateCountClickRef.current = false;
+    }, 200);
+  };
+
+  const startCreateCountRepeat = (delta: number) => {
+    stopCreateCountRepeat();
+    suppressCreateCountClickRef.current = true;
+    setCreateCount((c) => Math.max(1, c + delta));
+    createCountRepeatTimeoutRef.current = window.setTimeout(() => {
+      createCountRepeatIntervalRef.current = window.setInterval(() => {
+        setCreateCount((c) => Math.max(1, c + delta));
+      }, 60);
+    }, 250);
+  };
 
   const getSeasonEndDate = () => {
     const now = new Date();
@@ -83,6 +120,11 @@ export default function DashboardPage() {
         setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    if (!isCreateModalOpen) stopCreateCountRepeat();
+    return () => stopCreateCountRepeat();
+  }, [isCreateModalOpen]);
 
   useEffect(() => {
     const handleProfileUpdated = () => {
@@ -913,7 +955,7 @@ export default function DashboardPage() {
             
             <div className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Velg lokasjon (Bigård)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Velg lokasjon</label>
                     <div className="relative">
                         <select
                             value={selectedApiaryId}
@@ -923,7 +965,7 @@ export default function DashboardPage() {
                             <option value="" disabled>Velg en bigård...</option>
                             {availableApiaries.map(apiary => (
                                 <option key={apiary.id} value={apiary.id}>
-                                    {apiary.name} ({apiary.type || 'Standard'})
+                                    {apiary.name} ({getApiaryTypeLabel(apiary.type)})
                                 </option>
                             ))}
                         </select>
@@ -936,16 +978,61 @@ export default function DashboardPage() {
 
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Antall kuber</label>
-                    <div className="flex items-center justify-center gap-6">
+                    <div className="flex items-center justify-center gap-3">
                         <button 
-                            onClick={() => setCreateCount(Math.max(1, createCount - 1))}
+                            type="button"
+                            onMouseDown={() => startCreateCountRepeat(-1)}
+                            onMouseUp={stopCreateCountRepeat}
+                            onMouseLeave={stopCreateCountRepeat}
+                            onTouchStart={(e) => {
+                              e.preventDefault();
+                              startCreateCountRepeat(-1);
+                            }}
+                            onTouchEnd={stopCreateCountRepeat}
+                            onTouchCancel={stopCreateCountRepeat}
+                            onClick={(e) => {
+                              if (suppressCreateCountClickRef.current) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                return;
+                              }
+                              setCreateCount((c) => Math.max(1, c - 1));
+                            }}
                             className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl font-bold hover:bg-gray-200"
                         >
                             -
                         </button>
-                        <span className="text-3xl font-bold text-honey-600">{createCount}</span>
+                        <input
+                          type="number"
+                          min={1}
+                          inputMode="numeric"
+                          value={createCount}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const next = raw === '' ? 1 : parseInt(raw, 10);
+                            setCreateCount(Number.isFinite(next) ? Math.max(1, next) : 1);
+                          }}
+                          className="w-28 text-center text-3xl font-bold text-honey-600 bg-transparent outline-none"
+                        />
                         <button 
-                            onClick={() => setCreateCount(createCount + 1)}
+                            type="button"
+                            onMouseDown={() => startCreateCountRepeat(1)}
+                            onMouseUp={stopCreateCountRepeat}
+                            onMouseLeave={stopCreateCountRepeat}
+                            onTouchStart={(e) => {
+                              e.preventDefault();
+                              startCreateCountRepeat(1);
+                            }}
+                            onTouchEnd={stopCreateCountRepeat}
+                            onTouchCancel={stopCreateCountRepeat}
+                            onClick={(e) => {
+                              if (suppressCreateCountClickRef.current) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                return;
+                              }
+                              setCreateCount((c) => c + 1);
+                            }}
                             className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl font-bold hover:bg-gray-200"
                         >
                             +
