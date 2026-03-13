@@ -490,27 +490,18 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     }
   };
 
-  const uploadImage = async (file: File): Promise<string | null> => {
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `${params.id}/${fileName}`;
+  const uploadImage = async (file: File, opId: string, index: number): Promise<string> => {
+    const fileExt = file.name.split('.').pop() || 'jpg';
+    const filePath = `${params.id}/${opId}/${index}.${fileExt}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('inspection-images')
-        .upload(filePath, file);
+    const { error: uploadError } = await supabase.storage
+      .from('inspection-images')
+      .upload(filePath, file, { upsert: true });
 
-      if (uploadError) throw uploadError;
+    if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage
-        .from('inspection-images')
-        .getPublicUrl(filePath);
-
-      return data.publicUrl;
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      return null;
-    }
+    const { data } = supabase.storage.from('inspection-images').getPublicUrl(filePath);
+    return data.publicUrl;
   };
 
   const submitInspection = async () => {
@@ -518,6 +509,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     setSubmitting(true);
 
     try {
+      const allFiles: File[] = [
+        ...(selectedImage ? [selectedImage] : []),
+        ...(extraImages && extraImages.length > 0 ? extraImages : []),
+      ];
+
       // 1. Check Offline Mode
       if (isOffline) {
         await saveInspection({
@@ -526,11 +522,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           action: 'FULL_INSPECTION',
           details: `Inspeksjon utført (Offline). Status: ${status}.`,
           sharedWithMattilsynet: false, // Page doesn't have this field?
-          image: selectedImage ? {
-            name: selectedImage.name,
-            type: selectedImage.type,
-            blob: selectedImage
-          } : undefined,
+          images: allFiles.length > 0 ? allFiles.map((f) => ({ name: f.name, type: f.type, blob: f })) : undefined,
           data: {
             inspection: {
               id: opId,
@@ -567,13 +559,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           action: 'FULL_INSPECTION',
           details: `Inspeksjon utført (Offline). Status: ${status}.`,
           sharedWithMattilsynet: false,
-          image: selectedImage
-            ? {
-                name: selectedImage.name,
-                type: selectedImage.type,
-                blob: selectedImage,
-              }
-            : undefined,
+          images: allFiles.length > 0 ? allFiles.map((f) => ({ name: f.name, type: f.type, blob: f })) : undefined,
           data: {
             inspection: {
               id: opId,
@@ -620,22 +606,17 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       let imageUrl = null;
       const allPhotos: string[] = [];
-      if (selectedImage) {
+      if (allFiles.length > 0) {
         setUploadingImage(true);
-        const u = await uploadImage(selectedImage);
-        if (u) {
-          imageUrl = u;
-          allPhotos.push(u);
+        try {
+          for (let i = 0; i < allFiles.length; i++) {
+            const u = await uploadImage(allFiles[i], opId, i + 1);
+            if (i === 0) imageUrl = u;
+            allPhotos.push(u);
+          }
+        } finally {
+          setUploadingImage(false);
         }
-        setUploadingImage(false);
-      }
-      if (extraImages && extraImages.length > 0) {
-        setUploadingImage(true);
-        for (const f of extraImages) {
-          const u = await uploadImage(f);
-          if (u) allPhotos.push(u);
-        }
-        setUploadingImage(false);
       }
 
       // 1. Insert Inspection
@@ -694,19 +675,18 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           msg.toLowerCase().includes('timeout');
 
         if (looksLikeNetwork) {
+          const allFiles: File[] = [
+            ...(selectedImage ? [selectedImage] : []),
+            ...(extraImages && extraImages.length > 0 ? extraImages : []),
+          ];
+
           await saveInspection({
             id: opId,
             hiveId: params.id,
             action: 'FULL_INSPECTION',
             details: `Inspeksjon utført (Offline). Status: ${status}.`,
             sharedWithMattilsynet: false,
-            image: selectedImage
-              ? {
-                  name: selectedImage.name,
-                  type: selectedImage.type,
-                  blob: selectedImage,
-                }
-              : undefined,
+            images: allFiles.length > 0 ? allFiles.map((f) => ({ name: f.name, type: f.type, blob: f })) : undefined,
             data: {
               inspection: {
                 id: opId,

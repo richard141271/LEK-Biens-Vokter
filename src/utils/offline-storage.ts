@@ -1,7 +1,7 @@
 
 const DB_NAME = 'BeekeeperOfflineDB';
 const STORE_NAME = 'inspections';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export interface OfflineInspection {
   id: string;
@@ -16,6 +16,11 @@ export interface OfflineInspection {
     type: string;
     blob: Blob;
   };
+  images?: Array<{
+    name: string;
+    type: string;
+    blob: Blob;
+  }>;
 }
 
 export const initDB = (): Promise<IDBDatabase> => {

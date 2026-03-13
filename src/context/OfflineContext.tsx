@@ -76,36 +76,48 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
           // Get user from session (should be valid since we just checked)
           // But for the record insertion, we use the user.id
           
-          let imageUrl = null;
+          const bucket = item.action === 'FULL_INSPECTION' ? 'inspection-images' : 'hive-images';
+          const files = (item.images && item.images.length > 0 ? item.images : (item.image ? [item.image] : []));
+          const uploadedUrls: string[] = [];
 
-          // Upload image if exists
-          if (item.image) {
-            const fileName = `${Math.random()}.${item.image.name.split('.').pop()}`;
+          for (let i = 0; i < files.length; i++) {
+            const f = files[i];
+            const ext = String(f.name || '').split('.').pop() || 'jpg';
+            const filePath = `${item.hiveId}/${item.id}/${i + 1}.${ext}`;
+
             const { error: uploadError } = await supabase.storage
-              .from(item.action === 'FULL_INSPECTION' ? 'inspection-images' : 'hive-images')
-              .upload(`${item.hiveId}/${fileName}`, item.image.blob);
+              .from(bucket)
+              .upload(filePath, f.blob, { upsert: true });
 
             if (uploadError) {
-                console.error('Image upload failed for item', item.id, uploadError);
-                // Throw to skip this item for now
-                throw uploadError;
+              console.error('Image upload failed for item', item.id, uploadError);
+              throw uploadError;
             }
 
-            const { data: { publicUrl } } = supabase.storage
-              .from(item.action === 'FULL_INSPECTION' ? 'inspection-images' : 'hive-images')
-              .getPublicUrl(`${item.hiveId}/${fileName}`);
-            imageUrl = publicUrl;
+            const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(filePath);
+            uploadedUrls.push(publicUrl);
           }
+
+          const imageUrl = uploadedUrls.length > 0 ? uploadedUrls[0] : null;
 
           if (item.action === 'FULL_INSPECTION') {
              // 1. Insert Inspection
              const inspectionId = item?.data?.inspection?.id || item.id;
+             const baseNotes = String(item?.data?.inspection?.notes || '');
+             const extraUrls = uploadedUrls.slice(1);
+             const hasAnyExtraAlready = extraUrls.some((u) => baseNotes.includes(u));
+             const notesWithPhotos =
+               extraUrls.length > 0 && !hasAnyExtraAlready
+                 ? `${baseNotes}${baseNotes ? '\n' : ''}${extraUrls.map((u, idx) => `Bilde ${idx + 2}: ${u}`).join('\n')}`
+                 : baseNotes;
+
              const { error: inspectionError } = await supabase
                .from('inspections')
                .insert({
                  ...item.data.inspection,
                  id: inspectionId,
                  image_url: imageUrl,
+                 notes: notesWithPhotos,
                  user_id: user.id
                });
              if (inspectionError) {
