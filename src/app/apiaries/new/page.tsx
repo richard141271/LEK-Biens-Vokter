@@ -30,6 +30,39 @@ export default function NewApiaryPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  const getPrefixesForType = (t: string): string[] => {
+    if (t === 'lager') return ['LG'];
+    if (t === 'bil') return ['BIL'];
+    if (t === 'oppstart') return ['OS', 'START'];
+    return ['BG'];
+  };
+
+  const getNextSequenceNo = async (userId: string, prefixes: string[]) => {
+    const { data: allApiaries } = await supabase
+      .from('apiaries')
+      .select('apiary_number')
+      .eq('user_id', userId);
+
+    let nextNum = 1;
+    if (allApiaries && allApiaries.length > 0) {
+      const maxNum = allApiaries.reduce((max, apiary: any) => {
+        const raw = String(apiary?.apiary_number || '');
+        if (!raw) return max;
+        const dashIdx = raw.indexOf('-');
+        if (dashIdx <= 0) return max;
+        const prefix = raw.slice(0, dashIdx);
+        if (!prefixes.includes(prefix)) return max;
+        const rest = raw.slice(dashIdx + 1);
+        const numPart = rest.split('.')[0];
+        const num = parseInt(numPart, 10);
+        return !Number.isNaN(num) && num > max ? num : max;
+      }, 0);
+      nextNum = maxNum + 1;
+    }
+
+    return nextNum;
+  };
+
   // Fetch pending rentals on mount
   useEffect(() => {
     const fetchData = async () => {
@@ -57,24 +90,7 @@ export default function NewApiaryPage() {
       if (rentals) setPendingRentals(rentals);
 
       // 2. Fetch Next Apiary Number
-      const { data: allApiaries } = await supabase
-        .from('apiaries')
-        .select('apiary_number')
-        .eq('user_id', user.id);
-      
-      let nextNum = 1;
-      if (allApiaries && allApiaries.length > 0) {
-          const maxNum = allApiaries.reduce((max, apiary) => {
-              if (!apiary.apiary_number) return max;
-              const parts = apiary.apiary_number.split('-');
-              if (parts.length === 2) {
-                  const num = parseInt(parts[1], 10);
-                  return !isNaN(num) && num > max ? num : max;
-              }
-              return max;
-          }, 0);
-          nextNum = maxNum + 1;
-      }
+      const nextNum = await getNextSequenceNo(user.id, ['BG']);
       setNextApiaryNumber(nextNum);
     };
     fetchData();
@@ -95,26 +111,7 @@ export default function NewApiaryPage() {
         if (!user) throw new Error('Not authenticated');
 
         // 1. Get Next Apiary Number
-        const { data: allApiaries } = await supabase
-            .from('apiaries')
-            .select('apiary_number')
-            .eq('user_id', user.id);
-        
-        let nextNum = 1;
-        if (allApiaries && allApiaries.length > 0) {
-            const maxNum = allApiaries.reduce((max, apiary) => {
-                if (!apiary.apiary_number) return max;
-                const parts = apiary.apiary_number.split('-');
-                if (parts.length === 2) {
-                    // Handle both old format (BG-001) and new format (BG-001.12345)
-                    const numPart = parts[1].split('.')[0];
-                    const num = parseInt(numPart, 10);
-                    return !isNaN(num) && num > max ? num : max;
-                }
-                return max;
-            }, 0);
-            nextNum = maxNum + 1;
-        }
+        const nextNum = await getNextSequenceNo(user.id, ['BG']);
         
         // Fetch member number if not already in state (though it should be)
         let currentMemberNumber = memberNumber;
@@ -267,36 +264,9 @@ export default function NewApiaryPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Du må være logget inn');
 
-      // 2. Generer ID basert på type for innlogget bruker
-      const { data: allApiaries } = await supabase
-        .from('apiaries')
-        .select('apiary_number')
-        .eq('user_id', user.id);
-      
-      let nextNum = 1;
-      
-      if (allApiaries && allApiaries.length > 0) {
-        // Finn høyeste nummer uavhengig av sortering
-        const maxNum = allApiaries.reduce((max, apiary) => {
-          if (!apiary.apiary_number) return max;
-          const parts = apiary.apiary_number.split('-');
-          if (parts.length === 2) {
-            // Handle both old format (BG-001) and new format (BG-001.12345)
-            const numPart = parts[1].split('.')[0];
-            const num = parseInt(numPart, 10);
-            return !isNaN(num) && num > max ? num : max;
-          }
-          return max;
-        }, 0);
-        
-        nextNum = maxNum + 1;
-      }
-
-      let prefix = 'BG'; // Default Bigård
-      
-      if (type === 'bil') prefix = 'BIL';
-      if (type === 'lager') prefix = 'LG';
-      if (type === 'oppstart') prefix = 'START';
+      const prefixes = getPrefixesForType(type);
+      const nextNum = await getNextSequenceNo(user.id, prefixes);
+      const prefix = prefixes[0];
 
       const suffix = memberNumber ? `.${memberNumber}` : '';
       const apiaryNumber = `${prefix}-${nextNum.toString().padStart(3, '0')}${suffix}`;
