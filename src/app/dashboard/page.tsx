@@ -84,6 +84,16 @@ export default function DashboardPage() {
     });
   }, []);
 
+  useEffect(() => {
+    const handleProfileUpdated = () => {
+      fetchData().catch(() => {});
+    };
+    window.addEventListener('profile_updated', handleProfileUpdated);
+    return () => {
+      window.removeEventListener('profile_updated', handleProfileUpdated);
+    };
+  }, []);
+
   const fetchData = async () => {
     try {
         if (!navigator.onLine) {

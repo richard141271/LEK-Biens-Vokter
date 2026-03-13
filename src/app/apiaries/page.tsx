@@ -99,7 +99,6 @@ export default function ApiariesPage() {
           *,
           hives (*)
         `)
-        .in('type', ['bigård', 'utleie']) // Filter to show only Bigård and Utleie
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -124,9 +123,15 @@ export default function ApiariesPage() {
 
   const getIcon = (type: string) => {
     switch (type) {
-      case 'warehouse': return Warehouse;
-      case 'store': return Store;
-      case 'transport': return Truck;
+      case 'lager':
+      case 'warehouse':
+        return Warehouse;
+      case 'oppstart':
+      case 'store':
+        return Store;
+      case 'bil':
+      case 'transport':
+        return Truck;
       default: return MapPin;
     }
   };

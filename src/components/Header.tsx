@@ -45,8 +45,17 @@ export default function Header() {
         }
       };
       fetchData();
+
+      const handleProfileUpdated = () => {
+        fetchData();
+      };
+
+      window.addEventListener('profile_updated', handleProfileUpdated);
+      return () => {
+        window.removeEventListener('profile_updated', handleProfileUpdated);
+      };
     }
-  }, [mounted, supabase]);
+  }, [mounted, supabase, pathname]);
 
   // Hide header on auth pages, landing page, and dedicated portals
   if (pathname === '/login' || 

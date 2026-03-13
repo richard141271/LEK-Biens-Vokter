@@ -247,19 +247,19 @@ export default function NewApiaryPage() {
 
   const types = [
     { id: 'bigård', label: 'Bigård', icon: MapPin },
-    // { id: 'lager', label: 'Lager', icon: Warehouse }, // Hidden per user request
-    // { id: 'bil', label: 'Bil', icon: Truck }, // Hidden per user request
-    // { id: 'oppstart', label: 'Oppstart', icon: Store }, // Hidden per user request
+    { id: 'lager', label: 'Lager', icon: Warehouse },
+    { id: 'bil', label: 'Bil', icon: Truck },
+    { id: 'oppstart', label: 'Oppstart', icon: Store },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    if (!coordinates) {
-        alert('Du må hente posisjon (koordinater) for å registrere en bigård. Dette er et krav fra Mattilsynet.');
-        setLoading(false);
-        return;
+    if (type === 'bigård' && !coordinates) {
+      alert('Du må hente posisjon (koordinater) for å registrere en bigård. Dette er et krav fra Mattilsynet.');
+      setLoading(false);
+      return;
     }
 
     try {

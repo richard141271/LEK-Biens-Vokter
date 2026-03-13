@@ -549,8 +549,21 @@ export default function SettingsPage() {
       if (error) throw error;
       
       setProfile({ ...updateData, id: user.id });
+      try {
+        const existingRaw = localStorage.getItem('offline_data');
+        const existing = existingRaw ? JSON.parse(existingRaw) : {};
+        localStorage.setItem(
+          'offline_data',
+          JSON.stringify({
+            ...existing,
+            profile: { ...existing.profile, ...updateData, id: user.id, email },
+            timestamp: Date.now(),
+          })
+        );
+      } catch {}
       setPasswordData({ newPassword: '', confirmPassword: '' }); // Reset password fields
       setIsEditing(false);
+      window.dispatchEvent(new Event('profile_updated'));
       alert('Profil oppdatert!');
     } catch (error: any) {
       alert('Feil ved lagring: ' + error.message);

@@ -219,10 +219,8 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
     }
     
     // Use hive.apiary_id which is on the hive object itself
-    // Filter to only allow moving to Bigård (or Utleie)
     const otherApiaries = data ? data.filter(a => 
-      a.id !== hive.apiary_id && 
-      (!a.type || ['bigård', 'utleie'].includes(a.type))
+      a.id !== hive.apiary_id
     ) : [];
 
     setApiaries(otherApiaries);
