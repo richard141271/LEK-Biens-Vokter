@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { Search, Filter, Box, MapPin, Calendar, ArrowRight, Printer, QrCode } from 'lucide-react';
 import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
+import { jsPDF } from 'jspdf';
+import QRCode from 'qrcode';
 
 export default function AllHivesPage() {
   const [hives, setHives] = useState<any[]>([]);
@@ -167,6 +169,70 @@ export default function AllHivesPage() {
     );
   };
 
+  const generateHiveLabelsPDF = async (hivesToPrint: any[]) => {
+    const doc = new jsPDF();
+    const cols = 3;
+    const rows = 8;
+    const labelWidth = 70;
+    const labelHeight = 37;
+    const startX = 0;
+    const startY = 0;
+
+    for (let i = 0; i < hivesToPrint.length; i++) {
+      const hive = hivesToPrint[i];
+      const indexOnPage = i % (cols * rows);
+
+      if (i > 0 && indexOnPage === 0) {
+        doc.addPage();
+      }
+
+      const col = indexOnPage % cols;
+      const row = Math.floor(indexOnPage / cols);
+
+      const x = startX + col * labelWidth;
+      const y = startY + row * labelHeight;
+
+      doc.setDrawColor(210, 180, 140);
+      doc.setLineWidth(0.2);
+      doc.rect(x + 1.5, y + 1.5, labelWidth - 3, labelHeight - 3);
+
+      const qrUrl = `${window.location.origin}/hives/${hive.id}`;
+      const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 0, width: 200, errorCorrectionLevel: 'H' });
+
+      doc.addImage(qrDataUrl, 'PNG', x + labelWidth - 30, y + 4.5, 28, 28);
+
+      const textX = x + 4;
+      const maxTextWidth = labelWidth - 34;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6);
+      doc.setTextColor(100, 100, 100);
+      doc.text('LEK-BIENS VOKTER', textX, y + 8);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text(hive.hive_number || '', textX, y + 16);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      const hiveName = hive.name || '';
+      const hiveNameLines = doc.splitTextToSize(hiveName, maxTextWidth);
+      const hiveNameLine = Array.isArray(hiveNameLines) ? hiveNameLines[0] : hiveName;
+      doc.text(hiveNameLine || '', textX, y + 20);
+
+      const apiaryName = hive.apiaries?.name || 'Ukjent Bigård';
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(220, 38, 38);
+      const apiaryLines = doc.splitTextToSize(apiaryName, maxTextWidth);
+      const clippedApiaryLines = Array.isArray(apiaryLines) ? apiaryLines.slice(0, 2) : [apiaryName];
+      doc.text(clippedApiaryLines, textX, y + 26);
+    }
+
+    doc.save(`bikube_etiketter_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   const handlePrint = async (layout: 'cards' | 'list' | 'qr', skipOptions = false) => {
     // If cards and options not skipped, open modal first
     if (layout === 'cards' && !skipOptions) {
@@ -181,9 +247,21 @@ export default function AllHivesPage() {
         .filter(h => filteredHives.includes(h)) // Only search results
         .filter(h => selectedHives.length === 0 || selectedHives.includes(h.id));
 
+    if (layout === 'qr') {
+      try {
+        await generateHiveLabelsPDF(hivesToPrint);
+      } catch (e) {
+        console.error(e);
+        alert('Kunne ikke generere PDF. Prøv igjen.');
+      } finally {
+        setLoadingPrintData(false);
+      }
+      return;
+    }
+
     const hiveIds = hivesToPrint.map(h => h.id);
 
-    if (hiveIds.length > 0 && layout !== 'qr') {
+    if (hiveIds.length > 0) {
         // Fetch inspections and logs ONLY if not QR mode (QR mode doesn't need them)
         const { data: inspections } = await supabase
             .from('inspections')

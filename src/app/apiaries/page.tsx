@@ -69,7 +69,15 @@ export default function ApiariesPage() {
            if (offlineData) {
                const parsed = JSON.parse(offlineData);
                if (parsed.apiaries) {
-                   setApiaries(parsed.apiaries);
+                   const normalizedOfflineApiaries = (parsed.apiaries || []).map((a: any) => {
+                     const raw = typeof a?.apiary_number === 'string' ? a.apiary_number : '';
+                     if (!raw) return a;
+                     if (/^START-/i.test(raw)) {
+                       return { ...a, apiary_number: raw.replace(/^START-/i, 'OS-') };
+                     }
+                     return a;
+                   });
+                   setApiaries(normalizedOfflineApiaries);
                    if (parsed.profile) setProfile(parsed.profile);
                }
            }
@@ -102,12 +110,43 @@ export default function ApiariesPage() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setApiaries(apiariesData || []);
+      const normalizedApiaries = (apiariesData || []).map((a: any) => {
+        const raw = typeof a?.apiary_number === 'string' ? a.apiary_number : '';
+        if (!raw) return a;
+        if (/^START-/i.test(raw)) {
+          return { ...a, apiary_number: raw.replace(/^START-/i, 'OS-') };
+        }
+        return a;
+      });
+
+      setApiaries(normalizedApiaries);
+
+      try {
+        const toFix = (apiariesData || []).filter((a: any) => {
+          const raw = typeof a?.apiary_number === 'string' ? a.apiary_number : '';
+          return /^START-/i.test(raw);
+        });
+
+        if (toFix.length > 0) {
+          await Promise.all(
+            toFix.map(async (a: any) => {
+              const raw = String(a.apiary_number || '');
+              const nextNumber = raw.replace(/^START-/i, 'OS-');
+              const { error: updateError } = await supabase
+                .from('apiaries')
+                .update({ apiary_number: nextNumber })
+                .eq('id', a.id)
+                .eq('user_id', user.id);
+              if (updateError) throw updateError;
+            })
+          );
+        }
+      } catch {}
 
       try {
         const offlineData = {
-          apiaries: apiariesData || [],
-          hives: (apiariesData || []).flatMap((a: any) => a.hives || []),
+          apiaries: normalizedApiaries,
+          hives: normalizedApiaries.flatMap((a: any) => a.hives || []),
           profile: profileData || null,
           timestamp: Date.now(),
         };
@@ -140,6 +179,12 @@ export default function ApiariesPage() {
     setSelectedApiaries(prev => 
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
+  };
+
+  const toggleSelectAll = () => {
+    const selectableIds = apiaries.filter((a: any) => !a?.is_pending).map((a: any) => a.id);
+    const allSelected = selectableIds.length > 0 && selectableIds.every((id: string) => selectedApiaries.includes(id));
+    setSelectedApiaries(allSelected ? [] : selectableIds);
   };
 
   const handlePrintSigns = async () => {
@@ -388,16 +433,30 @@ export default function ApiariesPage() {
 
       {/* SELECTION BAR */}
       {isSelectionMode && (
-        <div className="mx-4 mb-4 bg-white p-3 rounded-xl border border-honey-200 shadow-sm flex justify-between items-center animate-in slide-in-from-top-2 print:hidden">
+        <div className="mx-4 mb-4 bg-white p-3 rounded-xl border border-honey-200 shadow-sm grid grid-cols-[1fr_auto_1fr] items-center gap-3 animate-in slide-in-from-top-2 print:hidden">
           <span className="text-sm font-medium">{selectedApiaries.length} valgt</span>
           <button
-            onClick={handlePrintSigns}
-            disabled={selectedApiaries.length === 0 || isGeneratingPDF}
-            className="bg-honey-500 text-white px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-50 flex items-center gap-2"
+            type="button"
+            onClick={toggleSelectAll}
+            className="bg-gray-100 text-gray-900 px-3 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 flex items-center gap-2"
           >
-            <Printer className="w-4 h-4" />
-            {isGeneratingPDF ? 'Klargjør...' : 'Skriv ut Skilt'}
+            {selectedApiaries.length === apiaries.filter((a: any) => !a?.is_pending).length ? (
+              <CheckSquare className="w-4 h-4" />
+            ) : (
+              <Square className="w-4 h-4" />
+            )}
+            Velg alle
           </button>
+          <div className="flex justify-end">
+            <button
+              onClick={handlePrintSigns}
+              disabled={selectedApiaries.length === 0 || isGeneratingPDF}
+              className="bg-honey-500 text-white px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-50 flex items-center gap-2"
+            >
+              <Printer className="w-4 h-4" />
+              {isGeneratingPDF ? 'Klargjør...' : 'Skriv ut Skilt'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -413,6 +472,10 @@ export default function ApiariesPage() {
             const Icon = getIcon(apiary.type);
             const activeHiveCount = apiary.hives?.filter((h: any) => h.active).length || 0;
             const isSelected = selectedApiaries.includes(apiary.id);
+            const apiaryNumberRaw = String(apiary.apiary_number || '');
+            const dashIndex = apiaryNumberRaw.indexOf('-');
+            const apiaryNumberPrefix = dashIndex > 0 ? apiaryNumberRaw.slice(0, dashIndex + 1) : apiaryNumberRaw;
+            const apiaryNumberRest = dashIndex > 0 ? apiaryNumberRaw.slice(dashIndex + 1) : '';
 
             if (apiary.is_pending) {
               return (
@@ -472,7 +535,10 @@ export default function ApiariesPage() {
                     isSelected ? 'border-honey-500 ring-1 ring-honey-500' : 'border-gray-200 hover:border-honey-500'
                   }`}>
                     <div className="w-12 h-12 bg-honey-50 rounded-lg flex items-center justify-center text-honey-700 font-mono font-bold text-sm shrink-0">
-                      {apiary.apiary_number}
+                      <div className="text-center leading-none">
+                        <div>{apiaryNumberPrefix}</div>
+                        {apiaryNumberRest ? <div className="mt-0.5">{apiaryNumberRest}</div> : null}
+                      </div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start gap-2">

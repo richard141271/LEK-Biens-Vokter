@@ -374,6 +374,7 @@ export default function SettingsPage() {
         
         // Text (Left side)
         const textX = x + 4;
+        const maxTextWidth = labelWidth - 34;
         
         // Header
         doc.setFont("helvetica", "bold");
@@ -390,14 +391,19 @@ export default function SettingsPage() {
         // Hive Name
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
-        doc.text(hive.name || '', textX, y + 20);
+        const hiveName = hive.name || '';
+        const hiveNameLines = doc.splitTextToSize(hiveName, maxTextWidth);
+        const hiveNameLine = Array.isArray(hiveNameLines) ? hiveNameLines[0] : hiveName;
+        doc.text(hiveNameLine || '', textX, y + 20);
 
         // Apiary Name (Red)
         const apiaryName = hive.apiaries?.name || 'Ukjent Bigård';
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
+        doc.setFontSize(9);
         doc.setTextColor(220, 38, 38); // Red
-        doc.text(apiaryName, textX, y + 28);
+        const apiaryLines = doc.splitTextToSize(apiaryName, maxTextWidth);
+        const clippedApiaryLines = Array.isArray(apiaryLines) ? apiaryLines.slice(0, 2) : [apiaryName];
+        doc.text(clippedApiaryLines, textX, y + 26);
     }
     
     doc.save(`bikube_etiketter_${new Date().toISOString().split('T')[0]}.pdf`);
