@@ -7,7 +7,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { jsPDF } from 'jspdf';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert, Mail, Building, HeartHandshake, Calendar, GraduationCap } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert, Mail, Building, HeartHandshake, Calendar, GraduationCap, Download } from 'lucide-react';
 import WeatherWidget from '@/components/WeatherWidget';
 import SicknessRegistrationModal from '@/components/SicknessRegistrationModal';
 import InspectionModal from '@/components/InspectionModal';
@@ -861,9 +861,9 @@ export default function DashboardPage() {
                   <span className="font-bold text-[10px] text-center leading-tight">HELSE & AI</span>
               </Link>
 
-              <Link href="/settings" className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20">
-                  <Settings className="w-5 h-5 text-gray-400" />
-                  <span className="font-bold text-[10px] text-center leading-tight">INNSTILLINGER</span>
+              <Link href="/apiaries?offline=1" className="bg-white border border-blue-100 hover:border-blue-500 text-blue-700 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20">
+                  <Download className="w-5 h-5 text-blue-500" />
+                  <span className="font-bold text-[10px] text-center leading-tight">OFFLINE</span>
               </Link>
           </div>
 

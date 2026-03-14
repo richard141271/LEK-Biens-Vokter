@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient } from '@/utils/supabase/client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, MapPin, Warehouse, Store, Truck, LogOut, Box, Printer, CheckSquare, Square, X, Download } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -26,6 +26,7 @@ export default function ApiariesPage() {
 
   const supabase = createClient();
   const router = useRouter();
+  const didAutoDownloadRef = useRef(false);
 
   useEffect(() => {
     fetchData();
@@ -412,6 +413,16 @@ export default function ApiariesPage() {
     }
   };
 
+  useEffect(() => {
+    if (didAutoDownloadRef.current) return;
+    if (loading) return;
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('offline') !== '1') return;
+    didAutoDownloadRef.current = true;
+    void handleOfflineDownload();
+  }, [loading]);
+
   if (loading) return <div className="p-8 text-center">Laster bigårder...</div>;
 
   return (
@@ -420,15 +431,43 @@ export default function ApiariesPage() {
       {/* HEADER & ACTIONS */}
       <div className="p-4 flex justify-between items-center print:hidden">
         <h1 className="text-xl font-bold text-gray-900">Mine Lokasjoner</h1>
-        <button 
-          onClick={() => {
-            setIsSelectionMode(!isSelectionMode);
-            setSelectedApiaries([]);
-          }}
-          className={`p-2 rounded-full ${isSelectionMode ? 'bg-gray-200 text-gray-800' : 'bg-white text-gray-600 border border-gray-200 shadow-sm'}`}
-        >
-          {isSelectionMode ? <X className="w-5 h-5" /> : <Printer className="w-5 h-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          {profile?.role !== 'tenant' && (
+            <button
+              onClick={handleOfflineDownload}
+              disabled={isDownloading}
+              className={`p-2 rounded-full transition-all ${
+                isDownloading
+                  ? 'bg-blue-500 text-white ring-4 ring-blue-200'
+                  : 'bg-white text-gray-600 border border-gray-200 shadow-sm hover:text-blue-600 hover:bg-blue-50'
+              }`}
+              title="Last ned for offline bruk (v1.5)"
+            >
+              {isDownloading ? (
+                <span className="text-[10px] font-bold">{downloadProgress}%</span>
+              ) : (
+                <div className="relative">
+                  <Download className="w-5 h-5" />
+                  <span
+                    className={`absolute -top-1 -right-1 w-2 h-2 rounded-full ${
+                      offlineReady || isServiceWorkerControlling ? 'bg-green-500' : 'bg-yellow-500'
+                    }`}
+                  ></span>
+                </div>
+              )}
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              setIsSelectionMode(!isSelectionMode);
+              setSelectedApiaries([]);
+            }}
+            className={`p-2 rounded-full ${isSelectionMode ? 'bg-gray-200 text-gray-800' : 'bg-white text-gray-600 border border-gray-200 shadow-sm'}`}
+          >
+            {isSelectionMode ? <X className="w-5 h-5" /> : <Printer className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
       {/* SELECTION BAR */}
@@ -571,31 +610,6 @@ export default function ApiariesPage() {
       {/* Floating Action Buttons (Hide in selection mode and for tenants) */}
       {!isSelectionMode && profile?.role !== 'tenant' && (
         <div className="fixed bottom-28 right-6 flex flex-col items-center gap-4 z-[200] print:hidden">
-          
-          {/* Offline Download Button */}
-          <button
-            onClick={handleOfflineDownload}
-            disabled={isDownloading}
-            className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all ${
-              isDownloading 
-                ? 'bg-blue-500 text-white ring-4 ring-blue-200' 
-                : 'bg-white text-gray-600 hover:text-blue-600 hover:bg-blue-50 border border-gray-200'
-            }`}
-            title="Last ned for offline bruk (v1.5)"
-          >
-             {isDownloading ? (
-                 <span className="text-[10px] font-bold">{downloadProgress}%</span>
-             ) : (
-                 <div className="relative">
-                    <Download className="w-6 h-6" />
-                    <span
-                      className={`absolute -top-1 -right-1 w-2 h-2 rounded-full ${
-                        offlineReady || isServiceWorkerControlling ? 'bg-green-500' : 'bg-yellow-500'
-                      }`}
-                    ></span>
-                 </div>
-             )}
-          </button>
 
           {/* New Apiary Button */}
           <Link 

@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
+import { generateHiveLabelsPDF } from '@/utils/hive-labels-pdf';
 import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight, Archive, Briefcase, Printer, Link as LinkIcon, X, CreditCard, List, QrCode, FileText, ClipboardCheck, ChevronDown, Mic } from 'lucide-react';
 import WordTraining from '@/components/WordTraining';
 import { getAutoCorrectEnabled, setAutoCorrectEnabled, getShareEnabled, setShareEnabled } from '@/utils/voice-diagnostics';
@@ -337,76 +338,8 @@ export default function SettingsPage() {
     setShowLabelModal(false);
   };
 
-  const generateHiveLabelsPDF = async (hives: any[]) => {
-    const doc = new jsPDF();
-    const cols = 3;
-    const rows = 8;
-    const labelWidth = 70;
-    const labelHeight = 37;
-    const startX = 0;
-    const startY = 0;
-
-    for (let i = 0; i < hives.length; i++) {
-        const hive = hives[i];
-        const indexOnPage = i % (cols * rows);
-        
-        if (i > 0 && indexOnPage === 0) {
-            doc.addPage();
-        }
-
-        const col = indexOnPage % cols;
-        const row = Math.floor(indexOnPage / cols);
-        
-        const x = startX + col * labelWidth;
-        const y = startY + row * labelHeight;
-        
-        // Border (same as honey label)
-        doc.setDrawColor(210, 180, 140);
-        doc.setLineWidth(0.2);
-        doc.rect(x + 1.5, y + 1.5, labelWidth - 3, labelHeight - 3);
-        
-        // QR Code generation
-        const qrUrl = `${window.location.origin}/hives/${hive.id}`;
-        const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 0, width: 200, errorCorrectionLevel: 'H' });
-        
-        // Add QR Image (Right side)
-        doc.addImage(qrDataUrl, 'PNG', x + labelWidth - 30, y + 4.5, 28, 28);
-        
-        // Text (Left side)
-        const textX = x + 4;
-        const maxTextWidth = labelWidth - 34;
-        
-        // Header
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(6);
-        doc.setTextColor(100, 100, 100);
-        doc.text("LEK-BIENS VOKTER", textX, y + 8);
-        
-        // Hive Number
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(14);
-        doc.setTextColor(0, 0, 0);
-        doc.text(hive.hive_number, textX, y + 16);
-        
-        // Hive Name
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(8);
-        const hiveName = hive.name || '';
-        const hiveNameLines = doc.splitTextToSize(hiveName, maxTextWidth);
-        const hiveNameLine = Array.isArray(hiveNameLines) ? hiveNameLines[0] : hiveName;
-        doc.text(hiveNameLine || '', textX, y + 20);
-
-        // Apiary Name (Red)
-        const apiaryName = hive.apiaries?.name || 'Ukjent Bigård';
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(220, 38, 38); // Red
-        const apiaryLines = doc.splitTextToSize(apiaryName, maxTextWidth);
-        const clippedApiaryLines = Array.isArray(apiaryLines) ? apiaryLines.slice(0, 2) : [apiaryName];
-        doc.text(clippedApiaryLines, textX, y + 26);
-    }
-    
-    doc.save(`bikube_etiketter_${new Date().toISOString().split('T')[0]}.pdf`);
+  const generateHiveLabelsPDFLocal = async (hives: any[]) => {
+    await generateHiveLabelsPDF(hives);
   };
 
   const handlePrint = async (layout: 'cards' | 'list' | 'qr') => {
@@ -430,7 +363,7 @@ export default function SettingsPage() {
 
         // If QR layout, generate PDF directly and return
         if (layout === 'qr') {
-          await generateHiveLabelsPDF(hives || []);
+          await generateHiveLabelsPDFLocal(hives || []);
           setLoadingPrintData(false);
           return;
         }
