@@ -247,6 +247,20 @@ export default function SettingsPage() {
     const beekeeperName = profile?.full_name || formData.full_name || 'Ukjent birøkter';
     const memberNumber = profile?.member_number || formData.member_number || '';
     const isLekMember = profile?.is_lek_honning_member || formData.is_lek_honning_member;
+    const maxTextWidth = labelWidth - 8;
+
+    const clipToWidth = (text: string, width: number) => {
+      if (doc.getTextWidth(text) <= width) return text;
+      let low = 0;
+      let high = text.length;
+      while (low < high) {
+        const mid = Math.ceil((low + high) / 2);
+        const candidate = text.slice(0, mid) + '…';
+        if (doc.getTextWidth(candidate) <= width) low = mid;
+        else high = mid - 1;
+      }
+      return text.slice(0, low) + '…';
+    };
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -285,23 +299,18 @@ export default function SettingsPage() {
           doc.setFontSize(7);
           doc.text(`Sommer ${year}`, cx, y + 29, { align: "center" });
 
-          if (isLekMember && memberNumber) {
-            doc.setFontSize(6);
-            doc.text(
-              `LEK-sertifisert birøkter  •  Medlem #${memberNumber}`,
-              cx,
-              y + 32,
-              { align: "center" }
-            );
-          }
+          const memberLine = isLekMember && memberNumber ? `LEK-sertifisert birøkter • Medlem #${memberNumber}` : '';
+          const qualityLine = "100 % ekte honning • Norsk naturprodukt";
 
-          doc.setFontSize(5.5);
-          doc.text(
-            "100 % ekte honning  •  Norsk naturprodukt",
-            cx,
-            y + 33,
-            { align: "center" }
-          );
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(5.2);
+
+          if (memberLine) {
+            doc.text(clipToWidth(memberLine, maxTextWidth), cx, y + 31.6, { align: "center" });
+            doc.text(clipToWidth(qualityLine, maxTextWidth), cx, y + 33.6, { align: "center" });
+          } else {
+            doc.text(clipToWidth(qualityLine, maxTextWidth), cx, y + 32.6, { align: "center" });
+          }
         } else {
           const childName = childLabelData.name || beekeeperName;
           const ageText = childLabelData.age ? `${childLabelData.age} år` : "";

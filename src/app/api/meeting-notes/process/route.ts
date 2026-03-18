@@ -19,12 +19,15 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const durationSecondsRaw = formData.get('duration_seconds') as string | null;
+    const transcriptRaw = formData.get('transcript');
 
     if (!file) {
       return NextResponse.json({ error: 'Mangler lydfil' }, { status: 400 });
     }
 
     const durationSeconds = durationSecondsRaw ? parseInt(durationSecondsRaw, 10) || 0 : 0;
+    const transcript =
+      typeof transcriptRaw === 'string' && transcriptRaw.trim().length > 0 ? transcriptRaw.trim() : null;
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -129,7 +132,7 @@ export async function POST(request: Request) {
         date: new Date().toISOString(),
         duration: durationSeconds,
         audio_url: filePath,
-        transcript: null,
+        transcript,
         summary: null,
         action_points: null,
       })

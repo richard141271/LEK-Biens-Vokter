@@ -58,6 +58,8 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchNote = async () => {
@@ -123,6 +125,58 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
     fetchNote();
   }, [params.id, router, supabase]);
 
+  useEffect(() => {
+    const maybeGenerate = async () => {
+      if (!note) return;
+      if (!note.transcript || !note.transcript.trim()) return;
+      if (editing) return;
+      if (note.summary && note.summary.trim() && note.action_points && note.action_points.trim()) return;
+      if (generating) return;
+
+      setGenerating(true);
+      setGenerateError(null);
+      try {
+        const res = await fetch('/api/meeting-notes/summarize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: note.id }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          const message = err.error || 'Kunne ikke generere møtereferat';
+          setGenerateError(message);
+          return;
+        }
+
+        const json = (await res.json()) as {
+          title?: string | null;
+          summary?: string | null;
+          action_points?: string | null;
+          transcript?: string | null;
+        };
+
+        const updated: MeetingNoteDetail = {
+          ...note,
+          title: json.title ?? note.title,
+          summary: json.summary ?? note.summary,
+          action_points: json.action_points ?? note.action_points,
+          transcript: json.transcript ?? note.transcript,
+        };
+
+        setNote(updated);
+        setTitleDraft(updated.title || '');
+        setSummaryDraft(updated.summary || '');
+        setActionPointsDraft(updated.action_points || '');
+        setTranscriptDraft(updated.transcript || '');
+      } finally {
+        setGenerating(false);
+      }
+    };
+
+    maybeGenerate();
+  }, [editing, generating, note]);
+
   // Removed URL.revokeObjectURL effect since we're using direct URLs mostly now
   // (Browser handles garbage collection for direct strings, and we aren't creating object URLs)
 
@@ -157,13 +211,20 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
       : 'Møteopptak';
 
   const effectiveSummary =
-    note.title === ERROR_TITLE || !note.summary || !note.summary.trim()
-      ? 'Dette er et lagret møteopptak uten automatisk tekstlig oppsummering.'
-      : note.summary;
+    generating
+      ? 'Genererer møtereferat...'
+      : note.title === ERROR_TITLE || !note.summary || !note.summary.trim()
+        ? 'Dette er et lagret møteopptak uten automatisk tekstlig oppsummering.'
+        : note.summary;
 
   const actionPoints = note.action_points
     ? note.action_points.split('\n').filter((line) => line.trim().length > 0)
     : [];
+
+  const effectiveTranscript =
+    note.transcript && note.transcript.trim()
+      ? note.transcript
+      : 'Ingen transkripsjon tilgjengelig for dette opptaket.';
 
   const startEditing = () => {
     setTitleDraft(note.title || '');
@@ -295,10 +356,7 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
       doc.text('Full transkripsjon', left, y);
       y += 6;
       doc.setFontSize(9);
-      const transcriptLines = doc.splitTextToSize(
-        'Ingen transkripsjon tilgjengelig for dette opptaket.',
-        180,
-      );
+      const transcriptLines = doc.splitTextToSize(effectiveTranscript, 180);
       transcriptLines.forEach((line: string | string[]) => {
         if (y > 280) {
           doc.addPage();
@@ -320,7 +378,7 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
       [
         effectiveTitle + '\n',
         note.date ? new Date(note.date).toLocaleString('nb-NO') + '\n\n' : '\n',
-        'Ingen transkripsjon tilgjengelig for dette opptaket.',
+        effectiveTranscript,
       ],
       { type: 'text/plain;charset=utf-8' },
     );
@@ -463,6 +521,11 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="text-sm font-semibold text-gray-900 mb-2">Sammendrag</h3>
+          {generateError && !editing && (
+            <div className="mb-3 p-3 bg-red-50 text-red-700 rounded-md text-xs">
+              {generateError}
+            </div>
+          )}
           {editing ? (
             <textarea
               value={summaryDraft}
@@ -517,9 +580,7 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
             />
           ) : (
             <div className="max-h-80 overflow-y-auto text-sm text-gray-700 whitespace-pre-line border border-gray-100 rounded-lg p-3 bg-gray-50">
-              {note.transcript && note.transcript.trim()
-                ? note.transcript
-                : 'Ingen transkripsjon tilgjengelig for dette opptaket.'}
+              {effectiveTranscript}
             </div>
           )}
         </div>
