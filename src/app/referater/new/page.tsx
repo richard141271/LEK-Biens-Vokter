@@ -12,6 +12,7 @@ export default function NewMeetingRecordingPage() {
   const [loadingUser, setLoadingUser] = useState(true);
   const [recording, setRecording] = useState(false);
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +46,18 @@ export default function NewMeetingRecordingPage() {
       }
     };
   }, [router, supabase]);
+
+  useEffect(() => {
+    if (!recordedBlob) {
+      setRecordedUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(recordedBlob);
+    setRecordedUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [recordedBlob]);
 
   const startTimer = () => {
     if (timerRef.current) {
@@ -80,10 +93,10 @@ export default function NewMeetingRecordingPage() {
     const types = [
       'audio/webm;codecs=opus',
       'audio/webm',
+      'audio/mp4;codecs=mp4a.40.2',
       'audio/mp4',
-      'audio/aac',
       'audio/ogg;codecs=opus',
-      'audio/ogg'
+      'audio/ogg',
     ];
     for (const type of types) {
       if (MediaRecorder.isTypeSupported(type)) {
@@ -91,6 +104,28 @@ export default function NewMeetingRecordingPage() {
       }
     }
     return ''; // Let browser choose default if none match
+  };
+
+  const createRecorder = (stream: MediaStream, mimeType: string) => {
+    const bitRate = 24000;
+    const candidates: MediaRecorderOptions[] = [];
+
+    if (mimeType) {
+      candidates.push({ mimeType, audioBitsPerSecond: bitRate }, { mimeType });
+    }
+    candidates.push({ audioBitsPerSecond: bitRate }, {});
+
+    for (const options of candidates) {
+      try {
+        return new MediaRecorder(stream, options);
+      } catch {}
+    }
+
+    try {
+      return new MediaRecorder(stream);
+    } catch {}
+
+    return null;
   };
 
   const handleStartRecording = async () => {
@@ -101,13 +136,29 @@ export default function NewMeetingRecordingPage() {
       return;
     }
 
+    if (typeof MediaRecorder === 'undefined') {
+      setError('Nettleseren din støtter ikke lydopptak (MediaRecorder).');
+      return;
+    }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        } as any,
+      });
       const mimeType = getSupportedMimeType();
-      const options = mimeType ? { mimeType, audioBitsPerSecond: 20000 } : { audioBitsPerSecond: 20000 };
-      
-      const recorder = new MediaRecorder(stream, options);
+
+      const recorder = createRecorder(stream, mimeType);
+      if (!recorder) {
+        stream.getTracks().forEach((track) => track.stop());
+        setError('Kunne ikke starte opptak i denne nettleseren.');
+        return;
+      }
       chunksRef.current = [];
+      setRecordedBlob(null);
 
       recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
@@ -115,21 +166,33 @@ export default function NewMeetingRecordingPage() {
         }
       };
 
+      recorder.onerror = () => {
+        setError('Opptaket feilet. Prøv igjen.');
+      };
+
       recorder.onstop = () => {
         stream.getTracks().forEach((track) => track.stop());
         const firstChunk = chunksRef.current[0] as Blob | undefined;
         // Prefer explicit mimeType from init, fallback to chunk type, then default
-        const finalMimeType = mimeType || (firstChunk?.type) || 'audio/webm';
+        const finalMimeType = recorder.mimeType || mimeType || (firstChunk?.type) || 'audio/webm';
         const blob = new Blob(chunksRef.current, { type: finalMimeType });
-        setRecordedBlob(blob);
+        if (blob.size === 0) {
+          setError('Opptaket ble tomt. Sjekk mikrofontilgang og prøv igjen.');
+          setRecordedBlob(null);
+        } else {
+          setRecordedBlob(blob);
+        }
         setRecording(false);
         stopTimer();
       };
 
       mediaRecorderRef.current = recorder;
-      recorder.start(1000);
+      try {
+        recorder.start(1000);
+      } catch {
+        recorder.start();
+      }
       setRecording(true);
-      setRecordedBlob(null);
       startTimer();
     } catch (err) {
       console.error('Error starting recording', err);
@@ -139,6 +202,9 @@ export default function NewMeetingRecordingPage() {
 
   const handleStopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try {
+        mediaRecorderRef.current.requestData();
+      } catch {}
       mediaRecorderRef.current.stop();
     }
   };
@@ -267,6 +333,14 @@ export default function NewMeetingRecordingPage() {
               <p className="text-sm text-gray-700">
                 Opptak klart. Varighet: <span className="font-mono font-bold">{formatTime(elapsedSeconds)}</span>
               </p>
+              {recordedUrl && (
+                <audio
+                  controls
+                  src={recordedUrl}
+                  className="w-full"
+                  onError={() => setError('Kunne ikke spille av opptaket lokalt.')}
+                />
+              )}
               <div className="flex gap-3">
                 <button
                   onClick={handleDiscard}
