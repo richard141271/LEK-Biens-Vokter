@@ -4,6 +4,99 @@ import { createAdminClient } from '@/utils/supabase/admin';
 
 export const runtime = 'nodejs';
 
+const safeParseJson = (text: string) => {
+  const raw = text.trim();
+  try {
+    return JSON.parse(raw);
+  } catch {}
+
+  const firstBrace = raw.indexOf('{');
+  const lastBrace = raw.lastIndexOf('}');
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    const candidate = raw.slice(firstBrace, lastBrace + 1);
+    try {
+      return JSON.parse(candidate);
+    } catch {}
+  }
+  return null;
+};
+
+const trimTranscriptForModel = (text: string, maxChars: number) => {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxChars) return trimmed;
+  const half = Math.floor(maxChars / 2);
+  return (trimmed.slice(0, half) + '\n...\n' + trimmed.slice(-half)).trim();
+};
+
+const transcribeWithOpenAI = async (buffer: Buffer, mimeType: string, fileName: string) => {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+
+  const form = new FormData();
+  const blob = new Blob([new Uint8Array(buffer)], { type: mimeType || 'application/octet-stream' });
+  form.append('file', blob, fileName);
+  form.append('model', 'whisper-1');
+  form.append('language', 'no');
+
+  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+  });
+
+  if (!res.ok) return null;
+  const json = (await res.json().catch(() => null)) as any;
+  const text = typeof json?.text === 'string' ? json.text.trim() : '';
+  return text || null;
+};
+
+const summarizeWithOpenAI = async (transcript: string) => {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+
+  const promptTranscript = trimTranscriptForModel(transcript, 140_000);
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      temperature: 0.2,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Du lager møtereferat på norsk. Svar kun som gyldig JSON med feltene: title (string), summary (string), action_points (string). action_points skal være ett punkt per linje, uten nummerering.',
+        },
+        { role: 'user', content: `Transkripsjon:\n${promptTranscript}` },
+      ],
+    }),
+  });
+
+  if (!res.ok) return null;
+  const json = (await res.json().catch(() => null)) as any;
+  const content = json?.choices?.[0]?.message?.content;
+  if (typeof content !== 'string' || !content.trim()) return null;
+
+  const parsed = safeParseJson(content);
+  if (!parsed || typeof parsed !== 'object') return null;
+
+  const title = typeof parsed.title === 'string' ? parsed.title.trim() : null;
+  const summary = typeof parsed.summary === 'string' ? parsed.summary.trim() : null;
+  const actionPoints =
+    typeof parsed.action_points === 'string' ? parsed.action_points.trim() : null;
+
+  return {
+    title: title && title.length > 0 ? title : null,
+    summary: summary && summary.length > 0 ? summary : null,
+    action_points: actionPoints && actionPoints.length > 0 ? actionPoints : null,
+  };
+};
+
 export async function POST(request: Request) {
   try {
     const supabase = createClient();
@@ -19,15 +112,12 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const durationSecondsRaw = formData.get('duration_seconds') as string | null;
-    const transcriptRaw = formData.get('transcript');
 
     if (!file) {
       return NextResponse.json({ error: 'Mangler lydfil' }, { status: 400 });
     }
 
     const durationSeconds = durationSecondsRaw ? parseInt(durationSecondsRaw, 10) || 0 : 0;
-    const transcript =
-      typeof transcriptRaw === 'string' && transcriptRaw.trim().length > 0 ? transcriptRaw.trim() : null;
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -132,7 +222,7 @@ export async function POST(request: Request) {
         date: new Date().toISOString(),
         duration: durationSeconds,
         audio_url: filePath,
-        transcript,
+        transcript: null,
         summary: null,
         action_points: null,
       })
@@ -142,6 +232,21 @@ export async function POST(request: Request) {
     if (insertError) {
       console.error('DB insert error', insertError);
       return NextResponse.json({ error: 'Kunne ikke lagre referat' }, { status: 500 });
+    }
+
+    const transcript = await transcribeWithOpenAI(buffer, baseMimeType || 'audio/webm', fileName);
+    if (transcript) {
+      const minutes = await summarizeWithOpenAI(transcript);
+      const nextTitle = minutes?.title && minutes.title.trim() ? minutes.title.trim() : null;
+      await adminClient
+        .from('meeting_notes')
+        .update({
+          title: nextTitle || title,
+          transcript,
+          summary: minutes?.summary ?? null,
+          action_points: minutes?.action_points ?? null,
+        })
+        .eq('id', inserted.id);
     }
 
     return NextResponse.json({ id: inserted.id });

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 
 export const runtime = 'nodejs';
 
@@ -122,6 +123,28 @@ const generateWithOpenAI = async (transcript: string) => {
   };
 };
 
+const transcribeWithOpenAI = async (buffer: Buffer, mimeType: string, fileName: string) => {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+
+  const form = new FormData();
+  const blob = new Blob([new Uint8Array(buffer)], { type: mimeType || 'application/octet-stream' });
+  form.append('file', blob, fileName);
+  form.append('model', 'whisper-1');
+  form.append('language', 'no');
+
+  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+  });
+
+  if (!res.ok) return null;
+  const json = (await res.json().catch(() => null)) as any;
+  const text = typeof json?.text === 'string' ? json.text.trim() : '';
+  return text || null;
+};
+
 export async function POST(request: Request) {
   try {
     const supabase = createClient();
@@ -141,7 +164,7 @@ export async function POST(request: Request) {
 
     const { data: note, error } = await supabase
       .from('meeting_notes')
-      .select('id, user_id, title, transcript, summary, action_points')
+      .select('id, user_id, title, transcript, summary, action_points, audio_url')
       .eq('id', body.id)
       .single();
 
@@ -160,9 +183,44 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Ingen tilgang til dette referatet' }, { status: 403 });
     }
 
-    const transcript = typeof note.transcript === 'string' ? note.transcript.trim() : '';
+    let transcript = typeof note.transcript === 'string' ? note.transcript.trim() : '';
     if (!transcript) {
-      return NextResponse.json({ error: 'Mangler transkripsjon' }, { status: 400 });
+      if (!process.env.OPENAI_API_KEY) {
+        return NextResponse.json(
+          { error: 'OPENAI_API_KEY mangler på server. Kan ikke transkribere opptaket.' },
+          { status: 400 },
+        );
+      }
+      if (!note.audio_url) {
+        return NextResponse.json({ error: 'Mangler lydfil' }, { status: 400 });
+      }
+
+      const admin = createAdminClient();
+      const bucketName = 'meeting-audio';
+      const audioPath = note.audio_url;
+
+      const { data: downloaded, error: downloadError } = await admin.storage
+        .from(bucketName)
+        .download(audioPath);
+
+      if (downloadError || !downloaded) {
+        return NextResponse.json({ error: 'Kunne ikke hente lydfil' }, { status: 500 });
+      }
+
+      const mimeType = downloaded.type || 'audio/webm';
+      const fileName = audioPath.split('/').pop() || 'meeting.webm';
+      const buffer = Buffer.from(await downloaded.arrayBuffer());
+      const transcribed = await transcribeWithOpenAI(buffer, mimeType, fileName);
+
+      if (!transcribed) {
+        return NextResponse.json({ error: 'Kunne ikke transkribere opptaket' }, { status: 500 });
+      }
+
+      transcript = transcribed;
+      await supabase
+        .from('meeting_notes')
+        .update({ transcript })
+        .eq('id', body.id);
     }
 
     const ai = await generateWithOpenAI(transcript);

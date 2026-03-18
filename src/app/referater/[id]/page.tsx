@@ -128,10 +128,11 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
   useEffect(() => {
     const maybeGenerate = async () => {
       if (!note) return;
-      if (!note.transcript || !note.transcript.trim()) return;
       if (editing) return;
+      if (generateError) return;
       if (note.summary && note.summary.trim() && note.action_points && note.action_points.trim()) return;
       if (generating) return;
+      if ((!note.transcript || !note.transcript.trim()) && !note.audio_url) return;
 
       setGenerating(true);
       setGenerateError(null);
@@ -175,7 +176,7 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
     };
 
     maybeGenerate();
-  }, [editing, generating, note]);
+  }, [editing, generateError, generating, note]);
 
   // Removed URL.revokeObjectURL effect since we're using direct URLs mostly now
   // (Browser handles garbage collection for direct strings, and we aren't creating object URLs)

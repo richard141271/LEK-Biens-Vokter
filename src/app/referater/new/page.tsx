@@ -5,18 +5,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Mic, Square, X, Check, Loader2 } from 'lucide-react';
 
-type SpeechRecognitionType = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-  onresult: ((event: any) => void) | null;
-  onend: (() => void) | null;
-  onerror: ((event: any) => void) | null;
-};
-
 export default function NewMeetingRecordingPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -27,24 +15,10 @@ export default function NewMeetingRecordingPage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [transcriptionEnabled] = useState(true);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const chunksRef = useRef<BlobPart[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const recognitionRef = useRef<SpeechRecognitionType | null>(null);
-  const finalTranscriptRef = useRef<string>('');
-  const interimTranscriptRef = useRef<string>('');
-  const recordingFlagRef = useRef(false);
-  const transcriptionEnabledRef = useRef(true);
-
-  useEffect(() => {
-    recordingFlagRef.current = recording;
-  }, [recording]);
-
-  useEffect(() => {
-    transcriptionEnabledRef.current = transcriptionEnabled;
-  }, [transcriptionEnabled]);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -66,9 +40,6 @@ export default function NewMeetingRecordingPage() {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
       }
-      try {
-        recognitionRef.current?.abort?.();
-      } catch {}
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
@@ -122,64 +93,6 @@ export default function NewMeetingRecordingPage() {
     return ''; // Let browser choose default if none match
   };
 
-  const initSpeechRecognition = () => {
-    if (typeof window === 'undefined') return;
-    const anyWindow = window as any;
-    const SpeechRecognitionCtor = anyWindow.SpeechRecognition || anyWindow.webkitSpeechRecognition;
-    if (!SpeechRecognitionCtor) {
-      recognitionRef.current = null;
-      return;
-    }
-    const rec: SpeechRecognitionType = new SpeechRecognitionCtor();
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = 'no-NO';
-    rec.onresult = (event: any) => {
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i += 1) {
-        const result = event.results[i];
-        const text = result?.[0]?.transcript || '';
-        if (result.isFinal) {
-          const cleaned = text.trim();
-          if (cleaned) {
-            finalTranscriptRef.current = (finalTranscriptRef.current + '\n' + cleaned).trim();
-          }
-        } else {
-          interim += text;
-        }
-      }
-      interimTranscriptRef.current = interim.trim();
-    };
-    rec.onerror = () => {};
-    rec.onend = () => {
-      if (recordingFlagRef.current && transcriptionEnabledRef.current) {
-        try {
-          rec.start();
-        } catch {}
-      }
-    };
-    recognitionRef.current = rec;
-  };
-
-  useEffect(() => {
-    initSpeechRecognition();
-  }, []);
-
-  const startSpeechRecognition = () => {
-    if (!transcriptionEnabled) return;
-    if (!recognitionRef.current) return;
-    try {
-      recognitionRef.current.start();
-    } catch {}
-  };
-
-  const stopSpeechRecognition = () => {
-    if (!recognitionRef.current) return;
-    try {
-      recognitionRef.current.stop();
-    } catch {}
-  };
-
   const handleStartRecording = async () => {
     setError(null);
 
@@ -191,12 +104,10 @@ export default function NewMeetingRecordingPage() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = getSupportedMimeType();
-      const options = mimeType ? { mimeType, audioBitsPerSecond: 16000 } : { audioBitsPerSecond: 16000 };
+      const options = mimeType ? { mimeType, audioBitsPerSecond: 20000 } : { audioBitsPerSecond: 20000 };
       
       const recorder = new MediaRecorder(stream, options);
       chunksRef.current = [];
-      finalTranscriptRef.current = '';
-      interimTranscriptRef.current = '';
 
       recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
@@ -213,15 +124,13 @@ export default function NewMeetingRecordingPage() {
         setRecordedBlob(blob);
         setRecording(false);
         stopTimer();
-        stopSpeechRecognition();
       };
 
       mediaRecorderRef.current = recorder;
-      recorder.start(10000);
+      recorder.start(1000);
       setRecording(true);
       setRecordedBlob(null);
       startTimer();
-      startSpeechRecognition();
     } catch (err) {
       console.error('Error starting recording', err);
       setError('Kunne ikke starte opptak. Sjekk mikrofontilgang.');
@@ -238,12 +147,14 @@ export default function NewMeetingRecordingPage() {
     setRecordedBlob(null);
     setElapsedSeconds(0);
     setError(null);
-    finalTranscriptRef.current = '';
-    interimTranscriptRef.current = '';
   };
 
   const handleSaveRecording = async () => {
     if (!recordedBlob) return;
+    if (recordedBlob.size === 0) {
+      setError('Opptaket ble tomt. Prøv igjen og sjekk mikrofontilgang.');
+      return;
+    }
 
     setProcessing(true);
     setError(null);
@@ -261,10 +172,6 @@ export default function NewMeetingRecordingPage() {
       const formData = new FormData();
       formData.append('file', recordedBlob, `meeting.${extension}`);
       formData.append('duration_seconds', String(elapsedSeconds));
-      const transcript = (finalTranscriptRef.current || '').trim();
-      if (transcript) {
-        formData.append('transcript', transcript);
-      }
 
       const res = await fetch('/api/meeting-notes/process', {
         method: 'POST',
