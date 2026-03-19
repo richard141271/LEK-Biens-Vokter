@@ -281,10 +281,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Ikke logget inn' }, { status: 401 });
     }
 
-    const body = (await request.json().catch(() => ({}))) as { id?: string };
+    const body = (await request.json().catch(() => ({}))) as { id?: string; force?: boolean };
     if (!body.id) {
       return NextResponse.json({ error: 'Mangler referat-id' }, { status: 400 });
     }
+    const force = body.force === true;
 
     const { data: note, error } = await supabase
       .from('meeting_notes')
@@ -309,7 +310,7 @@ export async function POST(request: Request) {
 
     let transcript = typeof note.transcript === 'string' ? note.transcript.trim() : '';
     const shouldRetranscribe = transcript && transcriptLooksBroken(transcript);
-    if (!transcript || shouldRetranscribe) {
+    if (!transcript || shouldRetranscribe || force) {
       if (!process.env.OPENAI_API_KEY) {
         return NextResponse.json(
           { error: 'OPENAI_API_KEY mangler på server. Kan ikke transkribere opptaket.' },
