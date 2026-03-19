@@ -13,7 +13,6 @@ import {
   Link as LinkIcon,
   Download,
   Edit2,
-  RotateCcw,
   Save,
   X,
   Trash2,
@@ -394,61 +393,6 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
     URL.revokeObjectURL(url);
   };
 
-  const regenerateFromAudio = async () => {
-    if (!note) return;
-    if (!note.audio_url) {
-      setGenerateError('Mangler lydfil');
-      return;
-    }
-    if (generating) return;
-    if (editing) {
-      const confirmed = window.confirm(
-        'Dette vil overskrive transkripsjon, sammendrag og aksjonspunkter med en ny generering fra opptaket. Fortsette?'
-      );
-      if (!confirmed) return;
-    }
-
-    setGenerating(true);
-    setGenerateError(null);
-    try {
-      const res = await fetch('/api/meeting-notes/summarize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: note.id, force: true }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        const message = err.error || 'Kunne ikke regenerere fra opptak';
-        setGenerateError(message);
-        return;
-      }
-
-      const json = (await res.json()) as {
-        title?: string | null;
-        summary?: string | null;
-        action_points?: string | null;
-        transcript?: string | null;
-      };
-
-      const updated: MeetingNoteDetail = {
-        ...note,
-        title: json.title ?? note.title,
-        summary: json.summary ?? note.summary,
-        action_points: json.action_points ?? note.action_points,
-        transcript: json.transcript ?? note.transcript,
-      };
-
-      setNote(updated);
-      setTitleDraft(updated.title || '');
-      setSummaryDraft(updated.summary || '');
-      setActionPointsDraft(updated.action_points || '');
-      setTranscriptDraft(updated.transcript || '');
-    } finally {
-      setGenerating(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="bg-white border-b border-gray-200 px-4 py-4 flex items-center justify-between sticky top-0 z-10">
@@ -484,16 +428,6 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
               </>
             )}
           </button>
-          {note.audio_url && (
-            <button
-              onClick={regenerateFromAudio}
-              disabled={saving || deleting || generating}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              <RotateCcw className="w-3 h-3" />
-              {generating ? 'Regenererer...' : 'Regenerer'}
-            </button>
-          )}
           {editing && (
             <button
               onClick={saveChanges}
