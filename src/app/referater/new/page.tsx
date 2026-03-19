@@ -107,7 +107,7 @@ export default function NewMeetingRecordingPage() {
   };
 
   const createRecorder = (stream: MediaStream, mimeType: string) => {
-    const bitRate = 24000;
+    const bitRate = 16000;
     const candidates: MediaRecorderOptions[] = [];
 
     if (mimeType) {
@@ -226,22 +226,47 @@ export default function NewMeetingRecordingPage() {
     setError(null);
 
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.push('/login?next=/referater/new');
+        return;
+      }
+
+      const baseMimeType = recordedBlob.type ? recordedBlob.type.split(';')[0].trim() : 'audio/webm';
+
       let extension = 'webm';
-      if (recordedBlob.type === 'audio/mp4') {
+      if (baseMimeType === 'audio/mp4') {
         extension = 'm4a';
-      } else if (recordedBlob.type === 'audio/mpeg') {
+      } else if (baseMimeType === 'audio/mpeg') {
         extension = 'mp3';
-      } else if (recordedBlob.type === 'audio/ogg') {
+      } else if (baseMimeType === 'audio/ogg') {
         extension = 'ogg';
       }
 
-      const formData = new FormData();
-      formData.append('file', recordedBlob, `meeting.${extension}`);
-      formData.append('duration_seconds', String(elapsedSeconds));
+      const fileName = `${user.id}-${Date.now()}.${extension}`;
+      const audioPath = `${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage.from('meeting-audio').upload(audioPath, recordedBlob, {
+        contentType: baseMimeType || 'application/octet-stream',
+        upsert: false,
+      });
+
+      if (uploadError) {
+        throw new Error(uploadError.message || 'Kunne ikke laste opp lydfil.');
+      }
 
       const res = await fetch('/api/meeting-notes/process', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audioPath,
+          duration_seconds: elapsedSeconds,
+          mimeType: baseMimeType,
+          fileName,
+        }),
       });
 
       if (!res.ok) {

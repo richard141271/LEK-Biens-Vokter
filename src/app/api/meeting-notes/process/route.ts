@@ -109,23 +109,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Ikke logget inn' }, { status: 401 });
     }
 
-    const formData = await request.formData();
-    const file = formData.get('file') as File | null;
-    const durationSecondsRaw = formData.get('duration_seconds') as string | null;
-
-    if (!file) {
-      return NextResponse.json({ error: 'Mangler lydfil' }, { status: 400 });
-    }
-
-    const durationSeconds = durationSecondsRaw ? parseInt(durationSecondsRaw, 10) || 0 : 0;
-
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    const fileExt = file.name.split('.').pop() || 'webm';
-    const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-    const filePath = `${user.id}/${fileName}`;
-
     const adminClient = createAdminClient();
     const bucketName = 'meeting-audio';
 
@@ -142,7 +125,7 @@ export async function POST(request: Request) {
     if (bucketError && bucketError.message && bucketError.message.toLowerCase().includes('not found')) {
       const { error: createBucketError } = await adminClient.storage.createBucket(bucketName, {
         public: false,
-        fileSizeLimit: 52428800,
+        fileSizeLimit: 314572800,
         allowedMimeTypes: ['audio/webm', 'audio/mpeg', 'audio/mp4', 'audio/ogg'],
       });
 
@@ -167,49 +150,93 @@ export async function POST(request: Request) {
       console.error('Get bucket error', bucketError);
     }
 
-    const baseMimeType = file.type ? file.type.split(';')[0].trim() : 'audio/webm';
+    const contentType = request.headers.get('content-type') || '';
 
-    const { error: uploadError } = await adminClient.storage.from(bucketName).upload(filePath, buffer, {
-      contentType: baseMimeType,
-      upsert: false,
-    });
+    let durationSeconds = 0;
+    let filePath = '';
+    let fileName = '';
+    let baseMimeType = 'audio/webm';
+    let buffer: Buffer | null = null;
 
-    if (uploadError) {
-      console.error('Upload error', uploadError);
-      const uploadDetails =
-        typeof uploadError.message === 'string'
-          ? uploadError.message
-          : JSON.stringify(uploadError);
-      return NextResponse.json(
-        { error: 'Kunne ikke lagre lydfil', details: uploadDetails },
-        { status: 500 },
-      );
-    }
+    if (contentType.includes('application/json')) {
+      const body = (await request.json().catch(() => ({}))) as {
+        audioPath?: string;
+        duration_seconds?: number | string;
+        mimeType?: string;
+        fileName?: string;
+      };
 
-    // VERIFY UPLOAD: List files in the folder to confirm existence
-    const { data: listData, error: listError } = await adminClient.storage
-      .from(bucketName)
-      .list(user.id);
-    
-    console.log('Upload verification - list files in user folder:', user.id, listData, listError);
+      filePath = typeof body.audioPath === 'string' ? body.audioPath.trim() : '';
+      fileName = typeof body.fileName === 'string' ? body.fileName.trim() : '';
+      baseMimeType =
+        typeof body.mimeType === 'string' && body.mimeType.trim()
+          ? body.mimeType.split(';')[0].trim()
+          : baseMimeType;
 
-    const uploadedFileExists = listData?.some(f => f.name === fileName);
-    if (!uploadedFileExists) {
-      console.error('File uploaded but not found in listing:', fileName, listData);
-      return NextResponse.json(
-        { error: 'Fil lastet opp, men kunne ikke verifiseres', details: 'File not found in storage listing after upload' },
-        { status: 500 }
-      );
-    }
+      durationSeconds =
+        typeof body.duration_seconds === 'number'
+          ? Math.max(0, Math.floor(body.duration_seconds))
+          : typeof body.duration_seconds === 'string'
+            ? parseInt(body.duration_seconds, 10) || 0
+            : 0;
 
-    const { error: ownerError } = await adminClient
-      .from('storage.objects')
-      .update({ owner: user.id })
-      .eq('bucket_id', bucketName)
-      .eq('name', filePath);
+      if (!filePath) {
+        return NextResponse.json({ error: 'Mangler lydsti' }, { status: 400 });
+      }
 
-    if (ownerError) {
-      console.error('Owner update error', ownerError);
+      if (!filePath.startsWith(`${user.id}/`)) {
+        return NextResponse.json({ error: 'Ingen tilgang til lydfil' }, { status: 403 });
+      }
+
+      if (!fileName) {
+        fileName = filePath.split('/').pop() || `meeting.${baseMimeType === 'audio/mp4' ? 'm4a' : 'webm'}`;
+      }
+    } else {
+      const formData = await request.formData();
+      const file = formData.get('file') as File | null;
+      const durationSecondsRaw = formData.get('duration_seconds') as string | null;
+
+      if (!file) {
+        return NextResponse.json({ error: 'Mangler lydfil' }, { status: 400 });
+      }
+
+      durationSeconds = durationSecondsRaw ? parseInt(durationSecondsRaw, 10) || 0 : 0;
+
+      const arrayBuffer = await file.arrayBuffer();
+      buffer = Buffer.from(arrayBuffer);
+
+      const fileExt = file.name.split('.').pop() || 'webm';
+      fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      filePath = `${user.id}/${fileName}`;
+
+      baseMimeType = file.type ? file.type.split(';')[0].trim() : baseMimeType;
+
+      const { error: uploadError } = await adminClient.storage.from(bucketName).upload(filePath, buffer, {
+        contentType: baseMimeType,
+        upsert: false,
+      });
+
+      if (uploadError) {
+        console.error('Upload error', uploadError);
+        const uploadDetails =
+          typeof uploadError.message === 'string'
+            ? uploadError.message
+            : JSON.stringify(uploadError);
+        return NextResponse.json(
+          { error: 'Kunne ikke lagre lydfil', details: uploadDetails },
+          { status: 500 },
+        );
+      }
+
+      const { error: ownerError } = await adminClient
+        .from('storage.objects')
+        .update({ owner: user.id })
+        .eq('bucket_id', bucketName)
+        .eq('name', filePath);
+
+      if (ownerError) {
+        console.error('Owner update error', ownerError);
+      }
     }
 
     const title = 'Møteopptak ' + new Date().toLocaleString('no-NO');
@@ -234,7 +261,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Kunne ikke lagre referat' }, { status: 500 });
     }
 
-    const transcript = await transcribeWithOpenAI(buffer, baseMimeType || 'audio/webm', fileName);
+    if (!buffer) {
+      const { data: downloaded, error: downloadError } = await adminClient.storage
+        .from(bucketName)
+        .download(filePath);
+      if (!downloadError && downloaded) {
+        buffer = Buffer.from(await downloaded.arrayBuffer());
+        baseMimeType = downloaded.type || baseMimeType;
+      }
+    }
+
+    const transcript = buffer ? await transcribeWithOpenAI(buffer, baseMimeType || 'audio/webm', fileName) : null;
     if (transcript) {
       const minutes = await summarizeWithOpenAI(transcript);
       const nextTitle = minutes?.title && minutes.title.trim() ? minutes.title.trim() : null;
