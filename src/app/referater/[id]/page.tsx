@@ -60,7 +60,6 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
   const [audioError, setAudioError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [regeneratingTranscript, setRegeneratingTranscript] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -401,21 +400,21 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
       setGenerateError('Mangler lydfil');
       return;
     }
-    if (regeneratingTranscript) return;
+    if (generating) return;
     if (editing) {
       const confirmed = window.confirm(
-        'Dette vil overskrive transkripsjonen med en ny generering fra opptaket. Fortsette?'
+        'Dette vil overskrive transkripsjon, sammendrag og aksjonspunkter med en ny generering fra opptaket. Fortsette?'
       );
       if (!confirmed) return;
     }
 
-    setRegeneratingTranscript(true);
+    setGenerating(true);
     setGenerateError(null);
     try {
       const res = await fetch('/api/meeting-notes/summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: note.id, force: true, transcriptOnly: true }),
+        body: JSON.stringify({ id: note.id, force: true }),
       });
 
       if (!res.ok) {
@@ -446,7 +445,7 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
       setActionPointsDraft(updated.action_points || '');
       setTranscriptDraft(updated.transcript || '');
     } finally {
-      setRegeneratingTranscript(false);
+      setGenerating(false);
     }
   };
 
@@ -488,11 +487,11 @@ export default function MeetingNoteDetailPage({ params }: { params: { id: string
           {note.audio_url && (
             <button
               onClick={regenerateFromAudio}
-              disabled={saving || deleting || regeneratingTranscript || generating}
+              disabled={saving || deleting || generating}
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-200 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               <RotateCcw className="w-3 h-3" />
-              {regeneratingTranscript ? 'Regenererer...' : 'Regenerer transkripsjon'}
+              {generating ? 'Regenererer...' : 'Regenerer'}
             </button>
           )}
           {editing && (

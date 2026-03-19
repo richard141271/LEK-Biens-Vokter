@@ -281,16 +281,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Ikke logget inn' }, { status: 401 });
     }
 
-    const body = (await request.json().catch(() => ({}))) as {
-      id?: string;
-      force?: boolean;
-      transcriptOnly?: boolean;
-    };
+    const body = (await request.json().catch(() => ({}))) as { id?: string; force?: boolean };
     if (!body.id) {
       return NextResponse.json({ error: 'Mangler referat-id' }, { status: 400 });
     }
     const force = body.force === true;
-    const transcriptOnly = body.transcriptOnly === true;
 
     const { data: note, error } = await supabase
       .from('meeting_notes')
@@ -348,27 +343,10 @@ export async function POST(request: Request) {
       }
 
       transcript = transcribed;
-      const { error: transcriptUpdateError } = await supabase
+      await supabase
         .from('meeting_notes')
         .update({ transcript })
         .eq('id', body.id);
-      if (transcriptUpdateError) {
-        return NextResponse.json({ error: 'Kunne ikke oppdatere transkripsjon' }, { status: 500 });
-      }
-    }
-
-    if (transcriptOnly) {
-      const { data: updated, error: updatedError } = await supabase
-        .from('meeting_notes')
-        .select('id, title, transcript, summary, action_points, audio_url, date, duration')
-        .eq('id', body.id)
-        .single();
-
-      if (updatedError || !updated) {
-        return NextResponse.json({ error: 'Kunne ikke hente oppdatert referat' }, { status: 500 });
-      }
-
-      return NextResponse.json(updated);
     }
 
     const ai = await generateWithOpenAI(transcript);
