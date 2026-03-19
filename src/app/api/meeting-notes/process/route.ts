@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 
 export const runtime = 'nodejs';
+export const maxDuration = 900;
 
 const safeParseJson = (text: string) => {
   const raw = text.trim();
@@ -330,31 +331,6 @@ export async function POST(request: Request) {
     if (insertError) {
       console.error('DB insert error', insertError);
       return NextResponse.json({ error: 'Kunne ikke lagre referat' }, { status: 500 });
-    }
-
-    if (!buffer) {
-      const { data: downloaded, error: downloadError } = await adminClient.storage
-        .from(bucketName)
-        .download(filePath);
-      if (!downloadError && downloaded) {
-        buffer = Buffer.from(await downloaded.arrayBuffer());
-        baseMimeType = downloaded.type || baseMimeType;
-      }
-    }
-
-    const transcript = buffer ? await transcribeWithOpenAI(buffer, baseMimeType || 'audio/webm', fileName) : null;
-    if (transcript) {
-      const minutes = await summarizeWithOpenAI(transcript);
-      const nextTitle = minutes?.title && minutes.title.trim() ? minutes.title.trim() : null;
-      await adminClient
-        .from('meeting_notes')
-        .update({
-          title: nextTitle || title,
-          transcript,
-          summary: minutes?.summary ?? null,
-          action_points: minutes?.action_points ?? null,
-        })
-        .eq('id', inserted.id);
     }
 
     return NextResponse.json({ id: inserted.id });

@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 
 export const runtime = 'nodejs';
+export const maxDuration = 900;
 
 const ERROR_TITLE = 'Transkripsjon feilet – lydopptaket er lagret';
 
