@@ -28,6 +28,66 @@ const trimTranscriptForModel = (text: string, maxChars: number) => {
   return (trimmed.slice(0, half) + '\n...\n' + trimmed.slice(-half)).trim();
 };
 
+const splitIntoSentences = (text: string) => {
+  return text
+    .replace(/\s+/g, ' ')
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+};
+
+const windowsEqual = (a: string[], aStart: number, bStart: number, size: number) => {
+  for (let i = 0; i < size; i += 1) {
+    if (a[aStart + i] !== a[bStart + i]) return false;
+  }
+  return true;
+};
+
+const compressRepeats = (sentences: string[]) => {
+  const out: string[] = [];
+  let i = 0;
+
+  while (i < sentences.length) {
+    let collapsed = false;
+
+    for (let size = 3; size >= 1; size -= 1) {
+      if (i + size * 2 > sentences.length) continue;
+      if (!windowsEqual(sentences, i, i + size, size)) continue;
+
+      let repeats = 2;
+      while (i + size * (repeats + 1) <= sentences.length) {
+        if (!windowsEqual(sentences, i, i + size * repeats, size)) break;
+        repeats += 1;
+      }
+
+      for (let j = 0; j < size; j += 1) out.push(sentences[i + j]);
+      i += size * repeats;
+      collapsed = true;
+      break;
+    }
+
+    if (!collapsed) {
+      const current = sentences[i];
+      const last = out[out.length - 1];
+      if (!last || last.toLowerCase() !== current.toLowerCase()) {
+        out.push(current);
+      }
+      i += 1;
+    }
+  }
+
+  return out;
+};
+
+const stabilizeTranscript = (text: string) => {
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+
+  const sentences = compressRepeats(splitIntoSentences(trimmed));
+  const joined = sentences.join(' ').replace(/\s+/g, ' ').trim();
+  return joined;
+};
+
 const transcribeWithOpenAI = async (buffer: Buffer, mimeType: string, fileName: string) => {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
@@ -37,6 +97,7 @@ const transcribeWithOpenAI = async (buffer: Buffer, mimeType: string, fileName: 
   form.append('file', blob, fileName);
   form.append('model', 'whisper-1');
   form.append('language', 'no');
+  form.append('temperature', '0');
 
   const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',
@@ -46,8 +107,18 @@ const transcribeWithOpenAI = async (buffer: Buffer, mimeType: string, fileName: 
 
   if (!res.ok) return null;
   const json = (await res.json().catch(() => null)) as any;
-  const text = typeof json?.text === 'string' ? json.text.trim() : '';
-  return text || null;
+  const text =
+    typeof json?.text === 'string'
+      ? json.text.trim()
+      : Array.isArray(json?.segments)
+        ? json.segments
+            .map((s: any) => (typeof s?.text === 'string' ? s.text.trim() : ''))
+            .filter(Boolean)
+            .join(' ')
+            .trim()
+        : '';
+  const stabilized = stabilizeTranscript(text);
+  return stabilized || null;
 };
 
 const summarizeWithOpenAI = async (transcript: string) => {
