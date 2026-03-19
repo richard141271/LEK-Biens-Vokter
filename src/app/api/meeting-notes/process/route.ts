@@ -28,14 +28,6 @@ const trimTranscriptForModel = (text: string, maxChars: number) => {
   return (trimmed.slice(0, half) + '\n...\n' + trimmed.slice(-half)).trim();
 };
 
-const normalizeForRepeat = (s: string) => {
-  return s
-    .toLowerCase()
-    .replace(/[^0-9a-zA-ZæøåÆØÅ]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-};
-
 const splitIntoSentences = (text: string) => {
   return text
     .replace(/\s+/g, ' ')
@@ -44,88 +36,56 @@ const splitIntoSentences = (text: string) => {
     .filter(Boolean);
 };
 
+const windowsEqual = (a: string[], aStart: number, bStart: number, size: number) => {
+  for (let i = 0; i < size; i += 1) {
+    if (a[aStart + i] !== a[bStart + i]) return false;
+  }
+  return true;
+};
+
+const compressRepeats = (sentences: string[]) => {
+  const out: string[] = [];
+  let i = 0;
+
+  while (i < sentences.length) {
+    let collapsed = false;
+
+    for (let size = 3; size >= 1; size -= 1) {
+      if (i + size * 2 > sentences.length) continue;
+      if (!windowsEqual(sentences, i, i + size, size)) continue;
+
+      let repeats = 2;
+      while (i + size * (repeats + 1) <= sentences.length) {
+        if (!windowsEqual(sentences, i, i + size * repeats, size)) break;
+        repeats += 1;
+      }
+
+      for (let j = 0; j < size; j += 1) out.push(sentences[i + j]);
+      i += size * repeats;
+      collapsed = true;
+      break;
+    }
+
+    if (!collapsed) {
+      const current = sentences[i];
+      const last = out[out.length - 1];
+      if (!last || last.toLowerCase() !== current.toLowerCase()) {
+        out.push(current);
+      }
+      i += 1;
+    }
+  }
+
+  return out;
+};
+
 const stabilizeTranscript = (text: string) => {
   const trimmed = text.trim();
   if (!trimmed) return '';
 
-  const sentences = splitIntoSentences(trimmed);
-  const out: string[] = [];
-
-  let i = 0;
-  while (i < sentences.length) {
-    const current = sentences[i];
-    const currentKey = normalizeForRepeat(current);
-
-    let run = 1;
-    while (i + run < sentences.length && normalizeForRepeat(sentences[i + run]) === currentKey) {
-      run += 1;
-    }
-
-    if (run >= 6) {
-      out.push(current);
-      i += run;
-      continue;
-    }
-
-    for (let j = 0; j < run; j += 1) out.push(sentences[i + j]);
-    i += run;
-  }
-
-  return out.join(' ').replace(/\s+/g, ' ').trim();
-};
-
-const findOverlap = (aRaw: string, bRaw: string) => {
-  const a = aRaw.replace(/\s+/g, ' ').trim().toLowerCase();
-  const b = bRaw.replace(/\s+/g, ' ').trim().toLowerCase();
-  const maxLen = Math.min(a.length, b.length, 300);
-  const minLen = 18;
-  for (let len = maxLen; len >= minLen; len -= 1) {
-    if (a.slice(-len) === b.slice(0, len)) return len;
-  }
-  return 0;
-};
-
-const buildTranscriptFromSegments = (segments: any[]) => {
-  const parsed = segments
-    .map((s) => ({
-      start: typeof s?.start === 'number' ? s.start : Number(s?.start),
-      end: typeof s?.end === 'number' ? s.end : Number(s?.end),
-      text: typeof s?.text === 'string' ? s.text.trim() : '',
-    }))
-    .filter((s) => Number.isFinite(s.start) && Number.isFinite(s.end) && s.text);
-
-  parsed.sort((a, b) => a.start - b.start);
-
-  let out = '';
-  let lastStart = -1;
-  let lastEnd = -1;
-  let lastKey = '';
-
-  for (const seg of parsed) {
-    const key = `${Math.round(seg.start * 100)}/${Math.round(seg.end * 100)}/${normalizeForRepeat(seg.text)}`;
-    if (seg.start === lastStart && seg.end === lastEnd && key === lastKey) {
-      continue;
-    }
-    lastStart = seg.start;
-    lastEnd = seg.end;
-    lastKey = key;
-
-    if (!out) {
-      out = seg.text;
-      continue;
-    }
-
-    const tail = out.slice(Math.max(0, out.length - 350));
-    const head = seg.text.slice(0, 350);
-    const overlap = findOverlap(tail, head);
-    const toAppend = overlap > 0 ? seg.text.slice(overlap).trimStart() : seg.text;
-
-    if (toAppend) {
-      out = `${out}${out.endsWith(' ') ? '' : ' '}${toAppend}`;
-    }
-  }
-
-  return out.replace(/\s+/g, ' ').trim();
+  const sentences = compressRepeats(splitIntoSentences(trimmed));
+  const joined = sentences.join(' ').replace(/\s+/g, ' ').trim();
+  return joined;
 };
 
 const transcribeWithOpenAI = async (buffer: Buffer, mimeType: string, fileName: string) => {
@@ -138,7 +98,6 @@ const transcribeWithOpenAI = async (buffer: Buffer, mimeType: string, fileName: 
   form.append('model', 'whisper-1');
   form.append('language', 'no');
   form.append('temperature', '0');
-  form.append('response_format', 'verbose_json');
 
   const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
     method: 'POST',
@@ -148,8 +107,16 @@ const transcribeWithOpenAI = async (buffer: Buffer, mimeType: string, fileName: 
 
   if (!res.ok) return null;
   const json = (await res.json().catch(() => null)) as any;
-  const fromSegments = Array.isArray(json?.segments) ? buildTranscriptFromSegments(json.segments) : '';
-  const text = fromSegments || (typeof json?.text === 'string' ? json.text.trim() : '');
+  const text =
+    typeof json?.text === 'string'
+      ? json.text.trim()
+      : Array.isArray(json?.segments)
+        ? json.segments
+            .map((s: any) => (typeof s?.text === 'string' ? s.text.trim() : ''))
+            .filter(Boolean)
+            .join(' ')
+            .trim()
+        : '';
   const stabilized = stabilizeTranscript(text);
   return stabilized || null;
 };
