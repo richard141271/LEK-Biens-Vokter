@@ -31,12 +31,7 @@ export default function ScanPage() {
       experimentalFeatures: { useBarCodeDetectorIfSupported: true }
     };
 
-    scanner.start(
-      { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, 
-      config, 
-      onScanSuccess, 
-      onScanFailure
-    ).then(() => {
+    const applyPreferredZoom = () => {
       setTimeout(async () => {
         try {
           const video = document.querySelector<HTMLVideoElement>('#reader video');
@@ -51,10 +46,34 @@ export default function ScanPage() {
           await track.applyConstraints({ advanced: [{ zoom: preferred }] } as any);
         } catch {}
       }, 300);
-    }).catch(err => {
-      console.error("Error starting scanner", err);
-      setError("Kunne ikke starte kamera. Sjekk at du har gitt tillatelse.");
-    });
+    };
+
+    (async () => {
+      setError(null);
+      try {
+        await scanner.start(
+          { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          config,
+          onScanSuccess,
+          onScanFailure
+        );
+        applyPreferredZoom();
+        return;
+      } catch {}
+
+      try {
+        await scanner.start(
+          { facingMode: "environment" },
+          config,
+          onScanSuccess,
+          onScanFailure
+        );
+        applyPreferredZoom();
+      } catch (err) {
+        console.error("Error starting scanner", err);
+        setError("Kunne ikke starte kamera. Sjekk at du har gitt tillatelse.");
+      }
+    })();
 
     function onScanSuccess(decodedText: string, decodedResult: any) {
       if (hasScannedRef.current) return; // Prevent multiple scans

@@ -9,9 +9,9 @@ export async function generateHiveLabelsPDF(hivesToPrint: any[]) {
   const labelHeight = 37;
   const startX = 0;
   const startY = 0;
-  const sheetOffsetY = 1;
-  const leftColumnOffsetX = 1;
-  const rightColumnOffsetX = -1;
+  const sheetOffsetY = 2;
+  const leftColumnOffsetX = 2;
+  const rightColumnOffsetX = -2;
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
 

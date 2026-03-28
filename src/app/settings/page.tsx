@@ -1446,10 +1446,10 @@ export default function SettingsPage() {
 
           {/* QR ONLY VIEW */}
           {printLayout === 'qr' && (
-             <div className="hidden print:grid grid-cols-3 gap-0 content-start print:translate-y-[1mm]">
+             <div className="hidden print:grid grid-cols-3 gap-0 content-start print:translate-y-[2mm]">
                 {allHives.map((hive, index) => {
                       const col = index % 3;
-                      const colOffsetClass = col === 0 ? 'translate-x-[1mm]' : col === 2 ? '-translate-x-[1mm]' : '';
+                      const colOffsetClass = col === 0 ? 'translate-x-[2mm]' : col === 2 ? '-translate-x-[2mm]' : '';
                       return (
                       <div key={hive.id} className={`w-[70mm] h-[37mm] border border-gray-100 p-2 flex items-center justify-between overflow-hidden break-inside-avoid relative bg-white ${colOffsetClass}`}>
                          <div className="flex flex-col justify-center h-full pl-1 z-10">
