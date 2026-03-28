@@ -9,6 +9,9 @@ export async function generateHiveLabelsPDF(hivesToPrint: any[]) {
   const labelHeight = 37;
   const startX = 0;
   const startY = 0;
+  const sheetOffsetY = 1;
+  const leftColumnOffsetX = 1;
+  const rightColumnOffsetX = -1;
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
@@ -23,8 +26,9 @@ export async function generateHiveLabelsPDF(hivesToPrint: any[]) {
     const col = indexOnPage % cols;
     const row = Math.floor(indexOnPage / cols);
 
-    const x = startX + col * labelWidth;
-    const y = startY + row * labelHeight;
+    const columnOffsetX = col === 0 ? leftColumnOffsetX : col === 2 ? rightColumnOffsetX : 0;
+    const x = startX + col * labelWidth + columnOffsetX;
+    const y = startY + row * labelHeight + sheetOffsetY;
 
     doc.setDrawColor(210, 180, 140);
     doc.setLineWidth(0.2);

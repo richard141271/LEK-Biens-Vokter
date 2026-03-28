@@ -14,24 +14,43 @@ export default function ScanPage() {
   const hasScannedRef = useRef(false);
 
   useEffect(() => {
-    // Initialize scanner
-    // Use Html5Qrcode directly to force environment camera and skip selection UI
     const scanner = new Html5Qrcode("reader");
     scannerRef.current = scanner;
     hasScannedRef.current = false;
 
+    const qrboxSize = (() => {
+      const size = Math.min(360, Math.max(240, Math.floor(window.innerWidth * 0.8)));
+      return { width: size, height: size };
+    })();
+
     const config = { 
-      fps: 10, 
-      qrbox: { width: 250, height: 250 },
-      aspectRatio: 1.0
+      fps: 12, 
+      qrbox: qrboxSize,
+      aspectRatio: 1.0,
+      experimentalFeatures: { useBarCodeDetectorIfSupported: true }
     };
 
     scanner.start(
-      { facingMode: "environment" }, 
+      { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, 
       config, 
       onScanSuccess, 
       onScanFailure
-    ).catch(err => {
+    ).then(() => {
+      setTimeout(async () => {
+        try {
+          const video = document.querySelector<HTMLVideoElement>('#reader video');
+          const stream = video?.srcObject as MediaStream | null;
+          const track = stream?.getVideoTracks?.()[0];
+          const capabilities = track?.getCapabilities?.() as any;
+          if (!track || !capabilities?.zoom) return;
+
+          const min = typeof capabilities.zoom.min === 'number' ? capabilities.zoom.min : 1;
+          const max = typeof capabilities.zoom.max === 'number' ? capabilities.zoom.max : 1;
+          const preferred = Math.min(Math.max(2, min), max);
+          await track.applyConstraints({ advanced: [{ zoom: preferred }] } as any);
+        } catch {}
+      }, 300);
+    }).catch(err => {
       console.error("Error starting scanner", err);
       setError("Kunne ikke starte kamera. Sjekk at du har gitt tillatelse.");
     });

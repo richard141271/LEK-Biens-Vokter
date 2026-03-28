@@ -1446,9 +1446,12 @@ export default function SettingsPage() {
 
           {/* QR ONLY VIEW */}
           {printLayout === 'qr' && (
-             <div className="hidden print:grid grid-cols-3 gap-0 content-start">
-                {allHives.map(hive => (
-                      <div key={hive.id} className="w-[70mm] h-[37mm] border border-gray-100 p-2 flex items-center justify-between overflow-hidden break-inside-avoid relative bg-white">
+             <div className="hidden print:grid grid-cols-3 gap-0 content-start print:translate-y-[1mm]">
+                {allHives.map((hive, index) => {
+                      const col = index % 3;
+                      const colOffsetClass = col === 0 ? 'translate-x-[1mm]' : col === 2 ? '-translate-x-[1mm]' : '';
+                      return (
+                      <div key={hive.id} className={`w-[70mm] h-[37mm] border border-gray-100 p-2 flex items-center justify-between overflow-hidden break-inside-avoid relative bg-white ${colOffsetClass}`}>
                          <div className="flex flex-col justify-center h-full pl-1 z-10">
                             <span className="text-[8px] uppercase text-gray-500 font-bold leading-none mb-0.5">LEK-Biens Vokter</span>
                             <span className="text-xl font-black leading-none">{hive.hive_number}</span>
@@ -1465,7 +1468,8 @@ export default function SettingsPage() {
                             />
                          )}
                       </div>
-                   ))}
+                   );
+                })}
              </div>
           )}
       </div>
