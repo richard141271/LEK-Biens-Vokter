@@ -71,6 +71,24 @@ export default function ScanPage() {
       experimentalFeatures: { useBarCodeDetectorIfSupported: true }
     };
 
+    const pickCameraId = (cameras: Array<{ id: string; label?: string }>) => {
+      const normalized = cameras.map((c) => ({
+        ...c,
+        label: (c.label || '').toLowerCase(),
+      }));
+
+      const back = normalized.find((c) => c.label.includes('back') || c.label.includes('rear'));
+      if (back) return back.id;
+
+      const environment = normalized.find((c) => c.label.includes('environment'));
+      if (environment) return environment.id;
+
+      const wide = normalized.find((c) => c.label.includes('wide'));
+      if (wide) return wide.id;
+
+      return cameras[cameras.length - 1]?.id;
+    };
+
     const applyPreferredZoom = () => {
       setTimeout(async () => {
         try {
@@ -126,6 +144,22 @@ export default function ScanPage() {
     };
 
     try {
+      const cameras = await Html5Qrcode.getCameras();
+      const cameraId = cameras?.length ? pickCameraId(cameras as any) : null;
+      if (cameraId) {
+        await scanner.start(cameraId, config, onScanSuccess, onScanFailure);
+        applyPreferredZoom();
+        setIsRunning(true);
+        return;
+      }
+    } catch (err: any) {
+      const name = typeof err?.name === 'string' ? err.name : 'Ukjent feil';
+      const message = typeof err?.message === 'string' ? err.message : '';
+      console.error("Error getting cameras / starting by camera id", err);
+      setError(`Kunne ikke starte kamera. (${name}${message ? `: ${message}` : ''})`);
+    }
+
+    try {
       await scanner.start(
         { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
         config,
@@ -147,9 +181,11 @@ export default function ScanPage() {
       applyPreferredZoom();
       setIsRunning(true);
     } catch (err: any) {
+      const name = typeof err?.name === 'string' ? err.name : 'Ukjent feil';
+      const message = typeof err?.message === 'string' ? err.message : '';
       console.error("Error starting scanner", err);
       setIsRunning(false);
-      setError("Kunne ikke starte kamera. Sjekk at du har gitt tillatelse.");
+      setError(`Kunne ikke starte kamera. (${name}${message ? `: ${message}` : ''})`);
     } finally {
       setIsStarting(false);
     }
