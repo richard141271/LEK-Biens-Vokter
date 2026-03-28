@@ -35,9 +35,9 @@ export async function generateHiveLabelsPDF(hivesToPrint: any[]) {
     doc.rect(x + 1.5, y + 1.5, labelWidth - 3, labelHeight - 3);
 
     const qrUrl = `${origin}/hives/${hive?.id}`;
-    const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 0, width: 200, errorCorrectionLevel: 'H' });
+    const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 0, width: 256, errorCorrectionLevel: 'H' });
 
-    doc.addImage(qrDataUrl, 'PNG', x + labelWidth - 30, y + 4.5, 28, 28);
+    doc.addImage(qrDataUrl, 'PNG', x + labelWidth - 32, y + 3.5, 30, 30);
 
     const textX = x + 4;
     const maxTextWidth = labelWidth - 34;

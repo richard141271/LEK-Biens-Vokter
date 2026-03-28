@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
@@ -27,6 +27,7 @@ export default function ScanPage() {
       fps: 12, 
       qrbox: qrboxSize,
       aspectRatio: 1.0,
+      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
       experimentalFeatures: { useBarCodeDetectorIfSupported: true }
     };
 
@@ -57,19 +58,17 @@ export default function ScanPage() {
 
     function onScanSuccess(decodedText: string, decodedResult: any) {
       if (hasScannedRef.current) return; // Prevent multiple scans
-      hasScannedRef.current = true;
 
       // Handle the scanned code
       console.log(`Scan result: ${decodedText}`, decodedResult);
-      setScanResult(decodedText);
-      
-      // Stop scanning
-      if (scanner.isScanning) {
-        scanner.stop().catch(console.error);
-      }
 
       // Check if it's a valid internal URL
       if (decodedText.includes('/apiaries/') || decodedText.includes('/hives/')) {
+        hasScannedRef.current = true;
+        setScanResult(decodedText);
+        if (scanner.isScanning) {
+          scanner.stop().catch(console.error);
+        }
         try {
           // If it's a full URL, extract path
           if (decodedText.startsWith('http')) {
@@ -85,12 +84,16 @@ export default function ScanPage() {
           router.push(decodedText);
         }
       } else if (decodedText.startsWith('BG-') || decodedText.startsWith('KUBE-')) {
+          hasScannedRef.current = true;
+          setScanResult(decodedText);
+          if (scanner.isScanning) {
+            scanner.stop().catch(console.error);
+          }
           // Handle direct ID scan (future proofing)
           // We would need to look up the ID. For now, show error or manual entry.
           setError('Fant ID: ' + decodedText + '. Søk etter denne ID-en i oversikten.');
       } else {
-        setError('Ukjent QR-kode. Er dette en LEK-Biens Vokter kode?');
-        // Re-enable scanning after a delay if needed, but for now show error
+        return;
       }
     }
 

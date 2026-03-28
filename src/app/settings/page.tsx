@@ -1461,10 +1461,10 @@ export default function SettingsPage() {
                             <Image
                                 src={printData[hive.id].qrDataUrl}
                                 alt="QR"
-                                width={112}
-                                height={112}
+                                 width={120}
+                                 height={120}
                                 unoptimized
-                                className="w-[28mm] h-[28mm] object-contain z-10"
+                                 className="w-[30mm] h-[30mm] object-contain z-10"
                             />
                          )}
                       </div>
