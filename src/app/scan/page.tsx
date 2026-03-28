@@ -10,13 +10,53 @@ export default function ScanPage() {
   const router = useRouter();
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const hasScannedRef = useRef(false);
 
   useEffect(() => {
-    const scanner = new Html5Qrcode("reader");
-    scannerRef.current = scanner;
+    return () => {
+      const scanner = scannerRef.current;
+      if (!scanner) return;
+
+      (async () => {
+        try {
+          if (scanner.isScanning) {
+            await scanner.stop();
+          }
+        } catch {}
+
+        try {
+          scanner.clear();
+        } catch {}
+      })();
+    };
+  }, [router]);
+
+  const startScanner = async () => {
+    if (isStarting) return;
+
+    setError(null);
+    setScanResult(null);
     hasScannedRef.current = false;
+    setIsStarting(true);
+
+    let scanner = scannerRef.current;
+    if (!scanner) {
+      scanner = new Html5Qrcode("reader");
+      scannerRef.current = scanner;
+    }
+
+    try {
+      if (scanner.isScanning) {
+        await scanner.stop();
+      }
+    } catch {}
+
+    try {
+      scanner.clear();
+    } catch {}
 
     const qrboxSize = (() => {
       const size = Math.min(360, Math.max(240, Math.floor(window.innerWidth * 0.8)));
@@ -48,91 +88,72 @@ export default function ScanPage() {
       }, 300);
     };
 
-    (async () => {
-      setError(null);
-      try {
-        await scanner.start(
-          { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-          config,
-          onScanSuccess,
-          onScanFailure
-        );
-        applyPreferredZoom();
-        return;
-      } catch {}
+    const onScanSuccess = (decodedText: string, decodedResult: any) => {
+      if (hasScannedRef.current) return;
 
-      try {
-        await scanner.start(
-          { facingMode: "environment" },
-          config,
-          onScanSuccess,
-          onScanFailure
-        );
-        applyPreferredZoom();
-      } catch (err) {
-        console.error("Error starting scanner", err);
-        setError("Kunne ikke starte kamera. Sjekk at du har gitt tillatelse.");
-      }
-    })();
-
-    function onScanSuccess(decodedText: string, decodedResult: any) {
-      if (hasScannedRef.current) return; // Prevent multiple scans
-
-      // Handle the scanned code
       console.log(`Scan result: ${decodedText}`, decodedResult);
 
-      // Check if it's a valid internal URL
       if (decodedText.includes('/apiaries/') || decodedText.includes('/hives/')) {
         hasScannedRef.current = true;
         setScanResult(decodedText);
-        if (scanner.isScanning) {
+        setIsRunning(false);
+        if (scanner && scanner.isScanning) {
           scanner.stop().catch(console.error);
         }
         try {
-          // If it's a full URL, extract path
           if (decodedText.startsWith('http')) {
             const url = new URL(decodedText);
-            // Verify it matches our domain logic (or just trust the path)
             router.push(url.pathname);
           } else {
-            // Relative path
             router.push(decodedText);
           }
-        } catch (e) {
-          // Fallback
+        } catch {
           router.push(decodedText);
         }
       } else if (decodedText.startsWith('BG-') || decodedText.startsWith('KUBE-')) {
-          hasScannedRef.current = true;
-          setScanResult(decodedText);
-          if (scanner.isScanning) {
-            scanner.stop().catch(console.error);
-          }
-          // Handle direct ID scan (future proofing)
-          // We would need to look up the ID. For now, show error or manual entry.
-          setError('Fant ID: ' + decodedText + '. Søk etter denne ID-en i oversikten.');
-      } else {
-        return;
-      }
-    }
-
-    function onScanFailure(error: any) {
-      // handle scan failure, usually better to ignore and keep scanning.
-      // console.warn(`Code scan error = ${error}`);
-    }
-
-    return () => {
-      if (scanner.isScanning) {
-        scanner.stop().then(() => {
-          scanner.clear();
-        }).catch(err => {
-          console.error("Failed to stop scanner during cleanup", err);
-        });
-      } else {
-        scanner.clear();
+        hasScannedRef.current = true;
+        setScanResult(decodedText);
+        setIsRunning(false);
+        if (scanner && scanner.isScanning) {
+          scanner.stop().catch(console.error);
+        }
+        setError('Fant ID: ' + decodedText + '. Søk etter denne ID-en i oversikten.');
       }
     };
-  }, [router]);
+
+    const onScanFailure = (err: any) => {
+      void err;
+    };
+
+    try {
+      await scanner.start(
+        { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        config,
+        onScanSuccess,
+        onScanFailure
+      );
+      applyPreferredZoom();
+      setIsRunning(true);
+      return;
+    } catch {}
+
+    try {
+      await scanner.start(
+        { facingMode: "environment" },
+        config,
+        onScanSuccess,
+        onScanFailure
+      );
+      applyPreferredZoom();
+      setIsRunning(true);
+    } catch (err: any) {
+      console.error("Error starting scanner", err);
+      setIsRunning(false);
+      setError("Kunne ikke starte kamera. Sjekk at du har gitt tillatelse.");
+    } finally {
+      setIsStarting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
@@ -145,6 +166,16 @@ export default function ScanPage() {
 
       <main className="flex-1 flex flex-col items-center justify-center p-4 mt-16">
         <div id="reader" className="w-full max-w-sm overflow-hidden rounded-xl border-2 border-honey-500 shadow-2xl bg-black"></div>
+
+        {!isRunning && !scanResult && !error && (
+          <button
+            onClick={startScanner}
+            disabled={isStarting}
+            className="mt-6 w-full max-w-sm bg-honey-500 hover:bg-honey-600 disabled:bg-honey-700 text-black font-bold py-3 rounded-xl transition-colors"
+          >
+            {isStarting ? 'Starter kamera...' : 'Start scanning'}
+          </button>
+        )}
         
         {scanResult && (
           <div className="mt-8 p-4 bg-white text-black rounded-xl max-w-sm w-full text-center animate-in slide-in-from-bottom-4">
@@ -159,10 +190,11 @@ export default function ScanPage() {
             <p className="font-bold mb-1">Feil</p>
             <p className="text-sm">{error}</p>
             <button 
-              onClick={() => window.location.reload()}
+              onClick={startScanner}
+              disabled={isStarting}
               className="mt-4 px-4 py-2 bg-red-200 hover:bg-red-300 rounded-lg text-sm font-bold transition-colors"
             >
-              Prøv igjen
+              {isStarting ? 'Starter kamera...' : 'Prøv igjen'}
             </button>
           </div>
         )}
