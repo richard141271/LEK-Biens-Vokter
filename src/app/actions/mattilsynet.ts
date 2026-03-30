@@ -496,10 +496,12 @@ export async function getAllAlerts() {
             }
         }
 
-        const enrichedAlerts = alerts.map(alert => ({
-            ...alert,
-            reporter: reportersMap[alert.user_id] || { full_name: 'Uten navn' }
-        }));
+        const enrichedAlerts = alerts
+            .filter(a => a.admin_status !== 'resolved')
+            .map(alert => ({
+                ...alert,
+                reporter: reportersMap[alert.user_id] || { full_name: 'Uten navn' }
+            }));
 
         return { alerts: enrichedAlerts };
     } catch (e: any) {
