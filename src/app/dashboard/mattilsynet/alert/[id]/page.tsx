@@ -151,7 +151,7 @@ Mattilsynet`
             
             if (result.error || !result.success) {
                 console.error("Server Action Error:", result.error);
-                setDebugInfo({ error: result.error });
+                setDebugInfo({ error: result.error, debug: result.debug });
                 setLoading(false);
                 return;
             }

@@ -168,7 +168,7 @@ export async function getIncidentData(incidentId: string) {
         hives (
             id, hive_number,
             apiaries (
-                id, name, location, coordinates, latitude, longitude, user_id
+                *
             )
         )
       `)
