@@ -141,23 +141,6 @@ export async function getIncidentData(incidentId: string) {
   };
 
   try {
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) return { error: 'Ikke logget inn', debug, success: false };
-
-    const adminVerifier = createAdminClient();
-    const { data: adminProfile } = await adminVerifier
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    const isVip = user.email === 'richard141271@gmail.com';
-    const isInspector = adminProfile?.role === 'mattilsynet' || adminProfile?.role === 'admin';
-
-    if (!isInspector && !isVip) return { error: 'Ingen tilgang', debug, success: false };
-
     const adminClient = createAdminClient();
 
     // 1. Fetch Alert Details
