@@ -24,6 +24,16 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const supabase = createClient();
 
+  const parseLatLng = (value: string | null | undefined): [number, number] | null => {
+    if (!value) return null;
+    const matches = value.match(/-?\d+(?:\.\d+)?/g);
+    if (!matches || matches.length < 2) return null;
+    const lat = Number(matches[0]);
+    const lng = Number(matches[1]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return [lat, lng];
+  };
+
   const types = [
     { id: 'bigård', label: 'Bigård', icon: MapPin },
     { id: 'lager', label: 'Lager', icon: Warehouse },
@@ -99,6 +109,10 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Du må være logget inn');
 
+      const parsed = parseLatLng(coordinates);
+      const latitude = parsed ? parsed[0] : null;
+      const longitude = parsed ? parsed[1] : null;
+
       // Update database
       const { error } = await supabase
         .from('apiaries')
@@ -107,6 +121,8 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
           type,
           location: locationStr,
           coordinates,
+          latitude,
+          longitude,
           registration_number: type === 'bil' ? registrationNumber : null,
         })
         .eq('id', params.id);
@@ -257,9 +273,24 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
             </div>
             
             <div className="flex-1 relative bg-gray-100">
+              {(() => {
+                const parsed = parseLatLng(coordinates);
+                const center = parsed || ([59.9139, 10.7522] as [number, number]);
+                const marker = parsed
+                  ? [
+                      {
+                        id: 'selected',
+                        position: parsed,
+                        title: 'Valgt posisjon',
+                        type: 'user' as const,
+                      },
+                    ]
+                  : [];
+
+                return (
                <Map 
-                 center={coordinates ? [parseFloat(coordinates.split(',')[0]), parseFloat(coordinates.split(',')[1])] : [59.9139, 10.7522]} // Default to Oslo or current coords
-                 zoom={coordinates ? 15 : 10}
+                 center={center} // Default to Oslo or current coords
+                 zoom={parsed ? 15 : 10}
                  onMapClick={(lat, lng) => {
                    const coordString = `${lat},${lng}`;
                    setCoordinates(coordString);
@@ -268,13 +299,10 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
                    }
                    setShowMapPicker(false);
                  }}
-                 markers={coordinates ? [{
-                   id: 'selected',
-                   position: [parseFloat(coordinates.split(',')[0]), parseFloat(coordinates.split(',')[1])],
-                   title: 'Valgt posisjon',
-                   type: 'user'
-                 }] : []}
+                 markers={marker}
                />
+                );
+              })()}
                
                <div className="absolute top-4 left-4 right-14 z-[1000] flex gap-2">
                  <button 

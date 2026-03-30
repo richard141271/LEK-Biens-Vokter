@@ -30,6 +30,16 @@ export default function NewApiaryPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  const parseLatLng = (value: string | null | undefined): [number, number] | null => {
+    if (!value) return null;
+    const matches = value.match(/-?\d+(?:\.\d+)?/g);
+    if (!matches || matches.length < 2) return null;
+    const lat = Number(matches[0]);
+    const lng = Number(matches[1]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return [lat, lng];
+  };
+
   const getPrefixesForType = (t: string): string[] => {
     if (t === 'lager') return ['LG'];
     if (t === 'bil') return ['BIL'];
@@ -137,6 +147,8 @@ export default function NewApiaryPage() {
                 type: 'utleie', // New type
                 location: rental.contact_address,
                 coordinates: rental.latitude && rental.longitude ? `${rental.latitude},${rental.longitude}` : null,
+                latitude: rental.latitude,
+                longitude: rental.longitude,
             })
             .select()
             .single();
@@ -271,6 +283,10 @@ export default function NewApiaryPage() {
       const suffix = memberNumber ? `.${memberNumber}` : '';
       const apiaryNumber = `${prefix}-${nextNum.toString().padStart(3, '0')}${suffix}`;
 
+      const parsed = parseLatLng(coordinates);
+      const latitude = parsed ? parsed[0] : null;
+      const longitude = parsed ? parsed[1] : null;
+
       // 3. Lagre i databasen
       const { data: createdApiary, error } = await supabase.from('apiaries').insert({
         user_id: user.id,
@@ -278,6 +294,8 @@ export default function NewApiaryPage() {
         type,
         location: locationStr,
         coordinates: coordinates, // Save coordinates
+        latitude,
+        longitude,
         apiary_number: apiaryNumber,
         registration_number: type === 'bil' ? registrationNumber : null, // Only for cars
       }).select('id').single();
@@ -502,24 +520,36 @@ export default function NewApiaryPage() {
             </div>
             
             <div className="flex-1 relative bg-gray-100">
-               <Map 
-                 center={coordinates ? [parseFloat(coordinates.split(',')[0]), parseFloat(coordinates.split(',')[1])] : [59.9139, 10.7522]}
-                 zoom={coordinates ? 15 : 10}
-                 onMapClick={(lat, lng) => {
-                   const coordString = `${lat},${lng}`;
-                   setCoordinates(coordString);
-                   if (!locationStr || locationStr.startsWith('Koordinater:')) {
-                     setLocationStr(`Koordinater: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
-                   }
-                   setShowMapPicker(false);
-                 }}
-                 markers={coordinates ? [{
-                   id: 'selected',
-                   position: [parseFloat(coordinates.split(',')[0]), parseFloat(coordinates.split(',')[1])],
-                   title: 'Valgt posisjon',
-                   type: 'user',
-                 }] : []}
-               />
+              {(() => {
+                const parsed = parseLatLng(coordinates);
+                const center = parsed || ([59.9139, 10.7522] as [number, number]);
+                const marker = parsed
+                  ? [
+                      {
+                        id: 'selected',
+                        position: parsed,
+                        title: 'Valgt posisjon',
+                        type: 'user' as const,
+                      },
+                    ]
+                  : [];
+
+                return (
+                  <Map 
+                    center={center}
+                    zoom={parsed ? 15 : 10}
+                    onMapClick={(lat, lng) => {
+                      const coordString = `${lat},${lng}`;
+                      setCoordinates(coordString);
+                      if (!locationStr || locationStr.startsWith('Koordinater:')) {
+                        setLocationStr(`Koordinater: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+                      }
+                      setShowMapPicker(false);
+                    }}
+                    markers={marker}
+                  />
+                );
+              })()}
             </div>
           </div>
         </div>

@@ -26,16 +26,26 @@ const GEO_CACHE: Record<string, [number, number]> = {
 
 function getCoordinates(location: string): [number, number] {
     // Check cache first
-    const cleanLoc = location.split(',')[0].trim(); // "Halden, Norway" -> "Halden"
+    const cleanLoc = (location || '').trim();
     if (GEO_CACHE[cleanLoc]) return GEO_CACHE[cleanLoc];
     
     // Fuzzy match
     for (const key of Object.keys(GEO_CACHE)) {
-        if (cleanLoc.includes(key)) return GEO_CACHE[key];
+        if (cleanLoc.toLowerCase().includes(key.toLowerCase())) return GEO_CACHE[key];
     }
 
     // Default random near Halden for demo if unknown
     return [59.1243 + (Math.random() - 0.5) * 0.1, 11.3875 + (Math.random() - 0.5) * 0.1];
+}
+
+function parseLatLng(value: unknown): [number, number] | null {
+    if (typeof value !== 'string') return null;
+    const matches = value.match(/-?\d+(?:\.\d+)?/g);
+    if (!matches || matches.length < 2) return null;
+    const lat = Number(matches[0]);
+    const lon = Number(matches[1]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return [lat, lon];
 }
 
 // Haversine distance calculation
@@ -151,21 +161,17 @@ Mattilsynet`
             // Prepare data with coordinates
             let centerCoords: [number, number] = [59.1243, 11.3875]; // Default safe fallback
             
-            if (alertData?.hives?.apiaries?.coordinates) {
-                const parts = alertData.hives.apiaries.coordinates.split(',');
-                if (parts.length === 2) {
-                    const lat = parseFloat(parts[0]);
-                    const lon = parseFloat(parts[1]);
-                    if (!isNaN(lat) && !isNaN(lon)) {
-                        centerCoords = [lat, lon];
-                    } else {
-                        centerCoords = getCoordinates(alertData?.hives?.apiaries?.location || 'Halden');
-                    }
+            const infectedLat = alertData?.hives?.apiaries?.latitude;
+            const infectedLon = alertData?.hives?.apiaries?.longitude;
+            if (Number.isFinite(infectedLat) && Number.isFinite(infectedLon)) {
+                centerCoords = [infectedLat, infectedLon];
+            } else {
+                const parsed = parseLatLng(alertData?.hives?.apiaries?.coordinates);
+                if (parsed) {
+                    centerCoords = parsed;
                 } else {
                     centerCoords = getCoordinates(alertData?.hives?.apiaries?.location || 'Halden');
                 }
-            } else {
-                centerCoords = getCoordinates(alertData?.hives?.apiaries?.location || 'Halden');
             }
             
             setMapCenter(centerCoords);
@@ -176,26 +182,25 @@ Mattilsynet`
             const ownerId = infectedApiaryUserId || reporterId;
             const reporterEmail = alertData?.reporter?.email;
 
-            const processedApiaries = (apiariesData || []).map((a: any) => ({
-                ...a,
-                isOwner: (ownerId && a.user_id === ownerId) || 
-                         (reporterEmail && a.users?.email === reporterEmail) ||
-                         (infectedApiaryUserId && a.user_id === infectedApiaryUserId),
-                ...(() => {
-                    if (a.coordinates) {
-                        const parts = a.coordinates.split(',');
-                        if (parts.length === 2) {
-                            const lat = parseFloat(parts[0]);
-                            const lon = parseFloat(parts[1]);
-                            if (!isNaN(lat) && !isNaN(lon)) {
-                                return { lat, lon };
-                            }
-                        }
-                    }
-                    const [lat, lon] = getCoordinates(a.location || 'Ukjent');
-                    return { lat, lon };
-                })()
-            })).filter((a: any) => a.id !== alertData?.hives?.apiaries?.id);
+            const processedApiaries = (apiariesData || [])
+                .map((a: any) => {
+                    const lat = a.latitude;
+                    const lon = a.longitude;
+                    const parsed = parseLatLng(a.coordinates);
+                    const resolved = (Number.isFinite(lat) && Number.isFinite(lon)) ? [lat, lon] : parsed;
+                    if (!resolved) return null;
+
+                    return {
+                        ...a,
+                        isOwner: (ownerId && a.user_id === ownerId) || 
+                                (reporterEmail && a.users?.email === reporterEmail) ||
+                                (infectedApiaryUserId && a.user_id === infectedApiaryUserId),
+                        lat: resolved[0],
+                        lon: resolved[1],
+                    };
+                })
+                .filter(Boolean)
+                .filter((a: any) => a.id !== alertData?.hives?.apiaries?.id);
 
             setAlert(alertData);
             setAllApiaries(processedApiaries);

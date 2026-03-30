@@ -74,35 +74,38 @@ interface IncidentMapProps {
 }
 
 export default function IncidentMap({ center, radius, apiaries, showOwnerOnly }: IncidentMapProps) {
+    const safeCenter: [number, number] =
+        Number.isFinite(center?.[0]) && Number.isFinite(center?.[1]) ? center : [60.472, 8.468];
+
     // Filter apiaries if showOwnerOnly is true
-    const displayApiaries = showOwnerOnly 
-        ? apiaries.filter(a => a.isOwner)
-        : apiaries;
+    const displayApiaries = (showOwnerOnly ? apiaries.filter(a => a.isOwner) : apiaries).filter(
+        (a: any) => Number.isFinite(a?.lat) && Number.isFinite(a?.lon)
+    );
 
     return (
-        <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%' }}>
+        <MapContainer center={safeCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
             <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
-            <MapUpdater center={center} />
+            <MapUpdater center={safeCenter} />
 
             {/* Infection Zone */}
             <Circle 
-                center={center} 
+                center={safeCenter} 
                 radius={radius} 
                 pathOptions={{ color: 'red', fillColor: 'red', fillOpacity: 0.2 }} 
             />
             
             {/* Protection Zone (3x radius example) */}
             <Circle 
-                center={center} 
+                center={safeCenter} 
                 radius={radius * 3} 
                 pathOptions={{ color: 'orange', fillColor: 'orange', fillOpacity: 0.1, dashArray: '5, 10' }} 
             />
 
             {/* Infected Apiary (Center) */}
-            <Marker position={center} icon={infectedIcon}>
+            <Marker position={safeCenter} icon={infectedIcon}>
                 <Popup>
                     <strong>Smittepunkt</strong><br />
                     Kilde for utbrudd
