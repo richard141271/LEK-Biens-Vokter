@@ -18,7 +18,8 @@ export default function ApiariesPage() {
   const [offlineReady, setOfflineReady] = useState(false);
   const [voiceInfo, setVoiceInfo] = useState<string>('');
   const [nearApiary, setNearApiary] = useState<any | null>(null);
-  const [voiceStep, setVoiceStep] = useState<'idle' | 'armed' | 'awaiting_hive'>('idle');
+  const [voiceStep, setVoiceStep] = useState<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
+  const [selectedVoiceApiary, setSelectedVoiceApiary] = useState<any | null>(null);
   
   // Offline Download State
   const [isDownloading, setIsDownloading] = useState(false);
@@ -32,12 +33,14 @@ export default function ApiariesPage() {
   const supabase = createClient();
   const router = useRouter();
   const didAutoDownloadRef = useRef(false);
-  const voiceStepRef = useRef<'idle' | 'armed' | 'awaiting_hive'>('idle');
+  const voiceStepRef = useRef<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
   const nearApiaryRef = useRef<any | null>(null);
+  const selectedVoiceApiaryRef = useRef<any | null>(null);
   const lastPromptApiaryIdRef = useRef<string | null>(null);
   const lastPromptAtRef = useRef<number>(0);
   const isListeningRef = useRef<boolean>(false);
-  const prevVoiceStepRef = useRef<'idle' | 'armed' | 'awaiting_hive'>('idle');
+  const prevVoiceStepRef = useRef<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
+  const apiariesRef = useRef<any[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -50,6 +53,14 @@ export default function ApiariesPage() {
   useEffect(() => {
     nearApiaryRef.current = nearApiary;
   }, [nearApiary]);
+
+  useEffect(() => {
+    selectedVoiceApiaryRef.current = selectedVoiceApiary;
+  }, [selectedVoiceApiary]);
+
+  useEffect(() => {
+    apiariesRef.current = apiaries || [];
+  }, [apiaries]);
 
   const parseLatLng = (value: any): { lat: number; lon: number } | null => {
     if (typeof value === 'number') return null;
@@ -92,6 +103,31 @@ export default function ApiariesPage() {
     return String(Math.trunc(num));
   };
 
+  const extractApiaryToken = (t: string): string | null => {
+    const s = normalizeText(t);
+    const osMatch = s.match(/\b(os)\s*[- ]?\s*(\d{1,6})\b/);
+    if (osMatch?.[2]) return `os-${osMatch[2]}`;
+    const digits = s.match(/\b(\d{1,6})\b/)?.[1];
+    if (digits) return digits;
+    return null;
+  };
+
+  const pickApiaryFromSpeech = (t: string): any | null => {
+    const s = normalizeText(t);
+    const list = apiariesRef.current || [];
+    const token = extractApiaryToken(s);
+    if (token) {
+      const m = list.find((a: any) => normalizeText(String(a?.apiary_number || '')).includes(token));
+      if (m) return m;
+    }
+    const byName = list.find((a: any) => {
+      const name = normalizeText(String(a?.name || ''));
+      if (!name) return false;
+      return s.includes(name) || name.includes(s);
+    });
+    return byName || null;
+  };
+
   const handleVoice = useCallback((text: string) => {
     const t = normalizeText(text);
     if (!t) return;
@@ -99,32 +135,50 @@ export default function ApiariesPage() {
     if (t.includes('avbryt') || t.includes('stopp')) {
       if (voiceStepRef.current !== 'idle') {
         setVoiceStep('armed');
+        setSelectedVoiceApiary(null);
         setVoiceInfo('Avbrutt. Si "start inspeksjon" når du er klar.');
       }
       return;
     }
 
-    if (voiceStepRef.current === 'armed') {
+    if (voiceStepRef.current === 'idle' || voiceStepRef.current === 'armed') {
       const wantsStart =
         t.includes('start inspeksjon') ||
         t.includes('start inspek') ||
         (t.includes('start') && t.includes('inspeksjon'));
       if (!wantsStart) return;
 
-      if (!nearApiaryRef.current) {
-        setVoiceInfo('Fant ingen bigård i nærheten. Gå nærmere en bigård.');
+      const nearby = nearApiaryRef.current;
+      if (nearby) {
+        setSelectedVoiceApiary(nearby);
+        setVoiceStep('awaiting_hive');
+        setVoiceInfo('Hvilken kube nummer skal inspiseres?');
         return;
       }
 
+      setSelectedVoiceApiary(null);
+      setVoiceStep('awaiting_apiary');
+      setVoiceInfo('Hvilken bigård? Si navn eller nummer.');
+      return;
+    }
+
+    if (voiceStepRef.current === 'awaiting_apiary') {
+      const picked = pickApiaryFromSpeech(t);
+      if (!picked) {
+        setVoiceInfo('Jeg fant ikke bigården. Si navn eller nummer en gang til.');
+        return;
+      }
+      setSelectedVoiceApiary(picked);
       setVoiceStep('awaiting_hive');
-      setVoiceInfo('Hvilken kube nummer skal inspiseres?');
+      setVoiceInfo(`Valgt ${picked.name}. Hvilken kube nummer skal inspiseres?`);
       return;
     }
 
     if (voiceStepRef.current === 'awaiting_hive') {
-      const apiary = nearApiaryRef.current;
+      const apiary = selectedVoiceApiaryRef.current || nearApiaryRef.current;
       if (!apiary) {
         setVoiceStep('armed');
+        setSelectedVoiceApiary(null);
         setVoiceInfo('Fant ingen bigård i nærheten. Si "start inspeksjon" når du er nær en bigård.');
         return;
       }
@@ -152,7 +206,7 @@ export default function ApiariesPage() {
     }
   }, [router]);
 
-  const { isListening, startListening, stopListening, pauseListening, resumeListening, toggleListening, isSupported } = useVoiceRecognition(handleVoice);
+  const { isListening, startListening, stopListening, pauseListening, resumeListening, isSupported } = useVoiceRecognition(handleVoice);
 
   useEffect(() => {
     isListeningRef.current = isListening;
@@ -191,6 +245,9 @@ export default function ApiariesPage() {
     prevVoiceStepRef.current = voiceStep;
     if (prev !== voiceStep && voiceStep === 'awaiting_hive') {
       speak('Hvilken kube nummer skal inspiseres?');
+    }
+    if (prev !== voiceStep && voiceStep === 'awaiting_apiary') {
+      speak('Hvilken bigård? Si navn eller nummer.');
     }
   }, [speak, voiceStep]);
 
@@ -870,7 +927,20 @@ export default function ApiariesPage() {
       {!isSelectionMode && (
         <div className="fixed bottom-28 left-6 z-[200] print:hidden">
           <button
-            onClick={toggleListening}
+            onClick={() => {
+              if (isListeningRef.current) {
+                try { stopListening(); } catch {}
+                setVoiceStep('idle');
+                setSelectedVoiceApiary(null);
+                setVoiceInfo('');
+              } else {
+                try { startListening(); } catch {}
+                setVoiceStep('armed');
+                setSelectedVoiceApiary(null);
+                setVoiceInfo('Si "start inspeksjon".');
+                speak('Si start inspeksjon.');
+              }
+            }}
             className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 ${
               isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-honey-500 text-white'
             }`}

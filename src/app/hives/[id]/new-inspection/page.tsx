@@ -13,6 +13,7 @@ import { useOffline } from '@/context/OfflineContext';
 export default function NewInspectionPage({ params }: { params: { id: string } }) {
   const [hive, setHive] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const searchParams = useSearchParams();
   const autoVoice = searchParams.get('autoVoice');
@@ -408,67 +409,84 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
 
   const fetchHiveAndWeather = async () => {
-    // 1. Fetch Hive Info
-    try {
-      // Try LocalStorage first if offline or as backup
-      if (isOffline) {
-          const offlineData = localStorage.getItem('offline_data');
-          if (offlineData) {
-              const parsed = JSON.parse(offlineData);
-              const foundHive = parsed.hives?.find((h: any) => h.id === params.id);
-              if (foundHive) {
-                  console.log('📦 Loaded hive from offline cache', foundHive);
-                  setHive(foundHive);
-                  setLoading(false);
-                  return; // Skip network
-              }
-          }
-      }
+    setLoadError(null);
+    const withTimeout = async <T,>(p: PromiseLike<T>, ms: number): Promise<T> => {
+      return await new Promise<T>((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error('timeout')), ms);
+        Promise.resolve(p).then((v) => {
+          clearTimeout(t);
+          resolve(v);
+        }).catch((e) => {
+          clearTimeout(t);
+          reject(e);
+        });
+      });
+    };
 
-      const { data, error } = await supabase
-        .from('hives')
-        .select('name, hive_number, apiary_id')
-        .eq('id', params.id)
-        .single();
-      
-      if (data) setHive(data);
-    } catch (e) {
-      console.log('Could not fetch hive info (offline?)');
-      // Fallback to local storage if network request failed unexpectedly
-      const offlineData = localStorage.getItem('offline_data');
-      if (offlineData) {
+    try {
+      if (typeof window !== 'undefined') {
+        const offlineData = localStorage.getItem('offline_data');
+        if (offlineData) {
           const parsed = JSON.parse(offlineData);
           const foundHive = parsed.hives?.find((h: any) => h.id === params.id);
           if (foundHive) setHive(foundHive);
-      }
-    }
-
-    // 2. Fetch Weather (Geolocation)
-    if (navigator.geolocation && !isOffline) {
-      setWeatherLoading(true);
-      navigator.geolocation.getCurrentPosition(async (position) => {
-        const { latitude, longitude } = position.coords;
-        setCoordinates({ lat: latitude, lng: longitude });
-        try {
-          const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&wind_speed_unit=ms`);
-          const weatherData = await response.json();
-          
-          if (weatherData.current) {
-            setTemperature(weatherData.current.temperature_2m.toString());
-            setWeather(getWeatherDescription(weatherData.current.weather_code));
+          if (isOffline && !foundHive) {
+            setLoadError('Kuben finnes ikke i offline-cache. Koble til nett eller last ned data for offline først.');
+            return;
           }
-        } catch (err) {
-          console.error("Weather fetch failed", err);
-        } finally {
-          setWeatherLoading(false);
+        } else if (isOffline) {
+          setLoadError('Ingen offline-data funnet. Koble til nett eller last ned data for offline først.');
+          return;
         }
-      }, (err) => {
-        console.error("Geolocation failed", err);
-        setWeatherLoading(false);
-      });
-    }
+      }
 
-    setLoading(false);
+      if (!isOffline) {
+        const hiveRes: any = await withTimeout(
+          supabase
+            .from('hives')
+            .select('name, hive_number, apiary_id')
+            .eq('id', params.id)
+            .single() as any,
+          9000
+        );
+
+        if (hiveRes?.data) setHive(hiveRes.data);
+      }
+
+      if (navigator.geolocation && !isOffline) {
+        setWeatherLoading(true);
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords;
+            setCoordinates({ lat: latitude, lng: longitude });
+            try {
+              const response = await withTimeout(
+                fetch(
+                  `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&wind_speed_unit=ms`
+                ),
+                8000
+              );
+              const weatherData = await response.json();
+
+              if (weatherData.current) {
+                setTemperature(weatherData.current.temperature_2m.toString());
+                setWeather(getWeatherDescription(weatherData.current.weather_code));
+              }
+            } catch {} finally {
+              setWeatherLoading(false);
+            }
+          },
+          () => {
+            setWeatherLoading(false);
+          },
+          { enableHighAccuracy: true, maximumAge: 2000, timeout: 8000 }
+        );
+      }
+    } catch {
+      setLoadError('Kunne ikke hente kubedata akkurat nå. Sjekk nett og prøv igjen.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getWeatherDescription = (code: number) => {
@@ -727,6 +745,33 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   };
 
   if (loading) return <div className="p-8 text-center">Laster...</div>;
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-8">
+        <div className="max-w-lg mx-auto bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <h1 className="text-lg font-bold text-gray-900 mb-2">Kunne ikke åpne inspeksjon</h1>
+          <p className="text-gray-700">{loadError}</p>
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={() => router.back()}
+              className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold"
+            >
+              Tilbake
+            </button>
+            <button
+              onClick={() => {
+                setLoading(true);
+                void fetchHiveAndWeather();
+              }}
+              className="px-4 py-2 rounded-lg bg-honey-500 hover:bg-honey-600 text-white font-semibold"
+            >
+              Prøv igjen
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
