@@ -7,6 +7,8 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
   const onResultRef = useRef(onResult);
   const keepAliveRef = useRef(false);
   const pausedRef = useRef(false);
+  const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastStartAtRef = useRef<number>(0);
 
   useEffect(() => {
     onResultRef.current = onResult;
@@ -30,53 +32,73 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
                 onResultRef.current(text);
             };
 
-            recognition.onend = () => {
-                setIsListening(false);
-                // Auto-restart if we intended to keep listening (prevents random stop on iOS)
-                if (keepAliveRef.current) {
+            const scheduleRestart = (delayMs: number) => {
+              try {
+                if (!keepAliveRef.current) return;
+                if (pausedRef.current) return;
+                if (restartTimerRef.current) return;
+                restartTimerRef.current = setTimeout(() => {
+                  restartTimerRef.current = null;
+                  if (!keepAliveRef.current || pausedRef.current) return;
+                  const now = Date.now();
+                  if (now - lastStartAtRef.current < 250) return;
+                  lastStartAtRef.current = now;
                   try {
                     recognition.start();
                     setIsListening(true);
-                  } catch (e) {
-                    // Swallow restart errors silently; will try again on next user action
-                  }
-                }
+                  } catch {}
+                }, delayMs);
+              } catch {}
+            };
+
+            recognition.onend = () => {
+                setIsListening(false);
+                scheduleRestart(220);
             };
 
             recognition.onerror = (event: any) => {
                 console.error("Speech recognition error", event.error);
                 setIsListening(false);
-                // Some errors are transient; attempt restart if keepAlive is requested
-                if (keepAliveRef.current) {
-                  setTimeout(() => {
-                    try {
-                      recognition.start();
-                      setIsListening(true);
-                    } catch (e) {}
-                  }, 500);
-                }
+                const err = String(event?.error || '').toLowerCase();
+                if (err === 'not-allowed' || err === 'service-not-allowed') return;
+                scheduleRestart(err === 'no-speech' || err === 'audio-capture' ? 700 : 400);
             };
 
             recognitionRef.current = recognition;
         }
     }
+
+    return () => {
+      if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    };
   }, []);
 
   const startListening = useCallback(() => {
     if (recognitionRef.current) {
         try {
+            if (restartTimerRef.current) {
+              clearTimeout(restartTimerRef.current);
+              restartTimerRef.current = null;
+            }
             recognitionRef.current.start();
             setIsListening(true);
             keepAliveRef.current = true;
             pausedRef.current = false;
+            lastStartAtRef.current = Date.now();
         } catch (e) {
-            console.error("Could not start recognition", e);
+            keepAliveRef.current = true;
+            pausedRef.current = false;
         }
     }
   }, []);
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
+        if (restartTimerRef.current) {
+          clearTimeout(restartTimerRef.current);
+          restartTimerRef.current = null;
+        }
         recognitionRef.current.stop();
         setIsListening(false);
         keepAliveRef.current = false;
@@ -88,9 +110,12 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
   const pauseListening = useCallback(() => {
     if (recognitionRef.current && isListening) {
       try {
+        if (restartTimerRef.current) {
+          clearTimeout(restartTimerRef.current);
+          restartTimerRef.current = null;
+        }
         recognitionRef.current.stop();
         setIsListening(false);
-        // keepAliveRef remains true; mark paused to allow resume explicitly
         keepAliveRef.current = true;
         pausedRef.current = true;
       } catch (e) {
@@ -102,13 +127,18 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
   const resumeListening = useCallback(() => {
     if (recognitionRef.current) {
       try {
-        // Ensure we intend to keep listening and not toggled off by user
+        if (restartTimerRef.current) {
+          clearTimeout(restartTimerRef.current);
+          restartTimerRef.current = null;
+        }
         keepAliveRef.current = true;
         recognitionRef.current.start();
         setIsListening(true);
         pausedRef.current = false;
+        lastStartAtRef.current = Date.now();
       } catch (e) {
-        console.error("Could not resume recognition", e);
+        keepAliveRef.current = true;
+        pausedRef.current = false;
       }
     }
   }, []);

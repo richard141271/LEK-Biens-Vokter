@@ -1,12 +1,14 @@
 'use client';
 
 import { createClient } from '@/utils/supabase/client';
-import { useEffect, useRef, useState } from 'react';
-import { Plus, MapPin, Warehouse, Store, Truck, LogOut, Box, Printer, CheckSquare, Square, X, Download } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Plus, MapPin, Warehouse, Store, Truck, LogOut, Box, Printer, CheckSquare, Square, X, Download, Mic, MicOff } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
+import { getDistanceFromLatLonInM } from '@/utils/geo';
+import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 
 export default function ApiariesPage() {
   const [apiaries, setApiaries] = useState<any[]>([]);
@@ -14,6 +16,9 @@ export default function ApiariesPage() {
   const [loading, setLoading] = useState(true);
   const [isServiceWorkerControlling, setIsServiceWorkerControlling] = useState<boolean | null>(null);
   const [offlineReady, setOfflineReady] = useState(false);
+  const [voiceInfo, setVoiceInfo] = useState<string>('');
+  const [nearApiary, setNearApiary] = useState<any | null>(null);
+  const [voiceStep, setVoiceStep] = useState<'idle' | 'armed' | 'awaiting_hive'>('idle');
   
   // Offline Download State
   const [isDownloading, setIsDownloading] = useState(false);
@@ -27,10 +32,251 @@ export default function ApiariesPage() {
   const supabase = createClient();
   const router = useRouter();
   const didAutoDownloadRef = useRef(false);
+  const voiceStepRef = useRef<'idle' | 'armed' | 'awaiting_hive'>('idle');
+  const nearApiaryRef = useRef<any | null>(null);
+  const lastPromptApiaryIdRef = useRef<string | null>(null);
+  const lastPromptAtRef = useRef<number>(0);
+  const isListeningRef = useRef<boolean>(false);
+  const prevVoiceStepRef = useRef<'idle' | 'armed' | 'awaiting_hive'>('idle');
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    voiceStepRef.current = voiceStep;
+  }, [voiceStep]);
+
+  useEffect(() => {
+    nearApiaryRef.current = nearApiary;
+  }, [nearApiary]);
+
+  const parseLatLng = (value: any): { lat: number; lon: number } | null => {
+    if (typeof value === 'number') return null;
+    const s = typeof value === 'string' ? value : value ? String(value) : '';
+    if (!s) return null;
+    const matches = s.match(/-?\d+(?:\.\d+)?/g);
+    if (!matches || matches.length < 2) return null;
+    const lat = Number(matches[0]);
+    const lon = Number(matches[1]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon };
+  };
+
+  const normalizeApiaryCoords = (apiary: any): { lat: number; lon: number } | null => {
+    const lat = apiary?.latitude;
+    const lon = apiary?.longitude;
+    if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon };
+    const parsed = parseLatLng(apiary?.coordinates);
+    if (parsed) return parsed;
+    return null;
+  };
+
+  const normalizeText = (t: string) =>
+    (t || '')
+      .toLowerCase()
+      .replace(/[.,;:!?]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const extractHiveDigits = (t: string): string | null => {
+    const s = normalizeText(t)
+      .replace(/\bkune\b/g, 'kube')
+      .replace(/\bkupe\b/g, 'kube')
+      .replace(/\bkubbe\b/g, 'kube');
+    const match = s.match(/\b(?:kube|kub(e|enummer)?|nr|nummer)\s*(\d{1,4})\b/) || s.match(/\b(\d{1,4})\b/);
+    const digits = match?.[1] || match?.[2] || null;
+    if (!digits) return null;
+    const num = Number(digits);
+    if (!Number.isFinite(num) || num <= 0) return null;
+    return String(Math.trunc(num));
+  };
+
+  const handleVoice = useCallback((text: string) => {
+    const t = normalizeText(text);
+    if (!t) return;
+
+    if (t.includes('avbryt') || t.includes('stopp')) {
+      if (voiceStepRef.current !== 'idle') {
+        setVoiceStep('armed');
+        setVoiceInfo('Avbrutt. Si "start inspeksjon" når du er klar.');
+      }
+      return;
+    }
+
+    if (voiceStepRef.current === 'armed') {
+      const wantsStart =
+        t.includes('start inspeksjon') ||
+        t.includes('start inspek') ||
+        (t.includes('start') && t.includes('inspeksjon'));
+      if (!wantsStart) return;
+
+      if (!nearApiaryRef.current) {
+        setVoiceInfo('Fant ingen bigård i nærheten. Gå nærmere en bigård.');
+        return;
+      }
+
+      setVoiceStep('awaiting_hive');
+      setVoiceInfo('Hvilken kube nummer skal inspiseres?');
+      return;
+    }
+
+    if (voiceStepRef.current === 'awaiting_hive') {
+      const apiary = nearApiaryRef.current;
+      if (!apiary) {
+        setVoiceStep('armed');
+        setVoiceInfo('Fant ingen bigård i nærheten. Si "start inspeksjon" når du er nær en bigård.');
+        return;
+      }
+
+      const digits = extractHiveDigits(t);
+      if (!digits) {
+        setVoiceInfo('Jeg oppfattet ikke kubenummeret. Si for eksempel "kube nummer 101".');
+        return;
+      }
+
+      const spoken = digits.padStart(3, '0');
+      const hives = Array.isArray(apiary?.hives) ? apiary.hives : [];
+      const match = hives.find((h: any) => {
+        const raw = String(h?.hive_number || '');
+        const hiveDigits = raw.match(/\d+/)?.[0] || '';
+        return hiveDigits === digits || hiveDigits === spoken || raw.endsWith(spoken);
+      });
+
+      if (!match?.id) {
+        setVoiceInfo(`Fant ikke kube ${digits} i ${apiary.name}. Prøv igjen.`);
+        return;
+      }
+
+      router.push(`/hives/${match.id}/new-inspection?autoVoice=1`);
+    }
+  }, [router]);
+
+  const { isListening, startListening, stopListening, pauseListening, resumeListening, toggleListening, isSupported } = useVoiceRecognition(handleVoice);
+
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
+
+  const speak = useCallback((text: string) => {
+    try {
+      if (typeof window === 'undefined') return;
+      const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
+      const wasListening = isListeningRef.current;
+      if (wasListening) {
+        try { pauseListening(); } catch {}
+      }
+      if (!s) return;
+      s.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'nb-NO';
+      u.rate = 0.95;
+      const safety = setTimeout(() => {
+        if (wasListening) { try { resumeListening(); } catch {} }
+      }, 2500);
+      u.onend = () => {
+        clearTimeout(safety);
+        if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 120);
+      };
+      u.onerror = () => {
+        clearTimeout(safety);
+        if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 120);
+      };
+      s.speak(u);
+    } catch {}
+  }, [pauseListening, resumeListening]);
+
+  useEffect(() => {
+    const prev = prevVoiceStepRef.current;
+    prevVoiceStepRef.current = voiceStep;
+    if (prev !== voiceStep && voiceStep === 'awaiting_hive') {
+      speak('Hvilken kube nummer skal inspiseres?');
+    }
+  }, [speak, voiceStep]);
+
+  const apiariesWithCoords = useMemo(() => {
+    return (apiaries || [])
+      .map((a: any) => {
+        const coords = normalizeApiaryCoords(a);
+        if (!coords) return null;
+        return { ...a, __lat: coords.lat, __lon: coords.lon };
+      })
+      .filter(Boolean) as any[];
+  }, [apiaries]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (isSelectionMode) return;
+    if (!navigator?.geolocation) {
+      setVoiceInfo('GPS er ikke tilgjengelig på denne enheten.');
+      return;
+    }
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+        if (apiariesWithCoords.length === 0) return;
+        let best: any = null;
+
+        for (const a of apiariesWithCoords) {
+          const d = getDistanceFromLatLonInM(lat, lon, a.__lat, a.__lon);
+          if (!Number.isFinite(d)) continue;
+          if (!best || d < best.distance) best = { apiary: a, distance: d };
+        }
+
+        if (!best) return;
+
+        const dist = Math.round(best.distance);
+        const inside = best.distance <= 20;
+        const outside = best.distance >= 35;
+
+        if (inside) {
+          setNearApiary(best.apiary);
+          if (voiceStepRef.current === 'idle') setVoiceStep('armed');
+
+          setVoiceInfo(`Nær ${best.apiary.name} (${dist} m). Si "start inspeksjon".`);
+
+          const now = Date.now();
+          const shouldPrompt =
+            lastPromptApiaryIdRef.current !== best.apiary.id || now - lastPromptAtRef.current > 45_000;
+
+          if (shouldPrompt) {
+            lastPromptApiaryIdRef.current = best.apiary.id;
+            lastPromptAtRef.current = now;
+            speak(`Du er nær ${best.apiary.name}. Si start inspeksjon.`);
+          }
+
+          if (isSupported && !isListeningRef.current) {
+            try { startListening(); } catch {}
+          }
+        } else if (outside) {
+          if (nearApiaryRef.current?.id) {
+            setNearApiary(null);
+            setVoiceStep('idle');
+            setVoiceInfo('Gå nær en bigård for å starte inspeksjon med tale.');
+            if (isListeningRef.current) {
+              try { stopListening(); } catch {}
+            }
+          }
+        } else {
+          if (voiceStepRef.current === 'idle') {
+            setVoiceInfo(`Nærmeste bigård: ${best.apiary.name} (${dist} m).`);
+          }
+        }
+      },
+      () => {
+        setVoiceInfo('Gi tilgang til posisjon for å starte inspeksjon med tale.');
+      },
+      { enableHighAccuracy: true, maximumAge: 2000, timeout: 8000 }
+    );
+
+    return () => {
+      try { navigator.geolocation.clearWatch(watchId); } catch {}
+    };
+  }, [apiariesWithCoords, isSelectionMode, isSupported, speak, startListening, stopListening]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -618,6 +864,24 @@ export default function ApiariesPage() {
           >
             <Plus className="w-8 h-8" />
           </Link>
+        </div>
+      )}
+
+      {!isSelectionMode && (
+        <div className="fixed bottom-28 left-6 z-[200] print:hidden">
+          <button
+            onClick={toggleListening}
+            className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 ${
+              isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-honey-500 text-white'
+            }`}
+          >
+            {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+          </button>
+          {voiceInfo ? (
+            <div className="mt-3 max-w-[280px] bg-white px-4 py-3 rounded-xl shadow-md text-sm font-medium text-gray-700 border border-gray-200">
+              {voiceInfo}
+            </div>
+          ) : null}
         </div>
       )}
 
