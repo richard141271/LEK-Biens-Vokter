@@ -31,6 +31,7 @@ export default async function StockAdminPage({
 
   const settingsRes = await admin.from('stock_settings').select('fee_rate, holding_shareholder_id, total_shares').eq('id', 1).maybeSingle();
   const settings = settingsRes.data;
+  const dangerPasswordConfigured = Boolean(process.env.STOCK_ADMIN_DANGER_PASSWORD);
 
   const offeringRes = await admin
     .from('stock_offerings')
@@ -150,7 +151,7 @@ export default async function StockAdminPage({
             </div>
           </div>
 
-          <DangerInitResetForm defaultTotalShares={Number(settings?.total_shares || 100000)} />
+          <DangerInitResetForm defaultTotalShares={Number(settings?.total_shares || 100000)} dangerPasswordConfigured={dangerPasswordConfigured} />
         </section>
 
         <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">

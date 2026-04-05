@@ -3,21 +3,34 @@
 import { useState } from 'react';
 import { adminInitSetup } from '@/app/aksjer/actions';
 
-export default function DangerInitResetForm(props: { defaultTotalShares: number }) {
+export default function DangerInitResetForm(props: { defaultTotalShares: number; dangerPasswordConfigured: boolean }) {
   const [primed, setPrimed] = useState(false);
   const [open, setOpen] = useState(false);
 
   return (
     <details className="mt-4">
       <summary className="cursor-pointer select-none text-sm font-bold text-red-700">
-        Avansert: Init / Reset holding
+        Avansert: Hard reset
       </summary>
 
       <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-        Dette er en katastrofe-knapp. Den kan overstyre aksjeeierboken ved å sette “AI Innovate Holding AS” til nytt antall.
+        Dette er en katastrofe-knapp. Den sletter ordre/transaksjoner/annonser/aksjenummer-logs og nuller aksjer (utenom holding) og setter nytt totalantall i holding.
       </div>
 
-      <form action={adminInitSetup} className="mt-3 space-y-3">
+      {!props.dangerPasswordConfigured ? (
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Admin-passord er ikke konfigurert på server. Sett miljøvariabel <span className="font-bold">STOCK_ADMIN_DANGER_PASSWORD</span>.
+        </div>
+      ) : null}
+
+      <form
+        action={adminInitSetup}
+        className="mt-3 space-y-3"
+        onSubmit={() => {
+          setOpen(false);
+          setPrimed(false);
+        }}
+      >
         <input
           name="totalShares"
           type="number"
@@ -38,16 +51,17 @@ export default function DangerInitResetForm(props: { defaultTotalShares: number 
 
         <button
           type="button"
-          disabled={!primed}
+          disabled={!primed || !props.dangerPasswordConfigured}
           onClick={() => {
             if (!primed) return;
+            if (!props.dangerPasswordConfigured) return;
             const ok = window.confirm('Er du sikker? Dette kan ikke angres.');
             if (!ok) return;
             setOpen(true);
           }}
           className={`px-4 py-3 rounded-xl font-bold ${primed ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-600'}`}
         >
-          Init / Reset holding
+          Hard reset
         </button>
 
         {open ? (
@@ -104,4 +118,3 @@ export default function DangerInitResetForm(props: { defaultTotalShares: number 
     </details>
   );
 }
-

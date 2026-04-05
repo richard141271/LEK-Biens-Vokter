@@ -416,10 +416,19 @@ export async function adminInitSetup(formData: FormData) {
   if (!Number.isFinite(totalShares) || totalShares < 0) {
     redirect('/aksjer/admin?error=Ugyldig%20antall');
   }
-  const { error } = await admin.rpc('stock_admin_init_setup', { total_shares_input: totalShares });
-  if (error) {
-    const msg = encodeURIComponent(error.message || 'Kunne ikke initialisere holding');
-    redirect(`/aksjer/admin?error=${msg}`);
+  const hardResetRes = await admin.rpc('stock_admin_hard_reset', { total_shares_input: totalShares });
+  if (hardResetRes.error) {
+    const raw = hardResetRes.error.message || '';
+    if (/function\s+stock_admin_hard_reset/i.test(raw) && /does not exist/i.test(raw)) {
+      const fallbackRes = await admin.rpc('stock_admin_init_setup', { total_shares_input: totalShares });
+      if (fallbackRes.error) {
+        const msg = encodeURIComponent(fallbackRes.error.message || 'Kunne ikke initialisere holding');
+        redirect(`/aksjer/admin?error=${msg}`);
+      }
+    } else {
+      const msg = encodeURIComponent(hardResetRes.error.message || 'Kunne ikke utføre reset');
+      redirect(`/aksjer/admin?error=${msg}`);
+    }
   }
   revalidatePath('/aksjer/admin');
   redirect('/aksjer/admin?ok=1');
