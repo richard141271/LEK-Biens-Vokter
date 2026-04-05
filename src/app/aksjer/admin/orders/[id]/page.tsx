@@ -23,7 +23,7 @@ export default async function StockAdminOrderPage({ params }: { params: { id: st
   const { data: order, error } = await admin
     .from('stock_orders')
     .select(
-      'id, type, status, buyer_id, seller_id, listing_id, share_count, price_per_share, total_amount, fee_amount, fee_rate, payment_method, payment_reference, agreement_json, created_at, paid_at, approved_at, rejected_at, signed_at, signed_ip, buyer_ip'
+      'id, type, status, buyer_id, seller_id, listing_id, share_count, price_per_share, total_amount, fee_amount, fee_rate, payment_method, payment_reference, agreement_json, created_at, paid_at, approved_at, signed_at, signed_ip, buyer_ip'
     )
     .eq('id', orderId)
     .maybeSingle();
@@ -44,6 +44,8 @@ export default async function StockAdminOrderPage({ params }: { params: { id: st
 
   const agreementBuyerName = (order.agreement_json as any)?.buyerName || null;
   const agreementBuyerEmail = (order.agreement_json as any)?.buyerEmail || null;
+  const isApproved = String(order.status) === 'approved';
+  const isRejected = String(order.status) === 'rejected';
 
   return (
     <div className="min-h-screen">
@@ -155,11 +157,15 @@ export default async function StockAdminOrderPage({ params }: { params: { id: st
             </div>
             <div className="rounded-xl border border-gray-200 p-4">
               <div className="text-gray-500">Godkjent</div>
-              <div className="font-bold text-gray-900">{order.approved_at ? new Date(order.approved_at).toLocaleString('nb-NO') : '-'}</div>
+              <div className="font-bold text-gray-900">
+                {isApproved && order.approved_at ? new Date(order.approved_at).toLocaleString('nb-NO') : '-'}
+              </div>
             </div>
             <div className="rounded-xl border border-gray-200 p-4">
               <div className="text-gray-500">Avvist</div>
-              <div className="font-bold text-gray-900">{order.rejected_at ? new Date(order.rejected_at).toLocaleString('nb-NO') : '-'}</div>
+              <div className="font-bold text-gray-900">
+                {isRejected && order.approved_at ? new Date(order.approved_at).toLocaleString('nb-NO') : '-'}
+              </div>
             </div>
           </div>
         </section>
@@ -167,4 +173,3 @@ export default async function StockAdminOrderPage({ params }: { params: { id: st
     </div>
   );
 }
-
