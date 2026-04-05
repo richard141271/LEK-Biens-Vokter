@@ -21,7 +21,11 @@ export default function DangerInitResetForm(props: { defaultTotalShares: number;
         <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           Admin-passord er ikke konfigurert på server. Sett miljøvariabel <span className="font-bold">STOCK_ADMIN_DANGER_PASSWORD</span>.
         </div>
-      ) : null}
+      ) : (
+        <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+          Hvis du får feilen “Could not find the function … in the schema cache”, kjør migrasjonen i Supabase og “Reload schema cache”.
+        </div>
+      )}
 
       <form
         action={adminInitSetup}

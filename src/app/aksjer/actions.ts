@@ -173,6 +173,84 @@ export async function createEmissionOrder(formData: FormData) {
   redirect(`/aksjer/orders/${order.id}`);
 }
 
+const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
+
+function isMissingDbFunctionError(message: string | null | undefined, functionName: string) {
+  const m = (message || '').toLowerCase();
+  if (!m) return false;
+  const fn = functionName.toLowerCase();
+  return (
+    (m.includes('could not find the function') && m.includes(fn)) ||
+    (m.includes('schema cache') && m.includes(fn)) ||
+    (m.includes('function') && m.includes(fn) && m.includes('does not exist'))
+  );
+}
+
+async function deleteAllFromTable(admin: any, table: string) {
+  const res = await admin.from(table).delete().neq('id', ZERO_UUID);
+  if (res.error && !isMissingDbObjectError(res.error.message)) {
+    throw res.error;
+  }
+}
+
+async function hardResetWithoutRpc(admin: any, totalShares: number) {
+  const holdingRes = await admin
+    .from('shareholders')
+    .select('id')
+    .is('user_id', null)
+    .ilike('navn', 'AI Innovate Holding AS')
+    .limit(1)
+    .maybeSingle();
+
+  if (holdingRes.error && !isMissingDbObjectError(holdingRes.error.message)) {
+    throw holdingRes.error;
+  }
+
+  let holdingId = String((holdingRes.data as any)?.id || '');
+  if (!holdingId) {
+    const insertRes = await admin
+      .from('shareholders')
+      .insert({ user_id: null, navn: 'AI Innovate Holding AS', email: 'holding@aiinnovate.no', antall_aksjer: totalShares, gjennomsnittspris: 0 })
+      .select('id')
+      .single();
+    if (insertRes.error) {
+      throw insertRes.error;
+    }
+    holdingId = String((insertRes.data as any)?.id || '');
+  }
+
+  await deleteAllFromTable(admin, 'stock_share_lot_events');
+  await deleteAllFromTable(admin, 'stock_share_lots');
+  await deleteAllFromTable(admin, 'stock_listings');
+  await deleteAllFromTable(admin, 'stock_orders');
+  await deleteAllFromTable(admin, 'transactions');
+  await deleteAllFromTable(admin, 'stock_audit_log');
+  await deleteAllFromTable(admin, 'stock_offerings');
+
+  const resetOthersRes = await admin
+    .from('shareholders')
+    .update({ antall_aksjer: 0, gjennomsnittspris: 0 })
+    .neq('id', holdingId);
+  if (resetOthersRes.error && !isMissingDbObjectError(resetOthersRes.error.message)) {
+    throw resetOthersRes.error;
+  }
+
+  const resetHoldingRes = await admin
+    .from('shareholders')
+    .update({ antall_aksjer: totalShares, gjennomsnittspris: 0 })
+    .eq('id', holdingId);
+  if (resetHoldingRes.error && !isMissingDbObjectError(resetHoldingRes.error.message)) {
+    throw resetHoldingRes.error;
+  }
+
+  const settingsUpsert = await admin
+    .from('stock_settings')
+    .upsert({ id: 1, total_shares: totalShares, holding_shareholder_id: holdingId }, { onConflict: 'id' });
+  if (settingsUpsert.error && !isMissingDbObjectError(settingsUpsert.error.message)) {
+    throw settingsUpsert.error;
+  }
+}
+
 export async function createListing(formData: FormData) {
   const user = await requireUser();
   const admin = createAdminClient();
@@ -419,11 +497,15 @@ export async function adminInitSetup(formData: FormData) {
   const hardResetRes = await admin.rpc('stock_admin_hard_reset', { total_shares_input: totalShares });
   if (hardResetRes.error) {
     const raw = hardResetRes.error.message || '';
-    if (/function\s+stock_admin_hard_reset/i.test(raw) && /does not exist/i.test(raw)) {
-      const fallbackRes = await admin.rpc('stock_admin_init_setup', { total_shares_input: totalShares });
-      if (fallbackRes.error) {
-        const msg = encodeURIComponent(fallbackRes.error.message || 'Kunne ikke initialisere holding');
-        redirect(`/aksjer/admin?error=${msg}`);
+    if (isMissingDbFunctionError(raw, 'stock_admin_hard_reset')) {
+      try {
+        await hardResetWithoutRpc(admin, totalShares);
+      } catch (e: any) {
+        const fallbackRes = await admin.rpc('stock_admin_init_setup', { total_shares_input: totalShares });
+        if (fallbackRes.error) {
+          const msg = encodeURIComponent(fallbackRes.error.message || 'Kunne ikke initialisere holding');
+          redirect(`/aksjer/admin?error=${msg}`);
+        }
       }
     } else {
       const msg = encodeURIComponent(hardResetRes.error.message || 'Kunne ikke utføre reset');
