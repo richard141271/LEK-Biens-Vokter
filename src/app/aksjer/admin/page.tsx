@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { adminApproveOrder, adminInitSetup, adminRejectOrder, adminSetOffering } from '@/app/aksjer/actions';
+import { adminApproveOrder, adminRejectOrder, adminSetOffering } from '@/app/aksjer/actions';
+import DangerInitResetForm from '@/app/aksjer/admin/DangerInitResetForm';
 
 function isVip(email: string | null | undefined) {
   const e = (email || '').toLowerCase();
@@ -113,16 +114,7 @@ export default async function StockAdminPage({
             </div>
           </div>
 
-          <form action={adminInitSetup} className="mt-4 flex gap-3">
-            <input
-              name="totalShares"
-              type="number"
-              min={0}
-              defaultValue={Number(settings?.total_shares || 100000)}
-              className="flex-1 px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
-            />
-            <button className="px-4 py-3 rounded-xl bg-gray-900 text-white font-bold">Init / Reset holding</button>
-          </form>
+          <DangerInitResetForm defaultTotalShares={Number(settings?.total_shares || 100000)} />
         </section>
 
         <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">

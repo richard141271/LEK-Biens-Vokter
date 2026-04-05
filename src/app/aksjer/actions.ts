@@ -292,8 +292,29 @@ export async function markPaid(formData: FormData) {
 }
 
 export async function adminInitSetup(formData: FormData) {
-  const adminUser = await requireStockAdmin();
+  await requireStockAdmin();
   const admin = createAdminClient();
+
+  const expectedPassword = process.env.STOCK_ADMIN_DANGER_PASSWORD || '';
+  if (!expectedPassword) {
+    redirect('/aksjer/admin?error=Admin-passord%20er%20ikke%20konfigurert');
+  }
+
+  const adminPassword = String(formData.get('adminPassword') || '');
+  if (adminPassword !== expectedPassword) {
+    redirect('/aksjer/admin?error=Feil%20admin-passord');
+  }
+
+  const confirmPhrase = String(formData.get('confirmPhrase') || '').trim().toUpperCase();
+  if (confirmPhrase !== 'RESET') {
+    redirect('/aksjer/admin?error=Du%20m%C3%A5%20skrive%20RESET%20for%20%C3%A5%20bekrefte');
+  }
+
+  const confirmReset = String(formData.get('confirmReset') || '') === 'on';
+  if (!confirmReset) {
+    redirect('/aksjer/admin?error=Du%20m%C3%A5%20bekrefte%20reset');
+  }
+
   const totalShares = Number(formData.get('totalShares') || 0);
   if (!Number.isFinite(totalShares) || totalShares < 0) {
     redirect('/aksjer/admin?error=Ugyldig%20antall');
