@@ -319,14 +319,8 @@ export default async function StockAdminPage({
               <thead>
                 <tr className="text-left text-gray-500">
                   <th className="py-2 pr-4">Navn</th>
-                  {shareholdersExtended ? (
-                    <>
-                      <th className="py-2 pr-4">Identitet</th>
-                      <th className="py-2 pr-4">Adresse</th>
-                    </>
-                  ) : (
-                    <th className="py-2 pr-4">E-post</th>
-                  )}
+                  <th className="py-2 pr-4">Identitet</th>
+                  <th className="py-2 pr-4">Adresse</th>
                   <th className="py-2 pr-4">Aksjer</th>
                   <th className="py-2 pr-4">Snitt</th>
                   <th className="py-2 pr-4">Oppdatert</th>
@@ -337,24 +331,22 @@ export default async function StockAdminPage({
                 {(shareholders || []).map((s: any) => (
                   <tr key={s.id} className="border-t">
                     <td className="py-2 pr-4 font-semibold text-gray-900">{s.navn}</td>
-                    {shareholdersExtended ? (
-                      <>
-                        <td className="py-2 pr-4 text-gray-700">
-                          {s.entity_type === 'company'
-                            ? s.orgnr || '-'
-                            : s.entity_type === 'person'
-                              ? s.national_id || (s.birth_date ? String(s.birth_date) : '-')
-                              : '-'}
-                        </td>
-                        <td className="py-2 pr-4 text-gray-700">
-                          {s.address_line1
-                            ? `${s.address_line1}${s.postal_code ? `, ${s.postal_code}` : ''}${s.city ? ` ${s.city}` : ''}${s.country ? `, ${s.country}` : ''}`
-                            : '-'}
-                        </td>
-                      </>
-                    ) : (
-                      <td className="py-2 pr-4 text-gray-700">{s.email || '-'}</td>
-                    )}
+                    <td className="py-2 pr-4 text-gray-700">
+                      {shareholdersExtended
+                        ? s.entity_type === 'company'
+                          ? s.orgnr || '-'
+                          : s.entity_type === 'person'
+                            ? s.national_id || (s.birth_date ? String(s.birth_date) : '-')
+                            : '-'
+                        : '-'}
+                    </td>
+                    <td className="py-2 pr-4 text-gray-700">
+                      {shareholdersExtended
+                        ? s.address_line1
+                          ? `${s.address_line1}${s.postal_code ? `, ${s.postal_code}` : ''}${s.city ? ` ${s.city}` : ''}${s.country ? `, ${s.country}` : ''}`
+                          : '-'
+                        : '-'}
+                    </td>
                     <td className="py-2 pr-4">{s.antall_aksjer}</td>
                     <td className="py-2 pr-4">{Number(s.gjennomsnittspris || 0).toFixed(2)}</td>
                     <td className="py-2 pr-4">{new Date(s.siste_oppdatering).toLocaleString('nb-NO')}</td>

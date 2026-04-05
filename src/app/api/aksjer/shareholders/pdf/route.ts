@@ -214,7 +214,7 @@ export async function GET() {
 
     return {
       navn: String(s.navn || ''),
-      identitet: identitet || (shareholdersExtended ? '-' : String(s.email || '-')),
+      identitet: identitet || '-',
       adresse: adresse || '-',
       aksjeklasse: 'A',
       aksjenummer: (lotsByShareholder.get(String(s.id)) || []).join(', ') || '-',

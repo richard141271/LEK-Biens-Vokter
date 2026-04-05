@@ -173,84 +173,6 @@ export async function createEmissionOrder(formData: FormData) {
   redirect(`/aksjer/orders/${order.id}`);
 }
 
-const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
-
-function isMissingDbFunctionError(message: string | null | undefined, functionName: string) {
-  const m = (message || '').toLowerCase();
-  if (!m) return false;
-  const fn = functionName.toLowerCase();
-  return (
-    (m.includes('could not find the function') && m.includes(fn)) ||
-    (m.includes('schema cache') && m.includes(fn)) ||
-    (m.includes('function') && m.includes(fn) && m.includes('does not exist'))
-  );
-}
-
-async function deleteAllFromTable(admin: any, table: string) {
-  const res = await admin.from(table).delete().neq('id', ZERO_UUID);
-  if (res.error && !isMissingDbObjectError(res.error.message)) {
-    throw res.error;
-  }
-}
-
-async function hardResetWithoutRpc(admin: any, totalShares: number) {
-  const holdingRes = await admin
-    .from('shareholders')
-    .select('id')
-    .is('user_id', null)
-    .ilike('navn', 'AI Innovate Holding AS')
-    .limit(1)
-    .maybeSingle();
-
-  if (holdingRes.error && !isMissingDbObjectError(holdingRes.error.message)) {
-    throw holdingRes.error;
-  }
-
-  let holdingId = String((holdingRes.data as any)?.id || '');
-  if (!holdingId) {
-    const insertRes = await admin
-      .from('shareholders')
-      .insert({ user_id: null, navn: 'AI Innovate Holding AS', email: 'holding@aiinnovate.no', antall_aksjer: totalShares, gjennomsnittspris: 0 })
-      .select('id')
-      .single();
-    if (insertRes.error) {
-      throw insertRes.error;
-    }
-    holdingId = String((insertRes.data as any)?.id || '');
-  }
-
-  await deleteAllFromTable(admin, 'stock_share_lot_events');
-  await deleteAllFromTable(admin, 'stock_share_lots');
-  await deleteAllFromTable(admin, 'stock_listings');
-  await deleteAllFromTable(admin, 'stock_orders');
-  await deleteAllFromTable(admin, 'transactions');
-  await deleteAllFromTable(admin, 'stock_audit_log');
-  await deleteAllFromTable(admin, 'stock_offerings');
-
-  const resetOthersRes = await admin
-    .from('shareholders')
-    .update({ antall_aksjer: 0, gjennomsnittspris: 0 })
-    .neq('id', holdingId);
-  if (resetOthersRes.error && !isMissingDbObjectError(resetOthersRes.error.message)) {
-    throw resetOthersRes.error;
-  }
-
-  const resetHoldingRes = await admin
-    .from('shareholders')
-    .update({ antall_aksjer: totalShares, gjennomsnittspris: 0 })
-    .eq('id', holdingId);
-  if (resetHoldingRes.error && !isMissingDbObjectError(resetHoldingRes.error.message)) {
-    throw resetHoldingRes.error;
-  }
-
-  const settingsUpsert = await admin
-    .from('stock_settings')
-    .upsert({ id: 1, total_shares: totalShares, holding_shareholder_id: holdingId }, { onConflict: 'id' });
-  if (settingsUpsert.error && !isMissingDbObjectError(settingsUpsert.error.message)) {
-    throw settingsUpsert.error;
-  }
-}
-
 export async function createListing(formData: FormData) {
   const user = await requireUser();
   const admin = createAdminClient();
@@ -467,8 +389,15 @@ export async function markPaid(formData: FormData) {
 }
 
 export async function adminInitSetup(formData: FormData) {
-  await requireStockAdmin();
-  const admin = createAdminClient();
+  const adminUser = await requireStockAdmin();
+  const ip = getClientIp();
+  const admin = createAdminClient({
+    headers: {
+      ...(ip ? { 'x-forwarded-for': ip } : {}),
+      ...(adminUser?.id ? { 'x-reset-actor-id': adminUser.id } : {}),
+      ...(adminUser?.email ? { 'x-reset-actor-email': adminUser.email } : {}),
+    },
+  });
 
   const expectedPassword = process.env.STOCK_ADMIN_DANGER_PASSWORD || '';
   if (!expectedPassword) {
@@ -494,23 +423,10 @@ export async function adminInitSetup(formData: FormData) {
   if (!Number.isFinite(totalShares) || totalShares < 0) {
     redirect('/aksjer/admin?error=Ugyldig%20antall');
   }
-  const hardResetRes = await admin.rpc('stock_admin_hard_reset', { total_shares_input: totalShares });
+  const hardResetRes = await admin.rpc('stock_admin_hard_reset', { new_total_shares: totalShares });
   if (hardResetRes.error) {
-    const raw = hardResetRes.error.message || '';
-    if (isMissingDbFunctionError(raw, 'stock_admin_hard_reset')) {
-      try {
-        await hardResetWithoutRpc(admin, totalShares);
-      } catch (e: any) {
-        const fallbackRes = await admin.rpc('stock_admin_init_setup', { total_shares_input: totalShares });
-        if (fallbackRes.error) {
-          const msg = encodeURIComponent(fallbackRes.error.message || 'Kunne ikke initialisere holding');
-          redirect(`/aksjer/admin?error=${msg}`);
-        }
-      }
-    } else {
-      const msg = encodeURIComponent(hardResetRes.error.message || 'Kunne ikke utføre reset');
-      redirect(`/aksjer/admin?error=${msg}`);
-    }
+    const msg = encodeURIComponent(`Reset feilet – databasefunksjon mangler eller feilet. (${hardResetRes.error.message || 'Ukjent feil'})`);
+    redirect(`/aksjer/admin?error=${msg}`);
   }
   revalidatePath('/aksjer/admin');
   redirect('/aksjer/admin?ok=1');
@@ -630,7 +546,11 @@ export async function adminRebuildShareLots() {
 
   const { error } = await admin.rpc('stock_admin_rebuild_share_lots', { admin_user_id: adminUser.id, admin_ip: ip });
   if (error) {
-    redirect(`/aksjer/admin?error=${encodeURIComponent(error.message || 'Kunne ikke gjenoppbygge aksjenummer')}`);
+    const raw = error.message || 'Kunne ikke gjenoppbygge aksjenummer';
+    const msg = raw.toLowerCase().includes('could not find the function')
+      ? 'DB mangler migrasjon: stock_admin_rebuild_share_lots'
+      : raw;
+    redirect(`/aksjer/admin?error=${encodeURIComponent(msg)}`);
   }
 
   revalidatePath('/aksjer/admin');
