@@ -15,7 +15,13 @@ export default function StockForgotPasswordPage() {
     setLoading(true);
     setMessage(null);
 
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent('/aksjer/reset-password')}`;
+    const configuredBaseUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_BASE_URL;
+    const origin = window.location.origin;
+    const baseUrl = origin.includes('localhost') && configuredBaseUrl ? configuredBaseUrl : origin;
+    const redirectTo = `${baseUrl}/aksjer/reset-password`;
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) {
@@ -72,4 +78,3 @@ export default function StockForgotPasswordPage() {
     </div>
   );
 }
-

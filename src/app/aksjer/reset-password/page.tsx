@@ -14,8 +14,27 @@ export default function StockResetPasswordPage() {
 
   useEffect(() => {
     const run = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUserEmail(data.user?.email || null);
+      try {
+        if (window.location.hash) {
+          const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+          if (accessToken && refreshToken) {
+            const { error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            if (error) setMessage(error.message);
+          }
+        }
+      } finally {
+        if (window.location.hash) {
+          window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+        }
+
+        const { data } = await supabase.auth.getUser();
+        setUserEmail(data.user?.email || null);
+      }
       setLoading(false);
     };
     run();
@@ -99,4 +118,3 @@ export default function StockResetPasswordPage() {
     </div>
   );
 }
-
