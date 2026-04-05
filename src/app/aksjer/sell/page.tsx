@@ -176,10 +176,10 @@ export default async function SellPage({
                       const bank = String(seller?.payout_bank_account || '').trim();
                       const vipps = String(seller?.payout_vipps || '').trim();
                       const usdt = String(seller?.payout_usdt_trc20 || '').trim();
-                      const methods: Array<{ value: string; label: string }> = [];
-                      if (bank) methods.push({ value: 'bank', label: 'Bank' });
-                      if (vipps) methods.push({ value: 'vipps', label: 'Vipps' });
-                      if (usdt) methods.push({ value: 'usdt_trc20', label: 'USDT (TRC20)' });
+                      const methods: Array<{ value: string; label: string; detail: string }> = [];
+                      if (bank) methods.push({ value: 'bank', label: 'Bank', detail: bank });
+                      if (vipps) methods.push({ value: 'vipps', label: 'Vipps', detail: vipps });
+                      if (usdt) methods.push({ value: 'usdt_trc20', label: 'USDT (TRC20)', detail: usdt });
                       const canBuy = methods.length > 0;
                       const defaultMethod = methods[0]?.value || 'bank';
                       return (
@@ -215,7 +215,10 @@ export default async function SellPage({
                             {methods.map((m) => (
                               <label key={m.value} className="rounded-xl border border-gray-200 p-3 flex items-center gap-2">
                                 <input type="radio" name="paymentMethod" value={m.value} defaultChecked={m.value === defaultMethod} />
-                                <span className="text-sm font-semibold text-gray-900">{m.label}</span>
+                                <div className="min-w-0">
+                                  <div className="text-sm font-semibold text-gray-900">{m.label}</div>
+                                  <div className={`text-xs text-gray-500 ${m.value === 'usdt_trc20' ? 'break-all' : ''}`}>{m.detail}</div>
+                                </div>
                               </label>
                             ))}
                           </div>
