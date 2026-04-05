@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient } from '@/utils/supabase/client';
-import { useEffect, useState, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
@@ -15,13 +15,6 @@ function SignInContent() {
   const searchParams = useSearchParams();
   const next = searchParams.get('next');
   const isRentalFlow = next?.includes('lei-en-kube');
-
-  useEffect(() => {
-    const host = window.location.hostname.toLowerCase();
-    if (host.startsWith('aksjer.')) {
-      window.location.replace('/aksjer/signin');
-    }
-  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
