@@ -509,7 +509,8 @@ export async function adminUpdateCompanyInfo(formData: FormData) {
   const parValueRaw = String(formData.get('parValue') || '').trim();
 
   const shareCapital = shareCapitalRaw ? Number(shareCapitalRaw) : null;
-  const parValue = parValueRaw ? Number(parValueRaw) : null;
+  const parValueText = parValueRaw ? parValueRaw.replace(',', '.').trim() : '';
+  const parValue = parValueText ? parValueText : null;
 
   if (orgnr && !/^\d{9}$/.test(orgnr)) {
     redirect('/aksjer/admin?error=Ugyldig%20orgnr');
@@ -517,7 +518,17 @@ export async function adminUpdateCompanyInfo(formData: FormData) {
   if (shareCapital !== null && (!Number.isFinite(shareCapital) || shareCapital < 0)) {
     redirect('/aksjer/admin?error=Ugyldig%20aksjekapital');
   }
-  if (parValue !== null && (!Number.isFinite(parValue) || parValue < 0)) {
+  if (parValue !== null) {
+    if (!/^\d+(\.\d+)?$/.test(parValue)) {
+      redirect('/aksjer/admin?error=Ugyldig%20p%C3%A5lydende');
+    }
+    const parValueAsNumber = Number(parValue);
+    if (!Number.isFinite(parValueAsNumber) || parValueAsNumber < 0) {
+      redirect('/aksjer/admin?error=Ugyldig%20p%C3%A5lydende');
+    }
+  }
+
+  if (parValue !== null && parValue.includes('e')) {
     redirect('/aksjer/admin?error=Ugyldig%20p%C3%A5lydende');
   }
 

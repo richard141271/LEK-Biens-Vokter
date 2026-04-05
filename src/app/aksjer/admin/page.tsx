@@ -246,7 +246,7 @@ export default async function StockAdminPage({
                 name="parValue"
                 type="number"
                 min={0}
-                step="0.01"
+                step="0.000001"
                 defaultValue={company?.par_value ?? ''}
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
               />
