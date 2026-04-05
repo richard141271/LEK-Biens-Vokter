@@ -172,18 +172,6 @@ export default function Home() {
               >
                 Lei en kube
               </Link>
-              <Link 
-                href="/mattilsynet" 
-                className="text-gray-400 hover:text-white hover:underline"
-              >
-                Mattilsynet
-              </Link>
-              <Link 
-                href="/admin" 
-                className="text-gray-400 hover:text-white hover:underline"
-              >
-                Admin
-              </Link>
             </div>
           </div>
         </div>

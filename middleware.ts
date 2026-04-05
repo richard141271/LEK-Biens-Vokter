@@ -15,6 +15,9 @@ export async function middleware(request: NextRequest) {
     ''
   const host = rawHost.split(',')[0]?.trim().split(':')[0]?.toLowerCase() || ''
   const isStockHost = host === 'aksjer.lekbie.no' || host.startsWith('aksjer.')
+  const isAdminHost = host === 'admin.lekbie.no' || host.startsWith('admin.')
+  const isMattilsynetHost =
+    host === 'mattilsynet.lekbie.no' || host.startsWith('mattilsynet.')
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -59,6 +62,24 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/workbox-')
 
   if (isAsset) return response
+
+  if (isAdminHost) {
+    if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) return response
+    if (pathname === '/admin' || pathname.startsWith('/admin/')) return response
+
+    const rewriteUrl = request.nextUrl.clone()
+    rewriteUrl.pathname = pathname === '/' ? '/admin' : `/admin${pathname}`
+    return NextResponse.rewrite(rewriteUrl)
+  }
+
+  if (isMattilsynetHost) {
+    if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) return response
+    if (pathname === '/mattilsynet' || pathname.startsWith('/mattilsynet/')) return response
+
+    const rewriteUrl = request.nextUrl.clone()
+    rewriteUrl.pathname = pathname === '/' ? '/mattilsynet' : `/mattilsynet${pathname}`
+    return NextResponse.rewrite(rewriteUrl)
+  }
 
   if (isStockHost) {
     if (pathname === '/signin' || pathname === '/') {
