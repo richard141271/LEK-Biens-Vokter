@@ -17,9 +17,17 @@ export default function BuyClient(props: {
   feeRate: number;
 }) {
   const [fullName, setFullName] = useState(props.defaultFullName || '');
-  const [shareCount, setShareCount] = useState(1);
+  const [shareCount, setShareCount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'bank' | 'usdt_trc20'>('bank');
-  const total = useMemo(() => Number((shareCount * props.pricePerShare).toFixed(2)), [shareCount, props.pricePerShare]);
+  const shareCountNumber = useMemo(() => {
+    const n = Number(shareCount);
+    if (!Number.isFinite(n) || shareCount === '') return 0;
+    return Math.max(0, Math.floor(n));
+  }, [shareCount]);
+  const total = useMemo(
+    () => Number((shareCountNumber * props.pricePerShare).toFixed(2)),
+    [shareCountNumber, props.pricePerShare]
+  );
 
   return (
     <div className="min-h-screen">
@@ -54,7 +62,6 @@ export default function BuyClient(props: {
           ) : (
             <form action={createEmissionOrder} className="mt-4 space-y-4">
               <input type="hidden" name="paymentMethod" value={paymentMethod} />
-              <input type="hidden" name="shareCount" value={shareCount} />
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Navn</label>
@@ -72,11 +79,14 @@ export default function BuyClient(props: {
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Antall aksjer</label>
                   <input
+                    name="shareCount"
                     type="number"
                     min={1}
+                    step={1}
                     max={Math.max(1, props.availableShares)}
                     value={shareCount}
-                    onChange={(e) => setShareCount(Number(e.target.value || 1))}
+                    onChange={(e) => setShareCount(e.target.value)}
+                    required
                     className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
                   />
                 </div>
@@ -115,7 +125,9 @@ export default function BuyClient(props: {
                   <input name="agreed" type="checkbox" required className="mt-1" />
                   <span>Jeg godtar avtalen og bekrefter bestillingen.</span>
                 </label>
-                <div className="text-xs text-gray-500">Gebyr: {Number((total * props.feeRate).toFixed(2)).toFixed(2)} (trekkes ved videresalg)</div>
+                <div className="text-xs text-gray-500">
+                  Gebyr: {Number((total * props.feeRate).toFixed(2)).toFixed(2)} (trekkes ved videresalg)
+                </div>
               </div>
 
               <button type="submit" className="w-full py-3 rounded-xl bg-gray-900 text-white font-bold">
