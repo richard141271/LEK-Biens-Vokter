@@ -10,6 +10,12 @@ function isVip(email: string | null | undefined) {
   return ['richard141271@gmail.com', 'richard141271@gmail.no', 'lek@kias.no', 'jorn@kias.no'].includes(e);
 }
 
+function isMissingDbObjectError(message: string | null | undefined) {
+  const m = (message || '').toLowerCase();
+  if (!m) return false;
+  return m.includes('could not find the table') || m.includes('does not exist') || (m.includes('column') && m.includes('does not exist'));
+}
+
 function escapeHtml(input: string) {
   return input
     .replaceAll('&', '&amp;')
@@ -133,48 +139,82 @@ export async function GET() {
   }
 
   const settingsRes = await admin.from('stock_settings').select('total_shares').eq('id', 1).maybeSingle();
-  const companyRes = await admin.from('stock_company_info').select('company_name, orgnr, incorporation_date, share_capital, par_value').eq('id', 1).maybeSingle();
+  const companyRes = await admin
+    .from('stock_company_info')
+    .select('company_name, orgnr, incorporation_date, share_capital, par_value')
+    .eq('id', 1)
+    .maybeSingle();
+  const companyMissing = isMissingDbObjectError(companyRes.error?.message);
+
+  let shareholdersExtended = true;
+  let shareholders: any[] | null = null;
+  let shareholdersError: string | null = null;
   const shareholdersRes = await admin
     .from('shareholders')
     .select('id, navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering, entity_type, birth_date, national_id, orgnr, address_line1, address_line2, postal_code, city, country')
     .order('antall_aksjer', { ascending: false })
     .limit(5000);
+  if (shareholdersRes.error && isMissingDbObjectError(shareholdersRes.error.message)) {
+    shareholdersExtended = false;
+    const fallback = await admin
+      .from('shareholders')
+      .select('id, navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering')
+      .order('antall_aksjer', { ascending: false })
+      .limit(5000);
+    shareholders = fallback.data;
+    shareholdersError = fallback.error?.message || null;
+  } else {
+    shareholders = shareholdersRes.data;
+    shareholdersError = shareholdersRes.error?.message || null;
+  }
+
   const lotsRes = await admin
     .from('stock_share_lots')
     .select('shareholder_id, share_class, start_no, end_no')
     .order('shareholder_id', { ascending: true })
     .order('start_no', { ascending: true })
     .limit(20000);
+  const lotsMissing = isMissingDbObjectError(lotsRes.error?.message);
 
-  const queryError = settingsRes.error?.message || companyRes.error?.message || shareholdersRes.error?.message || lotsRes.error?.message || null;
+  const queryError =
+    settingsRes.error?.message ||
+    (companyMissing ? null : companyRes.error?.message) ||
+    shareholdersError ||
+    (lotsMissing ? null : lotsRes.error?.message) ||
+    null;
   if (queryError) {
     return NextResponse.json({ error: queryError }, { status: 500 });
   }
 
   const lotsByShareholder = new Map<string, string[]>();
-  for (const l of lotsRes.data || []) {
-    const key = String((l as any).shareholder_id);
-    const label = `${String((l as any).share_class || 'A')}: ${Number((l as any).start_no)}–${Number((l as any).end_no)}`;
-    const list = lotsByShareholder.get(key) || [];
-    list.push(label);
-    lotsByShareholder.set(key, list);
+  if (!lotsMissing) {
+    for (const l of lotsRes.data || []) {
+      const key = String((l as any).shareholder_id);
+      const label = `${String((l as any).share_class || 'A')}: ${Number((l as any).start_no)}–${Number((l as any).end_no)}`;
+      const list = lotsByShareholder.get(key) || [];
+      list.push(label);
+      lotsByShareholder.set(key, list);
+    }
   }
 
-  const rows = (shareholdersRes.data || []).map((s: any) => {
-    const identitet =
-      s.entity_type === 'company'
+  const rows = (shareholders || []).map((s: any) => {
+    const identitet = shareholdersExtended
+      ? s.entity_type === 'company'
         ? String(s.orgnr || '')
         : s.entity_type === 'person'
           ? String(s.national_id || (s.birth_date ? String(s.birth_date) : ''))
-          : '';
+          : ''
+      : '';
 
-    const adresse = s.address_line1
-      ? `${String(s.address_line1)}${s.address_line2 ? `, ${String(s.address_line2)}` : ''}${s.postal_code ? `, ${String(s.postal_code)}` : ''}${s.city ? ` ${String(s.city)}` : ''}${s.country ? `, ${String(s.country)}` : ''}`
+    const adresse = shareholdersExtended
+      ? s.address_line1
+        ? `${String(s.address_line1)}${s.address_line2 ? `, ${String(s.address_line2)}` : ''}${s.postal_code ? `, ${String(s.postal_code)}` : ''}${s.city ? ` ${String(s.city)}` : ''}${s.country ? `, ${String(s.country)}` : ''}`
+        : ''
       : '';
 
     return {
       navn: String(s.navn || ''),
-      identitet: identitet || '-',
+      identitet: identitet || (shareholdersExtended ? '-' : String(s.email || '-')),
       adresse: adresse || '-',
       aksjeklasse: 'A',
       aksjenummer: (lotsByShareholder.get(String(s.id)) || []).join(', ') || '-',
@@ -186,11 +226,11 @@ export async function GET() {
   const generatedAt = new Date().toLocaleString('nb-NO');
   const html = generateShareholderRegisterHtml({
     company: {
-      name: String(companyRes.data?.company_name || 'AI Innovate AS'),
-      orgnr: companyRes.data?.orgnr ? String(companyRes.data.orgnr) : null,
-      incorporationDate: companyRes.data?.incorporation_date ? String(companyRes.data.incorporation_date) : null,
-      shareCapital: companyRes.data?.share_capital != null ? String(companyRes.data.share_capital) : null,
-      parValue: companyRes.data?.par_value != null ? String(companyRes.data.par_value) : null,
+      name: String((companyMissing ? null : companyRes.data?.company_name) || 'AI Innovate AS'),
+      orgnr: !companyMissing && companyRes.data?.orgnr ? String(companyRes.data.orgnr) : null,
+      incorporationDate: !companyMissing && companyRes.data?.incorporation_date ? String(companyRes.data.incorporation_date) : null,
+      shareCapital: !companyMissing && companyRes.data?.share_capital != null ? String(companyRes.data.share_capital) : null,
+      parValue: !companyMissing && companyRes.data?.par_value != null ? String(companyRes.data.par_value) : null,
     },
     generatedAt,
     totalShares: Number(settingsRes.data?.total_shares || 0),

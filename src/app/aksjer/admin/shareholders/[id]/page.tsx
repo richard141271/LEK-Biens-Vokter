@@ -9,6 +9,12 @@ function isVip(email: string | null | undefined) {
   return ['richard141271@gmail.com', 'richard141271@gmail.no', 'lek@kias.no', 'jorn@kias.no'].includes(e);
 }
 
+function isMissingDbObjectError(message: string | null | undefined) {
+  const m = (message || '').toLowerCase();
+  if (!m) return false;
+  return m.includes('could not find the table') || m.includes('does not exist') || (m.includes('column') && m.includes('does not exist'));
+}
+
 export default async function AdminShareholderPage({
   params,
   searchParams,
@@ -26,11 +32,23 @@ export default async function AdminShareholderPage({
   const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle();
   if (profile?.role !== 'admin' && !isVip(user.email)) redirect('/aksjer/dashboard');
 
+  let shareholder: any = null;
+  let shareholderExtended = true;
   const shareholderRes = await admin
     .from('shareholders')
     .select('id, navn, email, entity_type, birth_date, national_id, orgnr, address_line1, address_line2, postal_code, city, country')
     .eq('id', params.id)
     .maybeSingle();
+  if (shareholderRes.error && isMissingDbObjectError(shareholderRes.error.message)) {
+    shareholderExtended = false;
+    const fallback = await admin.from('shareholders').select('id, navn, email').eq('id', params.id).maybeSingle();
+    shareholder = fallback.data;
+    if (fallback.error || !shareholder?.id) {
+      redirect(`/aksjer/admin?error=${encodeURIComponent(fallback.error?.message || 'Fant ikke aksjonær')}`);
+    }
+  } else {
+    shareholder = shareholderRes.data;
+  }
 
   const lotsRes = await admin
     .from('stock_share_lots')
@@ -39,8 +57,8 @@ export default async function AdminShareholderPage({
     .order('start_no', { ascending: true })
     .limit(2000);
 
-  const shareholder = shareholderRes.data;
-  const error = shareholderRes.error?.message || lotsRes.error?.message || null;
+  const lotsMissing = isMissingDbObjectError(lotsRes.error?.message);
+  const error = (shareholderExtended ? shareholderRes.error?.message : null) || (lotsMissing ? null : lotsRes.error?.message) || null;
   if (error || !shareholder?.id) {
     redirect(`/aksjer/admin?error=${encodeURIComponent(error || 'Fant ikke aksjonær')}`);
   }
@@ -48,9 +66,9 @@ export default async function AdminShareholderPage({
   const okParam = searchParams?.ok;
   const errorParam = searchParams?.error;
 
-  const lotsText = (lotsRes.data || [])
-    .map((l: any) => `${String(l.share_class || 'A')}: ${Number(l.start_no)}–${Number(l.end_no)}`)
-    .join(', ');
+  const lotsText = lotsMissing
+    ? ''
+    : (lotsRes.data || []).map((l: any) => `${String(l.share_class || 'A')}: ${Number(l.start_no)}–${Number(l.end_no)}`).join(', ');
 
   return (
     <div className="min-h-screen">
@@ -82,8 +100,14 @@ export default async function AdminShareholderPage({
 
         <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
           <h2 className="font-bold text-gray-900">Formell info</h2>
+          {!shareholderExtended ? (
+            <div className="mt-4 text-sm text-yellow-900 bg-yellow-50 border border-yellow-100 rounded-xl p-4">
+              Database mangler migrasjon for formell aksjeeierbok (identitet/adresse). Kjør migrasjonen først.
+            </div>
+          ) : null}
 
-          <form action={adminUpdateShareholder} className="mt-4 space-y-4">
+          {shareholderExtended ? (
+            <form action={adminUpdateShareholder} className="mt-4 space-y-4">
             <input type="hidden" name="shareholderId" value={shareholder.id} />
 
             <div>
@@ -175,10 +199,10 @@ export default async function AdminShareholderPage({
             </div>
 
             <button className="w-full py-3 rounded-xl bg-gray-900 text-white font-bold">Lagre</button>
-          </form>
+            </form>
+          ) : null}
         </section>
       </main>
     </div>
   );
 }
-

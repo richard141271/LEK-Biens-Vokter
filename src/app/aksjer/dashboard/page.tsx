@@ -4,6 +4,12 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { redirect } from 'next/navigation';
 import { signOut } from '@/app/aksjer/actions';
 
+function isMissingDbObjectError(message: string | null | undefined) {
+  const m = (message || '').toLowerCase();
+  if (!m) return false;
+  return m.includes('could not find the table') || m.includes('does not exist') || (m.includes('column') && m.includes('does not exist'));
+}
+
 export default async function StockDashboard() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -16,6 +22,26 @@ export default async function StockDashboard() {
     .select('antall_aksjer, gjennomsnittspris, siste_oppdatering')
     .eq('user_id', user.id)
     .maybeSingle();
+
+  const formalRes = await admin
+    .from('shareholders')
+    .select('entity_type, national_id, orgnr, address_line1, postal_code, city')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  const needsProfile = (() => {
+    if (formalRes.error && isMissingDbObjectError(formalRes.error.message)) return false;
+    if (!formalRes.data) return false;
+    const t = String((formalRes.data as any).entity_type || 'unknown');
+    const nid = String((formalRes.data as any).national_id || '').trim();
+    const onr = String((formalRes.data as any).orgnr || '').trim();
+    const addr = String((formalRes.data as any).address_line1 || '').trim();
+    const pc = String((formalRes.data as any).postal_code || '').trim();
+    const city = String((formalRes.data as any).city || '').trim();
+    const missingIdentity = (t === 'person' && !nid) || (t === 'company' && !onr) || t === 'unknown';
+    const missingAddress = !addr || !pc || !city;
+    return missingIdentity || missingAddress;
+  })();
 
   const { data: orders } = await admin
     .from('stock_orders')
@@ -50,6 +76,18 @@ export default async function StockDashboard() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        {needsProfile ? (
+          <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+            <div className="text-sm text-gray-800">
+              <div className="font-bold text-gray-900">Mangler aksjonærinfo</div>
+              <div className="mt-1 text-gray-600">Fyll inn identitet og adresse før du gjennomfører kjøp/videresalg.</div>
+              <Link href="/aksjer/profile" className="inline-block mt-3 font-bold text-gray-900 hover:underline">
+                Oppdater profil
+              </Link>
+            </div>
+          </section>
+        ) : null}
+
         <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -148,4 +186,3 @@ export default async function StockDashboard() {
     </div>
   );
 }
-

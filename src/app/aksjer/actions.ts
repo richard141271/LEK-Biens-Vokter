@@ -40,6 +40,48 @@ function randomRef() {
   return `AI-${chunk}`;
 }
 
+function isMissingDbObjectError(message: string | null | undefined) {
+  const m = (message || '').toLowerCase();
+  if (!m) return false;
+  return m.includes('could not find the table') || m.includes('does not exist') || m.includes('column') && m.includes('does not exist');
+}
+
+async function ensureShareholderForUser(admin: ReturnType<typeof createAdminClient>, userId: string) {
+  const { error } = await admin.rpc('stock_ensure_shareholder_for_user', { target_user_id: userId });
+  if (error && !isMissingDbObjectError(error.message)) {
+    redirect(`/aksjer/dashboard?error=${encodeURIComponent(error.message || 'Kunne ikke opprette aksjonær')}`);
+  }
+}
+
+async function requireFormalShareholderInfo(userId: string, nextPath: string) {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('shareholders')
+    .select('entity_type, birth_date, national_id, orgnr, address_line1, postal_code, city, country')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingDbObjectError(error.message)) return;
+    redirect(`/aksjer/dashboard?error=${encodeURIComponent(error.message || 'Kunne ikke lese aksjonær')}`);
+  }
+  if (!data) return;
+
+  const entityType = String((data as any).entity_type || 'unknown');
+  const nationalId = String((data as any).national_id || '').trim();
+  const orgnr = String((data as any).orgnr || '').trim();
+  const addressLine1 = String((data as any).address_line1 || '').trim();
+  const postalCode = String((data as any).postal_code || '').trim();
+  const city = String((data as any).city || '').trim();
+
+  const missingIdentity = (entityType === 'person' && !nationalId) || (entityType === 'company' && !orgnr) || entityType === 'unknown';
+  const missingAddress = !addressLine1 || !postalCode || !city;
+
+  if (missingIdentity || missingAddress) {
+    redirect(`/aksjer/profile?next=${encodeURIComponent(nextPath)}&error=${encodeURIComponent('Fyll inn identitet og adresse før du kan gjennomføre kjøp/videresalg.')}`);
+  }
+}
+
 async function ensureUniqueRef(admin: ReturnType<typeof createAdminClient>) {
   for (let i = 0; i < 8; i++) {
     const ref = randomRef();
@@ -52,6 +94,9 @@ async function ensureUniqueRef(admin: ReturnType<typeof createAdminClient>) {
 export async function createEmissionOrder(formData: FormData) {
   const user = await requireUser();
   const admin = createAdminClient();
+
+  await ensureShareholderForUser(admin, user.id);
+  await requireFormalShareholderInfo(user.id, '/aksjer/buy');
 
   const shareCount = Number(formData.get('shareCount') || 0);
   const paymentMethod = String(formData.get('paymentMethod') || 'bank');
@@ -132,6 +177,9 @@ export async function createListing(formData: FormData) {
   const user = await requireUser();
   const admin = createAdminClient();
 
+  await ensureShareholderForUser(admin, user.id);
+  await requireFormalShareholderInfo(user.id, '/aksjer/sell');
+
   const shareCount = Number(formData.get('shareCount') || 0);
   const pricePerShare = Number(formData.get('pricePerShare') || 0);
 
@@ -198,6 +246,9 @@ export async function cancelListing(formData: FormData) {
 export async function createResaleOrder(formData: FormData) {
   const user = await requireUser();
   const admin = createAdminClient();
+
+  await ensureShareholderForUser(admin, user.id);
+  await requireFormalShareholderInfo(user.id, '/aksjer/buy');
 
   const listingId = String(formData.get('listingId') || '');
   const shareCount = Number(formData.get('shareCount') || 0);
@@ -343,22 +394,50 @@ export async function adminSetOffering(formData: FormData) {
     redirect('/aksjer/admin?error=Ugyldig%20antall');
   }
 
-  const { error: deactivateError } = await admin.from('stock_offerings').update({ active: false }).eq('active', true);
-  if (deactivateError) {
-    const msg = encodeURIComponent(deactivateError.message || 'Kunne ikke deaktivere eksisterende emisjon');
+  const { data: currentActive, error: activeErr } = await admin
+    .from('stock_offerings')
+    .select('id, price_per_share')
+    .eq('active', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (activeErr) {
+    const raw = activeErr.message || 'Kunne ikke lese emisjon';
+    const msg = encodeURIComponent(raw.includes('does not exist') ? 'Database%20mangler%20migrasjon%20for%20aksjer' : raw);
     redirect(`/aksjer/admin?error=${msg}`);
   }
 
-  const { error: insertError } = await admin.from('stock_offerings').insert({
-    active,
-    price_per_share: pricePerShare,
-    available_shares: availableShares,
-    created_by: adminUser.id,
-  });
-  if (insertError) {
-    const raw = insertError.message || 'Kunne ikke lagre emisjon';
-    const msg = encodeURIComponent(raw.includes('does not exist') ? 'Database%20mangler%20migrasjon%20for%20aksjer' : raw);
-    redirect(`/aksjer/admin?error=${msg}`);
+  if (currentActive?.id) {
+    if (Number(currentActive.price_per_share || 0) !== pricePerShare) {
+      redirect('/aksjer/admin?error=Deaktiver%20emisjonen%20f%C3%B8rst%20for%20%C3%A5%20endre%20pris');
+    }
+    const { error: updErr } = await admin
+      .from('stock_offerings')
+      .update({ active, available_shares: availableShares })
+      .eq('id', currentActive.id);
+    if (updErr) {
+      redirect(`/aksjer/admin?error=${encodeURIComponent(updErr.message || 'Kunne ikke oppdatere emisjon')}`);
+    }
+  } else {
+    if (active) {
+      const { error: deactivateError } = await admin.from('stock_offerings').update({ active: false }).eq('active', true);
+      if (deactivateError) {
+        const msg = encodeURIComponent(deactivateError.message || 'Kunne ikke deaktivere eksisterende emisjon');
+        redirect(`/aksjer/admin?error=${msg}`);
+      }
+    }
+
+    const { error: insertError } = await admin.from('stock_offerings').insert({
+      active,
+      price_per_share: pricePerShare,
+      available_shares: availableShares,
+      created_by: adminUser.id,
+    });
+    if (insertError) {
+      const raw = insertError.message || 'Kunne ikke lagre emisjon';
+      const msg = encodeURIComponent(raw.includes('does not exist') ? 'Database%20mangler%20migrasjon%20for%20aksjer' : raw);
+      redirect(`/aksjer/admin?error=${msg}`);
+    }
   }
 
   revalidatePath('/aksjer/buy');
@@ -505,6 +584,61 @@ export async function adminUpdateShareholder(formData: FormData) {
   revalidatePath('/aksjer/admin');
   revalidatePath('/aksjer/admin/print');
   redirect(`/aksjer/admin/shareholders/${shareholderId}?ok=1`);
+}
+
+export async function updateMyShareholder(formData: FormData) {
+  const user = await requireUser();
+  const admin = createAdminClient();
+
+  await ensureShareholderForUser(admin, user.id);
+
+  const entityType = String(formData.get('entityType') || 'unknown');
+  const birthDate = String(formData.get('birthDate') || '').trim() || null;
+  const nationalId = String(formData.get('nationalId') || '').trim() || null;
+  const orgnr = String(formData.get('orgnr') || '').trim() || null;
+  const addressLine1 = String(formData.get('addressLine1') || '').trim() || null;
+  const addressLine2 = String(formData.get('addressLine2') || '').trim() || null;
+  const postalCode = String(formData.get('postalCode') || '').trim() || null;
+  const city = String(formData.get('city') || '').trim() || null;
+  const country = String(formData.get('country') || '').trim() || 'NO';
+  const nextPath = String(formData.get('next') || '').trim();
+
+  if (!['unknown', 'person', 'company'].includes(entityType)) {
+    redirect('/aksjer/profile?error=Ugyldig%20type');
+  }
+  if (nationalId && !/^\d{11}$/.test(nationalId)) {
+    redirect('/aksjer/profile?error=Ugyldig%20f%C3%B8dselsnummer');
+  }
+  if (orgnr && !/^\d{9}$/.test(orgnr)) {
+    redirect('/aksjer/profile?error=Ugyldig%20orgnr');
+  }
+  if (postalCode && !/^\d{4}$/.test(postalCode)) {
+    redirect('/aksjer/profile?error=Ugyldig%20postnr');
+  }
+
+  const { error } = await admin
+    .from('shareholders')
+    .update({
+      entity_type: entityType,
+      birth_date: birthDate,
+      national_id: nationalId,
+      orgnr,
+      address_line1: addressLine1,
+      address_line2: addressLine2,
+      postal_code: postalCode,
+      city,
+      country,
+    })
+    .eq('user_id', user.id);
+
+  if (error) {
+    const msg = encodeURIComponent(error.message || 'Kunne ikke lagre profil');
+    redirect(`/aksjer/profile?error=${msg}`);
+  }
+
+  revalidatePath('/aksjer/dashboard');
+  const target = nextPath && nextPath.startsWith('/aksjer/') ? nextPath : '/aksjer/dashboard';
+  redirect(`${target}?ok=1`);
 }
 
 export async function signOut() {

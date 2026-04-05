@@ -94,9 +94,17 @@ export default async function OrderPage({ params }: { params: { id: string } }) 
           ) : null}
 
           {status === 'approved' ? (
-            <div className="mt-4 p-4 rounded-xl bg-green-50 border border-green-100 text-sm text-green-900">
-              Godkjent. Aksjene er overført og registrert i aksjeeierboken.
-            </div>
+            <>
+              <div className="mt-4 p-4 rounded-xl bg-green-50 border border-green-100 text-sm text-green-900">
+                Godkjent. Aksjene er overført og registrert i aksjeeierboken.
+              </div>
+              <a
+                href={`/api/aksjer/orders/${order.id}/receipt/pdf`}
+                className="mt-3 block w-full py-3 rounded-xl bg-gray-900 text-white font-bold text-center"
+              >
+                Last ned kvittering (PDF)
+              </a>
+            </>
           ) : null}
 
           {status === 'rejected' ? (

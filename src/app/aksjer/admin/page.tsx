@@ -10,6 +10,12 @@ function isVip(email: string | null | undefined) {
   return ['richard141271@gmail.com', 'richard141271@gmail.no', 'lek@kias.no', 'jorn@kias.no'].includes(e);
 }
 
+function isMissingDbObjectError(message: string | null | undefined) {
+  const m = (message || '').toLowerCase();
+  if (!m) return false;
+  return m.includes('could not find the table') || m.includes('does not exist') || (m.includes('column') && m.includes('does not exist'));
+}
+
 export default async function StockAdminPage({
   searchParams,
 }: {
@@ -34,8 +40,13 @@ export default async function StockAdminPage({
     .maybeSingle();
   const offering = offeringRes.data;
 
-  const companyRes = await admin.from('stock_company_info').select('company_name, orgnr, incorporation_date, share_capital, par_value').eq('id', 1).maybeSingle();
-  const company = companyRes.data;
+  const companyRes = await admin
+    .from('stock_company_info')
+    .select('company_name, orgnr, incorporation_date, share_capital, par_value')
+    .eq('id', 1)
+    .maybeSingle();
+  const companyMissing = isMissingDbObjectError(companyRes.error?.message);
+  const company = companyMissing ? null : companyRes.data;
 
   const pendingRes = await admin
     .from('stock_orders')
@@ -45,12 +56,27 @@ export default async function StockAdminPage({
     .limit(100);
   const pending = pendingRes.data;
 
+  let shareholders: any[] | null = null;
+  let shareholdersExtended = true;
+  let shareholdersError: string | null = null;
   const shareholdersRes = await admin
     .from('shareholders')
     .select('id, navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering, entity_type, birth_date, national_id, orgnr, address_line1, postal_code, city, country')
     .order('antall_aksjer', { ascending: false })
     .limit(200);
-  const shareholders = shareholdersRes.data;
+  if (shareholdersRes.error && isMissingDbObjectError(shareholdersRes.error.message)) {
+    shareholdersExtended = false;
+    const fallback = await admin
+      .from('shareholders')
+      .select('id, navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering')
+      .order('antall_aksjer', { ascending: false })
+      .limit(200);
+    shareholders = fallback.data;
+    shareholdersError = fallback.error?.message || null;
+  } else {
+    shareholders = shareholdersRes.data;
+    shareholdersError = shareholdersRes.error?.message || null;
+  }
 
   const txRes = await admin
     .from('transactions')
@@ -62,12 +88,13 @@ export default async function StockAdminPage({
   const queryError =
     settingsRes.error?.message ||
     offeringRes.error?.message ||
-    companyRes.error?.message ||
+    (companyMissing ? null : companyRes.error?.message) ||
     pendingRes.error?.message ||
-    shareholdersRes.error?.message ||
+    shareholdersError ||
     txRes.error?.message ||
     null;
-  const looksLikeMissingTables = !!queryError && /does not exist|relation/i.test(queryError);
+  const looksLikeMissingTables = !!queryError && /does not exist|relation|could not find the table/i.test(queryError);
+  const needsMigration = companyMissing || !shareholdersExtended;
 
   const errorParam = searchParams?.error;
   const okParam = searchParams?.ok;
@@ -99,6 +126,11 @@ export default async function StockAdminPage({
             {looksLikeMissingTables
               ? `Aksje-tabellene finnes ikke i databasen enda: ${queryError}`
               : `Klarte ikke lese aksje-data fra databasen: ${queryError}`}
+          </div>
+        ) : null}
+        {needsMigration ? (
+          <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-900">
+            Database mangler migrasjon for “formell aksjeeierbok” (selskapsinfo/identitet/adresse/aksjenummer). Kjør migrasjonen og “Reload schema cache” i Supabase hvis du får cache-feil.
           </div>
         ) : null}
         <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
@@ -164,6 +196,11 @@ export default async function StockAdminPage({
               <button className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold">Bygg aksjenummer på nytt</button>
             </form>
           </div>
+          {companyMissing ? (
+            <div className="mt-4 text-sm text-yellow-900 bg-yellow-50 border border-yellow-100 rounded-xl p-4">
+              Tabell for selskapsinfo finnes ikke i databasen enda. Kjør migrasjonen først.
+            </div>
+          ) : null}
           <form action={adminUpdateCompanyInfo} className="mt-4 grid grid-cols-2 gap-3">
             <div className="col-span-2">
               <label className="block text-sm font-semibold text-gray-700 mb-1">Selskapsnavn</label>
@@ -281,38 +318,52 @@ export default async function StockAdminPage({
               <thead>
                 <tr className="text-left text-gray-500">
                   <th className="py-2 pr-4">Navn</th>
-                  <th className="py-2 pr-4">Identitet</th>
-                  <th className="py-2 pr-4">Adresse</th>
+                  {shareholdersExtended ? (
+                    <>
+                      <th className="py-2 pr-4">Identitet</th>
+                      <th className="py-2 pr-4">Adresse</th>
+                    </>
+                  ) : (
+                    <th className="py-2 pr-4">E-post</th>
+                  )}
                   <th className="py-2 pr-4">Aksjer</th>
                   <th className="py-2 pr-4">Snitt</th>
                   <th className="py-2 pr-4">Oppdatert</th>
-                  <th className="py-2 pr-4"></th>
+                  {shareholdersExtended ? <th className="py-2 pr-4"></th> : null}
                 </tr>
               </thead>
               <tbody>
                 {(shareholders || []).map((s: any) => (
                   <tr key={s.id} className="border-t">
                     <td className="py-2 pr-4 font-semibold text-gray-900">{s.navn}</td>
-                    <td className="py-2 pr-4 text-gray-700">
-                      {s.entity_type === 'company'
-                        ? s.orgnr || '-'
-                        : s.entity_type === 'person'
-                          ? s.national_id || (s.birth_date ? String(s.birth_date) : '-') 
-                          : '-'}
-                    </td>
-                    <td className="py-2 pr-4 text-gray-700">
-                      {s.address_line1
-                        ? `${s.address_line1}${s.postal_code ? `, ${s.postal_code}` : ''}${s.city ? ` ${s.city}` : ''}${s.country ? `, ${s.country}` : ''}`
-                        : '-'}
-                    </td>
+                    {shareholdersExtended ? (
+                      <>
+                        <td className="py-2 pr-4 text-gray-700">
+                          {s.entity_type === 'company'
+                            ? s.orgnr || '-'
+                            : s.entity_type === 'person'
+                              ? s.national_id || (s.birth_date ? String(s.birth_date) : '-')
+                              : '-'}
+                        </td>
+                        <td className="py-2 pr-4 text-gray-700">
+                          {s.address_line1
+                            ? `${s.address_line1}${s.postal_code ? `, ${s.postal_code}` : ''}${s.city ? ` ${s.city}` : ''}${s.country ? `, ${s.country}` : ''}`
+                            : '-'}
+                        </td>
+                      </>
+                    ) : (
+                      <td className="py-2 pr-4 text-gray-700">{s.email || '-'}</td>
+                    )}
                     <td className="py-2 pr-4">{s.antall_aksjer}</td>
                     <td className="py-2 pr-4">{Number(s.gjennomsnittspris || 0).toFixed(2)}</td>
                     <td className="py-2 pr-4">{new Date(s.siste_oppdatering).toLocaleString('nb-NO')}</td>
-                    <td className="py-2 pr-4">
-                      <Link href={`/aksjer/admin/shareholders/${s.id}`} className="font-bold text-gray-900 hover:underline">
-                        Rediger
-                      </Link>
-                    </td>
+                    {shareholdersExtended ? (
+                      <td className="py-2 pr-4">
+                        <Link href={`/aksjer/admin/shareholders/${s.id}`} className="font-bold text-gray-900 hover:underline">
+                          Rediger
+                        </Link>
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>

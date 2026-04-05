@@ -37,7 +37,7 @@ function SignUpContent() {
       return;
     }
 
-    window.location.href = '/aksjer/dashboard';
+    window.location.href = '/aksjer/profile';
   };
 
   return (
