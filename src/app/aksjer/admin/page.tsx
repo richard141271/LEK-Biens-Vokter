@@ -1,0 +1,236 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
+import { adminApproveOrder, adminInitSetup, adminRejectOrder, adminSetOffering } from '@/app/aksjer/actions';
+
+function isVip(email: string | null | undefined) {
+  const e = (email || '').toLowerCase();
+  return ['richard141271@gmail.com', 'richard141271@gmail.no', 'lek@kias.no', 'jorn@kias.no'].includes(e);
+}
+
+export default async function StockAdminPage() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/aksjer/signin');
+
+  const admin = createAdminClient();
+  const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  if (profile?.role !== 'admin' && !isVip(user.email)) redirect('/aksjer/dashboard');
+
+  const { data: settings } = await admin.from('stock_settings').select('fee_rate, holding_shareholder_id, total_shares').eq('id', 1).maybeSingle();
+  const { data: offering } = await admin
+    .from('stock_offerings')
+    .select('id, active, price_per_share, available_shares, created_at')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { data: pending } = await admin
+    .from('stock_orders')
+    .select('id, type, buyer_id, seller_id, share_count, price_per_share, total_amount, fee_amount, payment_method, payment_reference, status, created_at, paid_at')
+    .in('status', ['pending_approval', 'awaiting_payment'])
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  const { data: shareholders } = await admin
+    .from('shareholders')
+    .select('id, navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering')
+    .order('antall_aksjer', { ascending: false })
+    .limit(200);
+
+  const { data: tx } = await admin
+    .from('transactions')
+    .select('id, type, antall, pris, dato, total_amount, fee_amount, buyer, seller, order_id')
+    .order('dato', { ascending: false })
+    .limit(200);
+
+  return (
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-10 bg-white border-b border-gray-200">
+        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+          <Link href="/aksjer/dashboard" className="text-sm font-semibold text-gray-700 hover:underline">
+            ← Dashboard
+          </Link>
+          <div className="text-sm text-gray-500">Admin</div>
+        </div>
+      </header>
+
+      <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+        <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+          <h1 className="text-lg font-black text-gray-900">Oppsett</h1>
+          <div className="mt-3 grid gap-3 md:grid-cols-3 text-sm">
+            <div className="rounded-xl border border-gray-200 p-4">
+              <div className="text-gray-500">Holding shares</div>
+              <div className="font-bold text-gray-900">{Number(settings?.total_shares || 0)}</div>
+            </div>
+            <div className="rounded-xl border border-gray-200 p-4">
+              <div className="text-gray-500">Fee rate</div>
+              <div className="font-bold text-gray-900">{Number(settings?.fee_rate ?? 0.02)}</div>
+            </div>
+            <div className="rounded-xl border border-gray-200 p-4">
+              <div className="text-gray-500">Holding ID</div>
+              <div className="font-bold text-gray-900 truncate">{settings?.holding_shareholder_id || '-'}</div>
+            </div>
+          </div>
+
+          <form action={adminInitSetup} className="mt-4 flex gap-3">
+            <input
+              name="totalShares"
+              type="number"
+              min={0}
+              defaultValue={Number(settings?.total_shares || 100000)}
+              className="flex-1 px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+            />
+            <button className="px-4 py-3 rounded-xl bg-gray-900 text-white font-bold">Init / Reset holding</button>
+          </form>
+        </section>
+
+        <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+          <h2 className="font-bold text-gray-900">Emisjon</h2>
+          <div className="mt-2 text-sm text-gray-600">
+            Siste: {offering?.id ? `${Number(offering.price_per_share || 0).toFixed(2)} • tilgjengelig ${Number(offering.available_shares || 0)} • ${offering.active ? 'aktiv' : 'inaktiv'}` : 'Ingen'}
+          </div>
+
+          <form action={adminSetOffering} className="mt-4 grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Pris per aksje</label>
+              <input
+                name="pricePerShare"
+                type="number"
+                min={0.01}
+                step="0.01"
+                defaultValue={Number(offering?.price_per_share || 100)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Antall tilgjengelig</label>
+              <input
+                name="availableShares"
+                type="number"
+                min={0}
+                defaultValue={Number(offering?.available_shares || 0)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+              />
+            </div>
+            <label className="col-span-2 flex items-center gap-2 text-sm text-gray-700">
+              <input name="active" type="checkbox" defaultChecked />
+              Aktiv emisjon
+            </label>
+            <button className="col-span-2 py-3 rounded-xl bg-gray-900 text-white font-bold">Lagre</button>
+          </form>
+        </section>
+
+        <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+          <h2 className="font-bold text-gray-900">Ordre</h2>
+          <div className="mt-3 space-y-2">
+            {(pending || []).length === 0 ? (
+              <div className="text-sm text-gray-500">Ingen ordre.</div>
+            ) : (
+              (pending || []).map((o: any) => (
+                <div key={o.id} className="rounded-xl border border-gray-200 px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-gray-900 truncate">
+                        {o.type === 'emission' ? 'Emisjon' : 'Videresalg'} • {o.share_count} aksjer • {Number(o.total_amount || 0).toFixed(2)}
+                      </div>
+                      <div className="text-xs text-gray-500 truncate">
+                        {o.payment_method} • {o.payment_reference} • {o.status}
+                      </div>
+                      <div className="text-xs text-gray-500">{new Date(o.created_at).toLocaleString('nb-NO')}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      {o.status === 'pending_approval' ? (
+                        <>
+                          <form action={adminApproveOrder}>
+                            <input type="hidden" name="orderId" value={o.id} />
+                            <button className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold">Godkjenn</button>
+                          </form>
+                          <form action={adminRejectOrder}>
+                            <input type="hidden" name="orderId" value={o.id} />
+                            <button className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold">Avvis</button>
+                          </form>
+                        </>
+                      ) : (
+                        <Link href={`/aksjer/orders/${o.id}`} className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold">
+                          Åpne
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+          <h2 className="font-bold text-gray-900">Aksjeeierbok</h2>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500">
+                  <th className="py-2 pr-4">Navn</th>
+                  <th className="py-2 pr-4">E-post</th>
+                  <th className="py-2 pr-4">Aksjer</th>
+                  <th className="py-2 pr-4">Snitt</th>
+                  <th className="py-2 pr-4">Oppdatert</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(shareholders || []).map((s: any) => (
+                  <tr key={s.id} className="border-t">
+                    <td className="py-2 pr-4 font-semibold text-gray-900">{s.navn}</td>
+                    <td className="py-2 pr-4 text-gray-700">{s.email}</td>
+                    <td className="py-2 pr-4">{s.antall_aksjer}</td>
+                    <td className="py-2 pr-4">{Number(s.gjennomsnittspris || 0).toFixed(2)}</td>
+                    <td className="py-2 pr-4">{new Date(s.siste_oppdatering).toLocaleString('nb-NO')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+          <h2 className="font-bold text-gray-900">Transaksjonslogg</h2>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500">
+                  <th className="py-2 pr-4">Dato</th>
+                  <th className="py-2 pr-4">Type</th>
+                  <th className="py-2 pr-4">Antall</th>
+                  <th className="py-2 pr-4">Total</th>
+                  <th className="py-2 pr-4">Gebyr</th>
+                  <th className="py-2 pr-4">Ordre</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(tx || []).map((t: any) => (
+                  <tr key={t.id} className="border-t">
+                    <td className="py-2 pr-4">{new Date(t.dato).toLocaleString('nb-NO')}</td>
+                    <td className="py-2 pr-4 font-semibold text-gray-900">{t.type}</td>
+                    <td className="py-2 pr-4">{t.antall}</td>
+                    <td className="py-2 pr-4">{Number(t.total_amount || 0).toFixed(2)}</td>
+                    <td className="py-2 pr-4">{Number(t.fee_amount || 0).toFixed(2)}</td>
+                    <td className="py-2 pr-4">
+                      {t.order_id ? (
+                        <Link href={`/aksjer/orders/${t.order_id}`} className="font-semibold text-gray-900 hover:underline">
+                          Åpne
+                        </Link>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
