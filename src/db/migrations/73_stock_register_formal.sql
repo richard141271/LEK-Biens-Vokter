@@ -85,6 +85,9 @@ begin
 end;
 $$ language plpgsql security definer;
 
+alter table if exists stock_company_info enable row level security;
+alter table if exists stock_share_lots enable row level security;
+
 create or replace function stock_transfer_share_lots(
   from_shareholder_id uuid,
   to_user_id uuid,
