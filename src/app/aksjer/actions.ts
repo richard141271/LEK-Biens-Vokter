@@ -180,6 +180,28 @@ export async function createListing(formData: FormData) {
   await ensureShareholderForUser(admin, user.id);
   await requireFormalShareholderInfo(user.id, '/aksjer/sell');
 
+  const payoutRes = await admin
+    .from('shareholders')
+    .select('payout_bank_account, payout_vipps, payout_usdt_trc20')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (payoutRes.error) {
+    const msg = encodeURIComponent(payoutRes.error.message || 'Kunne ikke lese utbetalingsinfo');
+    redirect(`/aksjer/profile?next=/aksjer/sell&error=${msg}`);
+  }
+  const payout = payoutRes.data as any;
+  const hasPayout =
+    Boolean(String(payout?.payout_bank_account || '').trim()) ||
+    Boolean(String(payout?.payout_vipps || '').trim()) ||
+    Boolean(String(payout?.payout_usdt_trc20 || '').trim());
+  if (!hasPayout) {
+    redirect(
+      `/aksjer/profile?next=/aksjer/sell&error=${encodeURIComponent(
+        'Du må registrere minst én utbetalingsmetode (bank/Vipps/krypto) før du kan legge ut aksjer for videresalg.'
+      )}`
+    );
+  }
+
   const shareCount = Number(formData.get('shareCount') || 0);
   const pricePerShare = Number(formData.get('pricePerShare') || 0);
 
@@ -258,7 +280,7 @@ export async function createResaleOrder(formData: FormData) {
 
   if (!listingId) return;
   if (!Number.isFinite(shareCount) || shareCount <= 0) return;
-  if (paymentMethod !== 'bank' && paymentMethod !== 'usdt_trc20') return;
+  if (paymentMethod !== 'bank' && paymentMethod !== 'vipps' && paymentMethod !== 'usdt_trc20') return;
   if (!agreed) return;
 
   if (fullName) {
@@ -274,6 +296,30 @@ export async function createResaleOrder(formData: FormData) {
   if (!listing?.id || listing.status !== 'active') return;
   if (listing.seller_id === user.id) return;
   if ((listing.share_count || 0) < shareCount) return;
+
+  const sellerPayoutRes = await admin
+    .from('shareholders')
+    .select('payout_bank_account, payout_vipps, payout_usdt_trc20')
+    .eq('user_id', listing.seller_id)
+    .maybeSingle();
+  if (sellerPayoutRes.error) {
+    return redirect(`/aksjer/sell?error=${encodeURIComponent(sellerPayoutRes.error.message || 'Kunne ikke lese selgers utbetalingsinfo')}`);
+  }
+  const sellerPayout = sellerPayoutRes.data as any;
+  const sellerBank = String(sellerPayout?.payout_bank_account || '').trim();
+  const sellerVipps = String(sellerPayout?.payout_vipps || '').trim();
+  const sellerUsdt = String(sellerPayout?.payout_usdt_trc20 || '').trim();
+  const hasMethod =
+    (paymentMethod === 'bank' && Boolean(sellerBank)) ||
+    (paymentMethod === 'vipps' && Boolean(sellerVipps)) ||
+    (paymentMethod === 'usdt_trc20' && Boolean(sellerUsdt));
+  if (!hasMethod) {
+    return redirect(
+      `/aksjer/sell?error=${encodeURIComponent(
+        'Selger har ikke registrert denne betalingsmetoden. Velg en annen eller be selger oppdatere profilen sin.'
+      )}`
+    );
+  }
 
   const { data: settings } = await admin.from('stock_settings').select('fee_rate').eq('id', 1).maybeSingle();
   const feeRate = Number(settings?.fee_rate ?? 0.02);
@@ -548,6 +594,9 @@ export async function adminUpdateShareholder(formData: FormData) {
   const postalCode = String(formData.get('postalCode') || '').trim() || null;
   const city = String(formData.get('city') || '').trim() || null;
   const country = String(formData.get('country') || '').trim() || 'NO';
+  const payoutBankAccount = String(formData.get('payoutBankAccount') || '').trim() || null;
+  const payoutVipps = String(formData.get('payoutVipps') || '').trim() || null;
+  const payoutUsdtTrc20 = String(formData.get('payoutUsdtTrc20') || '').trim() || null;
 
   if (!['unknown', 'person', 'company'].includes(entityType)) {
     redirect('/aksjer/admin?error=Ugyldig%20type');
@@ -560,6 +609,12 @@ export async function adminUpdateShareholder(formData: FormData) {
   }
   if (postalCode && !/^\d{4}$/.test(postalCode)) {
     redirect('/aksjer/admin?error=Ugyldig%20postnr');
+  }
+  if (payoutBankAccount && !/^[0-9 ]+$/.test(payoutBankAccount)) {
+    redirect('/aksjer/admin?error=Ugyldig%20kontonummer');
+  }
+  if (payoutVipps && !/^[0-9+ ]+$/.test(payoutVipps)) {
+    redirect('/aksjer/admin?error=Ugyldig%20Vipps');
   }
 
   const { error } = await admin
@@ -574,6 +629,9 @@ export async function adminUpdateShareholder(formData: FormData) {
       postal_code: postalCode,
       city,
       country,
+      payout_bank_account: payoutBankAccount,
+      payout_vipps: payoutVipps,
+      payout_usdt_trc20: payoutUsdtTrc20,
     })
     .eq('id', shareholderId);
 
@@ -601,6 +659,9 @@ export async function updateMyShareholder(formData: FormData) {
   const postalCode = String(formData.get('postalCode') || '').trim() || null;
   const city = String(formData.get('city') || '').trim() || null;
   const country = String(formData.get('country') || '').trim() || 'NO';
+  const payoutBankAccount = String(formData.get('payoutBankAccount') || '').trim() || null;
+  const payoutVipps = String(formData.get('payoutVipps') || '').trim() || null;
+  const payoutUsdtTrc20 = String(formData.get('payoutUsdtTrc20') || '').trim() || null;
   const nextPath = String(formData.get('next') || '').trim();
 
   if (!['unknown', 'person', 'company'].includes(entityType)) {
@@ -615,6 +676,12 @@ export async function updateMyShareholder(formData: FormData) {
   if (postalCode && !/^\d{4}$/.test(postalCode)) {
     redirect('/aksjer/profile?error=Ugyldig%20postnr');
   }
+  if (payoutBankAccount && !/^[0-9 ]+$/.test(payoutBankAccount)) {
+    redirect('/aksjer/profile?error=Ugyldig%20kontonummer');
+  }
+  if (payoutVipps && !/^[0-9+ ]+$/.test(payoutVipps)) {
+    redirect('/aksjer/profile?error=Ugyldig%20Vipps');
+  }
 
   const { error } = await admin
     .from('shareholders')
@@ -628,6 +695,9 @@ export async function updateMyShareholder(formData: FormData) {
       postal_code: postalCode,
       city,
       country,
+      payout_bank_account: payoutBankAccount,
+      payout_vipps: payoutVipps,
+      payout_usdt_trc20: payoutUsdtTrc20,
     })
     .eq('user_id', user.id);
 

@@ -33,6 +33,14 @@ export default async function StockProfilePage({
   const shareholder = shareholderRes.data as any;
   const dbMissing = isMissingDbObjectError(shareholderRes.error?.message);
 
+  const payoutRes = await admin
+    .from('shareholders')
+    .select('payout_bank_account, payout_vipps, payout_usdt_trc20')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  const payoutMissing = isMissingDbObjectError(payoutRes.error?.message);
+  const payout = payoutMissing ? null : (payoutRes.data as any);
+
   const okParam = searchParams?.ok;
   const errorParam = searchParams?.error;
   const nextPath = String(searchParams?.next || '').trim();
@@ -167,6 +175,46 @@ export default async function StockProfilePage({
                 </div>
               </div>
 
+              {!payoutMissing ? (
+                <div className="rounded-xl border border-gray-200 p-4 bg-gray-50 space-y-3">
+                  <div className="font-bold text-gray-900">Utbetaling (ved videresalg)</div>
+                  <div className="text-sm text-gray-600">
+                    Ved videresalg skal kjøper betale direkte til selger. Legg inn minst én metode.
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Kontonummer</label>
+                    <input
+                      name="payoutBankAccount"
+                      defaultValue={payout?.payout_bank_account || ''}
+                      placeholder="11 siffer"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Vipps (telefonnummer)</label>
+                    <input
+                      name="payoutVipps"
+                      defaultValue={payout?.payout_vipps || ''}
+                      placeholder="f.eks. 9xxxxxxx"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Krypto (USDT – TRC20)</label>
+                    <input
+                      name="payoutUsdtTrc20"
+                      defaultValue={payout?.payout_usdt_trc20 || ''}
+                      placeholder="TRC20-adresse"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-xl p-4">
+                  Utbetalingsfelt er ikke tilgjengelig i databasen ennå. Kjør migrasjon før du kan lagre konto/Vipps/krypto for videresalg.
+                </div>
+              )}
+
               <button className="w-full py-3 rounded-xl bg-gray-900 text-white font-bold">Lagre</button>
             </form>
           </section>
@@ -175,4 +223,3 @@ export default async function StockProfilePage({
     </div>
   );
 }
-

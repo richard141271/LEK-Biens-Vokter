@@ -43,10 +43,11 @@ function renderReceiptHtml(params: {
     paidAt: string | null;
     approvedAt: string | null;
   };
+  payment: { payTo: string; details: string | null };
   buyer: { name: string; email: string | null; identity: string | null; address: string | null };
   seller: { name: string; email: string | null } | null;
 }) {
-  const { companyName, companyOrgnr, generatedAt, order, buyer, seller } = params;
+  const { companyName, companyOrgnr, generatedAt, order, payment, buyer, seller } = params;
 
   return `<!doctype html>
 <html lang="no">
@@ -96,6 +97,15 @@ function renderReceiptHtml(params: {
           <tr><th>Opprettet</th><td>${escapeHtml(order.createdAt)}</td></tr>
           <tr><th>Betalt</th><td>${escapeHtml(order.paidAt || '-')}</td></tr>
           <tr><th>Godkjent</th><td>${escapeHtml(order.approvedAt || '-')}</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Betaling</h2>
+      <table>
+        <tbody>
+          <tr><th>Betal til</th><td>${escapeHtml(payment.payTo)}</td></tr>
+          <tr><th>Detaljer</th><td>${escapeHtml(payment.details || '-')}</td></tr>
+          <tr><th>Referanse</th><td>${escapeHtml(order.paymentReference)}</td></tr>
         </tbody>
       </table>
 
@@ -179,11 +189,30 @@ export async function GET(_: Request, ctx: { params: { id: string } }) {
   }
 
   let sellerInfo: { name: string; email: string | null } | null = null;
+  let paymentPayTo = 'Selskapets konto';
+  let paymentDetails: string | null = null;
   if (order.type === 'resale' && order.seller_id) {
-    const sellerRes = await admin.from('shareholders').select('navn, email').eq('user_id', order.seller_id).maybeSingle();
+    const sellerRes = await admin
+      .from('shareholders')
+      .select('navn, email, payout_bank_account, payout_vipps, payout_usdt_trc20')
+      .eq('user_id', order.seller_id)
+      .maybeSingle();
     if (sellerRes.data?.navn) {
       sellerInfo = { name: String(sellerRes.data.navn), email: sellerRes.data.email ? String(sellerRes.data.email) : null };
     }
+    paymentPayTo = `Selger (${String(sellerRes.data?.navn || 'Aksjonær')})`;
+    const method = String(order.payment_method || '');
+    const bank = String((sellerRes.data as any)?.payout_bank_account || '').trim();
+    const vipps = String((sellerRes.data as any)?.payout_vipps || '').trim();
+    const usdt = String((sellerRes.data as any)?.payout_usdt_trc20 || '').trim();
+    if (method === 'bank') paymentDetails = bank || null;
+    else if (method === 'vipps') paymentDetails = vipps || null;
+    else if (method === 'usdt_trc20') paymentDetails = usdt || null;
+  }
+  if (order.type === 'emission') {
+    const method = String(order.payment_method || '');
+    if (method === 'bank') paymentDetails = '3606 26 47110';
+    else if (method === 'usdt_trc20') paymentDetails = 'TJ64DHa2zLRntt2PpghTm3jMWVjv6fLvG1';
   }
 
   const generatedAt = new Date().toLocaleString('nb-NO');
@@ -204,6 +233,10 @@ export async function GET(_: Request, ctx: { params: { id: string } }) {
       createdAt: new Date(order.created_at).toLocaleString('nb-NO'),
       paidAt: order.paid_at ? new Date(order.paid_at).toLocaleString('nb-NO') : null,
       approvedAt: order.approved_at ? new Date(order.approved_at).toLocaleString('nb-NO') : null,
+    },
+    payment: {
+      payTo: paymentPayTo,
+      details: paymentDetails,
     },
     buyer: {
       name: String(buyer?.navn || user.email || ''),
@@ -251,4 +284,3 @@ export async function GET(_: Request, ctx: { params: { id: string } }) {
     return NextResponse.json({ error: 'Failed to generate PDF' }, { status: 500 });
   }
 }
-

@@ -7,6 +7,12 @@ import { markPaid } from '@/app/aksjer/actions';
 const BANK_ACCOUNT = '3606 26 47110';
 const USDT_TRC20_ADDRESS = 'TJ64DHa2zLRntt2PpghTm3jMWVjv6fLvG1';
 
+function isMissingDbObjectError(message: string | null | undefined) {
+  const m = (message || '').toLowerCase();
+  if (!m) return false;
+  return m.includes('could not find the table') || m.includes('does not exist') || (m.includes('column') && m.includes('does not exist'));
+}
+
 export default async function OrderPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -15,7 +21,7 @@ export default async function OrderPage({ params }: { params: { id: string } }) 
   const admin = createAdminClient();
   const { data: order } = await admin
     .from('stock_orders')
-    .select('id, buyer_id, type, share_count, price_per_share, total_amount, fee_amount, payment_method, payment_reference, status, agreement_json, created_at, paid_at, approved_at')
+    .select('id, buyer_id, seller_id, type, share_count, price_per_share, total_amount, fee_amount, payment_method, payment_reference, status, agreement_json, created_at, paid_at, approved_at')
     .eq('id', params.id)
     .maybeSingle();
 
@@ -24,6 +30,22 @@ export default async function OrderPage({ params }: { params: { id: string } }) 
 
   const paymentMethod = String(order.payment_method);
   const status = String(order.status);
+  const isResale = order.type === 'resale';
+
+  const sellerRes = isResale
+    ? await admin
+        .from('shareholders')
+        .select('navn, payout_bank_account, payout_vipps, payout_usdt_trc20')
+        .eq('user_id', String(order.seller_id || ''))
+        .maybeSingle()
+    : null;
+  const sellerMissing = isMissingDbObjectError(sellerRes?.error?.message);
+  const seller = sellerMissing ? null : ((sellerRes?.data as any) || null);
+  const sellerName = String(seller?.navn || 'Selger');
+  const sellerBank = String(seller?.payout_bank_account || '').trim();
+  const sellerVipps = String(seller?.payout_vipps || '').trim();
+  const sellerUsdt = String(seller?.payout_usdt_trc20 || '').trim();
+  const payToLabel = isResale ? `Selger (${sellerName})` : 'Selskapets konto';
 
   return (
     <div className="min-h-screen">
@@ -54,30 +76,71 @@ export default async function OrderPage({ params }: { params: { id: string } }) 
 
         <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
           <h2 className="font-bold text-gray-900">Betalingsinstruks</h2>
+          <div className="mt-3 text-sm text-gray-700">
+            <div>
+              Betal til: <span className="font-bold text-gray-900">{payToLabel}</span>
+            </div>
+          </div>
+
           {paymentMethod === 'bank' ? (
             <div className="mt-3 space-y-2 text-sm text-gray-700">
               <div>
-                Kontonummer: <span className="font-bold text-gray-900">{BANK_ACCOUNT}</span>
+                Kontonummer:{' '}
+                <span className="font-bold text-gray-900">{isResale ? (sellerBank || '-') : BANK_ACCOUNT}</span>
               </div>
               <div>
                 Referanse: <span className="font-bold text-gray-900">{order.payment_reference}</span>
               </div>
-              <div className="text-gray-600">Bruk korrekt referanse, ellers kan betalingen bli forsinket.</div>
+              {isResale && !sellerBank ? (
+                <div className="text-amber-800 bg-amber-50 border border-amber-100 rounded-xl p-3">
+                  Selger har ikke registrert kontonummer. Be selger oppdatere profilen sin.
+                </div>
+              ) : (
+                <div className="text-gray-600">Bruk korrekt referanse i meldingsfeltet.</div>
+              )}
+            </div>
+          ) : paymentMethod === 'vipps' ? (
+            <div className="mt-3 space-y-2 text-sm text-gray-700">
+              <div>
+                Vipps:{' '}
+                <span className="font-bold text-gray-900">{isResale ? (sellerVipps || '-') : '-'}</span>
+              </div>
+              <div>
+                Referanse: <span className="font-bold text-gray-900">{order.payment_reference}</span>
+              </div>
+              {isResale && !sellerVipps ? (
+                <div className="text-amber-800 bg-amber-50 border border-amber-100 rounded-xl p-3">
+                  Selger har ikke registrert Vipps. Be selger oppdatere profilen sin.
+                </div>
+              ) : (
+                <div className="text-gray-600">Skriv referansen i meldingsfeltet i Vipps.</div>
+              )}
             </div>
           ) : (
             <div className="mt-3 space-y-2 text-sm text-gray-700">
               <div>
-                Adresse: <span className="font-bold text-gray-900 break-all">{USDT_TRC20_ADDRESS}</span>
+                Adresse:{' '}
+                <span className="font-bold text-gray-900 break-all">
+                  {isResale ? (sellerUsdt || '-') : USDT_TRC20_ADDRESS}
+                </span>
               </div>
               <div className="text-red-700 bg-red-50 border border-red-100 rounded-xl p-3">
                 Kun USDT (TRC20). Andre kryptovalutaer vil gå tapt.
               </div>
+              {isResale && !sellerUsdt ? (
+                <div className="text-amber-800 bg-amber-50 border border-amber-100 rounded-xl p-3">
+                  Selger har ikke registrert krypto-adresse. Be selger oppdatere profilen sin.
+                </div>
+              ) : null}
             </div>
           )}
 
           <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
             <div className="font-bold text-gray-900">Viktig</div>
-            <div>Betalingen må godkjennes av admin før aksjene overføres og registreres i aksjeeierboken.</div>
+            <div>
+              Etter at du har betalt direkte til mottaker, trykker du “Jeg har betalt”. Admin godkjenner eierskifte og registrerer
+              dette i aksjeeierboken.
+            </div>
           </div>
 
           {status === 'awaiting_payment' ? (

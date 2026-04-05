@@ -4,6 +4,12 @@ import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { cancelListing, createListing, createResaleOrder } from '@/app/aksjer/actions';
 
+function isMissingDbObjectError(message: string | null | undefined) {
+  const m = (message || '').toLowerCase();
+  if (!m) return false;
+  return m.includes('could not find the table') || m.includes('does not exist') || (m.includes('column') && m.includes('does not exist'));
+}
+
 export default async function SellPage({
   searchParams,
 }: {
@@ -32,6 +38,22 @@ export default async function SellPage({
     .eq('status', 'active')
     .order('created_at', { ascending: false })
     .limit(50);
+
+  const sellerIds = Array.from(
+    new Set((listings || []).map((l: any) => String(l?.seller_id || '')).filter(Boolean))
+  );
+  const sellersRes =
+    sellerIds.length === 0
+      ? { data: [], error: null }
+      : await admin
+          .from('shareholders')
+          .select('user_id, navn, payout_bank_account, payout_vipps, payout_usdt_trc20')
+          .in('user_id', sellerIds)
+          .limit(500);
+  const sellersMissing = isMissingDbObjectError((sellersRes as any)?.error?.message);
+  const sellers = sellersMissing ? [] : ((sellersRes as any)?.data || []);
+  const sellerByUserId = new Map<string, any>();
+  for (const s of sellers) sellerByUserId.set(String((s as any).user_id), s);
 
   return (
     <div className="min-h-screen">
@@ -137,6 +159,9 @@ export default async function SellPage({
                         <div className="text-sm text-gray-500">Til salgs</div>
                         <div className="text-lg font-black text-gray-900">{l.share_count} aksjer</div>
                         <div className="text-sm text-gray-600 mt-1">Pris per aksje: {Number(l.price_per_share || 0).toFixed(2)}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Selger: {sellerByUserId.get(String(l.seller_id))?.navn || 'Aksjonær'}
+                        </div>
                       </div>
                       <div className="text-right">
                         <div className="text-sm text-gray-500">Total</div>
@@ -146,7 +171,19 @@ export default async function SellPage({
                       </div>
                     </div>
 
-                    <form action={createResaleOrder} className="mt-4 space-y-3">
+                    {(() => {
+                      const seller = sellerByUserId.get(String(l.seller_id));
+                      const bank = String(seller?.payout_bank_account || '').trim();
+                      const vipps = String(seller?.payout_vipps || '').trim();
+                      const usdt = String(seller?.payout_usdt_trc20 || '').trim();
+                      const methods: Array<{ value: string; label: string }> = [];
+                      if (bank) methods.push({ value: 'bank', label: 'Bank' });
+                      if (vipps) methods.push({ value: 'vipps', label: 'Vipps' });
+                      if (usdt) methods.push({ value: 'usdt_trc20', label: 'USDT (TRC20)' });
+                      const canBuy = methods.length > 0;
+                      const defaultMethod = methods[0]?.value || 'bank';
+                      return (
+                        <form action={createResaleOrder} className="mt-4 space-y-3">
                       <input type="hidden" name="listingId" value={l.id} />
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -172,24 +209,41 @@ export default async function SellPage({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <label className="rounded-xl border border-gray-200 p-3 flex items-center gap-2">
-                          <input type="radio" name="paymentMethod" value="bank" defaultChecked />
-                          <span className="text-sm font-semibold text-gray-900">Bank</span>
-                        </label>
-                        <label className="rounded-xl border border-gray-200 p-3 flex items-center gap-2">
-                          <input type="radio" name="paymentMethod" value="usdt_trc20" />
-                          <span className="text-sm font-semibold text-gray-900">USDT (TRC20)</span>
-                        </label>
-                      </div>
+                      {!sellersMissing ? (
+                        canBuy ? (
+                          <div className="grid grid-cols-2 gap-3">
+                            {methods.map((m) => (
+                              <label key={m.value} className="rounded-xl border border-gray-200 p-3 flex items-center gap-2">
+                                <input type="radio" name="paymentMethod" value={m.value} defaultChecked={m.value === defaultMethod} />
+                                <span className="text-sm font-semibold text-gray-900">{m.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-xl p-3">
+                            Selger har ikke registrert betalingsinfo. Selger må oppdatere profil før videresalg kan gjennomføres.
+                          </div>
+                        )
+                      ) : (
+                        <div className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-xl p-3">
+                          Betalingsinfo for selger er ikke tilgjengelig i databasen ennå. Kjør migrasjon før videresalg kan gjennomføres.
+                        </div>
+                      )}
 
                       <label className="flex items-start gap-2 text-sm text-gray-700">
                         <input name="agreed" type="checkbox" required className="mt-1" />
                         <span>Jeg godtar avtalen og bekrefter bestillingen.</span>
                       </label>
 
-                      <button className="w-full py-3 rounded-xl bg-gray-900 text-white font-bold">Kjøp</button>
+                      <button
+                        disabled={!canBuy || sellersMissing}
+                        className={`w-full py-3 rounded-xl font-bold ${!canBuy || sellersMissing ? 'bg-gray-200 text-gray-500' : 'bg-gray-900 text-white'}`}
+                      >
+                        Kjøp
+                      </button>
                     </form>
+                      );
+                    })()}
                   </div>
                 ))
             )}

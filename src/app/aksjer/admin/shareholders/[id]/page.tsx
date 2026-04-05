@@ -50,6 +50,14 @@ export default async function AdminShareholderPage({
     shareholder = shareholderRes.data;
   }
 
+  const payoutRes = await admin
+    .from('shareholders')
+    .select('payout_bank_account, payout_vipps, payout_usdt_trc20')
+    .eq('id', params.id)
+    .maybeSingle();
+  const payoutMissing = isMissingDbObjectError(payoutRes.error?.message);
+  const payout = payoutMissing ? null : (payoutRes.data as any);
+
   const lotsRes = await admin
     .from('stock_share_lots')
     .select('share_class, start_no, end_no')
@@ -197,6 +205,40 @@ export default async function AdminShareholderPage({
                 />
               </div>
             </div>
+
+            {!payoutMissing ? (
+              <div className="rounded-xl border border-gray-200 p-4 bg-gray-50 space-y-3">
+                <div className="font-bold text-gray-900">Utbetaling (videresalg)</div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Kontonummer</label>
+                  <input
+                    name="payoutBankAccount"
+                    defaultValue={payout?.payout_bank_account || ''}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Vipps</label>
+                  <input
+                    name="payoutVipps"
+                    defaultValue={payout?.payout_vipps || ''}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Krypto (USDT – TRC20)</label>
+                  <input
+                    name="payoutUsdtTrc20"
+                    defaultValue={payout?.payout_usdt_trc20 || ''}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-xl p-4">
+                Utbetalingsfelt er ikke tilgjengelig i databasen ennå. Kjør migrasjon før du kan lagre konto/Vipps/krypto.
+              </div>
+            )}
 
             <button className="w-full py-3 rounded-xl bg-gray-900 text-white font-bold">Lagre</button>
             </form>

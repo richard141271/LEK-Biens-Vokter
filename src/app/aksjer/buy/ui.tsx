@@ -139,6 +139,9 @@ export default function BuyClient(props: {
 
         <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
           <h2 className="font-bold text-gray-900">Betaling</h2>
+          <div className="mt-2 text-sm text-gray-700">
+            Betal til: <span className="font-bold text-gray-900">Selskapets konto</span>
+          </div>
           <div className="mt-3 grid gap-4 md:grid-cols-2">
             <div className="rounded-xl border border-gray-200 p-4">
               <div className="text-sm text-gray-500">Bank</div>
