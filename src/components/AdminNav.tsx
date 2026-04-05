@@ -46,7 +46,7 @@ export default function AdminNav() {
     { href: '/dashboard/admin/voice', label: 'Tale', icon: Mic },
     { href: '/dashboard/admin/shop', label: 'Nettbutikk', icon: ShoppingBag },
     { href: '/dashboard/admin/email', label: 'E-post', icon: Mail },
-    { href: 'https://aksjer.lekbie.no/admin', label: 'Aksjeadmin', icon: TrendingUp },
+    { href: 'https://aksjer.lekbie.no/aksjer/admin', label: 'Aksjeadmin', icon: TrendingUp },
   ];
 
   return (

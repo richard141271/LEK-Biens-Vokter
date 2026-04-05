@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import InstallPrompt from '@/components/InstallPrompt';
 
@@ -22,6 +22,13 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
+  const isStockHost = typeof window !== 'undefined' && window.location.hostname.toLowerCase().startsWith('aksjer.');
+
+  useEffect(() => {
+    if (isStockHost) {
+      window.location.replace('/signin');
+    }
+  }, [isStockHost]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +109,7 @@ function LoginForm() {
           </Link>
         </div>
 
-        <InstallPrompt embedded={true} />
+        {isStockHost ? null : <InstallPrompt embedded={true} />}
 
         {message && (
           <div className="mt-4 p-4 rounded-lg text-sm bg-red-50 text-red-800">

@@ -10,11 +10,11 @@ import Image from "next/image";
 export default function Home() {
   const [user, setUser] = useState<any>(null);
   const supabase = useMemo(() => createClient(), []);
+  const isStockHost = typeof window !== 'undefined' && window.location.hostname.toLowerCase().startsWith('aksjer.');
 
   useEffect(() => {
-    const host = window.location.hostname.toLowerCase();
-    if (host.startsWith('aksjer.')) {
-      window.location.replace('/aksjer/signin');
+    if (isStockHost) {
+      window.location.replace('/signin');
       return;
     }
 
@@ -23,7 +23,15 @@ export default function Home() {
       setUser(user);
     };
     checkUser();
-  }, [supabase]);
+  }, [supabase, isStockHost]);
+
+  if (isStockHost) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-gray-50 text-sm text-gray-600">
+        Laster...
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen flex flex-col relative bg-white">
