@@ -9,7 +9,11 @@ function isVip(email: string | null | undefined) {
   return ['richard141271@gmail.com', 'richard141271@gmail.no', 'lek@kias.no', 'jorn@kias.no'].includes(e);
 }
 
-export default async function StockAdminPage() {
+export default async function StockAdminPage({
+  searchParams,
+}: {
+  searchParams?: { ok?: string; error?: string };
+}) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/aksjer/signin');
@@ -18,32 +22,50 @@ export default async function StockAdminPage() {
   const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle();
   if (profile?.role !== 'admin' && !isVip(user.email)) redirect('/aksjer/dashboard');
 
-  const { data: settings } = await admin.from('stock_settings').select('fee_rate, holding_shareholder_id, total_shares').eq('id', 1).maybeSingle();
-  const { data: offering } = await admin
+  const settingsRes = await admin.from('stock_settings').select('fee_rate, holding_shareholder_id, total_shares').eq('id', 1).maybeSingle();
+  const settings = settingsRes.data;
+
+  const offeringRes = await admin
     .from('stock_offerings')
     .select('id, active, price_per_share, available_shares, created_at')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+  const offering = offeringRes.data;
 
-  const { data: pending } = await admin
+  const pendingRes = await admin
     .from('stock_orders')
     .select('id, type, buyer_id, seller_id, share_count, price_per_share, total_amount, fee_amount, payment_method, payment_reference, status, created_at, paid_at')
     .in('status', ['pending_approval', 'awaiting_payment'])
     .order('created_at', { ascending: false })
     .limit(100);
+  const pending = pendingRes.data;
 
-  const { data: shareholders } = await admin
+  const shareholdersRes = await admin
     .from('shareholders')
     .select('id, navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering')
     .order('antall_aksjer', { ascending: false })
     .limit(200);
+  const shareholders = shareholdersRes.data;
 
-  const { data: tx } = await admin
+  const txRes = await admin
     .from('transactions')
     .select('id, type, antall, pris, dato, total_amount, fee_amount, buyer, seller, order_id')
     .order('dato', { ascending: false })
     .limit(200);
+  const tx = txRes.data;
+
+  const queryError =
+    settingsRes.error?.message ||
+    offeringRes.error?.message ||
+    pendingRes.error?.message ||
+    shareholdersRes.error?.message ||
+    txRes.error?.message ||
+    null;
+  const looksLikeMissingTables = !!queryError && /does not exist|relation/i.test(queryError);
+
+  const errorParam = searchParams?.error;
+  const okParam = searchParams?.ok;
 
   return (
     <div className="min-h-screen">
@@ -57,6 +79,23 @@ export default async function StockAdminPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+        {errorParam ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            {errorParam}
+          </div>
+        ) : null}
+        {okParam ? (
+          <div className="rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+            Lagret.
+          </div>
+        ) : null}
+        {queryError ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            {looksLikeMissingTables
+              ? `Aksje-tabellene finnes ikke i databasen enda: ${queryError}`
+              : `Klarte ikke lese aksje-data fra databasen: ${queryError}`}
+          </div>
+        ) : null}
         <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
           <h1 className="text-lg font-black text-gray-900">Oppsett</h1>
           <div className="mt-3 grid gap-3 md:grid-cols-3 text-sm">

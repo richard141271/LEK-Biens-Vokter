@@ -265,9 +265,16 @@ export async function adminInitSetup(formData: FormData) {
   const adminUser = await requireStockAdmin();
   const admin = createAdminClient();
   const totalShares = Number(formData.get('totalShares') || 0);
-  if (!Number.isFinite(totalShares) || totalShares < 0) return;
-  await admin.rpc('stock_admin_init_setup', { total_shares_input: totalShares });
+  if (!Number.isFinite(totalShares) || totalShares < 0) {
+    redirect('/aksjer/admin?error=Ugyldig%20antall');
+  }
+  const { error } = await admin.rpc('stock_admin_init_setup', { total_shares_input: totalShares });
+  if (error) {
+    const msg = encodeURIComponent(error.message || 'Kunne ikke initialisere holding');
+    redirect(`/aksjer/admin?error=${msg}`);
+  }
   revalidatePath('/aksjer/admin');
+  redirect('/aksjer/admin?ok=1');
 }
 
 export async function adminSetOffering(formData: FormData) {
@@ -278,40 +285,65 @@ export async function adminSetOffering(formData: FormData) {
   const availableShares = Number(formData.get('availableShares') || 0);
   const active = String(formData.get('active') || '') === 'on';
 
-  if (!Number.isFinite(pricePerShare) || pricePerShare <= 0) return;
-  if (!Number.isFinite(availableShares) || availableShares < 0) return;
+  if (!Number.isFinite(pricePerShare) || pricePerShare <= 0) {
+    redirect('/aksjer/admin?error=Ugyldig%20pris');
+  }
+  if (!Number.isFinite(availableShares) || availableShares < 0) {
+    redirect('/aksjer/admin?error=Ugyldig%20antall');
+  }
 
-  await admin.from('stock_offerings').update({ active: false }).eq('active', true);
-  await admin.from('stock_offerings').insert({
+  const { error: deactivateError } = await admin.from('stock_offerings').update({ active: false }).eq('active', true);
+  if (deactivateError) {
+    const msg = encodeURIComponent(deactivateError.message || 'Kunne ikke deaktivere eksisterende emisjon');
+    redirect(`/aksjer/admin?error=${msg}`);
+  }
+
+  const { error: insertError } = await admin.from('stock_offerings').insert({
     active,
     price_per_share: pricePerShare,
     available_shares: availableShares,
     created_by: adminUser.id,
   });
+  if (insertError) {
+    const raw = insertError.message || 'Kunne ikke lagre emisjon';
+    const msg = encodeURIComponent(raw.includes('does not exist') ? 'Database%20mangler%20migrasjon%20for%20aksjer' : raw);
+    redirect(`/aksjer/admin?error=${msg}`);
+  }
 
   revalidatePath('/aksjer/buy');
   revalidatePath('/aksjer/admin');
+  redirect('/aksjer/admin?ok=1');
 }
 
 export async function adminApproveOrder(formData: FormData) {
   const adminUser = await requireStockAdmin();
   const admin = createAdminClient();
   const orderId = String(formData.get('orderId') || '');
-  if (!orderId) return;
+  if (!orderId) redirect('/aksjer/admin?error=Mangler%20ordre-ID');
   const ip = getClientIp();
-  await admin.rpc('stock_admin_approve_order', { order_id_input: orderId, admin_user_id: adminUser.id, admin_ip: ip });
+  const { error } = await admin.rpc('stock_admin_approve_order', { order_id_input: orderId, admin_user_id: adminUser.id, admin_ip: ip });
+  if (error) {
+    const msg = encodeURIComponent(error.message || 'Kunne ikke godkjenne ordre');
+    redirect(`/aksjer/admin?error=${msg}`);
+  }
   revalidatePath('/aksjer/admin');
   revalidatePath('/aksjer/dashboard');
+  redirect('/aksjer/admin?ok=1');
 }
 
 export async function adminRejectOrder(formData: FormData) {
   const adminUser = await requireStockAdmin();
   const admin = createAdminClient();
   const orderId = String(formData.get('orderId') || '');
-  if (!orderId) return;
+  if (!orderId) redirect('/aksjer/admin?error=Mangler%20ordre-ID');
   const ip = getClientIp();
-  await admin.rpc('stock_admin_reject_order', { order_id_input: orderId, admin_user_id: adminUser.id, admin_ip: ip });
+  const { error } = await admin.rpc('stock_admin_reject_order', { order_id_input: orderId, admin_user_id: adminUser.id, admin_ip: ip });
+  if (error) {
+    const msg = encodeURIComponent(error.message || 'Kunne ikke avvise ordre');
+    redirect(`/aksjer/admin?error=${msg}`);
+  }
   revalidatePath('/aksjer/admin');
+  redirect('/aksjer/admin?ok=1');
 }
 
 export async function signOut() {

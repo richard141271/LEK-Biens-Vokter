@@ -11,7 +11,8 @@ import {
   LogOut, 
   LayoutDashboard,
   MessageSquare,
-  Mic
+  Mic,
+  TrendingUp
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
@@ -45,6 +46,7 @@ export default function AdminNav() {
     { href: '/dashboard/admin/voice', label: 'Tale', icon: Mic },
     { href: '/dashboard/admin/shop', label: 'Nettbutikk', icon: ShoppingBag },
     { href: '/dashboard/admin/email', label: 'E-post', icon: Mail },
+    { href: 'https://aksjer.lekbie.no/admin', label: 'Aksjeadmin', icon: TrendingUp },
   ];
 
   return (
@@ -60,18 +62,36 @@ export default function AdminNav() {
 
       <nav className="flex-1 p-4 space-y-2">
         {navItems.map((item) => {
-          const active = isActive(item.href);
+          const isExternal = item.href.startsWith('http');
+          const active = !isExternal && isActive(item.href);
           const Icon = item.icon;
           
+          const className = `flex items-center gap-3 px-4 py-3 rounded-xl transition-colors relative ${
+            active 
+              ? 'bg-purple-600 text-white font-medium shadow-lg shadow-purple-900/20' 
+              : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+          }`;
+
+          if (isExternal) {
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+                className={className}
+              >
+                <Icon className="w-5 h-5 text-gray-500" />
+                <span className="flex-1">{item.label}</span>
+              </a>
+            );
+          }
+
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors relative ${
-                active 
-                  ? 'bg-purple-600 text-white font-medium shadow-lg shadow-purple-900/20' 
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-              }`}
+              className={className}
             >
               <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-gray-500'}`} />
               <span className="flex-1">{item.label}</span>
