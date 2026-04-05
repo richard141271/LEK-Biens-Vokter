@@ -4,14 +4,20 @@ import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { cancelListing, createListing, createResaleOrder } from '@/app/aksjer/actions';
 
-export default async function SellPage() {
+export default async function SellPage({
+  searchParams,
+}: {
+  searchParams?: { ok?: string; error?: string };
+}) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/aksjer/signin');
 
   const admin = createAdminClient();
+  const { data: profile } = await admin.from('stock_profiles').select('full_name').eq('id', user.id).maybeSingle();
   const { data: sh } = await admin.from('shareholders').select('antall_aksjer').eq('user_id', user.id).maybeSingle();
   const owned = Number(sh?.antall_aksjer || 0);
+  const defaultFullName = profile?.full_name || (user.user_metadata as any)?.full_name || '';
 
   const { data: myListings } = await admin
     .from('stock_listings')
@@ -39,6 +45,16 @@ export default async function SellPage() {
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        {searchParams?.ok ? (
+          <div className="rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+            Lagret.
+          </div>
+        ) : null}
+        {searchParams?.error ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            {decodeURIComponent(searchParams.error)}
+          </div>
+        ) : null}
         <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -138,6 +154,7 @@ export default async function SellPage() {
                           <input
                             name="fullName"
                             required
+                            defaultValue={defaultFullName}
                             className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
                             placeholder="Navn etternavn"
                           />
@@ -182,4 +199,3 @@ export default async function SellPage() {
     </div>
   );
 }
-

@@ -192,7 +192,10 @@ export default async function StockAdminPage({
                           </form>
                         </>
                       ) : (
-                        <Link href={`/aksjer/orders/${o.id}`} className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold">
+                        <Link
+                          href={`/aksjer/admin/orders/${o.id}`}
+                          className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold"
+                        >
                           Åpne
                         </Link>
                       )}
@@ -206,6 +209,17 @@ export default async function StockAdminPage({
 
         <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
           <h2 className="font-bold text-gray-900">Aksjeeierbok</h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <a
+              href="/api/aksjer/shareholders/pdf"
+              className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold"
+            >
+              Last ned PDF
+            </a>
+            <Link href="/aksjer/admin/print" className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold">
+              Utskrift
+            </Link>
+          </div>
           <div className="mt-3 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -256,7 +270,7 @@ export default async function StockAdminPage({
                     <td className="py-2 pr-4">{Number(t.fee_amount || 0).toFixed(2)}</td>
                     <td className="py-2 pr-4">
                       {t.order_id ? (
-                        <Link href={`/aksjer/orders/${t.order_id}`} className="font-semibold text-gray-900 hover:underline">
+                        <Link href={`/aksjer/admin/orders/${t.order_id}`} className="font-semibold text-gray-900 hover:underline">
                           Åpne
                         </Link>
                       ) : (

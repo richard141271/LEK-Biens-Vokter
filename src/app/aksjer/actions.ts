@@ -135,19 +135,49 @@ export async function createListing(formData: FormData) {
   const shareCount = Number(formData.get('shareCount') || 0);
   const pricePerShare = Number(formData.get('pricePerShare') || 0);
 
-  if (!Number.isFinite(shareCount) || shareCount <= 0) return;
-  if (!Number.isFinite(pricePerShare) || pricePerShare <= 0) return;
+  if (!Number.isFinite(shareCount) || shareCount <= 0) {
+    redirect('/aksjer/sell?error=Ugyldig%20antall');
+  }
+  if (!Number.isFinite(pricePerShare) || pricePerShare <= 0) {
+    redirect('/aksjer/sell?error=Ugyldig%20pris');
+  }
 
   const { data: sh } = await admin.from('shareholders').select('antall_aksjer').eq('user_id', user.id).maybeSingle();
   const owned = Number(sh?.antall_aksjer || 0);
-  if (owned < shareCount) return;
+  if (owned <= 0) {
+    redirect('/aksjer/sell?error=Du%20har%20ingen%20aksjer%20%C3%A5%20selge');
+  }
+
+  const { data: activeListings, error: activeErr } = await admin
+    .from('stock_listings')
+    .select('share_count')
+    .eq('seller_id', user.id)
+    .eq('status', 'active')
+    .limit(500);
+  if (activeErr) {
+    const msg = encodeURIComponent(activeErr.message || 'Kunne%20ikke%20sjekke%20aktive%20annonser');
+    redirect(`/aksjer/sell?error=${msg}`);
+  }
+  const alreadyListed = (activeListings || []).reduce((sum: number, row: any) => sum + Number(row?.share_count || 0), 0);
+  const availableToList = Math.max(0, owned - alreadyListed);
+  if (shareCount > availableToList) {
+    redirect(
+      `/aksjer/sell?error=${encodeURIComponent(
+        `Du kan ikke legge ut ${shareCount} aksjer. Du har ${availableToList} tilgjengelig (eier ${owned}, ${alreadyListed} er allerede lagt ut).`
+      )}`
+    );
+  }
 
   const { error } = await admin
     .from('stock_listings')
     .insert({ seller_id: user.id, share_count: shareCount, price_per_share: pricePerShare, status: 'active' });
 
-  if (error) return;
+  if (error) {
+    const msg = encodeURIComponent(error.message || 'Kunne%20ikke%20legge%20ut%20annonse');
+    redirect(`/aksjer/sell?error=${msg}`);
+  }
   revalidatePath('/aksjer/sell');
+  redirect('/aksjer/sell?ok=1');
 }
 
 export async function cancelListing(formData: FormData) {

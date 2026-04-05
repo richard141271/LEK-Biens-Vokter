@@ -79,18 +79,6 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    if (pathname === '/aksjer' || pathname.startsWith('/aksjer/')) {
-      const redirectUrl = request.nextUrl.clone()
-      const nextPath = pathname.replace(/^\/aksjer/, '') || '/'
-      redirectUrl.pathname = nextPath
-
-      const redirectResponse = NextResponse.redirect(redirectUrl)
-      for (const cookie of response.cookies.getAll()) {
-        redirectResponse.cookies.set(cookie)
-      }
-      return redirectResponse
-    }
-
     const rewriteUrl = request.nextUrl.clone()
     rewriteUrl.pathname = `/aksjer${pathname === '/' ? '' : pathname}`
     return NextResponse.rewrite(rewriteUrl)

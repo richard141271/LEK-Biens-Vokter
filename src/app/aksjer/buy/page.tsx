@@ -9,6 +9,7 @@ export default async function BuyPage() {
   if (!user) redirect('/aksjer/signin');
 
   const admin = createAdminClient();
+  const { data: profile } = await admin.from('stock_profiles').select('full_name').eq('id', user.id).maybeSingle();
   const { data: offering } = await admin
     .from('stock_offerings')
     .select('id, price_per_share, available_shares, active')
@@ -22,6 +23,7 @@ export default async function BuyPage() {
   return (
     <BuyClient
       userEmail={user.email || ''}
+      defaultFullName={profile?.full_name || (user.user_metadata as any)?.full_name || ''}
       pricePerShare={Number(offering?.price_per_share || 0)}
       availableShares={Number(offering?.available_shares || 0)}
       active={Boolean(offering?.active)}
@@ -29,4 +31,3 @@ export default async function BuyPage() {
     />
   );
 }
-

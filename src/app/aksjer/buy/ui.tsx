@@ -10,12 +10,13 @@ const USDT_TRC20_ADDRESS = 'TJ64DHa2zLRntt2PpghTm3jMWVjv6fLvG1';
 
 export default function BuyClient(props: {
   userEmail: string;
+  defaultFullName: string;
   pricePerShare: number;
   availableShares: number;
   active: boolean;
   feeRate: number;
 }) {
-  const [fullName, setFullName] = useState('');
+  const [fullName, setFullName] = useState(props.defaultFullName || '');
   const [shareCount, setShareCount] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<'bank' | 'usdt_trc20'>('bank');
   const total = useMemo(() => Number((shareCount * props.pricePerShare).toFixed(2)), [shareCount, props.pricePerShare]);
@@ -153,4 +154,3 @@ export default function BuyClient(props: {
     </div>
   );
 }
-
