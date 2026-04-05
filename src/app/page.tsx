@@ -12,6 +12,12 @@ export default function Home() {
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
+    const host = window.location.hostname.toLowerCase();
+    if (host.startsWith('aksjer.')) {
+      window.location.replace('/aksjer/signin');
+      return;
+    }
+
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);

@@ -8,8 +8,13 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  const host = request.headers.get('host') || ''
-  const isStockHost = host.toLowerCase().startsWith('aksjer.')
+  const rawHost =
+    request.headers.get('x-forwarded-host') ||
+    request.headers.get('host') ||
+    request.nextUrl.hostname ||
+    ''
+  const host = rawHost.split(',')[0]?.trim().split(':')[0]?.toLowerCase() || ''
+  const isStockHost = host === 'aksjer.lekbie.no' || host.startsWith('aksjer.')
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
