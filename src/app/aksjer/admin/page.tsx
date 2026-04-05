@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { adminApproveOrder, adminRejectOrder, adminSetOffering } from '@/app/aksjer/actions';
+import { adminApproveOrder, adminRebuildShareLots, adminRejectOrder, adminSetOffering, adminUpdateCompanyInfo } from '@/app/aksjer/actions';
 import DangerInitResetForm from '@/app/aksjer/admin/DangerInitResetForm';
 
 function isVip(email: string | null | undefined) {
@@ -34,6 +34,9 @@ export default async function StockAdminPage({
     .maybeSingle();
   const offering = offeringRes.data;
 
+  const companyRes = await admin.from('stock_company_info').select('company_name, orgnr, incorporation_date, share_capital, par_value').eq('id', 1).maybeSingle();
+  const company = companyRes.data;
+
   const pendingRes = await admin
     .from('stock_orders')
     .select('id, type, buyer_id, seller_id, share_count, price_per_share, total_amount, fee_amount, payment_method, payment_reference, status, created_at, paid_at')
@@ -44,7 +47,7 @@ export default async function StockAdminPage({
 
   const shareholdersRes = await admin
     .from('shareholders')
-    .select('id, navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering')
+    .select('id, navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering, entity_type, birth_date, national_id, orgnr, address_line1, postal_code, city, country')
     .order('antall_aksjer', { ascending: false })
     .limit(200);
   const shareholders = shareholdersRes.data;
@@ -59,6 +62,7 @@ export default async function StockAdminPage({
   const queryError =
     settingsRes.error?.message ||
     offeringRes.error?.message ||
+    companyRes.error?.message ||
     pendingRes.error?.message ||
     shareholdersRes.error?.message ||
     txRes.error?.message ||
@@ -154,6 +158,66 @@ export default async function StockAdminPage({
         </section>
 
         <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="font-bold text-gray-900">Selskapsinfo</h2>
+            <form action={adminRebuildShareLots}>
+              <button className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold">Bygg aksjenummer på nytt</button>
+            </form>
+          </div>
+          <form action={adminUpdateCompanyInfo} className="mt-4 grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Selskapsnavn</label>
+              <input
+                name="companyName"
+                defaultValue={company?.company_name || 'AI Innovate AS'}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Org.nr</label>
+              <input
+                name="orgnr"
+                defaultValue={company?.orgnr || ''}
+                placeholder="9 siffer"
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Dato for opprettelse</label>
+              <input
+                name="incorporationDate"
+                type="date"
+                defaultValue={company?.incorporation_date || ''}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Aksjekapital</label>
+              <input
+                name="shareCapital"
+                type="number"
+                min={0}
+                step="0.01"
+                defaultValue={company?.share_capital ?? ''}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Pålydende per aksje</label>
+              <input
+                name="parValue"
+                type="number"
+                min={0}
+                step="0.01"
+                defaultValue={company?.par_value ?? ''}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+              />
+            </div>
+            <button className="col-span-2 py-3 rounded-xl bg-gray-900 text-white font-bold">Lagre</button>
+          </form>
+        </section>
+
+        <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
           <h2 className="font-bold text-gray-900">Ordre</h2>
           <div className="mt-3 space-y-2">
             {(pending || []).length === 0 ? (
@@ -217,20 +281,38 @@ export default async function StockAdminPage({
               <thead>
                 <tr className="text-left text-gray-500">
                   <th className="py-2 pr-4">Navn</th>
-                  <th className="py-2 pr-4">E-post</th>
+                  <th className="py-2 pr-4">Identitet</th>
+                  <th className="py-2 pr-4">Adresse</th>
                   <th className="py-2 pr-4">Aksjer</th>
                   <th className="py-2 pr-4">Snitt</th>
                   <th className="py-2 pr-4">Oppdatert</th>
+                  <th className="py-2 pr-4"></th>
                 </tr>
               </thead>
               <tbody>
                 {(shareholders || []).map((s: any) => (
                   <tr key={s.id} className="border-t">
                     <td className="py-2 pr-4 font-semibold text-gray-900">{s.navn}</td>
-                    <td className="py-2 pr-4 text-gray-700">{s.email}</td>
+                    <td className="py-2 pr-4 text-gray-700">
+                      {s.entity_type === 'company'
+                        ? s.orgnr || '-'
+                        : s.entity_type === 'person'
+                          ? s.national_id || (s.birth_date ? String(s.birth_date) : '-') 
+                          : '-'}
+                    </td>
+                    <td className="py-2 pr-4 text-gray-700">
+                      {s.address_line1
+                        ? `${s.address_line1}${s.postal_code ? `, ${s.postal_code}` : ''}${s.city ? ` ${s.city}` : ''}${s.country ? `, ${s.country}` : ''}`
+                        : '-'}
+                    </td>
                     <td className="py-2 pr-4">{s.antall_aksjer}</td>
                     <td className="py-2 pr-4">{Number(s.gjennomsnittspris || 0).toFixed(2)}</td>
                     <td className="py-2 pr-4">{new Date(s.siste_oppdatering).toLocaleString('nb-NO')}</td>
+                    <td className="py-2 pr-4">
+                      <Link href={`/aksjer/admin/shareholders/${s.id}`} className="font-bold text-gray-900 hover:underline">
+                        Rediger
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>

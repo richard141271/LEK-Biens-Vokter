@@ -366,6 +366,62 @@ export async function adminSetOffering(formData: FormData) {
   redirect('/aksjer/admin?ok=1');
 }
 
+export async function adminUpdateCompanyInfo(formData: FormData) {
+  await requireStockAdmin();
+  const admin = createAdminClient();
+
+  const companyName = String(formData.get('companyName') || '').trim() || 'AI Innovate AS';
+  const orgnr = String(formData.get('orgnr') || '').trim() || null;
+  const incorporationDate = String(formData.get('incorporationDate') || '').trim() || null;
+  const shareCapitalRaw = String(formData.get('shareCapital') || '').trim();
+  const parValueRaw = String(formData.get('parValue') || '').trim();
+
+  const shareCapital = shareCapitalRaw ? Number(shareCapitalRaw) : null;
+  const parValue = parValueRaw ? Number(parValueRaw) : null;
+
+  if (orgnr && !/^\d{9}$/.test(orgnr)) {
+    redirect('/aksjer/admin?error=Ugyldig%20orgnr');
+  }
+  if (shareCapital !== null && (!Number.isFinite(shareCapital) || shareCapital < 0)) {
+    redirect('/aksjer/admin?error=Ugyldig%20aksjekapital');
+  }
+  if (parValue !== null && (!Number.isFinite(parValue) || parValue < 0)) {
+    redirect('/aksjer/admin?error=Ugyldig%20p%C3%A5lydende');
+  }
+
+  const payload: any = {
+    id: 1,
+    company_name: companyName,
+    orgnr,
+    share_capital: shareCapital,
+    par_value: parValue,
+  };
+  if (incorporationDate) payload.incorporation_date = incorporationDate;
+
+  const { error } = await admin.from('stock_company_info').upsert(payload, { onConflict: 'id' });
+  if (error) {
+    redirect(`/aksjer/admin?error=${encodeURIComponent(error.message || 'Kunne ikke lagre selskapsinfo')}`);
+  }
+
+  revalidatePath('/aksjer/admin');
+  redirect('/aksjer/admin?ok=1');
+}
+
+export async function adminRebuildShareLots() {
+  const adminUser = await requireStockAdmin();
+  const admin = createAdminClient();
+  const ip = getClientIp();
+
+  const { error } = await admin.rpc('stock_admin_rebuild_share_lots', { admin_user_id: adminUser.id, admin_ip: ip });
+  if (error) {
+    redirect(`/aksjer/admin?error=${encodeURIComponent(error.message || 'Kunne ikke gjenoppbygge aksjenummer')}`);
+  }
+
+  revalidatePath('/aksjer/admin');
+  revalidatePath('/aksjer/admin/print');
+  redirect('/aksjer/admin?ok=1');
+}
+
 export async function adminApproveOrder(formData: FormData) {
   const adminUser = await requireStockAdmin();
   const admin = createAdminClient();
@@ -395,6 +451,60 @@ export async function adminRejectOrder(formData: FormData) {
   }
   revalidatePath('/aksjer/admin');
   redirect('/aksjer/admin?ok=1');
+}
+
+export async function adminUpdateShareholder(formData: FormData) {
+  await requireStockAdmin();
+  const admin = createAdminClient();
+
+  const shareholderId = String(formData.get('shareholderId') || '');
+  if (!shareholderId) redirect('/aksjer/admin?error=Mangler%20aksjon%C3%A6r-ID');
+
+  const entityType = String(formData.get('entityType') || 'unknown');
+  const birthDate = String(formData.get('birthDate') || '').trim() || null;
+  const nationalId = String(formData.get('nationalId') || '').trim() || null;
+  const orgnr = String(formData.get('orgnr') || '').trim() || null;
+  const addressLine1 = String(formData.get('addressLine1') || '').trim() || null;
+  const addressLine2 = String(formData.get('addressLine2') || '').trim() || null;
+  const postalCode = String(formData.get('postalCode') || '').trim() || null;
+  const city = String(formData.get('city') || '').trim() || null;
+  const country = String(formData.get('country') || '').trim() || 'NO';
+
+  if (!['unknown', 'person', 'company'].includes(entityType)) {
+    redirect('/aksjer/admin?error=Ugyldig%20type');
+  }
+  if (nationalId && !/^\d{11}$/.test(nationalId)) {
+    redirect('/aksjer/admin?error=Ugyldig%20f%C3%B8dselsnummer');
+  }
+  if (orgnr && !/^\d{9}$/.test(orgnr)) {
+    redirect('/aksjer/admin?error=Ugyldig%20orgnr');
+  }
+  if (postalCode && !/^\d{4}$/.test(postalCode)) {
+    redirect('/aksjer/admin?error=Ugyldig%20postnr');
+  }
+
+  const { error } = await admin
+    .from('shareholders')
+    .update({
+      entity_type: entityType,
+      birth_date: birthDate,
+      national_id: nationalId,
+      orgnr,
+      address_line1: addressLine1,
+      address_line2: addressLine2,
+      postal_code: postalCode,
+      city,
+      country,
+    })
+    .eq('id', shareholderId);
+
+  if (error) {
+    redirect(`/aksjer/admin?error=${encodeURIComponent(error.message || 'Kunne ikke lagre aksjon%C3%A6r')}`);
+  }
+
+  revalidatePath('/aksjer/admin');
+  revalidatePath('/aksjer/admin/print');
+  redirect(`/aksjer/admin/shareholders/${shareholderId}?ok=1`);
 }
 
 export async function signOut() {

@@ -20,10 +20,24 @@ function escapeHtml(input: string) {
 }
 
 function generateShareholderRegisterHtml(params: {
-  company: string;
+  company: {
+    name: string;
+    orgnr: string | null;
+    incorporationDate: string | null;
+    shareCapital: string | null;
+    parValue: string | null;
+  };
   generatedAt: string;
   totalShares: number;
-  rows: Array<{ navn: string; email: string; antall: number; snitt: number; oppdatert: string }>;
+  rows: Array<{
+    navn: string;
+    identitet: string;
+    adresse: string;
+    aksjeklasse: string;
+    aksjenummer: string;
+    antall: number;
+    oppdatert: string;
+  }>;
 }) {
   const { company, generatedAt, totalShares, rows } = params;
   const tableRows = rows
@@ -31,9 +45,11 @@ function generateShareholderRegisterHtml(params: {
       (r) => `
       <tr>
         <td>${escapeHtml(r.navn)}</td>
-        <td>${escapeHtml(r.email)}</td>
+        <td>${escapeHtml(r.identitet)}</td>
+        <td>${escapeHtml(r.adresse)}</td>
+        <td>${escapeHtml(r.aksjeklasse)}</td>
+        <td>${escapeHtml(r.aksjenummer)}</td>
         <td class="num">${r.antall}</td>
-        <td class="num">${r.snitt.toFixed(2)}</td>
         <td>${escapeHtml(r.oppdatert)}</td>
       </tr>`
     )
@@ -55,20 +71,29 @@ function generateShareholderRegisterHtml(params: {
         th, td { padding: 8px 10px; border-top: 1px solid #e5e7eb; font-size: 12px; vertical-align: top; }
         th { text-align: left; color: #6b7280; border-top: none; }
         .num { text-align: right; white-space: nowrap; }
+        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+        .siggrid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px; font-size: 11px; color: #374151; }
+        .sigbox { border-top: 1px solid #e5e7eb; padding-top: 10px; }
+        .sigline { margin-top: 28px; border-bottom: 1px solid #111827; height: 18px; }
         .footer { margin-top: 12px; font-size: 11px; color: #6b7280; }
       </style>
     </head>
     <body>
       <div class="card">
-        <h1>Aksjeeierbok – ${escapeHtml(company)}</h1>
-        <div class="meta">Generert: ${escapeHtml(generatedAt)} • Totalt registrerte aksjer (holding): ${totalShares}</div>
+        <h1>Aksjeeierbok – ${escapeHtml(company.name)}</h1>
+        <div class="meta">
+          Generert: ${escapeHtml(generatedAt)} • Totalt aksjer: ${totalShares} • Org.nr: ${escapeHtml(company.orgnr || '-')} • Stiftet: ${escapeHtml(company.incorporationDate || '-')}
+          • Aksjekapital: ${escapeHtml(company.shareCapital || '-')} • Pålydende: ${escapeHtml(company.parValue || '-')}
+        </div>
         <table>
           <thead>
             <tr>
               <th>Navn</th>
-              <th>E-post</th>
-              <th class="num">Aksjer</th>
-              <th class="num">Snitt</th>
+              <th>Identitet</th>
+              <th>Adresse</th>
+              <th>Aksjeklasse</th>
+              <th>Aksjenummer</th>
+              <th class="num">Antall</th>
               <th>Oppdatert</th>
             </tr>
           </thead>
@@ -76,6 +101,18 @@ function generateShareholderRegisterHtml(params: {
             ${tableRows}
           </tbody>
         </table>
+        <div class="siggrid">
+          <div class="sigbox">
+            <div><strong>Styrets godkjenning</strong></div>
+            <div class="sigline"></div>
+            <div>Dato / Signatur</div>
+          </div>
+          <div class="sigbox">
+            <div><strong>Styreleder / daglig leder</strong></div>
+            <div class="sigline"></div>
+            <div>Navn</div>
+          </div>
+        </div>
         <div class="footer">Kilde: LEK-Biens Vokter – Aksjeplattform</div>
       </div>
     </body>
@@ -96,28 +133,65 @@ export async function GET() {
   }
 
   const settingsRes = await admin.from('stock_settings').select('total_shares').eq('id', 1).maybeSingle();
+  const companyRes = await admin.from('stock_company_info').select('company_name, orgnr, incorporation_date, share_capital, par_value').eq('id', 1).maybeSingle();
   const shareholdersRes = await admin
     .from('shareholders')
-    .select('navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering')
+    .select('id, navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering, entity_type, birth_date, national_id, orgnr, address_line1, address_line2, postal_code, city, country')
     .order('antall_aksjer', { ascending: false })
     .limit(5000);
+  const lotsRes = await admin
+    .from('stock_share_lots')
+    .select('shareholder_id, share_class, start_no, end_no')
+    .order('shareholder_id', { ascending: true })
+    .order('start_no', { ascending: true })
+    .limit(20000);
 
-  const queryError = settingsRes.error?.message || shareholdersRes.error?.message || null;
+  const queryError = settingsRes.error?.message || companyRes.error?.message || shareholdersRes.error?.message || lotsRes.error?.message || null;
   if (queryError) {
     return NextResponse.json({ error: queryError }, { status: 500 });
   }
 
-  const rows = (shareholdersRes.data || []).map((s: any) => ({
-    navn: String(s.navn || ''),
-    email: String(s.email || ''),
-    antall: Number(s.antall_aksjer || 0),
-    snitt: Number(s.gjennomsnittspris || 0),
-    oppdatert: s.siste_oppdatering ? new Date(s.siste_oppdatering).toLocaleString('nb-NO') : '-',
-  }));
+  const lotsByShareholder = new Map<string, string[]>();
+  for (const l of lotsRes.data || []) {
+    const key = String((l as any).shareholder_id);
+    const label = `${String((l as any).share_class || 'A')}: ${Number((l as any).start_no)}–${Number((l as any).end_no)}`;
+    const list = lotsByShareholder.get(key) || [];
+    list.push(label);
+    lotsByShareholder.set(key, list);
+  }
+
+  const rows = (shareholdersRes.data || []).map((s: any) => {
+    const identitet =
+      s.entity_type === 'company'
+        ? String(s.orgnr || '')
+        : s.entity_type === 'person'
+          ? String(s.national_id || (s.birth_date ? String(s.birth_date) : ''))
+          : '';
+
+    const adresse = s.address_line1
+      ? `${String(s.address_line1)}${s.address_line2 ? `, ${String(s.address_line2)}` : ''}${s.postal_code ? `, ${String(s.postal_code)}` : ''}${s.city ? ` ${String(s.city)}` : ''}${s.country ? `, ${String(s.country)}` : ''}`
+      : '';
+
+    return {
+      navn: String(s.navn || ''),
+      identitet: identitet || '-',
+      adresse: adresse || '-',
+      aksjeklasse: 'A',
+      aksjenummer: (lotsByShareholder.get(String(s.id)) || []).join(', ') || '-',
+      antall: Number(s.antall_aksjer || 0),
+      oppdatert: s.siste_oppdatering ? new Date(s.siste_oppdatering).toLocaleString('nb-NO') : '-',
+    };
+  });
 
   const generatedAt = new Date().toLocaleString('nb-NO');
   const html = generateShareholderRegisterHtml({
-    company: 'AI Innovate AS',
+    company: {
+      name: String(companyRes.data?.company_name || 'AI Innovate AS'),
+      orgnr: companyRes.data?.orgnr ? String(companyRes.data.orgnr) : null,
+      incorporationDate: companyRes.data?.incorporation_date ? String(companyRes.data.incorporation_date) : null,
+      shareCapital: companyRes.data?.share_capital != null ? String(companyRes.data.share_capital) : null,
+      parValue: companyRes.data?.par_value != null ? String(companyRes.data.par_value) : null,
+    },
     generatedAt,
     totalShares: Number(settingsRes.data?.total_shares || 0),
     rows,
@@ -160,4 +234,3 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to generate PDF' }, { status: 500 });
   }
 }
-
