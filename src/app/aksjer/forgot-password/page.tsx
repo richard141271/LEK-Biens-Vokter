@@ -3,9 +3,13 @@
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 export default function StockForgotPasswordPage() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
+  const backRaw = String(searchParams.get('back') || '').trim();
+  const back = backRaw.startsWith('/') ? backRaw : '/aksjer/signin';
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -21,7 +25,7 @@ export default function StockForgotPasswordPage() {
       process.env.NEXT_PUBLIC_BASE_URL;
     const origin = window.location.origin;
     const baseUrl = origin.includes('localhost') && configuredBaseUrl ? configuredBaseUrl : origin;
-    const redirectTo = `${baseUrl}/aksjer/reset-password`;
+    const redirectTo = `${baseUrl}/aksjer/reset-password?back=${encodeURIComponent(back)}`;
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) {
@@ -70,7 +74,7 @@ export default function StockForgotPasswordPage() {
         ) : null}
 
         <div className="mt-6 border-t pt-6 text-sm text-gray-600">
-          <Link href="/aksjer/signin" className="font-bold text-gray-900 hover:underline">
+          <Link href={back} className="font-bold text-gray-900 hover:underline">
             ← Tilbake til innlogging
           </Link>
         </div>

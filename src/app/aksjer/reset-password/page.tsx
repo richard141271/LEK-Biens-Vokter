@@ -3,9 +3,13 @@
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 export default function StockResetPasswordPage() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
+  const backRaw = String(searchParams.get('back') || '').trim();
+  const back = backRaw.startsWith('/') ? backRaw : '/aksjer/signin';
   const [loading, setLoading] = useState(true);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -110,7 +114,7 @@ export default function StockResetPasswordPage() {
         ) : null}
 
         <div className="mt-6 border-t pt-6 text-sm text-gray-600">
-          <Link href="/aksjer/signin" className="font-bold text-gray-900 hover:underline">
+          <Link href={back} className="font-bold text-gray-900 hover:underline">
             Til innlogging
           </Link>
         </div>

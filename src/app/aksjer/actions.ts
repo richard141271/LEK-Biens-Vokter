@@ -500,7 +500,12 @@ export async function adminSetOffering(formData: FormData) {
 
 export async function adminUpdateCompanyInfo(formData: FormData) {
   await requireStockAdmin();
-  const admin = createAdminClient();
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e: any) {
+    redirect(`/aksjer/admin?error=${encodeURIComponent(e?.message || 'Server mangler admin-tilgang (service role)')}`);
+  }
 
   const companyName = String(formData.get('companyName') || '').trim() || 'AI Innovate AS';
   const addressLine1 = String(formData.get('addressLine1') || '').trim() || null;
@@ -556,7 +561,13 @@ export async function adminUpdateCompanyInfo(formData: FormData) {
 
   const { error } = await admin.from('stock_company_info').upsert(payload, { onConflict: 'id' });
   if (error) {
-    redirect(`/aksjer/admin?error=${encodeURIComponent(error.message || 'Kunne ikke lagre selskapsinfo')}`);
+    const raw = error.message || 'Kunne ikke lagre selskapsinfo';
+    const lower = raw.toLowerCase();
+    const msg =
+      lower.includes('schema cache') || (lower.includes('column') && lower.includes('does not exist'))
+        ? 'Database mangler migrasjon for selskapsadresse (stock_company_info.*). Kjør migrasjonen og trykk “Reload schema cache” i Supabase.'
+        : raw;
+    redirect(`/aksjer/admin?error=${encodeURIComponent(msg)}`);
   }
 
   revalidatePath('/aksjer/admin');

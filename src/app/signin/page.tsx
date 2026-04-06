@@ -15,6 +15,40 @@ function SignInContent() {
   const searchParams = useSearchParams();
   const next = searchParams.get('next');
   const isRentalFlow = next?.includes('lei-en-kube');
+  const backPath = next ? `/signin?next=${encodeURIComponent(next)}` : '/signin';
+  const forgotPasswordHref = `/aksjer/forgot-password?back=${encodeURIComponent(backPath)}`;
+
+  const mapAuthError = (raw: string) => {
+    const lower = (raw || '').toLowerCase();
+    if (lower.includes('invalid login credentials')) {
+      return 'Feil e-post eller passord. Bruk “Glemt passord?” hvis du er usikker på passordet.';
+    }
+    if (lower.includes('email not confirmed')) {
+      return 'E-posten er ikke bekreftet. Sjekk innboksen din og bekreft før du logger inn.';
+    }
+    return raw;
+  };
+
+  const sendMagicLink = async () => {
+    const emailValue = email.trim();
+    if (!emailValue) {
+      setMessage('Skriv inn e-post først.');
+      return;
+    }
+    setLoading(true);
+    setMessage('');
+    try {
+      const origin = window.location.origin;
+      const emailRedirectTo = `${origin}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`;
+      const { error } = await supabase.auth.signInWithOtp({ email: emailValue, options: { emailRedirectTo } });
+      if (error) throw error;
+      setMessage('Vi har sendt en innloggingslenke til e-posten din.');
+    } catch (error: any) {
+      setMessage('Kunne ikke sende lenke: ' + mapAuthError(error.message || 'Ukjent feil'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +71,7 @@ function SignInContent() {
         window.location.href = '/dashboard';
       }
     } catch (error: any) {
-      setMessage('Kunne ikke logge inn: ' + error.message);
+      setMessage('Kunne ikke logge inn: ' + mapAuthError(error.message || 'Ukjent feil'));
       setLoading(false);
     }
   };
@@ -82,6 +116,11 @@ function SignInContent() {
               required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
             />
+            <div className="mt-2 text-sm">
+              <Link href={forgotPasswordHref} className="font-semibold text-gray-700 hover:underline">
+                Glemt passord?
+              </Link>
+            </div>
           </div>
 
           <button
@@ -90,6 +129,15 @@ function SignInContent() {
             className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
           >
             {loading ? '...' : 'Logg inn'}
+          </button>
+
+          <button
+            type="button"
+            onClick={sendMagicLink}
+            disabled={loading}
+            className="w-full border border-gray-300 hover:border-gray-400 text-gray-900 font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
+          >
+            Send innloggingslenke
           </button>
         </form>
 

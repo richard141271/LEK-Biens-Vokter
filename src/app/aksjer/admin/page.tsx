@@ -210,7 +210,7 @@ export default async function StockAdminPage({
           </div>
           {companyMissing ? (
             <div className="mt-4 text-sm text-yellow-900 bg-yellow-50 border border-yellow-100 rounded-xl p-4">
-              Tabell for selskapsinfo finnes ikke i databasen enda. Kjør migrasjonen først.
+              Database mangler migrasjon for selskapsinfo (inkl. adressefelter). Kjør migrasjonen og trykk “Reload schema cache” i Supabase.
             </div>
           ) : null}
           <form action={adminUpdateCompanyInfo} className="mt-4 grid grid-cols-2 gap-3">
