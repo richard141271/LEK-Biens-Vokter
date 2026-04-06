@@ -503,6 +503,11 @@ export async function adminUpdateCompanyInfo(formData: FormData) {
   const admin = createAdminClient();
 
   const companyName = String(formData.get('companyName') || '').trim() || 'AI Innovate AS';
+  const addressLine1 = String(formData.get('addressLine1') || '').trim() || null;
+  const addressLine2 = String(formData.get('addressLine2') || '').trim() || null;
+  const postalCode = String(formData.get('postalCode') || '').trim() || null;
+  const city = String(formData.get('city') || '').trim() || null;
+  const country = String(formData.get('country') || '').trim() || 'NO';
   const orgnr = String(formData.get('orgnr') || '').trim() || null;
   const incorporationDate = String(formData.get('incorporationDate') || '').trim() || null;
   const shareCapitalRaw = String(formData.get('shareCapital') || '').trim();
@@ -514,6 +519,9 @@ export async function adminUpdateCompanyInfo(formData: FormData) {
 
   if (orgnr && !/^\d{9}$/.test(orgnr)) {
     redirect('/aksjer/admin?error=Ugyldig%20orgnr');
+  }
+  if (postalCode && !/^\d{4}$/.test(postalCode)) {
+    redirect('/aksjer/admin?error=Ugyldig%20postnr');
   }
   if (shareCapital !== null && (!Number.isFinite(shareCapital) || shareCapital < 0)) {
     redirect('/aksjer/admin?error=Ugyldig%20aksjekapital');
@@ -538,6 +546,11 @@ export async function adminUpdateCompanyInfo(formData: FormData) {
     orgnr,
     share_capital: shareCapital,
     par_value: parValue,
+    address_line1: addressLine1,
+    address_line2: addressLine2,
+    postal_code: postalCode,
+    city,
+    country,
   };
   if (incorporationDate) payload.incorporation_date = incorporationDate;
 
@@ -552,13 +565,21 @@ export async function adminUpdateCompanyInfo(formData: FormData) {
 
 export async function adminRebuildShareLots() {
   const adminUser = await requireStockAdmin();
-  const admin = createAdminClient();
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e: any) {
+    redirect(`/aksjer/admin?error=${encodeURIComponent(e?.message || 'Server mangler admin-tilgang (service role)')}`);
+  }
   const ip = getClientIp();
 
   const { error } = await admin.rpc('stock_admin_rebuild_share_lots', { admin_user_id: adminUser.id, admin_ip: ip });
   if (error) {
     const raw = error.message || 'Kunne ikke gjenoppbygge aksjenummer';
-    const msg = raw.toLowerCase().includes('could not find the function')
+    const lower = raw.toLowerCase();
+    const msg = lower.includes('access denied')
+      ? 'Access denied: DB-funksjonen krever service_role. Sjekk SUPABASE_SERVICE_ROLE_KEY i server-miljøet.'
+      : lower.includes('could not find the function')
       ? 'DB mangler migrasjon: stock_admin_rebuild_share_lots'
       : raw;
     redirect(`/aksjer/admin?error=${encodeURIComponent(msg)}`);

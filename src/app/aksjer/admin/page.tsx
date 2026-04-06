@@ -48,7 +48,7 @@ export default async function StockAdminPage({
 
   const companyRes = await admin
     .from('stock_company_info')
-    .select('company_name, orgnr, incorporation_date, share_capital, par_value')
+    .select('company_name, orgnr, incorporation_date, share_capital, par_value, address_line1, address_line2, postal_code, city, country')
     .eq('id', 1)
     .maybeSingle();
   const companyMissing = isMissingDbObjectError(companyRes.error?.message);
@@ -219,6 +219,47 @@ export default async function StockAdminPage({
               <input
                 name="companyName"
                 defaultValue={company?.company_name || 'AI Innovate AS'}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Adresse</label>
+              <input
+                name="addressLine1"
+                defaultValue={(company as any)?.address_line1 || ''}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Adresse (linje 2)</label>
+              <input
+                name="addressLine2"
+                defaultValue={(company as any)?.address_line2 || ''}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Postnr</label>
+              <input
+                name="postalCode"
+                inputMode="numeric"
+                defaultValue={(company as any)?.postal_code || ''}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Sted</label>
+              <input
+                name="city"
+                defaultValue={(company as any)?.city || ''}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Land</label>
+              <input
+                name="country"
+                defaultValue={(company as any)?.country || 'NO'}
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
               />
             </div>

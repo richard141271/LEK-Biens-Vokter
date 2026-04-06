@@ -33,7 +33,7 @@ export default async function StockAdminPrintPage() {
   const settingsRes = await admin.from('stock_settings').select('total_shares, holding_shareholder_id').eq('id', 1).maybeSingle();
   const companyRes = await admin
     .from('stock_company_info')
-    .select('company_name, orgnr, incorporation_date, share_capital, par_value')
+    .select('company_name, orgnr, incorporation_date, share_capital, par_value, address_line1, address_line2, postal_code, city, country')
     .eq('id', 1)
     .maybeSingle();
   const companyMissing = isMissingDbObjectError(companyRes.error?.message);
@@ -126,6 +126,24 @@ export default async function StockAdminPrintPage() {
                 {(companyMissing ? null : companyRes.data?.incorporation_date) || '-'} • Aksjekapital:{' '}
                 {(companyMissing ? null : companyRes.data?.share_capital) ?? '-'} • Pålydende: {(companyMissing ? null : companyRes.data?.par_value) ?? '-'}
               </div>
+              {!companyMissing &&
+              ((companyRes.data as any)?.address_line1 ||
+                (companyRes.data as any)?.postal_code ||
+                (companyRes.data as any)?.city ||
+                (companyRes.data as any)?.country) ? (
+                <div className="text-xs text-gray-500 mt-1">
+                  Adresse:{' '}
+                  {[
+                    (companyRes.data as any)?.address_line1,
+                    (companyRes.data as any)?.address_line2,
+                    (companyRes.data as any)?.postal_code,
+                    (companyRes.data as any)?.city,
+                    (companyRes.data as any)?.country,
+                  ]
+                    .filter(Boolean)
+                    .join(', ')}
+                </div>
+              ) : null}
             </div>
             <div className="text-right text-xs text-gray-500">
               Totalt aksjer: {totalShares}

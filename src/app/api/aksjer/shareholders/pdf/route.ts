@@ -33,6 +33,7 @@ function escapeHtml(input: string) {
 function generateShareholderRegisterHtml(params: {
   company: {
     name: string;
+    address: string | null;
     orgnr: string | null;
     incorporationDate: string | null;
     shareCapital: string | null;
@@ -95,6 +96,7 @@ function generateShareholderRegisterHtml(params: {
         <div class="meta">
           Generert: ${escapeHtml(generatedAt)} • Totalt aksjer: ${totalShares} • Org.nr: ${escapeHtml(company.orgnr || '-')} • Stiftet: ${escapeHtml(company.incorporationDate || '-')}
           • Aksjekapital: ${escapeHtml(company.shareCapital || '-')} • Pålydende: ${escapeHtml(company.parValue || '-')}
+          ${company.address ? `• Adresse: ${escapeHtml(company.address)}` : ''}
         </div>
         <table>
           <thead>
@@ -146,7 +148,7 @@ export async function GET() {
   const settingsRes = await admin.from('stock_settings').select('total_shares, holding_shareholder_id').eq('id', 1).maybeSingle();
   const companyRes = await admin
     .from('stock_company_info')
-    .select('company_name, orgnr, incorporation_date, share_capital, par_value')
+    .select('company_name, orgnr, incorporation_date, share_capital, par_value, address_line1, address_line2, postal_code, city, country')
     .eq('id', 1)
     .maybeSingle();
   const companyMissing = isMissingDbObjectError(companyRes.error?.message);
@@ -236,9 +238,18 @@ export async function GET() {
   });
 
   const generatedAt = new Date().toLocaleString('nb-NO');
+  const companyAddressParts = [
+    !companyMissing && (companyRes.data as any)?.address_line1 ? String((companyRes.data as any).address_line1) : '',
+    !companyMissing && (companyRes.data as any)?.address_line2 ? String((companyRes.data as any).address_line2) : '',
+    !companyMissing && (companyRes.data as any)?.postal_code ? String((companyRes.data as any).postal_code) : '',
+    !companyMissing && (companyRes.data as any)?.city ? String((companyRes.data as any).city) : '',
+    !companyMissing && (companyRes.data as any)?.country ? String((companyRes.data as any).country) : '',
+  ].filter(Boolean);
+  const companyAddress = companyAddressParts.length ? companyAddressParts.join(', ') : null;
   const html = generateShareholderRegisterHtml({
     company: {
       name: String((companyMissing ? null : companyRes.data?.company_name) || 'AI Innovate AS'),
+      address: companyAddress,
       orgnr: !companyMissing && companyRes.data?.orgnr ? String(companyRes.data.orgnr) : null,
       incorporationDate: !companyMissing && companyRes.data?.incorporation_date ? String(companyRes.data.incorporation_date) : null,
       shareCapital: !companyMissing && companyRes.data?.share_capital != null ? String(companyRes.data.share_capital) : null,

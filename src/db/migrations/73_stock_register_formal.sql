@@ -32,6 +32,11 @@ alter table if exists shareholders
 create table if not exists stock_company_info (
   id int primary key default 1,
   company_name text not null default 'AI Innovate AS',
+  address_line1 text,
+  address_line2 text,
+  postal_code text,
+  city text,
+  country text not null default 'NO',
   orgnr text,
   incorporation_date date,
   share_capital numeric,
@@ -39,6 +44,19 @@ create table if not exists stock_company_info (
   default_share_class text not null default 'A',
   updated_at timestamptz default timezone('utc'::text, now()) not null
 );
+
+alter table if exists stock_company_info
+  add column if not exists address_line1 text,
+  add column if not exists address_line2 text,
+  add column if not exists postal_code text,
+  add column if not exists city text,
+  add column if not exists country text;
+
+update stock_company_info set country = coalesce(country, 'NO') where id = 1;
+
+alter table if exists stock_company_info
+  alter column country set default 'NO',
+  alter column country set not null;
 
 insert into stock_company_info(id)
 values (1)
