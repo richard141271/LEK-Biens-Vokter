@@ -13,7 +13,12 @@ function isVip(email: string | null | undefined) {
 function isMissingDbObjectError(message: string | null | undefined) {
   const m = (message || '').toLowerCase();
   if (!m) return false;
-  return m.includes('could not find the table') || m.includes('does not exist') || (m.includes('column') && m.includes('does not exist'));
+  return (
+    m.includes('could not find the table') ||
+    m.includes('does not exist') ||
+    (m.includes('column') && m.includes('does not exist')) ||
+    m.includes('schema cache')
+  );
 }
 
 function escapeHtml(input: string) {
@@ -138,7 +143,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const settingsRes = await admin.from('stock_settings').select('total_shares').eq('id', 1).maybeSingle();
+  const settingsRes = await admin.from('stock_settings').select('total_shares, holding_shareholder_id').eq('id', 1).maybeSingle();
   const companyRes = await admin
     .from('stock_company_info')
     .select('company_name, orgnr, incorporation_date, share_capital, par_value')
@@ -197,7 +202,14 @@ export async function GET() {
     }
   }
 
-  const rows = (shareholders || []).map((s: any) => {
+  const holdingId = String(settingsRes.data?.holding_shareholder_id || '');
+  const visibleShareholders = (shareholders || []).filter((s: any) => {
+    const count = Number(s?.antall_aksjer || 0);
+    if (count > 0) return true;
+    return holdingId && String(s?.id || '') === holdingId;
+  });
+
+  const rows = visibleShareholders.map((s: any) => {
     const identitet = shareholdersExtended
       ? s.entity_type === 'company'
         ? String(s.orgnr || '')

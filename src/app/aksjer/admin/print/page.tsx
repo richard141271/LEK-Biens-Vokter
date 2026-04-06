@@ -11,7 +11,12 @@ function isVip(email: string | null | undefined) {
 function isMissingDbObjectError(message: string | null | undefined) {
   const m = (message || '').toLowerCase();
   if (!m) return false;
-  return m.includes('could not find the table') || m.includes('does not exist') || (m.includes('column') && m.includes('does not exist'));
+  return (
+    m.includes('could not find the table') ||
+    m.includes('does not exist') ||
+    (m.includes('column') && m.includes('does not exist')) ||
+    m.includes('schema cache')
+  );
 }
 
 export default async function StockAdminPrintPage() {
@@ -25,7 +30,7 @@ export default async function StockAdminPrintPage() {
   const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle();
   if (profile?.role !== 'admin' && !isVip(user.email)) redirect('/aksjer/dashboard');
 
-  const settingsRes = await admin.from('stock_settings').select('total_shares').eq('id', 1).maybeSingle();
+  const settingsRes = await admin.from('stock_settings').select('total_shares, holding_shareholder_id').eq('id', 1).maybeSingle();
   const companyRes = await admin
     .from('stock_company_info')
     .select('company_name, orgnr, incorporation_date, share_capital, par_value')
@@ -76,6 +81,12 @@ export default async function StockAdminPrintPage() {
   const generatedAt = new Date().toLocaleString('nb-NO');
   const companyName = (companyMissing ? null : companyRes.data?.company_name) || 'AI Innovate AS';
   const totalShares = Number(settingsRes.data?.total_shares || 0);
+  const holdingId = String(settingsRes.data?.holding_shareholder_id || '');
+  const visibleShareholders = (shareholders || []).filter((s: any) => {
+    const count = Number(s?.antall_aksjer || 0);
+    if (count > 0) return true;
+    return holdingId && String(s?.id || '') === holdingId;
+  });
 
   const lotsByShareholder = new Map<string, string[]>();
   if (!lotsMissing) {
@@ -135,7 +146,7 @@ export default async function StockAdminPrintPage() {
                 </tr>
               </thead>
               <tbody>
-                {(shareholders || []).map((s: any) => (
+                {visibleShareholders.map((s: any) => (
                   <tr key={s.id} className="border-t">
                     <td className="py-2 pr-4 font-semibold text-gray-900">{s.navn}</td>
                     <td className="py-2 pr-4 text-gray-700">

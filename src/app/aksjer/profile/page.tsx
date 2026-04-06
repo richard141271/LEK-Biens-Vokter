@@ -7,7 +7,12 @@ import { updateMyShareholder } from '@/app/aksjer/actions';
 function isMissingDbObjectError(message: string | null | undefined) {
   const m = (message || '').toLowerCase();
   if (!m) return false;
-  return m.includes('could not find the table') || m.includes('does not exist') || (m.includes('column') && m.includes('does not exist'));
+  return (
+    m.includes('could not find the table') ||
+    m.includes('does not exist') ||
+    (m.includes('column') && m.includes('does not exist')) ||
+    m.includes('schema cache')
+  );
 }
 
 export default async function StockProfilePage({
