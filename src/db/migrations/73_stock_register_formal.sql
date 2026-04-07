@@ -7,6 +7,7 @@ end
 $$;
 
 alter table if exists shareholders
+  add column if not exists shareholder_no int,
   add column if not exists entity_type shareholder_entity_type not null default 'unknown',
   add column if not exists birth_date date,
   add column if not exists national_id text,
@@ -16,6 +17,48 @@ alter table if exists shareholders
   add column if not exists postal_code text,
   add column if not exists city text,
   add column if not exists country text not null default 'NO';
+
+create sequence if not exists shareholder_no_seq;
+
+create unique index if not exists shareholders_shareholder_no_unique on shareholders(shareholder_no) where shareholder_no is not null;
+
+create or replace function stock_assign_shareholder_no()
+returns trigger as $$
+begin
+  if new.shareholder_no is null then
+    new.shareholder_no := nextval('shareholder_no_seq');
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists shareholders_assign_no on shareholders;
+create trigger shareholders_assign_no
+before insert on shareholders
+for each row execute function stock_assign_shareholder_no();
+
+do $$
+declare
+  next_no int;
+  assigned_count int;
+  holding_id uuid;
+begin
+  select count(*) into assigned_count from shareholders where shareholder_no is not null;
+  if assigned_count = 0 then
+    select holding_shareholder_id into holding_id from stock_settings where id = 1;
+    if holding_id is not null then
+      update shareholders set shareholder_no = 1 where id = holding_id and shareholder_no is null;
+    end if;
+  end if;
+
+  select coalesce(max(shareholder_no), 0) + 1 into next_no from shareholders;
+  perform setval('shareholder_no_seq', greatest(next_no, 1), false);
+
+  update shareholders
+  set shareholder_no = nextval('shareholder_no_seq')
+  where shareholder_no is null;
+end
+$$;
 
 alter table if exists shareholders
   drop constraint if exists shareholders_national_id_format,
@@ -220,7 +263,7 @@ as $$
 declare
   caller_role text;
 begin
-  caller_role := coalesce(current_setting('request.jwt.claim.role', true), '');
+  caller_role := coalesce(nullif(auth.role(), ''), nullif(current_setting('request.jwt.claim.role', true), ''), '');
   if caller_role <> 'service_role' then
     raise exception 'access denied';
   end if;

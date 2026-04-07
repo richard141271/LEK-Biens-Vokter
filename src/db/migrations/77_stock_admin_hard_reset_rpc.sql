@@ -18,6 +18,13 @@ declare
   headers_json text;
   headers_obj jsonb;
   caller_role text;
+  company_orgnr text;
+  company_address_line1 text;
+  company_address_line2 text;
+  company_postal_code text;
+  company_city text;
+  company_country text;
+  has_formal_columns boolean;
   orders_before integer;
   tx_before integer;
   listings_before integer;
@@ -25,7 +32,7 @@ declare
   events_before integer;
   offerings_before integer;
 begin
-  caller_role := coalesce(current_setting('request.jwt.claim.role', true), '');
+  caller_role := coalesce(nullif(auth.role(), ''), nullif(current_setting('request.jwt.claim.role', true), ''), '');
   if caller_role <> 'service_role' then
     raise exception 'access denied';
   end if;
@@ -70,6 +77,41 @@ begin
     insert into shareholders(user_id, navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering)
     values (null, 'AI Innovate Holding AS', 'holding@aiinnovate.no', 0, 0, reset_ts)
     returning id into holding;
+  end if;
+
+  if to_regclass('public.stock_company_info') is not null then
+    select orgnr, address_line1, address_line2, postal_code, city, country
+    into company_orgnr, company_address_line1, company_address_line2, company_postal_code, company_city, company_country
+    from stock_company_info
+    where id = 1;
+  end if;
+
+  has_formal_columns := exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'shareholders'
+      and column_name = 'orgnr'
+  ) and exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'shareholders'
+      and column_name = 'entity_type'
+  );
+
+  if has_formal_columns then
+    execute
+      'update shareholders
+       set entity_type = case when entity_type = ''unknown'' then ''company'' else entity_type end,
+           orgnr = coalesce(orgnr, $1),
+           address_line1 = coalesce(address_line1, $2),
+           address_line2 = coalesce(address_line2, $3),
+           postal_code = coalesce(postal_code, $4),
+           city = coalesce(city, $5),
+           country = coalesce(country, $6, ''NO'')
+       where id = $7'
+    using company_orgnr, company_address_line1, company_address_line2, company_postal_code, company_city, company_country, holding;
   end if;
 
   select antall_aksjer into prev_holding_shares from shareholders where id = holding;

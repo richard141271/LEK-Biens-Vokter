@@ -380,13 +380,18 @@ export async function markPaid(formData: FormData) {
 export async function adminInitSetup(formData: FormData) {
   const adminUser = await requireStockAdmin();
   const ip = getClientIp();
-  const admin = createAdminClient({
-    headers: {
-      ...(ip ? { 'x-forwarded-for': ip } : {}),
-      ...(adminUser?.id ? { 'x-reset-actor-id': adminUser.id } : {}),
-      ...(adminUser?.email ? { 'x-reset-actor-email': adminUser.email } : {}),
-    },
-  });
+  let admin;
+  try {
+    admin = createAdminClient({
+      headers: {
+        ...(ip ? { 'x-forwarded-for': ip } : {}),
+        ...(adminUser?.id ? { 'x-reset-actor-id': adminUser.id } : {}),
+        ...(adminUser?.email ? { 'x-reset-actor-email': adminUser.email } : {}),
+      },
+    });
+  } catch (e: any) {
+    redirect(`/aksjer/admin?error=${encodeURIComponent(e?.message || 'Server mangler admin-tilgang (service role)')}`);
+  }
 
   const expectedPassword = process.env.STOCK_ADMIN_DANGER_PASSWORD || '';
   if (!expectedPassword) {
