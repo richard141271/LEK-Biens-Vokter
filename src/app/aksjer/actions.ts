@@ -414,8 +414,18 @@ export async function adminInitSetup(formData: FormData) {
   }
   const hardResetRes = await admin.rpc('stock_admin_hard_reset', { new_total_shares: totalShares });
   if (hardResetRes.error) {
-    const msg = encodeURIComponent(`Reset feilet – databasefunksjon mangler eller feilet. (${hardResetRes.error.message || 'Ukjent feil'})`);
-    redirect(`/aksjer/admin?error=${msg}`);
+    const lower = (hardResetRes.error.message || '').toLowerCase();
+    if (lower.includes('access denied')) {
+      const supabase = createClient();
+      const userResetRes = await supabase.rpc('stock_admin_hard_reset', { new_total_shares: totalShares });
+      if (userResetRes.error) {
+        const msg = encodeURIComponent(`Reset feilet – databasefunksjon mangler eller feilet. (${userResetRes.error.message || 'Ukjent feil'})`);
+        redirect(`/aksjer/admin?error=${msg}`);
+      }
+    } else {
+      const msg = encodeURIComponent(`Reset feilet – databasefunksjon mangler eller feilet. (${hardResetRes.error.message || 'Ukjent feil'})`);
+      redirect(`/aksjer/admin?error=${msg}`);
+    }
   }
   revalidatePath('/aksjer/admin');
   redirect('/aksjer/admin?ok=1');
