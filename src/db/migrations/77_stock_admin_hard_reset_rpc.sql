@@ -77,12 +77,12 @@ begin
   select antall_aksjer into prev_holding_shares from shareholders where id = holding;
   prev_holding_shares := coalesce(prev_holding_shares, 0);
 
-  delete from stock_orders;
-  delete from transactions;
-  delete from stock_listings;
-  delete from stock_share_lots;
-  delete from stock_share_lot_events;
-  delete from stock_offerings;
+  truncate table stock_share_lot_events cascade;
+  truncate table stock_share_lots cascade;
+  truncate table stock_offerings cascade;
+  truncate table stock_listings cascade;
+  truncate table transactions cascade;
+  truncate table stock_orders cascade;
 
   update shareholders
   set antall_aksjer = 0,
