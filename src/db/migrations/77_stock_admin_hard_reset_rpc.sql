@@ -27,9 +27,7 @@ declare
 begin
   caller_role := coalesce(current_setting('request.jwt.claim.role', true), '');
   if caller_role <> 'service_role' then
-    if auth.uid() is null or not exists (select 1 from profiles where id = auth.uid() and role = 'admin') then
-      raise exception 'access denied';
-    end if;
+    raise exception 'access denied';
   end if;
 
   if new_total_shares is null or new_total_shares < 0 then
@@ -135,4 +133,3 @@ revoke all on function stock_admin_hard_reset(integer) from public;
 revoke all on function stock_admin_hard_reset(integer) from anon;
 revoke all on function stock_admin_hard_reset(integer) from authenticated;
 grant execute on function stock_admin_hard_reset(integer) to service_role;
-grant execute on function stock_admin_hard_reset(integer) to authenticated;

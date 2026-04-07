@@ -414,18 +414,8 @@ export async function adminInitSetup(formData: FormData) {
   }
   const hardResetRes = await admin.rpc('stock_admin_hard_reset', { new_total_shares: totalShares });
   if (hardResetRes.error) {
-    const lower = (hardResetRes.error.message || '').toLowerCase();
-    if (lower.includes('access denied')) {
-      const supabase = createClient();
-      const userResetRes = await supabase.rpc('stock_admin_hard_reset', { new_total_shares: totalShares });
-      if (userResetRes.error) {
-        const msg = encodeURIComponent(`Reset feilet – databasefunksjon mangler eller feilet. (${userResetRes.error.message || 'Ukjent feil'})`);
-        redirect(`/aksjer/admin?error=${msg}`);
-      }
-    } else {
-      const msg = encodeURIComponent(`Reset feilet – databasefunksjon mangler eller feilet. (${hardResetRes.error.message || 'Ukjent feil'})`);
-      redirect(`/aksjer/admin?error=${msg}`);
-    }
+    const msg = encodeURIComponent(`Reset feilet – databasefunksjon mangler eller feilet. (${hardResetRes.error.message || 'Ukjent feil'})`);
+    redirect(`/aksjer/admin?error=${msg}`);
   }
   revalidatePath('/aksjer/admin');
   redirect('/aksjer/admin?ok=1');
@@ -583,26 +573,16 @@ export async function adminRebuildShareLots() {
   }
   const ip = getClientIp();
 
-  const res = await admin.rpc('stock_admin_rebuild_share_lots', { admin_user_id: adminUser.id, admin_ip: ip });
-  if (res.error) {
-    const lower = (res.error.message || '').toLowerCase();
-    if (lower.includes('access denied')) {
-      const supabase = createClient();
-      const userRes = await supabase.rpc('stock_admin_rebuild_share_lots', { admin_user_id: adminUser.id, admin_ip: ip });
-      if (userRes.error) {
-        const raw = userRes.error.message || 'Kunne ikke gjenoppbygge aksjenummer';
-        const msg = lower.includes('could not find the function')
-          ? 'DB mangler migrasjon: stock_admin_rebuild_share_lots'
-          : raw;
-        redirect(`/aksjer/admin?error=${encodeURIComponent(msg)}`);
-      }
-    } else {
-      const raw = res.error.message || 'Kunne ikke gjenoppbygge aksjenummer';
-      const msg = lower.includes('could not find the function')
-        ? 'DB mangler migrasjon: stock_admin_rebuild_share_lots'
-        : raw;
-      redirect(`/aksjer/admin?error=${encodeURIComponent(msg)}`);
-    }
+  const { error } = await admin.rpc('stock_admin_rebuild_share_lots', { admin_user_id: adminUser.id, admin_ip: ip });
+  if (error) {
+    const raw = error.message || 'Kunne ikke gjenoppbygge aksjenummer';
+    const lower = raw.toLowerCase();
+    const msg = lower.includes('access denied')
+      ? 'Access denied: DB-funksjonen krever service_role. Sjekk SUPABASE_SERVICE_ROLE_KEY i server-miljøet.'
+      : lower.includes('could not find the function')
+      ? 'DB mangler migrasjon: stock_admin_rebuild_share_lots'
+      : raw;
+    redirect(`/aksjer/admin?error=${encodeURIComponent(msg)}`);
   }
 
   revalidatePath('/aksjer/admin');
