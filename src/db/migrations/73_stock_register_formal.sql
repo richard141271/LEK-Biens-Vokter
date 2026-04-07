@@ -212,12 +212,31 @@ end;
 $$ language plpgsql security definer;
 
 create or replace function stock_admin_rebuild_share_lots(admin_user_id uuid, admin_ip text)
-returns void as $$
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  caller_role text;
 begin
+  caller_role := coalesce(current_setting('request.jwt.claim.role', true), '');
+  if caller_role <> 'service_role' then
+    if auth.uid() is null or not exists (select 1 from profiles where id = auth.uid() and role = 'admin') then
+      raise exception 'access denied';
+    end if;
+  end if;
+
   perform stock_rebuild_share_lots();
   perform stock_log(admin_user_id, 'share_lots_rebuild', admin_ip, '{}'::jsonb);
 end;
-$$ language plpgsql security definer;
+$$;
+
+revoke all on function stock_admin_rebuild_share_lots(uuid, text) from public;
+revoke all on function stock_admin_rebuild_share_lots(uuid, text) from anon;
+revoke all on function stock_admin_rebuild_share_lots(uuid, text) from authenticated;
+grant execute on function stock_admin_rebuild_share_lots(uuid, text) to service_role;
+grant execute on function stock_admin_rebuild_share_lots(uuid, text) to authenticated;
 
 create or replace function stock_admin_init_setup(total_shares_input integer)
 returns void as $$
