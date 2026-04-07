@@ -19,6 +19,8 @@ export default async function StockDashboard() {
   const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle();
   const isAdmin = profile?.role === 'admin';
 
+  await admin.rpc('stock_ensure_shareholder_for_user', { target_user_id: user.id });
+
   let sh: any = null;
   const shRes = await admin
     .from('shareholders')
@@ -52,6 +54,25 @@ export default async function StockDashboard() {
           .eq('user_id', user.id)
           .maybeSingle();
         if (!retryFallback.error) sh = retryFallback.data;
+      }
+    }
+  }
+
+  const spRes = await admin
+    .from('stock_profiles')
+    .select('full_name, email')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (!spRes.error || isMissingDbObjectError(spRes.error.message)) {
+    const desiredName = String((spRes.data as any)?.full_name || '').trim() || String(user.email || '').trim();
+    const desiredEmail = String(user.email || '').trim();
+    if (sh && (String((sh as any)?.navn || '').trim() !== desiredName || String((sh as any)?.email || '').trim() !== desiredEmail)) {
+      const syncRes = await admin
+        .from('shareholders')
+        .update({ navn: desiredName, email: desiredEmail })
+        .eq('user_id', user.id);
+      if (!syncRes.error) {
+        sh = { ...(sh as any), navn: desiredName, email: desiredEmail };
       }
     }
   }

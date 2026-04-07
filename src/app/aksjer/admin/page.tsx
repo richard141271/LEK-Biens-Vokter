@@ -98,6 +98,37 @@ export default async function StockAdminPage({
     .limit(200);
   const tx = txRes.data;
 
+  const stockUsersRes = await admin
+    .from('shareholders')
+    .select('id, user_id, shareholder_no, navn, email, antall_aksjer, siste_oppdatering')
+    .not('user_id', 'is', null)
+    .order('siste_oppdatering', { ascending: false })
+    .limit(300);
+  const stockUsers = (stockUsersRes.data || []) as any[];
+  const stockUserIds = Array.from(new Set(stockUsers.map((u: any) => String(u.user_id || '')).filter(Boolean)));
+
+  let rolesByUserId = new Map<string, string>();
+  if (stockUserIds.length > 0) {
+    const rolesRes = await admin
+      .from('profiles')
+      .select('id, role')
+      .in('id', stockUserIds);
+    for (const r of (rolesRes.data || []) as any[]) {
+      rolesByUserId.set(String(r.id), String(r.role || ''));
+    }
+  }
+
+  let isBeekeeperByUserId = new Map<string, boolean>();
+  if (stockUserIds.length > 0) {
+    const beekeeperRes = await admin
+      .from('lek_core_beekeepers')
+      .select('auth_user_id, is_active')
+      .in('auth_user_id', stockUserIds);
+    for (const b of (beekeeperRes.data || []) as any[]) {
+      isBeekeeperByUserId.set(String(b.auth_user_id), Boolean(b.is_active));
+    }
+  }
+
   const queryError =
     settingsRes.error?.message ||
     offeringRes.error?.message ||
@@ -105,6 +136,7 @@ export default async function StockAdminPage({
     pendingRes.error?.message ||
     shareholdersError ||
     txRes.error?.message ||
+    stockUsersRes.error?.message ||
     null;
   const looksLikeMissingTables = !!queryError && /does not exist|relation|could not find the table/i.test(queryError);
   const needsMigration = companyMissing || !shareholdersExtended;
@@ -350,6 +382,52 @@ export default async function StockAdminPage({
                 </div>
               ))
             )}
+          </div>
+        </section>
+
+        <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+          <h2 className="font-bold text-gray-900">Brukeradministrasjon (Aksjeplattform)</h2>
+          <div className="mt-2 text-sm text-gray-600">
+            Viser brukere som har vært innom aksjeplattformen (aksjonærprofil opprettet). Birøktere som kjøper aksjer dukker også opp her.
+          </div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500">
+                  <th className="py-2 pr-4">Navn</th>
+                  <th className="py-2 pr-4">E-post</th>
+                  <th className="py-2 pr-4">Rolle</th>
+                  <th className="py-2 pr-4">Birøkter</th>
+                  <th className="py-2 pr-4">Aksjonær-ID</th>
+                  <th className="py-2 pr-4">Aksjer</th>
+                  <th className="py-2 pr-4">Oppdatert</th>
+                  <th className="py-2 pr-4"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {stockUsers.map((u: any) => {
+                  const uid = String(u.user_id || '');
+                  const role = rolesByUserId.get(uid) || '-';
+                  const isBee = isBeekeeperByUserId.get(uid) === true;
+                  return (
+                    <tr key={u.id} className="border-t">
+                      <td className="py-2 pr-4 font-semibold text-gray-900">{u.navn || '-'}</td>
+                      <td className="py-2 pr-4 text-gray-700">{u.email || '-'}</td>
+                      <td className="py-2 pr-4 text-gray-700">{role}</td>
+                      <td className="py-2 pr-4 text-gray-700">{isBee ? 'Ja' : '-'}</td>
+                      <td className="py-2 pr-4 text-gray-700">{u.shareholder_no || '-'}</td>
+                      <td className="py-2 pr-4">{Number(u.antall_aksjer || 0)}</td>
+                      <td className="py-2 pr-4">{u.siste_oppdatering ? new Date(u.siste_oppdatering).toLocaleString('nb-NO') : '-'}</td>
+                      <td className="py-2 pr-4">
+                        <Link href={`/aksjer/admin/shareholders/${u.id}`} className="font-bold text-gray-900 hover:underline">
+                          Åpne
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </section>
 

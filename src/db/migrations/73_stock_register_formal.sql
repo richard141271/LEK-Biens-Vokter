@@ -72,7 +72,11 @@ begin
   end if;
 
   select email into u_email from auth.users where id = target_user_id;
-  select full_name into u_name from profiles where id = target_user_id;
+  if to_regclass('public.stock_profiles') is not null then
+    select full_name into u_name from stock_profiles where id = target_user_id;
+  elsif to_regclass('public.profiles') is not null then
+    select full_name into u_name from profiles where id = target_user_id;
+  end if;
 
   u_email := nullif(trim(coalesce(u_email, '')), '');
   u_name := nullif(trim(coalesce(u_name, '')), '');
