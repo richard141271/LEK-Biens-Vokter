@@ -16,9 +16,9 @@ export default function BuyClient(props: {
   active: boolean;
   feeRate: number;
 }) {
-  const [fullName, setFullName] = useState(props.defaultFullName || '');
   const [shareCount, setShareCount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'bank' | 'usdt_trc20'>('bank');
+  const buyerName = (props.defaultFullName || '').trim() || props.userEmail;
   const shareCountNumber = useMemo(() => {
     const n = Number(shareCount);
     if (!Number.isFinite(n) || shareCount === '') return 0;
@@ -64,15 +64,11 @@ export default function BuyClient(props: {
               <input type="hidden" name="paymentMethod" value={paymentMethod} />
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">Navn</label>
-                <input
-                  name="fullName"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
-                  placeholder="Navn etternavn"
-                />
+                <div className="text-sm text-gray-500">Kjøper</div>
+                <div className="mt-1 font-bold text-gray-900">{buyerName}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Oppdater navn/identitet i <Link href="/aksjer/profile" className="font-semibold hover:underline">profil</Link>.
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

@@ -3,11 +3,6 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 
-function isVip(email: string | null | undefined) {
-  const e = (email || '').toLowerCase();
-  return ['richard141271@gmail.com', 'richard141271@gmail.no', 'lek@kias.no', 'jorn@kias.no'].includes(e);
-}
-
 function isMissingDbObjectError(message: string | null | undefined) {
   const m = (message || '').toLowerCase();
   if (!m) return false;
@@ -28,7 +23,7 @@ export default async function StockAdminPrintPage() {
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle();
-  if (profile?.role !== 'admin' && !isVip(user.email)) redirect('/aksjer/dashboard');
+  if (profile?.role !== 'admin') redirect('/aksjer/dashboard');
 
   const settingsRes = await admin.from('stock_settings').select('total_shares, holding_shareholder_id').eq('id', 1).maybeSingle();
   const companyRes = await admin
@@ -43,7 +38,7 @@ export default async function StockAdminPrintPage() {
   let shareholdersError: string | null = null;
   const shareholdersRes = await admin
     .from('shareholders')
-    .select('id, navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering, entity_type, birth_date, national_id, orgnr, address_line1, address_line2, postal_code, city, country')
+    .select('id, shareholder_no, navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering, entity_type, birth_date, national_id, orgnr, address_line1, address_line2, postal_code, city, country')
     .order('antall_aksjer', { ascending: false })
     .limit(5000);
   if (shareholdersRes.error && isMissingDbObjectError(shareholdersRes.error.message)) {
@@ -154,6 +149,7 @@ export default async function StockAdminPrintPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-gray-500">
+                  {shareholdersExtended ? <th className="py-2 pr-4">ID</th> : null}
                   <th className="py-2 pr-4">Navn</th>
                   <th className="py-2 pr-4">Identitet</th>
                   <th className="py-2 pr-4">Adresse</th>
@@ -166,6 +162,7 @@ export default async function StockAdminPrintPage() {
               <tbody>
                 {visibleShareholders.map((s: any) => (
                   <tr key={s.id} className="border-t">
+                    {shareholdersExtended ? <td className="py-2 pr-4 text-gray-700">{s.shareholder_no || '-'}</td> : null}
                     <td className="py-2 pr-4 font-semibold text-gray-900">{s.navn}</td>
                     <td className="py-2 pr-4 text-gray-700">
                       {shareholdersExtended

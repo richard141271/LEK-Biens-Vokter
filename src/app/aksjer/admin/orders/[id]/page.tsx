@@ -3,11 +3,6 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 
-function isVip(email: string | null | undefined) {
-  const e = (email || '').toLowerCase();
-  return ['richard141271@gmail.com', 'richard141271@gmail.no', 'lek@kias.no', 'jorn@kias.no'].includes(e);
-}
-
 export default async function StockAdminOrderPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
   const {
@@ -17,7 +12,7 @@ export default async function StockAdminOrderPage({ params }: { params: { id: st
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle();
-  if (profile?.role !== 'admin' && !isVip(user.email)) redirect('/aksjer/dashboard');
+  if (profile?.role !== 'admin') redirect('/aksjer/dashboard');
 
   const orderId = params.id;
   const { data: order, error } = await admin

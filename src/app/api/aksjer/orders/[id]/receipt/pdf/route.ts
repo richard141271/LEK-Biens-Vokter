@@ -5,11 +5,6 @@ import { createAdminClient } from '@/utils/supabase/admin';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function isVip(email: string | null | undefined) {
-  const e = (email || '').toLowerCase();
-  return ['richard141271@gmail.com', 'richard141271@gmail.no', 'lek@kias.no', 'jorn@kias.no'].includes(e);
-}
-
 function isMissingDbObjectError(message: string | null | undefined) {
   const m = (message || '').toLowerCase();
   if (!m) return false;
@@ -158,8 +153,9 @@ export async function GET(_: Request, ctx: { params: { id: string } }) {
   const order = orderRes.data as any;
   if (!order?.id) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const isAdmin = profile?.role === 'admin' || isVip(user.email);
-  if (!isAdmin && String(order.buyer_id) !== user.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (profile?.role !== 'admin' && String(order.buyer_id) !== user.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   const companyRes = await admin
     .from('stock_company_info')

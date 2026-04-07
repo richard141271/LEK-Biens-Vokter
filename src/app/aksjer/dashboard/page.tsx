@@ -16,12 +16,42 @@ export default async function StockDashboard() {
   if (!user) redirect('/aksjer/signin');
 
   const admin = createAdminClient();
-  const { data: profile } = await admin.from('stock_profiles').select('full_name, email').eq('id', user.id).maybeSingle();
-  const { data: sh } = await admin
+  let sh: any = null;
+  const shRes = await admin
     .from('shareholders')
-    .select('antall_aksjer, gjennomsnittspris, siste_oppdatering')
+    .select('shareholder_no, navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering')
     .eq('user_id', user.id)
     .maybeSingle();
+  if (shRes.error && isMissingDbObjectError(shRes.error.message)) {
+    const fallback = await admin
+      .from('shareholders')
+      .select('navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    sh = fallback.data;
+  } else {
+    sh = shRes.data;
+  }
+  if (!sh) {
+    const ensureRes = await admin.rpc('stock_ensure_shareholder_for_user', { target_user_id: user.id });
+    if (!ensureRes.error) {
+      const retry = await admin
+        .from('shareholders')
+        .select('shareholder_no, navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (!retry.error) {
+        sh = retry.data;
+      } else if (isMissingDbObjectError(retry.error.message)) {
+        const retryFallback = await admin
+          .from('shareholders')
+          .select('navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (!retryFallback.error) sh = retryFallback.data;
+      }
+    }
+  }
 
   const formalRes = await admin
     .from('shareholders')
@@ -57,9 +87,9 @@ export default async function StockDashboard() {
     .order('dato', { ascending: false })
     .limit(10);
 
-  const name = profile?.full_name || user.email;
-  const shares = Number(sh?.antall_aksjer || 0);
-  const avg = Number(sh?.gjennomsnittspris || 0);
+  const name = (sh as any)?.navn || user.email;
+  const shares = Number((sh as any)?.antall_aksjer || 0);
+  const avg = Number((sh as any)?.gjennomsnittspris || 0);
 
   return (
     <div className="min-h-screen">
@@ -94,6 +124,9 @@ export default async function StockDashboard() {
               <div className="text-sm text-gray-500">Min profil</div>
               <div className="text-base font-bold text-gray-900 truncate">{name}</div>
               <div className="text-sm text-gray-600 truncate">{user.email}</div>
+              {(sh as any)?.shareholder_no ? (
+                <div className="text-xs text-gray-500 truncate">Aksjonær-ID: {(sh as any).shareholder_no}</div>
+              ) : null}
             </div>
             <div className="text-right">
               <div className="text-sm text-gray-500">Mine aksjer</div>

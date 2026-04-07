@@ -20,10 +20,9 @@ export default async function SellPage({
   if (!user) redirect('/aksjer/signin');
 
   const admin = createAdminClient();
-  const { data: profile } = await admin.from('stock_profiles').select('full_name').eq('id', user.id).maybeSingle();
-  const { data: sh } = await admin.from('shareholders').select('antall_aksjer').eq('user_id', user.id).maybeSingle();
+  const { data: sh } = await admin.from('shareholders').select('navn, antall_aksjer').eq('user_id', user.id).maybeSingle();
   const owned = Number(sh?.antall_aksjer || 0);
-  const defaultFullName = profile?.full_name || (user.user_metadata as any)?.full_name || '';
+  const defaultFullName = String((sh as any)?.navn || '').trim() || (user.user_metadata as any)?.full_name || '';
 
   const { data: myListings } = await admin
     .from('stock_listings')
@@ -186,17 +185,14 @@ export default async function SellPage({
                         <form action={createResaleOrder} className="mt-4 space-y-3">
                       <input type="hidden" name="listingId" value={l.id} />
                       <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-1">Navn</label>
-                          <input
-                            name="fullName"
-                            required
-                            defaultValue={defaultFullName}
-                            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-gray-900 outline-none"
-                            placeholder="Navn etternavn"
-                          />
+                        <div className="col-span-2">
+                          <div className="text-sm text-gray-500">Kjøper</div>
+                          <div className="mt-1 font-bold text-gray-900">{defaultFullName || user.email}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            Oppdater navn/identitet i <Link href="/aksjer/profile" className="font-semibold hover:underline">profil</Link>.
+                          </div>
                         </div>
-                        <div>
+                        <div className="col-span-2">
                           <label className="block text-sm font-semibold text-gray-700 mb-1">Antall</label>
                           <input
                             name="shareCount"

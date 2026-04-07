@@ -24,14 +24,7 @@ async function requireStockAdmin() {
   const user = await requireUser();
   const admin = createAdminClient();
   const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).single();
-  const isVip = [
-    'richard141271@gmail.com',
-    'richard141271@gmail.no',
-    'lek@kias.no',
-    'jorn@kias.no',
-  ].includes((user.email || '').toLowerCase());
-  const isAdmin = profile?.role === 'admin' || isVip;
-  if (!isAdmin) redirect('/aksjer/dashboard');
+  if (profile?.role !== 'admin') redirect('/aksjer/dashboard');
   return user;
 }
 
@@ -98,18 +91,16 @@ export async function createEmissionOrder(formData: FormData) {
   await ensureShareholderForUser(admin, user.id);
   await requireFormalShareholderInfo(user.id, '/aksjer/buy');
 
+  const { data: buyerShareholder } = await admin.from('shareholders').select('navn').eq('user_id', user.id).maybeSingle();
+  const buyerName = String((buyerShareholder as any)?.navn || '').trim() || user.email;
+
   const shareCount = Number(formData.get('shareCount') || 0);
   const paymentMethod = String(formData.get('paymentMethod') || 'bank');
-  const fullName = String(formData.get('fullName') || '').trim();
   const agreed = String(formData.get('agreed') || '') === 'on';
 
   if (!Number.isFinite(shareCount) || shareCount <= 0) return;
   if (paymentMethod !== 'bank' && paymentMethod !== 'usdt_trc20') return;
   if (!agreed) return;
-
-  if (fullName) {
-    await admin.from('stock_profiles').upsert({ id: user.id, full_name: fullName, email: user.email }, { onConflict: 'id' });
-  }
 
   const { data: offering } = await admin
     .from('stock_offerings')
@@ -134,7 +125,7 @@ export async function createEmissionOrder(formData: FormData) {
 
   const agreement = {
     company: 'AI Innovate AS',
-    buyerName: fullName || user.email,
+    buyerName,
     buyerEmail: user.email,
     shareCount,
     pricePerShare,
@@ -272,20 +263,18 @@ export async function createResaleOrder(formData: FormData) {
   await ensureShareholderForUser(admin, user.id);
   await requireFormalShareholderInfo(user.id, '/aksjer/buy');
 
+  const { data: buyerShareholder } = await admin.from('shareholders').select('navn').eq('user_id', user.id).maybeSingle();
+  const buyerName = String((buyerShareholder as any)?.navn || '').trim() || user.email;
+
   const listingId = String(formData.get('listingId') || '');
   const shareCount = Number(formData.get('shareCount') || 0);
   const paymentMethod = String(formData.get('paymentMethod') || 'bank');
-  const fullName = String(formData.get('fullName') || '').trim();
   const agreed = String(formData.get('agreed') || '') === 'on';
 
   if (!listingId) return;
   if (!Number.isFinite(shareCount) || shareCount <= 0) return;
   if (paymentMethod !== 'bank' && paymentMethod !== 'vipps' && paymentMethod !== 'usdt_trc20') return;
   if (!agreed) return;
-
-  if (fullName) {
-    await admin.from('stock_profiles').upsert({ id: user.id, full_name: fullName, email: user.email }, { onConflict: 'id' });
-  }
 
   const { data: listing } = await admin
     .from('stock_listings')
@@ -333,7 +322,7 @@ export async function createResaleOrder(formData: FormData) {
 
   const agreement = {
     company: 'AI Innovate AS',
-    buyerName: fullName || user.email,
+    buyerName,
     buyerEmail: user.email,
     shareCount,
     pricePerShare,

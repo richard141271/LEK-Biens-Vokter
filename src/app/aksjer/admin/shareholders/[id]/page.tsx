@@ -4,11 +4,6 @@ import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { adminUpdateShareholder } from '@/app/aksjer/actions';
 
-function isVip(email: string | null | undefined) {
-  const e = (email || '').toLowerCase();
-  return ['richard141271@gmail.com', 'richard141271@gmail.no', 'lek@kias.no', 'jorn@kias.no'].includes(e);
-}
-
 function isMissingDbObjectError(message: string | null | undefined) {
   const m = (message || '').toLowerCase();
   if (!m) return false;
@@ -30,13 +25,13 @@ export default async function AdminShareholderPage({
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle();
-  if (profile?.role !== 'admin' && !isVip(user.email)) redirect('/aksjer/dashboard');
+  if (profile?.role !== 'admin') redirect('/aksjer/dashboard');
 
   let shareholder: any = null;
   let shareholderExtended = true;
   const shareholderRes = await admin
     .from('shareholders')
-    .select('id, navn, email, entity_type, birth_date, national_id, orgnr, address_line1, address_line2, postal_code, city, country')
+    .select('id, shareholder_no, navn, email, entity_type, birth_date, national_id, orgnr, address_line1, address_line2, postal_code, city, country')
     .eq('id', params.id)
     .maybeSingle();
   if (shareholderRes.error && isMissingDbObjectError(shareholderRes.error.message)) {
@@ -99,7 +94,9 @@ export default async function AdminShareholderPage({
 
         <section className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
           <h1 className="text-lg font-black text-gray-900">{shareholder.navn}</h1>
-          <div className="mt-1 text-sm text-gray-600">{shareholder.email || '-'}</div>
+          <div className="mt-1 text-sm text-gray-600">
+            ID: {(shareholder as any).shareholder_no || '-'} • {shareholder.email || '-'}
+          </div>
           <div className="mt-3 text-sm text-gray-700">
             <div className="text-gray-500">Aksjenummer</div>
             <div className="font-semibold text-gray-900 break-words">{lotsText || '-'}</div>
