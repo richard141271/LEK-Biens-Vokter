@@ -60,6 +60,44 @@ begin
 end
 $$;
 
+create or replace function stock_ensure_shareholder_for_user(target_user_id uuid)
+returns uuid as $$
+declare
+  existing uuid;
+  u_email text;
+  u_name text;
+begin
+  if target_user_id is null then
+    raise exception 'target_user_id is required';
+  end if;
+
+  select email into u_email from auth.users where id = target_user_id;
+  select full_name into u_name from profiles where id = target_user_id;
+
+  u_email := nullif(trim(coalesce(u_email, '')), '');
+  u_name := nullif(trim(coalesce(u_name, '')), '');
+  if u_name is null then
+    u_name := coalesce(u_email, 'Ukjent aksjonær');
+  end if;
+
+  select id into existing from shareholders where user_id = target_user_id limit 1;
+  if existing is not null then
+    update shareholders
+    set navn = u_name,
+        email = coalesce(u_email, email)
+    where id = existing
+      and (navn is distinct from u_name or (u_email is not null and email is distinct from u_email));
+    return existing;
+  end if;
+
+  insert into shareholders(user_id, navn, email, antall_aksjer, gjennomsnittspris)
+  values (target_user_id, u_name, u_email, 0, 0)
+  returning id into existing;
+
+  return existing;
+end;
+$$ language plpgsql security definer set search_path = public;
+
 alter table if exists shareholders
   drop constraint if exists shareholders_national_id_format,
   add constraint shareholders_national_id_format check (national_id is null or national_id ~ '^[0-9]{11}$');

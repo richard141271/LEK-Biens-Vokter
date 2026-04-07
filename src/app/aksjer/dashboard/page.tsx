@@ -16,6 +16,9 @@ export default async function StockDashboard() {
   if (!user) redirect('/aksjer/signin');
 
   const admin = createAdminClient();
+  const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  const isAdmin = profile?.role === 'admin';
+
   let sh: any = null;
   const shRes = await admin
     .from('shareholders')
@@ -53,6 +56,10 @@ export default async function StockDashboard() {
     }
   }
 
+  const shEmail = String((sh as any)?.email || '').trim().toLowerCase();
+  const authEmail = String(user.email || '').trim().toLowerCase();
+  const looksMismatched = Boolean(shEmail && authEmail && shEmail !== authEmail);
+
   const formalRes = await admin
     .from('shareholders')
     .select('entity_type, national_id, orgnr, address_line1, postal_code, city')
@@ -87,7 +94,7 @@ export default async function StockDashboard() {
     .order('dato', { ascending: false })
     .limit(10);
 
-  const name = (sh as any)?.navn || user.email;
+  const name = looksMismatched ? user.email : (sh as any)?.navn || user.email;
   const shares = Number((sh as any)?.antall_aksjer || 0);
   const avg = Number((sh as any)?.gjennomsnittspris || 0);
 
@@ -124,6 +131,11 @@ export default async function StockDashboard() {
               <div className="text-sm text-gray-500">Min profil</div>
               <div className="text-base font-bold text-gray-900 truncate">{name}</div>
               <div className="text-sm text-gray-600 truncate">{user.email}</div>
+              {looksMismatched ? (
+                <div className="text-xs text-red-700">
+                  Profildata er ute av sync (aksjeeierbok har en annen e-post enn innloggingen). Kjør reset/synk eller rediger aksjonær i admin.
+                </div>
+              ) : null}
               {(sh as any)?.shareholder_no ? (
                 <div className="text-xs text-gray-500 truncate">Aksjonær-ID: {(sh as any).shareholder_no}</div>
               ) : null}
@@ -211,9 +223,11 @@ export default async function StockDashboard() {
         </section>
 
         <div className="text-center">
-          <Link href="/aksjer/admin" className="text-xs text-gray-500 hover:underline">
-            Admin
-          </Link>
+          {isAdmin ? (
+            <Link href="/aksjer/admin" className="text-xs text-gray-500 hover:underline">
+              Admin
+            </Link>
+          ) : null}
         </div>
       </main>
     </div>
