@@ -107,7 +107,8 @@ declare
   t record;
   from_sh uuid;
 begin
-  delete from stock_share_lots;
+  truncate table stock_share_lot_events;
+  truncate table stock_share_lots;
 
   select holding_shareholder_id, total_shares into holding_id, total
   from stock_settings where id = 1;
@@ -141,4 +142,3 @@ begin
   end loop;
 end;
 $$ language plpgsql security definer;
-

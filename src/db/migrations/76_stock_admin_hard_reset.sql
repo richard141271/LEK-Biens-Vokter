@@ -18,13 +18,13 @@ begin
     returning id into holding;
   end if;
 
-  delete from stock_share_lot_events;
-  delete from stock_share_lots;
-  delete from stock_listings;
-  delete from stock_orders;
-  delete from transactions;
-  delete from stock_audit_log;
-  delete from stock_offerings;
+  truncate table stock_share_lot_events;
+  truncate table stock_share_lots;
+  truncate table stock_listings;
+  truncate table stock_orders;
+  truncate table transactions;
+  truncate table stock_audit_log;
+  truncate table stock_offerings;
 
   update shareholders
   set antall_aksjer = 0,
@@ -46,4 +46,3 @@ begin
       updated_at = timezone('utc'::text, now());
 end;
 $$ language plpgsql security definer;
-

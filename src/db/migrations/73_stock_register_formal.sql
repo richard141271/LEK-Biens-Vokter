@@ -219,7 +219,7 @@ declare
   t record;
   from_sh uuid;
 begin
-  delete from stock_share_lots;
+  truncate table stock_share_lots;
 
   select holding_shareholder_id, total_shares into holding_id, total
   from stock_settings where id = 1;
@@ -303,7 +303,7 @@ begin
       holding_shareholder_id = excluded.holding_shareholder_id,
       updated_at = timezone('utc'::text, now());
 
-  delete from stock_share_lots;
+  truncate table stock_share_lots;
   if total_shares_input > 0 then
     insert into stock_share_lots(shareholder_id, share_class, start_no, end_no)
     values (holding, 'A', 1, total_shares_input);
