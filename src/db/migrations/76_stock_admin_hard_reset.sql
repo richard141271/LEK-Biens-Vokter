@@ -1,11 +1,26 @@
-create or replace function stock_admin_hard_reset(total_shares_input integer)
-returns void as $$
+drop function if exists stock_admin_hard_reset(integer);
+
+create or replace function stock_admin_hard_reset(new_total_shares integer)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
 declare
   holding uuid;
+  caller_role text;
+  reset_ts timestamptz;
 begin
-  if total_shares_input is null or total_shares_input < 0 then
-    raise exception 'total_shares must be >= 0';
+  caller_role := coalesce(nullif(auth.role(), ''), nullif(current_setting('request.jwt.claim.role', true), ''), '');
+  if caller_role <> 'service_role' then
+    raise exception 'access denied';
   end if;
+
+  if new_total_shares is null or new_total_shares < 0 then
+    raise exception 'new_total_shares must be >= 0';
+  end if;
+
+  reset_ts := timezone('utc'::text, now());
 
   select id into holding
   from shareholders
@@ -13,36 +28,41 @@ begin
   limit 1;
 
   if holding is null then
-    insert into shareholders(user_id, navn, email, antall_aksjer, gjennomsnittspris)
-    values (null, 'AI Innovate Holding AS', 'holding@aiinnovate.no', total_shares_input, 0)
+    insert into shareholders(user_id, navn, email, antall_aksjer, gjennomsnittspris, siste_oppdatering)
+    values (null, 'AI Innovate Holding AS', 'holding@aiinnovate.no', 0, 0, reset_ts)
     returning id into holding;
   end if;
 
-  truncate table stock_share_lot_events;
-  truncate table stock_share_lots;
-  truncate table stock_listings;
-  truncate table stock_orders;
-  truncate table transactions;
-  truncate table stock_audit_log;
-  truncate table stock_offerings;
+  truncate table stock_share_lot_events cascade;
+  truncate table stock_share_lots cascade;
+  truncate table stock_offerings cascade;
+  truncate table stock_listings cascade;
+  truncate table transactions cascade;
+  truncate table stock_orders cascade;
+  truncate table stock_audit_log cascade;
 
   update shareholders
   set antall_aksjer = 0,
       gjennomsnittspris = 0,
-      siste_oppdatering = timezone('utc'::text, now())
-  where id <> holding;
+      siste_oppdatering = reset_ts;
 
   update shareholders
-  set antall_aksjer = total_shares_input,
+  set antall_aksjer = new_total_shares,
       gjennomsnittspris = 0,
-      siste_oppdatering = timezone('utc'::text, now())
+      siste_oppdatering = reset_ts
   where id = holding;
 
-  insert into stock_settings(id, total_shares, holding_shareholder_id)
-  values (1, total_shares_input, holding)
+  insert into stock_settings(id, total_shares, holding_shareholder_id, reset_timestamp)
+  values (1, new_total_shares, holding, reset_ts)
   on conflict (id) do update
   set total_shares = excluded.total_shares,
       holding_shareholder_id = excluded.holding_shareholder_id,
-      updated_at = timezone('utc'::text, now());
+      reset_timestamp = excluded.reset_timestamp,
+      updated_at = reset_ts;
 end;
-$$ language plpgsql security definer;
+$$;
+
+revoke all on function stock_admin_hard_reset(integer) from public;
+revoke all on function stock_admin_hard_reset(integer) from anon;
+revoke all on function stock_admin_hard_reset(integer) from authenticated;
+grant execute on function stock_admin_hard_reset(integer) to service_role;
