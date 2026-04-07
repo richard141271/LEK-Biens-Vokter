@@ -386,26 +386,42 @@ export default async function StockAdminPage({
                     {shareholdersExtended ? <td className="py-2 pr-4 text-gray-700">{s.shareholder_no || '-'}</td> : null}
                     <td className="py-2 pr-4 font-semibold text-gray-900">{s.navn}</td>
                     <td className="py-2 pr-4 text-gray-700">
-                      {shareholdersExtended
-                        ? s.entity_type === 'company'
-                          ? s.orgnr || '-'
-                          : s.entity_type === 'person'
-                            ? s.national_id || (s.birth_date ? String(s.birth_date) : '-')
-                            : '-'
-                        : holdingId && String(s.id) === holdingId
-                          ? company?.orgnr || '-'
-                          : '-'}
+                      {shareholdersExtended ? (
+                        holdingId && String(s.id) === holdingId ? (
+                          s.orgnr || company?.orgnr || '-'
+                        ) : s.entity_type === 'company' ? (
+                          s.orgnr || '-'
+                        ) : s.entity_type === 'person' ? (
+                          s.national_id || (s.birth_date ? String(s.birth_date) : '-')
+                        ) : (
+                          '-'
+                        )
+                      ) : holdingId && String(s.id) === holdingId ? (
+                        company?.orgnr || '-'
+                      ) : (
+                        '-'
+                      )}
                     </td>
                     <td className="py-2 pr-4 text-gray-700">
-                      {shareholdersExtended
-                        ? s.address_line1
-                          ? `${s.address_line1}${s.postal_code ? `, ${s.postal_code}` : ''}${s.city ? ` ${s.city}` : ''}${s.country ? `, ${s.country}` : ''}`
+                      {shareholdersExtended ? (
+                        holdingId && String(s.id) === holdingId ? (
+                          s.address_line1
+                            ? `${s.address_line1}${s.postal_code ? `, ${s.postal_code}` : ''}${s.city ? ` ${s.city}` : ''}${s.country ? `, ${s.country}` : ''}`
+                            : company?.address_line1
+                              ? `${company.address_line1}${company.postal_code ? `, ${company.postal_code}` : ''}${company.city ? ` ${company.city}` : ''}${company.country ? `, ${company.country}` : ''}`
+                              : '-'
+                        ) : s.address_line1 ? (
+                          `${s.address_line1}${s.postal_code ? `, ${s.postal_code}` : ''}${s.city ? ` ${s.city}` : ''}${s.country ? `, ${s.country}` : ''}`
+                        ) : (
+                          '-'
+                        )
+                      ) : holdingId && String(s.id) === holdingId ? (
+                        company?.address_line1
+                          ? `${company.address_line1}${company.postal_code ? `, ${company.postal_code}` : ''}${company.city ? ` ${company.city}` : ''}${company.country ? `, ${company.country}` : ''}`
                           : '-'
-                        : holdingId && String(s.id) === holdingId
-                          ? company?.address_line1
-                            ? `${company.address_line1}${company.postal_code ? `, ${company.postal_code}` : ''}${company.city ? ` ${company.city}` : ''}${company.country ? `, ${company.country}` : ''}`
-                            : '-'
-                          : '-'}
+                      ) : (
+                        '-'
+                      )}
                     </td>
                     <td className="py-2 pr-4">{s.antall_aksjer}</td>
                     <td className="py-2 pr-4">{Number(s.gjennomsnittspris || 0).toFixed(2)}</td>

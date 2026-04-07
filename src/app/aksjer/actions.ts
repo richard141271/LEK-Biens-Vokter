@@ -583,7 +583,7 @@ export async function adminRebuildShareLots() {
     const raw = error.message || 'Kunne ikke gjenoppbygge aksjenummer';
     const lower = raw.toLowerCase();
     const msg = lower.includes('access denied')
-      ? 'Access denied: DB-funksjonen krever service_role. Sjekk SUPABASE_SERVICE_ROLE_KEY i server-miljøet.'
+      ? 'Access denied: DB-funksjonen krever service_role. Sjekk at SUPABASE_SERVICE_ROLE_KEY er satt (og at det er service_role-key fra Supabase, ikke anon), og at SQL-migrasjonene for aksjer er kjørt i Supabase.'
       : lower.includes('could not find the function')
       ? 'DB mangler migrasjon: stock_admin_rebuild_share_lots'
       : raw;
