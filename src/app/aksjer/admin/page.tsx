@@ -21,6 +21,18 @@ function isMissingDbObjectError(message: string | null | undefined) {
   );
 }
 
+function mapErrorMessage(raw: string | null | undefined) {
+  const m = (raw || '').toLowerCase();
+  if (!m) return '';
+  if (m.includes('schema cache')) {
+    return 'Database mangler migrasjon eller Supabase schema cache er utdatert. Kjør migrasjonen og trykk “Reload schema cache” i Supabase.';
+  }
+  if (m.includes('could not find the table') || m.includes('relation') || (m.includes('column') && m.includes('does not exist'))) {
+    return 'Database mangler migrasjon for formell aksjeeierbok (selskapsinfo/identitet/adresse/aksjenummer).';
+  }
+  return raw || '';
+}
+
 export default async function StockAdminPage({
   searchParams,
 }: {
@@ -125,7 +137,7 @@ export default async function StockAdminPage({
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
         {errorParam ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-            {errorParam}
+            {mapErrorMessage(errorParam)}
           </div>
         ) : null}
         {okParam ? (
@@ -135,9 +147,7 @@ export default async function StockAdminPage({
         ) : null}
         {queryError ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-            {looksLikeMissingTables
-              ? `Aksje-tabellene finnes ikke i databasen enda: ${queryError}`
-              : `Klarte ikke lese aksje-data fra databasen: ${queryError}`}
+            {mapErrorMessage(queryError)}
           </div>
         ) : null}
         {needsMigration ? (
@@ -208,11 +218,6 @@ export default async function StockAdminPage({
               <button className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-bold">Bygg aksjenummer på nytt</button>
             </form>
           </div>
-          {companyMissing ? (
-            <div className="mt-4 text-sm text-yellow-900 bg-yellow-50 border border-yellow-100 rounded-xl p-4">
-              Database mangler migrasjon for selskapsinfo (inkl. adressefelter). Kjør migrasjonen og trykk “Reload schema cache” i Supabase.
-            </div>
-          ) : null}
           <form action={adminUpdateCompanyInfo} className="mt-4 grid grid-cols-2 gap-3">
             <div className="col-span-2">
               <label className="block text-sm font-semibold text-gray-700 mb-1">Selskapsnavn</label>
