@@ -20,8 +20,7 @@ async function requireAdmin() {
     .eq('id', user.id)
     .single();
 
-  const isVip = user.email === 'richard141271@gmail.com';
-  const isAdmin = adminProfile?.role === 'admin' || isVip;
+  const isAdmin = adminProfile?.role === 'admin';
 
   return { user, isAdmin };
 }

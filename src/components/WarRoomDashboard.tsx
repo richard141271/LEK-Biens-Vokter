@@ -118,10 +118,7 @@ export default function WarRoomDashboard({
                         .eq('id', user.id)
                         .single();
 
-                    const adminFlag =
-                        profile?.role === 'admin' ||
-                        user.email === 'richard141271@gmail.com' ||
-                        user.email === 'richard141271@gmail.no';
+                    const adminFlag = profile?.role === 'admin';
 
                     setIsAdmin(!!adminFlag);
                 }

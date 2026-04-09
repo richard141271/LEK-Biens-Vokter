@@ -46,7 +46,7 @@ export default function AdminMeetingNotesPage() {
       .eq('id', user.id)
       .single();
 
-    if (profile?.role !== 'admin' && user.email !== 'richard141271@gmail.com') {
+    if (profile?.role !== 'admin') {
       router.push('/admin');
       return;
     }
@@ -219,4 +219,3 @@ export default function AdminMeetingNotesPage() {
     </div>
   );
 }
-

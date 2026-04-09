@@ -23,10 +23,9 @@ export async function GET() {
       .eq('id', user.id)
       .single();
 
-    const isVip = user.email === 'richard141271@gmail.com';
     const isInspector = adminProfile?.role === 'mattilsynet' || adminProfile?.role === 'admin';
 
-    if (!isInspector && !isVip) {
+    if (!isInspector) {
       return NextResponse.json(
         { error: 'Ingen tilgang: Krever mattilsynet-rettigheter' },
         { status: 403 }

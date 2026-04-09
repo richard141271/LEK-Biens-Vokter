@@ -154,15 +154,28 @@ declare
   u_email text;
   u_name text;
 begin
-  select id into existing from shareholders where user_id = target_user_id limit 1;
-  if existing is not null then
-    return existing;
+  if target_user_id is null then
+    raise exception 'target_user_id is required';
   end if;
 
   select email into u_email from auth.users where id = target_user_id;
+  u_email := nullif(trim(coalesce(u_email, '')), '');
+
   select full_name into u_name from stock_profiles where id = target_user_id;
-  if u_name is null or length(trim(u_name)) = 0 then
+  u_name := nullif(trim(coalesce(u_name, '')), '');
+  if u_name is null then
     u_name := coalesce(u_email, 'Ukjent aksjonær');
+  end if;
+
+  select id into existing from shareholders where user_id = target_user_id limit 1;
+  if existing is not null then
+    update shareholders
+    set navn = u_name,
+        email = coalesce(u_email, email),
+        siste_oppdatering = timezone('utc'::text, now())
+    where id = existing
+      and (navn is distinct from u_name or (u_email is not null and email is distinct from u_email));
+    return existing;
   end if;
 
   insert into shareholders(user_id, navn, email, antall_aksjer, gjennomsnittspris)

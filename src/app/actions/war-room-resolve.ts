@@ -18,7 +18,7 @@ export async function resolveWarRoomPost(postId: string) {
         .eq('id', user.id)
         .single();
 
-    const isAdmin = profile?.role === 'admin' || user.email === 'richard141271@gmail.com';
+    const isAdmin = profile?.role === 'admin';
 
     // Also allow author to resolve their own post?
     // "huke av for 'avklart/løst' så 'slukkes' det røde varselet" -> user context implies admin doing it,

@@ -17,7 +17,6 @@ export default async function WarRoomPage() {
     // Check auth metadata
     const { data: { user: authUser } } = await adminVerifier.auth.admin.getUserById(user.id);
     
-    const isVip = user.email === 'richard141271@gmail.com' || user.email === 'richard141271@gmail.no' || user.email === 'test_beekeeper_5@demo.no';
     const isCourseFriendMeta = authUser?.user_metadata?.is_course_friend;
     const isFounderMeta = authUser?.user_metadata?.is_founder;
 
@@ -32,11 +31,11 @@ export default async function WarRoomPage() {
     const isFounder = isFounderMeta; // Fallback to metadata only if column missing
     const isCourseFriend = isCourseFriendMeta; // Fallback to metadata only if column missing
 
-    if (!isAdmin && !isVip && !isFounder && !isCourseFriend) {
+    if (!isAdmin && !isFounder && !isCourseFriend) {
         redirect('/dashboard');
     }
 
-    const backLink = (isFounder || isAdmin || isVip) ? "/dashboard/founder" : "/dashboard";
+    const backLink = (isFounder || isAdmin) ? "/dashboard/founder" : "/dashboard";
 
     return (
         <WarRoomDashboard 

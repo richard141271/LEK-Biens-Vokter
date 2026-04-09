@@ -31,11 +31,10 @@ export async function GET() {
       );
     }
 
-    const isVip = user.email === 'richard141271@gmail.com';
     const isInspector =
       adminProfile?.role === 'mattilsynet' || adminProfile?.role === 'admin';
 
-    if (!isInspector && !isVip) {
+    if (!isInspector) {
       return NextResponse.json(
         { error: 'Ingen tilgang: Krever Mattilsynet- eller admin-rolle' },
         { status: 403 }

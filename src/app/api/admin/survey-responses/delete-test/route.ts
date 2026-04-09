@@ -32,8 +32,7 @@ async function requireAdmin() {
     };
   }
 
-  const isVip = user.email === 'richard141271@gmail.com';
-  const isAdmin = adminProfile?.role === 'admin' || isVip;
+  const isAdmin = adminProfile?.role === 'admin';
 
   if (!isAdmin) {
     return {
@@ -78,4 +77,3 @@ export async function POST() {
     );
   }
 }
-

@@ -26,10 +26,7 @@ export default async function FounderPage() {
     }
 
     if (!status.profile) {
-        // Check if course friend (should be redirected to community)
-        // Also check for VIP Wenche
-        const isWenche = user.email === 'test_beekeeper_5@demo.no';
-        const isCourseFriend = user.user_metadata?.is_course_friend || isWenche;
+        const isCourseFriend = user.user_metadata?.is_course_friend;
 
         if (isCourseFriend) {
             redirect('/dashboard/founder/community');

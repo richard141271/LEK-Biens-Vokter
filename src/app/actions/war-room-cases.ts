@@ -300,9 +300,7 @@ export async function updateCaseStatus(
         profileRole = profile?.role || null;
     }
 
-    const isAdmin =
-        profileRole === 'admin' ||
-        effectiveEmail === 'richard141271@gmail.com';
+    const isAdmin = profileRole === 'admin';
 
     // Kursvenn kan endre mellom ÅPEN <-> PÅGÅR og PAUSE. Admin kan sette LØST og ARKIV.
     if (!isAdmin && !['IN_PROGRESS', 'OPEN', 'PAUSED'].includes(status)) {

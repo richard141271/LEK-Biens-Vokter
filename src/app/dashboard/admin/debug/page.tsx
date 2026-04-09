@@ -33,18 +33,15 @@ export default function DebugUserCheckPage() {
       return;
     }
 
-    // Simple client-side check, real protection is on the API
-    if (user.email !== 'richard141271@gmail.com') {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-      
-      if (profile?.role !== 'admin') {
-        router.push('/dashboard');
-        return;
-      }
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+    
+    if (profile?.role !== 'admin') {
+      router.push('/dashboard');
+      return;
     }
 
     fetchData();

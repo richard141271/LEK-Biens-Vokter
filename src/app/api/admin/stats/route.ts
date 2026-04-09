@@ -31,10 +31,9 @@ export async function GET() {
       );
     }
 
-    const isVip = user.email === 'richard141271@gmail.com';
     const isAdmin = adminProfile?.role === 'admin';
 
-    if (!isAdmin && !isVip) {
+    if (!isAdmin) {
       return NextResponse.json(
         { error: 'Ingen tilgang: Krever admin-rettigheter' },
         { status: 403 }

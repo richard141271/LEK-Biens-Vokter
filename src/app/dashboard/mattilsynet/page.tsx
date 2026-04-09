@@ -41,7 +41,7 @@ export default function MattilsynetDashboard() {
         .eq('id', user.id)
         .single();
 
-      if (profileData?.role !== 'mattilsynet' && profileData?.role !== 'admin' && user.email !== 'richard141271@gmail.com' && user.email !== 'richard141271@gmail.no') {
+      if (profileData?.role !== 'mattilsynet' && profileData?.role !== 'admin') {
         await supabase.auth.signOut();
         router.push('/mattilsynet');
         return;

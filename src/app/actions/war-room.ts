@@ -3,9 +3,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { revalidatePath } from 'next/cache';
-import { getMailService } from '@/services/mail';
-
-const ADMIN_EMAIL = 'richard141271@gmail.com';
 
 async function checkWarRoomAccess(userId: string) {
     const adminVerifier = createAdminClient();
@@ -13,9 +10,6 @@ async function checkWarRoomAccess(userId: string) {
     // Check auth metadata first
     const { data: { user: authUser } } = await adminVerifier.auth.admin.getUserById(userId);
     if (!authUser) return false;
-
-    // Check strict Richard email
-    if (authUser.email === 'richard141271@gmail.com') return true;
 
     // Check profile roles
     const { data: profile } = await adminVerifier
@@ -33,26 +27,6 @@ async function checkWarRoomAccess(userId: string) {
     if (authUser.user_metadata?.is_founder) return true;
 
     return false;
-}
-
-async function notifyAdmin(subject: string, content: string) {
-    // Disabled by user request: "jeg vil heller ha røde prikker i appen... så ikke eposten min fylles med driiit"
-    return;
-    
-    /*
-    try {
-        const mailService = getMailService();
-        await mailService.sendMail(
-            'WarRoom', 
-            ADMIN_EMAIL, 
-            subject, 
-            content, 
-            'system'
-        );
-    } catch (e) {
-        console.error('Failed to notify admin:', e);
-    }
-    */
 }
 
 export type WarRoomPostType = 'done' | 'plan' | 'help' | 'idea' | 'problem';
@@ -98,7 +72,7 @@ export async function getWarRoomFeed() {
         .eq('id', user.id)
         .single();
 
-    const isAdmin = profile?.role === 'admin' || user.email === 'richard141271@gmail.com';
+    const isAdmin = profile?.role === 'admin';
 
     // Fetch posts with user details
     // Filter deleted posts unless admin? Or maybe allow admin to see them but marked?
@@ -151,16 +125,11 @@ export async function getWarRoomFeed() {
             if (authUser) {
                 profile = {
                     id: authUser.id,
-                    full_name: authUser.email === 'richard141271@gmail.com' ? 'Admin' : (authUser.user_metadata?.full_name || 'Ukjent (Auth)'),
+                    full_name: authUser.user_metadata?.full_name || 'Ukjent (Auth)',
                     email: authUser.email,
                     avatar_url: authUser.user_metadata?.avatar_url || null
                 };
             }
-        }
-        
-        // Ensure Admin is always shown as Admin
-        if (profile?.email === 'richard141271@gmail.com') {
-            profile.full_name = 'Admin';
         }
 
         return {
@@ -193,7 +162,7 @@ export async function deleteWarRoomPost(postId: string) {
         .eq('id', user.id)
         .single();
 
-    if (profile?.role !== 'admin' && user.email !== 'richard141271@gmail.com') {
+    if (profile?.role !== 'admin') {
         // Allow deleting own post?
         const { data: post } = await adminClient.from('warroom_posts').select('user_id').eq('id', postId).single();
         if (post?.user_id !== user.id) {
@@ -227,7 +196,7 @@ export async function editWarRoomPost(postId: string, content: string) {
     const { data: post } = await adminClient.from('warroom_posts').select('user_id').eq('id', postId).single();
     const { data: profile } = await adminClient.from('profiles').select('role').eq('id', user.id).single();
     
-    const isAdmin = profile?.role === 'admin' || user.email === 'richard141271@gmail.com';
+    const isAdmin = profile?.role === 'admin';
     
     if (!isAdmin && post?.user_id !== user.id) {
         return { error: 'Unauthorized' };
@@ -270,23 +239,6 @@ export async function postWarRoomEntry(type: WarRoomPostType, content: string) {
 
     // 2. Handle Side Effects
     
-    // Notify Admin
-    if (user.email !== ADMIN_EMAIL) {
-        const typeLabel: Record<string, string> = {
-            done: '✅ Utført',
-            plan: '📅 Planlegger',
-            help: '🆘 Trenger hjelp',
-            idea: '💡 Idé',
-            problem: '⚠️ Problem'
-        };
-        const label = typeLabel[type] || type;
-
-        await notifyAdmin(
-            `War Room: Ny ${label} fra ${user.email}`,
-            `Bruker: ${user.email}\nType: ${label}\n\nInnhold:\n${content.trim()}`
-        );
-    }
-
     // Idea -> Idea Bank
     if (type === 'idea') {
         await adminClient.from('warroom_ideas').insert({
@@ -385,16 +337,11 @@ export async function getUserStatuses() {
              if (authUser) {
                  profile = {
                      id: authUser.id,
-                     full_name: authUser.email === 'richard141271@gmail.com' ? 'Admin' : (authUser.user_metadata?.full_name || 'Ukjent (Auth)'),
+                     full_name: authUser.user_metadata?.full_name || 'Ukjent (Auth)',
                      email: authUser.email,
                      avatar_url: authUser.user_metadata?.avatar_url
                  };
              }
-        }
-        
-        // Ensure Admin is always shown as Admin
-        if (profile?.email === 'richard141271@gmail.com') {
-            profile.full_name = 'Admin';
         }
         
         return {
@@ -438,28 +385,27 @@ export async function getDailyFocus() {
 
     if (focusRow && focusRow.created_by) {
         let authorName = 'Ukjent';
-        
-        // Check if Admin
+
         const { data: { user: authUser } } = await adminClient.auth.admin.getUserById(focusRow.created_by);
         if (authUser) {
-            if (authUser.email === 'richard141271@gmail.com') {
+            const { data: profile } = await adminClient
+                .from('profiles')
+                .select('full_name, role, email')
+                .eq('id', focusRow.created_by)
+                .single();
+
+            if (profile?.role === 'admin') {
                 authorName = 'Admin';
             } else {
-                // Check profile
-                const { data: profile } = await adminClient
-                    .from('profiles')
-                    .select('full_name')
-                    .eq('id', focusRow.created_by)
-                    .single();
-                
-                if (profile) {
-                    authorName = profile.full_name || 'Ukjent';
-                } else {
-                    authorName = authUser.user_metadata?.full_name || 'Ukjent (Auth)';
-                }
+                authorName =
+                    profile?.full_name ||
+                    profile?.email ||
+                    authUser.user_metadata?.full_name ||
+                    authUser.email ||
+                    'Ukjent';
             }
         }
-        
+
         return { focus: { ...focusRow, author: authorName } };
     }
 
@@ -477,9 +423,6 @@ export async function setDailyFocus(text: string) {
     const adminClient = createAdminClient();
     const today = getOsloDate(); // YYYY-MM-DD in Oslo
     
-    // Log intent (debug)
-    console.log(`[WarRoom] Setting Daily Focus for ${today} by ${user.email} (Admin override active via adminClient)`);
-
     // Upsert logic for today's focus
     // We need to handle the unique constraint on date
     const { error } = await adminClient
@@ -493,13 +436,6 @@ export async function setDailyFocus(text: string) {
     if (error) {
         console.error('[WarRoom] Error setting Daily Focus:', error);
         return { error: error.message };
-    }
-
-    if (user.email !== ADMIN_EMAIL) {
-        await notifyAdmin(
-            `War Room: Dagens Fokus endret av ${user.email}`,
-            `Nytt fokus: ${text}`
-        );
     }
 
     revalidatePath('/dashboard/war-room');
@@ -587,12 +523,6 @@ export async function sendRelationshipAlert() {
 
     if (error) return { error: error.message };
 
-    await notifyAdmin(
-        `🚨 RELASJONSVARSEL fra ${user.email}`,
-        `Bruker ${user.email} har sendt et relasjonsvarsel via War Room.\n\n"Vennskapet foran alt".`
-    );
-
-    // Ideally send email too, but for now this logs it.
     revalidatePath('/dashboard/war-room');
     return { success: true };
 }

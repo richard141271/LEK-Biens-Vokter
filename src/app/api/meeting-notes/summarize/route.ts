@@ -250,7 +250,7 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .single();
 
-    const isAdmin = profile?.role === 'admin' || user.email === 'richard141271@gmail.com';
+    const isAdmin = profile?.role === 'admin';
     if (note.user_id !== user.id && !isAdmin) {
       return NextResponse.json({ error: 'Ingen tilgang til dette referatet' }, { status: 403 });
     }

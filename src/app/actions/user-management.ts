@@ -26,16 +26,9 @@ export async function deleteUser(userId: string) {
     .eq('id', user.id)
     .single()
 
-  const isVip = [
-    'richard141271@gmail.com', 
-    'richard141271@gmail.no', 
-    'lek@kias.no', 
-    'jorn@kias.no'
-  ].includes(user.email?.toLowerCase() || '');
-  
   const isAdmin = adminProfile?.role === 'admin';
 
-  if (!isAdmin && !isVip) {
+  if (!isAdmin) {
     return { error: 'Ingen tilgang: Krever admin-rettigheter' }
   }
 
@@ -87,15 +80,9 @@ export async function hardDeleteUser(userId: string) {
     .eq('id', user.id)
     .single()
 
-  const isVip = [
-    'richard141271@gmail.com', 
-    'richard141271@gmail.no', 
-    'lek@kias.no', 
-    'jorn@kias.no'
-  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
-  if (!isAdmin && !isVip) {
+  if (!isAdmin) {
     return { error: 'Ingen tilgang: Krever admin-rettigheter' }
   }
 
@@ -442,15 +429,9 @@ export async function removeEmail(userId: string) {
     .eq('id', user.id)
     .single()
 
-  const isVip = [
-    'richard141271@gmail.com', 
-    'richard141271@gmail.no', 
-    'lek@kias.no', 
-    'jorn@kias.no'
-  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
-  if (!isAdmin && !isVip) {
+  if (!isAdmin) {
     return { error: 'Ingen tilgang' }
   }
 
@@ -482,15 +463,9 @@ export async function toggleFounderStatus(userId: string, isFounder: boolean) {
     .eq('id', user.id)
     .single()
 
-  const isVip = [
-    'richard141271@gmail.com', 
-    'richard141271@gmail.no', 
-    'lek@kias.no', 
-    'jorn@kias.no'
-  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
-  if (!isAdmin && !isVip) {
+  if (!isAdmin) {
     return { error: 'Ingen tilgang' }
   }
 
@@ -541,15 +516,9 @@ export async function toggleCourseFriendStatus(userId: string, isCourseFriend: b
     .eq('id', user.id)
     .single()
 
-  const isVip = [
-    'richard141271@gmail.com', 
-    'richard141271@gmail.no', 
-    'lek@kias.no', 
-    'jorn@kias.no'
-  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
-  if (!isAdmin && !isVip) {
+  if (!isAdmin) {
     return { error: 'Ingen tilgang' }
   }
 
@@ -591,15 +560,9 @@ export async function reactivateUser(userId: string) {
     .eq('id', user.id)
     .single()
 
-  const isVip = [
-    'richard141271@gmail.com', 
-    'richard141271@gmail.no', 
-    'lek@kias.no', 
-    'jorn@kias.no'
-  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
-  if (!isAdmin && !isVip) {
+  if (!isAdmin) {
     return { error: 'Ingen tilgang' }
   }
 
@@ -646,15 +609,9 @@ export async function updateUserPassword(userId: string, newPassword: string) {
     .eq('id', user.id)
     .single()
 
-  const isVip = [
-    'richard141271@gmail.com', 
-    'richard141271@gmail.no', 
-    'lek@kias.no', 
-    'jorn@kias.no'
-  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
-  if (!isAdmin && !isVip) {
+  if (!isAdmin) {
     return { error: 'Ingen tilgang' }
   }
 
@@ -686,15 +643,9 @@ export async function getUsers() {
     .eq('id', user.id)
     .single()
 
-  const isVip = [
-    'richard141271@gmail.com', 
-    'richard141271@gmail.no', 
-    'lek@kias.no', 
-    'jorn@kias.no'
-  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
-  if (!isAdmin && !isVip) {
+  if (!isAdmin) {
     return { error: 'Ingen tilgang' }
   }
 
@@ -746,15 +697,9 @@ export async function updateUserRole(userId: string, role: string) {
     .eq('id', user.id)
     .single()
 
-  const isVip = [
-    'richard141271@gmail.com', 
-    'richard141271@gmail.no', 
-    'lek@kias.no', 
-    'jorn@kias.no'
-  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
-  if (!isAdmin && !isVip) {
+  if (!isAdmin) {
     return { error: 'Ingen tilgang' }
   }
 
@@ -782,15 +727,9 @@ export async function assignEmail(userId: string, alias: string, enableAccess: b
     .eq('id', user.id)
     .single()
 
-  const isVip = [
-    'richard141271@gmail.com', 
-    'richard141271@gmail.no', 
-    'lek@kias.no', 
-    'jorn@kias.no'
-  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
-  if (!isAdmin && !isVip) {
+  if (!isAdmin) {
     return { error: 'Ingen tilgang' }
   }
 
@@ -833,15 +772,9 @@ export async function toggleEmailAccess(userId: string, hasAccess: boolean) {
     .eq('id', user.id)
     .single()
 
-  const isVip = [
-    'richard141271@gmail.com', 
-    'richard141271@gmail.no', 
-    'lek@kias.no', 
-    'jorn@kias.no'
-  ].includes(user.email?.toLowerCase() || '');
   const isAdmin = adminProfile?.role === 'admin';
 
-  if (!isAdmin && !isVip) {
+  if (!isAdmin) {
     return { error: 'Ingen tilgang' }
   }
 

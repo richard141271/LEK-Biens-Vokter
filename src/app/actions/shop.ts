@@ -62,10 +62,9 @@ export async function addStandardProducts() {
     .eq('id', user.id)
     .single();
 
-  const isVip = user.email === 'richard141271@gmail.com';
   const isAdmin = profile?.role === 'admin';
 
-  if (!isAdmin && !isVip) {
+  if (!isAdmin) {
     return { error: 'Du har ikke tilgang til å utføre denne handlingen.' };
   }
 

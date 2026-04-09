@@ -7,47 +7,31 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const secret = searchParams.get('secret');
-    
-    // Allow if secret matches OR if authenticated admin
     let isAdmin = false;
     
-    if (secret === 'nuke-it-all-please') {
-      isAdmin = true;
-    } else {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-      if (user) {
-        const adminVerifier = createAdminClient();
-        const { data: adminProfile } = await adminVerifier
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
+    if (user) {
+      const adminVerifier = createAdminClient();
+      const { data: adminProfile } = await adminVerifier
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
 
-        const isVip = user.email === 'richard141271@gmail.com';
-        isAdmin = adminProfile?.role === 'admin' || isVip;
-      }
+      isAdmin = adminProfile?.role === 'admin';
     }
 
     if (!isAdmin) {
       return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
     }
 
-    let client;
-    let mode = 'admin_client';
-    
-    // Check if Service Role Key is available
-    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.log('Service Role Key found, using admin client');
-        client = createAdminClient();
-    } else {
-        console.log('Service Role Key MISSING, using user session client');
-        client = createClient();
-        mode = 'user_client';
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json({ error: 'Server mangler service role' }, { status: 500 });
     }
+    const client = createAdminClient();
+    const mode = 'admin_client';
 
     // 1. Truncate survey_responses
     const { error: surveyError } = await client

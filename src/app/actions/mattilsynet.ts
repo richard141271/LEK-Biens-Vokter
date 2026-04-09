@@ -29,10 +29,9 @@ export async function getMattilsynetDashboardData() {
       .eq('id', user.id)
       .single();
 
-    const isVip = user.email === 'richard141271@gmail.com';
     const isInspector = adminProfile?.role === 'mattilsynet' || adminProfile?.role === 'admin';
 
-    if (!isInspector && !isVip) {
+    if (!isInspector) {
       return { error: 'Ingen tilgang', debug };
     }
 

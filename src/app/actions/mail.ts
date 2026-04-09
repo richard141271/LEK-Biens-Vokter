@@ -88,8 +88,7 @@ async function getRequesterRole(userId: string) {
 }
 
 function isAuthorizedAdmin(email: string | undefined, role: string | undefined) {
-    const isVip = email === 'richard141271@gmail.com';
-    return role === 'admin' || role === 'superadmin' || isVip;
+    return role === 'admin' || role === 'superadmin';
 }
 
 export async function getAdminUserProfile(userId: string) {

@@ -303,8 +303,7 @@ export async function repairFounderProfiles() {
         .eq('id', user.id)
         .single();
 
-    // STRICT CHECK: Only admin or Richard
-    if (profile?.role !== 'admin' && user.email?.toLowerCase() !== 'richard141271@gmail.com') {
+    if (profile?.role !== 'admin') {
         return { error: `Unauthorized: Role is '${profile?.role}'` };
     }
 
@@ -379,7 +378,7 @@ export async function updateFounderFollowup(
         .eq('id', user.id)
         .single();
 
-    if (profile?.role !== 'admin' && user.email?.toLowerCase() !== 'richard141271@gmail.com') {
+    if (profile?.role !== 'admin') {
         return { success: false, error: 'Unauthorized' };
     }
     
@@ -472,7 +471,7 @@ export async function getFounderFollowupStats() {
         .eq('id', user.id)
         .single();
 
-    if (profile?.role !== 'admin' && user.email?.toLowerCase() !== 'richard141271@gmail.com') {
+    if (profile?.role !== 'admin') {
         return { actionNeeded: 0, upcomingMeetings: 0 };
     }
     
@@ -530,7 +529,7 @@ export async function getAllFoundersData() {
     .eq('id', user.id)
     .single();
 
-  if (profile?.role !== 'admin' && user.email?.toLowerCase() !== 'richard141271@gmail.com') {
+    if (profile?.role !== 'admin') {
       return { error: `Unauthorized` };
   }
 

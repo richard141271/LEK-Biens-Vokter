@@ -56,7 +56,7 @@ export default function AdminDashboard() {
       .eq('id', user.id)
       .single();
 
-    if (profileData?.role !== 'admin' && user.email !== 'richard141271@gmail.com') {
+    if (profileData?.role !== 'admin') {
       await supabase.auth.signOut();
       router.push('/admin'); // Redirect to admin login if not admin
       return;

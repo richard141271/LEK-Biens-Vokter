@@ -123,6 +123,8 @@ begin
   truncate table stock_listings cascade;
   truncate table transactions cascade;
   truncate table stock_orders cascade;
+  truncate table stock_profiles cascade;
+  truncate table stock_audit_log cascade;
 
   update shareholders
   set antall_aksjer = 0,
