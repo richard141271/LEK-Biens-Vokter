@@ -31,8 +31,24 @@ function SignInContent() {
     return raw;
   };
 
+  const normalizeEmail = (raw: string) => raw.trim().toLowerCase();
+
+  const validateEmail = (raw: string) => {
+    const normalized = normalizeEmail(raw);
+    if (normalized.endsWith('@gmail.no')) {
+      return 'Obs: Gmail bruker vanligvis @gmail.com (ikke @gmail.no). Sjekk at e-posten er riktig.';
+    }
+    return null;
+  };
+
   const sendMagicLink = async () => {
-    const emailValue = email.trim();
+    const validationError = validateEmail(email);
+    if (validationError) {
+      setMessage(validationError);
+      return;
+    }
+
+    const emailValue = normalizeEmail(email);
     if (!emailValue) {
       setMessage('Skriv inn e-post først.');
       return;
@@ -58,8 +74,16 @@ function SignInContent() {
     setMessage('');
 
     try {
+      const validationError = validateEmail(email);
+      if (validationError) {
+        setMessage(validationError);
+        setLoading(false);
+        return;
+      }
+
+      const emailValue = normalizeEmail(email);
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: emailValue,
         password,
       });
       if (error) throw error;

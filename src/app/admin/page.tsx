@@ -13,14 +13,20 @@ export default function AdminLoginPage() {
   const [message, setMessage] = useState('');
   const supabase = createClient();
 
+  const normalizeEmail = (raw: string) => raw.trim().toLowerCase();
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
 
     try {
+      const emailValue = normalizeEmail(email);
+      if (emailValue.endsWith('@gmail.no')) {
+        throw new Error('Obs: Gmail bruker vanligvis @gmail.com (ikke @gmail.no). Sjekk at e-posten er riktig.');
+      }
       const { data: { user }, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
+        email: emailValue,
         password,
       });
       
