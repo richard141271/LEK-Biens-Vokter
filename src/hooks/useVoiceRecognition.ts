@@ -23,12 +23,83 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
             setIsSupported(true);
             const recognition = new SpeechRecognitionConstructor();
             recognition.continuous = true;
-            recognition.lang = 'no-NO';
+            recognition.lang = 'nb-NO';
             recognition.interimResults = false;
+            recognition.maxAlternatives = 5;
             
             recognition.onresult = (event: any) => {
                 const last = event.results.length - 1;
-                const text = event.results[last][0].transcript;
+                const pickBest = (r: any) => {
+                  try {
+                    const candidates: { transcript: string; confidence: number }[] = [];
+                    const len = typeof r?.length === 'number' ? r.length : 0;
+                    for (let i = 0; i < len; i++) {
+                      const tr = String(r?.[i]?.transcript || '').trim();
+                      if (!tr) continue;
+                      const confidence = typeof r?.[i]?.confidence === 'number' ? r[i].confidence : 0;
+                      candidates.push({ transcript: tr, confidence });
+                    }
+                    if (candidates.length === 0) return String(r?.[0]?.transcript || '').trim();
+                    const normalize = (s: string) =>
+                      s
+                        .toLowerCase()
+                        .replace(/[^a-z0-9æøå\s]/gi, ' ')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    const keywords = [
+                      'dronning',
+                      'egg',
+                      'stift',
+                      'yngel',
+                      'honning',
+                      'fôr',
+                      'for',
+                      'mat',
+                      'varroa',
+                      'midd',
+                      'temperament',
+                      'gemytt',
+                      'status',
+                      'svak',
+                      'død',
+                      'sykdom',
+                      'sverming',
+                      'bytt',
+                      'voks',
+                      'bilde',
+                      'foto',
+                      'knips',
+                      'lagre',
+                      'inspeksjon',
+                      'kube',
+                      'bigård',
+                    ];
+                    const score = (t: string, c: number) => {
+                      const n = normalize(t);
+                      let hits = 0;
+                      for (const k of keywords) {
+                        if (n.includes(k)) hits += 1;
+                      }
+                      const hasDigits = /\d/.test(n) ? 1 : 0;
+                      const lengthBoost = Math.min(n.length / 40, 1);
+                      return c * 2 + hits * 0.6 + hasDigits * 0.4 + lengthBoost * 0.4;
+                    };
+                    let best = candidates[0];
+                    let bestScore = score(best.transcript, best.confidence);
+                    for (let i = 1; i < candidates.length; i++) {
+                      const cand = candidates[i];
+                      const s = score(cand.transcript, cand.confidence);
+                      if (s > bestScore) {
+                        best = cand;
+                        bestScore = s;
+                      }
+                    }
+                    return best.transcript;
+                  } catch {
+                    return String(r?.[0]?.transcript || '').trim();
+                  }
+                };
+                const text = pickBest(event.results[last]);
                 onResultRef.current(text);
             };
 
