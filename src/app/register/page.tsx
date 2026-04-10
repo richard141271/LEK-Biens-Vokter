@@ -155,6 +155,17 @@ function RegisterForm() {
       }
 
       if (result.success) {
+        const normalizedEmail = formData.email.trim().toLowerCase();
+        const signInRes = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password: formData.password,
+        });
+
+        if (signInRes.error) {
+          window.location.href = loginHref;
+          return;
+        }
+
         // Use hard navigation to ensure clean state
         const next = searchParams.get('next');
         window.location.href = next || '/dashboard';

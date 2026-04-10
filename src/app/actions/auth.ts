@@ -1,13 +1,8 @@
 'use server'
 
-import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/utils/supabase/admin'
-import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
 
 export async function signup(formData: any) {
-  const supabase = createClient()
-  const origin = headers().get('origin') || ''
   const adminClient = createAdminClient()
 
   const {
@@ -36,49 +31,20 @@ export async function signup(formData: any) {
   const normalizedFullName = String(fullName || '').trim()
   const normalizedPassword = String(password || '')
 
-  const isStagingRequest =
-    process.env.VERCEL_ENV === 'preview' ||
-    origin.includes('staging.') ||
-    origin.includes('localhost')
+  const { data, error } = await adminClient.auth.admin.createUser({
+    email: normalizedEmail,
+    password: normalizedPassword,
+    email_confirm: true,
+    user_metadata: { full_name: normalizedFullName }
+  })
 
-  let userId: string | null = null
-  let userEmail: string | null = normalizedEmail || null
-
-  if (isStagingRequest) {
-    const { data, error } = await adminClient.auth.admin.createUser({
-      email: normalizedEmail,
-      password: normalizedPassword,
-      email_confirm: true,
-      user_metadata: { full_name: normalizedFullName }
-    })
-
-    if (error) {
-      console.error('Signup error:', error)
-      return { error: error.message }
-    }
-
-    userId = data.user?.id ?? null
-    userEmail = data.user?.email ?? userEmail
-  } else {
-    const { data, error } = await supabase.auth.signUp({
-      email: normalizedEmail,
-      password: normalizedPassword,
-      options: {
-        data: {
-          full_name: normalizedFullName,
-        },
-        emailRedirectTo: origin ? `${origin}/auth/callback` : undefined,
-      },
-    })
-
-    if (error) {
-      console.error('Signup error:', error)
-      return { error: error.message }
-    }
-
-    userId = data.user?.id ?? null
-    userEmail = data.user?.email ?? userEmail
+  if (error) {
+    console.error('Signup error:', error)
+    return { error: error.message }
   }
+
+  const userId = data.user?.id ?? null
+  const userEmail = data.user?.email ?? normalizedEmail ?? null
 
   if (!userId) {
     return { error: 'Noe gikk galt under registrering (ingen bruker opprettet)' }
