@@ -42,6 +42,10 @@ export default function RootLayout({
     "";
   const host = rawHost.split(",")[0]?.trim().split(":")[0]?.toLowerCase() || "";
   const isStockHost = host === "aksjer.lekbie.no" || host.startsWith("aksjer.");
+  const isStagingEnv =
+    process.env.VERCEL_ENV === "preview" ||
+    host === "staging.lekbie.no" ||
+    host.startsWith("staging.");
 
   return (
     <html lang="no">
@@ -143,6 +147,11 @@ export default function RootLayout({
           <PWAProvider>
             <OfflineProvider>
               <CartProvider>
+                {isStagingEnv ? (
+                  <div className="print:hidden bg-red-600 text-white text-center text-xs font-semibold py-2 px-3">
+                    TESTMODE (STAGING)
+                  </div>
+                ) : null}
                 <DesktopNav />
                 <CartSidebar />
 
