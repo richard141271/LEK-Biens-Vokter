@@ -69,8 +69,20 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
     }
 
     return () => {
+      keepAliveRef.current = false;
+      pausedRef.current = false;
       if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
       restartTimerRef.current = null;
+      try {
+        const r = recognitionRef.current;
+        if (r) {
+          r.onresult = null;
+          r.onerror = null;
+          r.onend = null;
+          r.stop();
+        }
+      } catch {}
+      recognitionRef.current = null;
     };
   }, []);
 
@@ -81,10 +93,10 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
               clearTimeout(restartTimerRef.current);
               restartTimerRef.current = null;
             }
-            recognitionRef.current.start();
-            setIsListening(true);
             keepAliveRef.current = true;
             pausedRef.current = false;
+            recognitionRef.current.start();
+            setIsListening(true);
             lastStartAtRef.current = Date.now();
         } catch (e) {
             keepAliveRef.current = true;
