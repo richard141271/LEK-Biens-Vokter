@@ -1,9 +1,13 @@
 'use server'
 
 import { createAdminClient } from '@/utils/supabase/admin'
+import { createClient } from '@/utils/supabase/server'
+import { headers } from 'next/headers'
 
 export async function signup(formData: any) {
   const adminClient = createAdminClient()
+  const supabase = createClient()
+  const origin = headers().get('origin') || ''
 
   const {
     email,
@@ -31,20 +35,56 @@ export async function signup(formData: any) {
   const normalizedFullName = String(fullName || '').trim()
   const normalizedPassword = String(password || '')
 
-  const { data, error } = await adminClient.auth.admin.createUser({
-    email: normalizedEmail,
-    password: normalizedPassword,
-    email_confirm: true,
-    user_metadata: { full_name: normalizedFullName }
-  })
+  const isStagingRequest =
+    process.env.VERCEL_ENV === 'preview' ||
+    origin.includes('staging.') ||
+    origin.includes('localhost')
 
-  if (error) {
-    console.error('Signup error:', error)
-    return { error: error.message }
+  const isEmailRateLimitError = (message: string) => {
+    const m = (message || '').toLowerCase()
+    return m.includes('email rate limit') || m.includes('over_email_send_rate_limit')
   }
 
-  const userId = data.user?.id ?? null
-  const userEmail = data.user?.email ?? normalizedEmail ?? null
+  let userId: string | null = null
+  let userEmail: string | null = normalizedEmail || null
+
+  if (!isStagingRequest) {
+    const { data, error } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password: normalizedPassword,
+      options: {
+        data: { full_name: normalizedFullName },
+        emailRedirectTo: origin ? `${origin}/auth/callback` : undefined,
+      },
+    })
+
+    if (error) {
+      if (!isEmailRateLimitError(error.message)) {
+        console.error('Signup error:', error)
+        return { error: error.message }
+      }
+    } else {
+      userId = data.user?.id ?? null
+      userEmail = data.user?.email ?? userEmail
+    }
+  }
+
+  if (isStagingRequest || !userId) {
+    const { data, error } = await adminClient.auth.admin.createUser({
+      email: normalizedEmail,
+      password: normalizedPassword,
+      email_confirm: true,
+      user_metadata: { full_name: normalizedFullName }
+    })
+
+    if (error) {
+      console.error('Signup error:', error)
+      return { error: error.message }
+    }
+
+    userId = data.user?.id ?? null
+    userEmail = data.user?.email ?? userEmail
+  }
 
   if (!userId) {
     return { error: 'Noe gikk galt under registrering (ingen bruker opprettet)' }
@@ -77,6 +117,8 @@ export async function signup(formData: any) {
 
   if (profileError) {
     console.error('Profile creation failed:', profileError)
+    await adminClient.from('profiles').delete().eq('id', userId)
+    await adminClient.auth.admin.deleteUser(userId)
     return { error: 'Bruker opprettet, men profilfeil: ' + profileError.message }
   }
 
@@ -96,6 +138,14 @@ export async function signup(formData: any) {
 
   if (beekeeperError || !lekBeekeeper) {
     console.error('LEK Core beekeeper creation failed:', beekeeperError)
+    await adminClient.from('profiles').delete().eq('id', userId)
+    await adminClient.auth.admin.deleteUser(userId)
+    if (beekeeperError?.message?.includes("auth_user_id") && beekeeperError?.message?.includes('schema cache')) {
+      return {
+        error:
+          "Staging-databasen mangler feltet 'auth_user_id' i LEK Core. Kjør DB-oppdatering (migration 66) i Supabase, og reload schema cache."
+      }
+    }
     return { error: 'Bruker opprettet, men LEK Core-birøkterfeil: ' + (beekeeperError?.message || 'Ukjent feil') }
   }
 
