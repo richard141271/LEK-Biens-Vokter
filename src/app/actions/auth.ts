@@ -7,7 +7,8 @@ import { headers } from 'next/headers'
 
 export async function signup(formData: any) {
   const supabase = createClient()
-  const origin = headers().get('origin')
+  const origin = headers().get('origin') || ''
+  const adminClient = createAdminClient()
 
   const {
     email,
@@ -31,37 +32,66 @@ export async function signup(formData: any) {
     privateBankAccount
   } = formData
 
-  // 1. Sign Up User
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        full_name: fullName,
-      },
-      emailRedirectTo: `${origin}/auth/callback`,
-    },
-  })
+  const normalizedEmail = String(email || '').trim().toLowerCase()
+  const normalizedFullName = String(fullName || '').trim()
+  const normalizedPassword = String(password || '')
 
-  if (authError) {
-    console.error('Signup error:', authError)
-    return { error: authError.message }
+  const isStagingRequest =
+    process.env.VERCEL_ENV === 'preview' ||
+    origin.includes('staging.') ||
+    origin.includes('localhost')
+
+  let userId: string | null = null
+  let userEmail: string | null = normalizedEmail || null
+
+  if (isStagingRequest) {
+    const { data, error } = await adminClient.auth.admin.createUser({
+      email: normalizedEmail,
+      password: normalizedPassword,
+      email_confirm: true,
+      user_metadata: { full_name: normalizedFullName }
+    })
+
+    if (error) {
+      console.error('Signup error:', error)
+      return { error: error.message }
+    }
+
+    userId = data.user?.id ?? null
+    userEmail = data.user?.email ?? userEmail
+  } else {
+    const { data, error } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password: normalizedPassword,
+      options: {
+        data: {
+          full_name: normalizedFullName,
+        },
+        emailRedirectTo: origin ? `${origin}/auth/callback` : undefined,
+      },
+    })
+
+    if (error) {
+      console.error('Signup error:', error)
+      return { error: error.message }
+    }
+
+    userId = data.user?.id ?? null
+    userEmail = data.user?.email ?? userEmail
   }
 
-  if (!authData.user) {
+  if (!userId) {
     return { error: 'Noe gikk galt under registrering (ingen bruker opprettet)' }
   }
 
   // 2. Create Profile (using Admin Client to bypass RLS)
   // This ensures profile is created even if email verification is pending
-  const adminClient = createAdminClient()
-  
   const { error: profileError } = await adminClient
     .from('profiles')
     .insert({
-      id: authData.user.id,
+      id: userId,
       role: role || 'beekeeper',
-      full_name: fullName,
+      full_name: normalizedFullName,
       address: address,
       postal_code: postalCode,
       city: city,
@@ -87,9 +117,9 @@ export async function signup(formData: any) {
   const { data: lekBeekeeper, error: beekeeperError } = await adminClient
     .from('lek_core_beekeepers')
     .insert({
-      auth_user_id: authData.user.id,
-      full_name: fullName,
-      email,
+      auth_user_id: userId,
+      full_name: normalizedFullName,
+      email: userEmail,
       phone_number: phoneNumber,
       address,
       postal_code: postalCode,
@@ -108,7 +138,7 @@ export async function signup(formData: any) {
   await adminClient
     .from('profiles')
     .update({ member_number: numericMember })
-    .eq('id', authData.user.id)
+    .eq('id', userId)
 
-  return { success: true, user: authData.user }
+  return { success: true, user: { id: userId, email: userEmail } }
 }

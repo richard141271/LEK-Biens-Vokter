@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Check, AlertCircle } from 'lucide-react';
 import { signup } from '@/app/actions/auth';
@@ -21,6 +21,7 @@ function RegisterForm() {
   const supabase = createClient();
   
   const [loading, setLoading] = useState(false);
+  const submitLockRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [role] = useState<'beekeeper' | 'tenant'>('beekeeper');
 
@@ -131,11 +132,14 @@ function RegisterForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitLockRef.current) return;
     setError(null);
     setLoading(true);
+    submitLockRef.current = true;
 
     if (!validateForm()) {
       setLoading(false);
+      submitLockRef.current = false;
       return;
     }
 
@@ -160,6 +164,7 @@ function RegisterForm() {
       setError(err.message || 'En ukjent feil oppstod');
     } finally {
       setLoading(false);
+      submitLockRef.current = false;
     }
   };
 
