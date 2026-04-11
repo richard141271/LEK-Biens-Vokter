@@ -8,6 +8,12 @@ create sequence if not exists lek_core.apiary_seq start 1;
 create sequence if not exists lek_core.hive_seq start 1;
 create sequence if not exists lek_core.case_id_seq start 1;
 
+grant usage on schema lek_core to service_role;
+grant select, usage on all sequences in schema lek_core to service_role;
+grant select, insert, update, delete on all tables in schema lek_core to service_role;
+alter default privileges in schema lek_core grant select, usage on sequences to service_role;
+alter default privileges in schema lek_core grant select, insert, update, delete on tables to service_role;
+
 -- Autoritativ rot: Beekeepers
 create table if not exists lek_core.beekeepers (
     id uuid primary key default gen_random_uuid(),
@@ -165,4 +171,3 @@ create trigger trg_generate_case_id
 before insert on lek_core.cases
 for each row
 execute function lek_core.generate_case_id();
-

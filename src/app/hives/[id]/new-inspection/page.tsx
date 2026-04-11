@@ -522,6 +522,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     return data.publicUrl;
   };
 
+  const isBucketNotFoundError = (error: any) => {
+    const msg = String(error?.message || error?.error_description || error || '').toLowerCase();
+    return msg.includes('bucket not found') || msg.includes('bucket') && msg.includes('not found');
+  };
+
   const submitInspection = async () => {
     const opId = crypto.randomUUID();
     setSubmitting(true);
@@ -628,9 +633,18 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         setUploadingImage(true);
         try {
           for (let i = 0; i < allFiles.length; i++) {
-            const u = await uploadImage(allFiles[i], opId, i + 1);
+            let u = '';
+            try {
+              u = await uploadImage(allFiles[i], opId, i + 1);
+            } catch (e: any) {
+              if (isBucketNotFoundError(e)) {
+                alert('Bilde-lagring er ikke satt opp (bucket mangler). Inspeksjonen lagres uten bilde.');
+                break;
+              }
+              throw e;
+            }
             if (i === 0) imageUrl = u;
-            allPhotos.push(u);
+            if (u) allPhotos.push(u);
           }
         } finally {
           setUploadingImage(false);
