@@ -90,7 +90,7 @@ function getKeyInfo(value: string | null | undefined): KeyInfo {
 }
 
 function getEnvInfo() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? null;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? null;
   const supabaseRefFromUrl = parseSupabaseRefFromUrl(supabaseUrl);
   const anon = getKeyInfo(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   const service = getKeyInfo(process.env.SUPABASE_SERVICE_ROLE_KEY);
