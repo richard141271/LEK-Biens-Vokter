@@ -42,6 +42,11 @@ export default function RootLayout({
     "";
   const host = rawHost.split(",")[0]?.trim().split(":")[0]?.toLowerCase() || "";
   const isStockHost = host === "aksjer.lekbie.no" || host.startsWith("aksjer.");
+  const isStagingHost =
+    host === "staging.lekbie.no" ||
+    host.endsWith(".staging.lekbie.no") ||
+    host.includes("lek-biens-vokter-staging") ||
+    host.includes("-staging.");
 
   return (
     <html lang="no">
@@ -143,6 +148,11 @@ export default function RootLayout({
           <PWAProvider>
             <OfflineProvider>
               <CartProvider>
+                {isStagingHost ? (
+                  <div className="print:hidden bg-red-600 text-white text-xs font-semibold text-center py-1">
+                    STAGING – ikke ekte app
+                  </div>
+                ) : null}
                 <DesktopNav />
                 <CartSidebar />
 
