@@ -46,7 +46,13 @@ export async function POST(request: Request) {
       ? await admin.from('apiaries').select('id, user_id').in('id', apiaryIds).limit(50)
       : { data: [] as any[] };
 
-    const ownerUserId = (apiaries || [])[0]?.user_id || null;
+    const { data: agreements } = await admin
+      .from('grunneier_agreements')
+      .select('id, created_by')
+      .in('contact_id', contactIds)
+      .limit(50);
+
+    const ownerUserId = (agreements || [])[0]?.created_by || (apiaries || [])[0]?.user_id || null;
 
     if (!ownerUserId) {
       return NextResponse.json({ success: true });
@@ -60,6 +66,7 @@ export async function POST(request: Request) {
       token,
       expires_at: expiresAt,
       used: false,
+      purpose: 'portal',
     });
 
     if (insertError) {

@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Archive, Truck, Trash2, X, Check, ClipboardList, Edit, QrCode, Calendar, UserPlus } from 'lucide-react';
+import { ArrowLeft, Archive, Truck, Trash2, X, Check, ClipboardList, Edit, QrCode, Calendar, UserPlus, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store, MapPin } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -44,6 +44,12 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     email: '',
   });
   const [isInviting, setIsInviting] = useState(false);
+
+  const [selectedAgreement, setSelectedAgreement] = useState<any>(null);
+  const [agreementLoading, setAgreementLoading] = useState(false);
+  const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
+  const [beekeeperSignatureName, setBeekeeperSignatureName] = useState('');
+  const [isAgreementUpdating, setIsAgreementUpdating] = useState(false);
 
   // Scan Modal State
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
@@ -322,30 +328,169 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     setContactsList(data || []);
   };
 
+  const fetchSelectedAgreement = async (contactId: string) => {
+    if (!apiary?.id || !contactId) {
+      setSelectedAgreement(null);
+      return;
+    }
+
+    setAgreementLoading(true);
+    try {
+      const { data } = await supabase
+        .from('grunneier_agreements')
+        .select(
+          'id, status, role, base_text, final_text, contact_proposal, beekeeper_decision, contact_signature_name, contact_signed_at, beekeeper_signature_name, beekeeper_signed_at, created_at'
+        )
+        .eq('apiary_id', apiary.id)
+        .eq('contact_id', contactId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      setSelectedAgreement(data || null);
+    } finally {
+      setAgreementLoading(false);
+    }
+  };
+
   const getRoleLabel = (r: string) => {
     if (r === 'kontaktperson') return 'Kontaktperson';
     if (r === 'samarbeidspartner') return 'Samarbeidspartner';
     return 'Grunneier';
   };
 
-  const handleInviteSubmit = async () => {
+  useEffect(() => {
+    if (!selectedContactId) {
+      setSelectedAgreement(null);
+      return;
+    }
+    fetchSelectedAgreement(selectedContactId);
+  }, [selectedContactId, apiary?.id]);
+
+  const acceptContactProposal = async () => {
+    if (!selectedAgreement?.id) return;
+    if (!selectedAgreement.contact_proposal) return;
+    setIsAgreementUpdating(true);
+    setAgreementStatus(null);
+    try {
+      const baseText = String(selectedAgreement.base_text || '');
+      const proposal = String(selectedAgreement.contact_proposal || '').trim();
+      const finalText = [
+        baseText,
+        '',
+        '---',
+        'UNNTAK/TILLEGG (foreslått av grunneier):',
+        proposal,
+      ].join('\n');
+
+      const { error } = await supabase
+        .from('grunneier_agreements')
+        .update({
+          beekeeper_decision: 'accepted',
+          final_text: finalText,
+          status: 'awaiting_contact_signature',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedAgreement.id);
+
+      if (error) {
+        setAgreementStatus(error.message);
+        return;
+      }
+
+      setAgreementStatus('Forslag godtatt. Venter på signatur fra grunneier.');
+      await fetchSelectedAgreement(selectedContactId);
+    } finally {
+      setIsAgreementUpdating(false);
+    }
+  };
+
+  const rejectContactProposal = async () => {
+    if (!selectedAgreement?.id) return;
+    if (!selectedAgreement.contact_proposal) return;
+    setIsAgreementUpdating(true);
+    setAgreementStatus(null);
+    try {
+      const { error } = await supabase
+        .from('grunneier_agreements')
+        .update({
+          beekeeper_decision: 'rejected',
+          final_text: selectedAgreement.base_text,
+          status: 'awaiting_contact_signature',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedAgreement.id);
+
+      if (error) {
+        setAgreementStatus(error.message);
+        return;
+      }
+
+      setAgreementStatus('Forslag avvist. Standard avtale gjelder.');
+      await fetchSelectedAgreement(selectedContactId);
+    } finally {
+      setIsAgreementUpdating(false);
+    }
+  };
+
+  const signAsBeekeeper = async () => {
+    if (!selectedAgreement?.id) return;
+    if (!beekeeperSignatureName.trim()) return;
+    if (selectedAgreement.status === 'rejected') return;
+
+    const hasPendingProposal =
+      Boolean(selectedAgreement.contact_proposal) && selectedAgreement.beekeeper_decision === 'pending';
+    if (hasPendingProposal) {
+      setAgreementStatus('Du må først godta/avvise forslaget fra grunneier.');
+      return;
+    }
+
+    setIsAgreementUpdating(true);
+    setAgreementStatus(null);
+    try {
+      const nextStatus = selectedAgreement.contact_signed_at ? 'active' : 'awaiting_contact_signature';
+      const { error } = await supabase
+        .from('grunneier_agreements')
+        .update({
+          beekeeper_signature_name: beekeeperSignatureName.trim(),
+          beekeeper_signed_at: new Date().toISOString(),
+          status: nextStatus,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedAgreement.id);
+
+      if (error) {
+        setAgreementStatus(error.message);
+        return;
+      }
+
+      setAgreementStatus(nextStatus === 'active' ? 'Avtalen er nå aktiv.' : 'Signert. Venter på grunneier.');
+      await fetchSelectedAgreement(selectedContactId);
+    } finally {
+      setIsAgreementUpdating(false);
+    }
+  };
+
+  const handleContactSubmit = async (sendInvite: boolean) => {
     if (!apiary?.id) return;
     if (inviteTab === 'existing' && !existingContactId) return;
-    if (inviteTab === 'new' && (!newContact.name.trim() || !newContact.email.trim())) return;
+    if (inviteTab === 'new' && !newContact.name.trim()) return;
 
     setIsInviting(true);
     try {
-      const payload =
+      const payload: any =
         inviteTab === 'existing'
           ? {
               apiaryId: apiary.id,
               role: inviteRole,
               contactId: existingContactId,
+              sendInvite,
             }
           : {
               apiaryId: apiary.id,
               role: inviteRole,
               contact: newContact,
+              sendInvite,
             };
 
       const res = await fetch('/api/grunneier/invite', {
@@ -356,13 +501,19 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data?.error || 'Kunne ikke invitere');
+        alert(data?.error || 'Kunne ikke lagre');
         return;
       }
+      const data = await res.json().catch(() => ({}));
 
       setIsInviteModalOpen(false);
       await fetchApiaryContacts();
-      alert('Invitasjon sendt!');
+      const nextContactId = String(data?.contact?.id || '');
+      if (nextContactId) {
+        setSelectedContactId(nextContactId);
+        await fetchSelectedAgreement(nextContactId);
+      }
+      alert(sendInvite ? 'Avtale sendt til grunneier!' : 'Kontakt lagret!');
     } finally {
       setIsInviting(false);
     }
@@ -866,7 +1017,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 className="flex items-center gap-2 px-3 py-2 bg-honey-500 hover:bg-honey-600 text-white rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
               >
                 <UserPlus className="w-4 h-4" />
-                <span>Inviter grunneier</span>
+                <span>Legg til kontakt</span>
               </button>
             </div>
             <Link
@@ -889,6 +1040,112 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       </div>
 
       <main className="p-4 space-y-4 print:hidden">
+        {selectedContactId && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3 bg-gray-50">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-gray-600" />
+                <h2 className="font-bold text-gray-900">Avtale</h2>
+              </div>
+              <span className="text-xs font-bold uppercase bg-white px-2 py-1 rounded text-gray-700 border border-gray-200">
+                {selectedAgreement?.status || (agreementLoading ? 'LASTER' : 'INGEN')}
+              </span>
+            </div>
+
+            <div className="p-4 space-y-3">
+              {agreementStatus && (
+                <div className="border border-gray-200 rounded-lg p-3 text-sm text-gray-700 bg-white">
+                  {agreementStatus}
+                </div>
+              )}
+
+              {agreementLoading ? (
+                <div className="text-sm text-gray-600">Laster avtale...</div>
+              ) : selectedAgreement ? (
+                <>
+                  <div className="text-sm text-gray-900 font-semibold">
+                    {
+                      apiaryContacts.find((ac: any) => ac.contact_id === selectedContactId)?.contact?.name ||
+                      'Kontakt'
+                    }
+                    {apiaryContacts.find((ac: any) => ac.contact_id === selectedContactId)?.role
+                      ? ` (${getRoleLabel(apiaryContacts.find((ac: any) => ac.contact_id === selectedContactId)?.role)})`
+                      : ''}
+                  </div>
+
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs whitespace-pre-line font-mono max-h-[220px] overflow-auto">
+                    {selectedAgreement.final_text || selectedAgreement.base_text}
+                  </div>
+
+                  {selectedAgreement.contact_proposal &&
+                    selectedAgreement.beekeeper_decision === 'pending' &&
+                    !selectedAgreement.beekeeper_signed_at && (
+                      <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-3 space-y-2">
+                        <div className="text-xs font-bold uppercase text-yellow-900">
+                          Unntak/tillegg foreslått av grunneier
+                        </div>
+                        <div className="text-sm text-yellow-900 whitespace-pre-line">
+                          {selectedAgreement.contact_proposal}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <button
+                            onClick={acceptContactProposal}
+                            disabled={isAgreementUpdating}
+                            className="w-full bg-gray-900 text-white font-bold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            Godta forslag
+                          </button>
+                          <button
+                            onClick={rejectContactProposal}
+                            disabled={isAgreementUpdating}
+                            className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 font-bold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            Avvis forslag
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                  <div className="grid gap-2">
+                    <div className="text-xs text-gray-600">
+                      Grunneier signert: {selectedAgreement.contact_signed_at ? 'Ja' : 'Nei'} • Birøkter signert:{' '}
+                      {selectedAgreement.beekeeper_signed_at ? 'Ja' : 'Nei'}
+                    </div>
+
+                    {!selectedAgreement.beekeeper_signed_at && selectedAgreement.status !== 'rejected' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input
+                          value={beekeeperSignatureName}
+                          onChange={(e) => setBeekeeperSignatureName(e.target.value)}
+                          className="sm:col-span-2 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                          placeholder="Din signatur (navn)"
+                        />
+                        <button
+                          onClick={signAsBeekeeper}
+                          disabled={isAgreementUpdating || !beekeeperSignatureName.trim()}
+                          className="w-full bg-honey-500 hover:bg-honey-600 text-white font-bold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          Signer
+                        </button>
+                      </div>
+                    )}
+
+                    {selectedAgreement.status === 'active' && (
+                      <div className="border border-green-200 bg-green-50 text-green-800 rounded-lg p-3 text-sm">
+                        Avtalen er aktiv. Grunneier får tilgang til portal.
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="text-sm text-gray-700">
+                  Ingen avtaleutkast funnet for valgt kontakt. Trykk «Lagre» i kontakt-dialogen for å opprette utkast.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Actions Bar */}
         <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
            <div className="flex items-center gap-2">
@@ -1303,7 +1560,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-honey-50">
-              <h3 className="font-bold text-lg text-gray-900">Inviter grunneier</h3>
+              <h3 className="font-bold text-lg text-gray-900">Legg til kontakt</h3>
               <button onClick={() => setIsInviteModalOpen(false)}>
                 <X className="w-6 h-6 text-gray-500" />
               </button>
@@ -1418,17 +1675,28 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 </div>
               )}
 
-              <button
-                onClick={handleInviteSubmit}
-                disabled={
-                  isInviting ||
-                  (inviteTab === 'existing' && !existingContactId) ||
-                  (inviteTab === 'new' && (!newContact.name.trim() || !newContact.email.trim()))
-                }
-                className="w-full bg-honey-500 hover:bg-honey-600 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {isInviting ? 'Sender...' : 'Send invitasjon'}
-              </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  onClick={() => handleContactSubmit(false)}
+                  disabled={isInviting || (inviteTab === 'existing' && !existingContactId) || (inviteTab === 'new' && !newContact.name.trim())}
+                  className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {isInviting ? 'Lagrer...' : 'Lagre'}
+                </button>
+                <button
+                  onClick={() => handleContactSubmit(true)}
+                  disabled={
+                    isInviting ||
+                    (inviteTab === 'existing' &&
+                      (!existingContactId ||
+                        !(contactsList.find((c: any) => c.id === existingContactId)?.email || '').trim())) ||
+                    (inviteTab === 'new' && (!newContact.name.trim() || !newContact.email.trim()))
+                  }
+                  className="w-full bg-honey-500 hover:bg-honey-600 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {isInviting ? 'Sender...' : 'Send avtale'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

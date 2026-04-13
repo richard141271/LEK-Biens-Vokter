@@ -36,6 +36,27 @@ type LinkedApiary = {
   role: 'grunneier' | 'kontaktperson' | 'samarbeidspartner';
 };
 
+type Agreement = {
+  id: string;
+  status:
+    | 'draft'
+    | 'awaiting_contact'
+    | 'contact_proposed'
+    | 'awaiting_contact_signature'
+    | 'awaiting_beekeeper_signature'
+    | 'active'
+    | 'rejected';
+  role: 'grunneier' | 'kontaktperson' | 'samarbeidspartner';
+  base_text: string;
+  final_text: string | null;
+  contact_proposal: string | null;
+  beekeeper_decision: 'pending' | 'accepted' | 'rejected';
+  contact_signed_at: string | null;
+  beekeeper_signed_at: string | null;
+  apiary: { id: string; name: string | null; apiary_number: string | null; location: string | null } | null;
+  contact: { id: string; name: string; email: string | null } | null;
+};
+
 export default function GrunneierPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -46,6 +67,10 @@ export default function GrunneierPage() {
   const [loading, setLoading] = useState(false);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [linkedApiaries, setLinkedApiaries] = useState<LinkedApiary[]>([]);
+  const [agreements, setAgreements] = useState<Agreement[]>([]);
+  const [proposal, setProposal] = useState('');
+  const [signatureName, setSignatureName] = useState('');
+  const [activeAgreementId, setActiveAgreementId] = useState<string | null>(null);
 
   const fetchSession = async () => {
     setSessionLoading(true);
@@ -57,10 +82,12 @@ export default function GrunneierPage() {
           setStatus('Lenken er utløpt');
         }
         setLinkedApiaries([]);
+        setAgreements([]);
         return;
       }
       const data = await res.json();
       setLinkedApiaries(data?.apiaries || []);
+      setAgreements(data?.agreements || []);
     } finally {
       setSessionLoading(false);
     }
@@ -156,6 +183,69 @@ export default function GrunneierPage() {
   }, [linkedApiaries]);
 
   const hasSession = linkedApiaries.length > 0;
+  const pendingAgreements = useMemo(
+    () => (agreements || []).filter((a) => a.status !== 'active').sort((a, b) => a.id.localeCompare(b.id)),
+    [agreements]
+  );
+  const currentAgreement = useMemo(() => {
+    const id = activeAgreementId || pendingAgreements[0]?.id;
+    return (agreements || []).find((a) => a.id === id) || null;
+  }, [agreements, pendingAgreements, activeAgreementId]);
+
+  const canShowPortal = hasSession || agreements.length > 0;
+
+  const submitProposal = async () => {
+    if (!currentAgreement) return;
+    setLoading(true);
+    setStatus(null);
+    try {
+      const res = await fetch('/api/grunneier/agreement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'propose',
+          agreementId: currentAgreement.id,
+          proposal,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(data?.error || 'Kunne ikke sende forslag');
+        return;
+      }
+      setProposal('');
+      setStatus('Forslag sendt. Venter på birøkter.');
+      await fetchSession();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signAgreement = async () => {
+    if (!currentAgreement) return;
+    setLoading(true);
+    setStatus(null);
+    try {
+      const res = await fetch('/api/grunneier/agreement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'sign',
+          agreementId: currentAgreement.id,
+          signatureName,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(data?.error || 'Kunne ikke signere');
+        return;
+      }
+      setStatus('Signert. Venter på birøkter.');
+      await fetchSession();
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -189,36 +279,125 @@ export default function GrunneierPage() {
           <div className="bg-white border border-gray-200 rounded-xl p-6 text-gray-500">
             Laster...
           </div>
-        ) : hasSession ? (
+        ) : canShowPortal ? (
           <>
-            <div className="bg-white border border-gray-200 rounded-xl p-3">
-              <div className="h-[420px] w-full rounded-xl overflow-hidden">
-                <Map center={mapCenter} zoom={11} markers={markers} />
-              </div>
-            </div>
-
-            <div className="bg-white border border-gray-200 rounded-xl p-4">
-              <h2 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-gray-600" />
-                Bigårder
-              </h2>
-              <div className="grid gap-2">
-                {linkedApiaries.map((item) => (
-                  <div
-                    key={`${item.apiary.id}:${item.contact.id}`}
-                    className="border border-gray-200 rounded-lg p-3"
-                  >
-                    <div className="font-semibold text-gray-900">
-                      {item.apiary.apiary_number || 'Bigård'}{' '}
-                      {item.apiary.name ? `– ${item.apiary.name}` : ''}
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      {item.apiary.location || 'Ukjent sted'} • Rolle: {item.role}
-                    </div>
+            {pendingAgreements.length > 0 && (
+              <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <h2 className="text-sm font-bold text-gray-900">Avtale</h2>
+                    <p className="text-xs text-gray-500">
+                      Tilgang til kart og oversikt aktiveres etter at begge parter har signert.
+                    </p>
                   </div>
-                ))}
+                  {pendingAgreements.length > 1 && (
+                    <select
+                      value={currentAgreement?.id || ''}
+                      onChange={(e) => setActiveAgreementId(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white"
+                    >
+                      {pendingAgreements.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.apiary?.apiary_number || 'Bigård'} {a.apiary?.name ? `– ${a.apiary?.name}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {currentAgreement && (
+                  <>
+                    {currentAgreement.status === 'rejected' || currentAgreement.beekeeper_decision === 'rejected' ? (
+                      <div className="border border-red-200 bg-red-50 text-red-800 rounded-lg p-3 text-sm">
+                        Avtalen er avvist. Be birøkter opprette ny avtale.
+                      </div>
+                    ) : currentAgreement.status === 'contact_proposed' ||
+                      (currentAgreement.contact_proposal && currentAgreement.beekeeper_decision === 'pending') ? (
+                      <div className="border border-yellow-200 bg-yellow-50 text-yellow-900 rounded-lg p-3 text-sm">
+                        Forslaget ditt er sendt og venter på godkjenning fra birøkter.
+                      </div>
+                    ) : (
+                      <>
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs whitespace-pre-line font-mono max-h-[280px] overflow-auto">
+                          {currentAgreement.final_text || currentAgreement.base_text}
+                        </div>
+
+                        <div className="grid gap-2">
+                          <label className="text-xs font-bold text-gray-700 uppercase">Unntak/tillegg (valgfritt)</label>
+                          <textarea
+                            value={proposal}
+                            onChange={(e) => setProposal(e.target.value)}
+                            className="border border-gray-300 rounded-lg px-3 py-2 text-sm min-h-[90px]"
+                            placeholder="Skriv inn forslag til endringer/tillegg..."
+                          />
+                          <button
+                            disabled={loading || !proposal.trim()}
+                            onClick={submitProposal}
+                            className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                          >
+                            Send forslag
+                          </button>
+                        </div>
+
+                        <div className="grid gap-2">
+                          <label className="text-xs font-bold text-gray-700 uppercase">Signatur</label>
+                          <input
+                            value={signatureName}
+                            onChange={(e) => setSignatureName(e.target.value)}
+                            className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                            placeholder="Skriv navnet ditt"
+                          />
+                          <button
+                            disabled={loading || !signatureName.trim()}
+                            onClick={signAgreement}
+                            className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                          >
+                            Signer avtale
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
-            </div>
+            )}
+
+            {hasSession ? (
+              <>
+                <div className="bg-white border border-gray-200 rounded-xl p-3">
+                  <div className="h-[420px] w-full rounded-xl overflow-hidden">
+                    <Map center={mapCenter} zoom={11} markers={markers} />
+                  </div>
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-xl p-4">
+                  <h2 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-gray-600" />
+                    Bigårder
+                  </h2>
+                  <div className="grid gap-2">
+                    {linkedApiaries.map((item) => (
+                      <div
+                        key={`${item.apiary.id}:${item.contact.id}`}
+                        className="border border-gray-200 rounded-lg p-3"
+                      >
+                        <div className="font-semibold text-gray-900">
+                          {item.apiary.apiary_number || 'Bigård'}{' '}
+                          {item.apiary.name ? `– ${item.apiary.name}` : ''}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {item.apiary.location || 'Ukjent sted'} • Rolle: {item.role}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="bg-white border border-gray-200 rounded-xl p-4 text-sm text-gray-700">
+                Ingen aktive bigårder ennå. Tilgang aktiveres når avtalen er signert av begge parter.
+              </div>
+            )}
           </>
         ) : (
           <div className="bg-white border border-gray-200 rounded-xl p-4">

@@ -15,6 +15,56 @@ function getBaseUrl(request: Request) {
 
 type Role = 'grunneier' | 'kontaktperson' | 'samarbeidspartner';
 
+function standardAgreementText(params: {
+  apiaryNumber?: string | null;
+  apiaryName?: string | null;
+  apiaryLocation?: string | null;
+  contactName?: string | null;
+  role: Role;
+}) {
+  const apiaryTitle =
+    params.apiaryNumber || params.apiaryName
+      ? `${params.apiaryNumber || 'Bigård'}${params.apiaryName ? ` – ${params.apiaryName}` : ''}`
+      : 'Bigård';
+
+  const locationLine = params.apiaryLocation ? `Sted: ${params.apiaryLocation}` : '';
+  const contactLine = params.contactName ? `Grunneier/kontakt: ${params.contactName}` : 'Grunneier/kontakt: ________';
+  const roleLine = `Rolle: ${params.role}`;
+
+  return [
+    'AVTALE OM TILGANG TIL BIGÅRD-INFO (GRUNNEIERPORTAL)',
+    '',
+    `Gjelder: ${apiaryTitle}`,
+    locationLine,
+    contactLine,
+    roleLine,
+    '',
+    '1. Formål',
+    'Denne avtalen gjør det mulig for grunneier/kontakt å få innsyn i enkel informasjon om bigården (lokasjon og grunnleggende status), for å skape trygghet, transparens og god dialog.',
+    '',
+    '2. Tilgang og innhold',
+    '- Tilgangen er begrenset til bigårder som er knyttet til avtalen.',
+    '- Ingen passord: tilgang gis via engangslenker på e-post.',
+    '- Det deles ikke sensitive personopplysninger utover det som er nødvendig for drift og samtykke.',
+    '',
+    '3. Ansvar og hensyn',
+    '- Birøkter har ansvar for drift, dyrevelferd og oppfølging av bigården.',
+    '- Grunneier kan når som helst be om at bigården flyttes, innen rimelig tid og praktisk mulighet.',
+    '- Begge parter forplikter seg til saklig og god kommunikasjon ved uenighet.',
+    '',
+    '4. Varighet og opphør',
+    'Avtalen gjelder til den sies opp av en av partene. Ved opphør skal tilgangen fjernes.',
+    '',
+    '5. Unntak/tillegg',
+    'Grunneier kan foreslå unntak/tillegg før avtalen aktiveres. Birøkter kan godta eller avvise forslag. Ved avvisning må partene bli enige om ny tekst før avtalen kan signeres.',
+    '',
+    '6. Signatur',
+    'Avtalen blir aktiv først når begge parter har signert digitalt.',
+  ]
+    .filter((l) => l !== '')
+    .join('\n');
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = createClient();
@@ -33,22 +83,25 @@ export async function POST(request: Request) {
     const role = String(body?.role || 'grunneier').trim() as Role;
     const contactId = body?.contactId ? String(body.contactId).trim() : '';
     const contactInput = body?.contact || null;
-
-    if (!apiaryId) {
-      return NextResponse.json({ error: 'Mangler apiaryId' }, { status: 400 });
-    }
+    const sendInvite = Boolean(body?.sendInvite);
 
     if (!['grunneier', 'kontaktperson', 'samarbeidspartner'].includes(role)) {
       return NextResponse.json({ error: 'Ugyldig rolle' }, { status: 400 });
     }
 
-    const { data: apiary } = await supabase
-      .from('apiaries')
-      .select('id, name, apiary_number')
-      .eq('id', apiaryId)
-      .single();
+    if (sendInvite && !apiaryId) {
+      return NextResponse.json({ error: 'Mangler apiaryId' }, { status: 400 });
+    }
 
-    if (!apiary) {
+    const { data: apiary } = apiaryId
+      ? await supabase
+          .from('apiaries')
+          .select('id, name, apiary_number, location')
+          .eq('id', apiaryId)
+          .single()
+      : { data: null as any };
+
+    if (apiaryId && !apiary) {
       return NextResponse.json({ error: 'Fant ikke bigård' }, { status: 404 });
     }
 
@@ -76,7 +129,7 @@ export async function POST(request: Request) {
       if (!name) {
         return NextResponse.json({ error: 'Mangler navn' }, { status: 400 });
       }
-      if (!email) {
+      if (!email && sendInvite) {
         return NextResponse.json({ error: 'Mangler e-post' }, { status: 400 });
       }
 
@@ -89,13 +142,23 @@ export async function POST(request: Request) {
           postal_code: String(contactInput?.postal_code || '').trim() || null,
           city: String(contactInput?.city || '').trim() || null,
           phone: String(contactInput?.phone || '').trim() || null,
-          email,
+          email: email || null,
         })
         .select('id, name, email')
         .single();
 
       if (createError || !created) {
-        return NextResponse.json({ error: 'Kunne ikke opprette kontakt' }, { status: 500 });
+        const msg = String(createError?.message || '');
+        const hint =
+          msg.includes('contacts') && msg.includes('does not exist')
+            ? 'Mangler database-tabell for kontakter. Kjør DB-migrasjoner.'
+            : msg.includes('contacts_created_by_fkey')
+              ? 'Profil-tilknytning feilet. Oppdater DB-migrasjoner og prøv igjen.'
+              : '';
+        return NextResponse.json(
+          { error: 'Kunne ikke opprette kontakt', detail: hint || msg || undefined },
+          { status: 500 }
+        );
       }
 
       finalContactId = created.id;
@@ -106,23 +169,96 @@ export async function POST(request: Request) {
     if (!finalContactId) {
       return NextResponse.json({ error: 'Kunne ikke bestemme kontakt' }, { status: 500 });
     }
-    if (!finalEmail) {
+    if (sendInvite && !finalEmail) {
       return NextResponse.json({ error: 'Kontakt mangler e-post' }, { status: 400 });
     }
 
-    const { error: linkError } = await supabase
-      .from('apiary_contacts')
-      .upsert(
-        {
-          apiary_id: apiaryId,
-          contact_id: finalContactId,
-          role,
-        },
-        { onConflict: 'apiary_id,contact_id' }
-      );
+    if (apiaryId) {
+      const { error: linkError } = await supabase
+        .from('apiary_contacts')
+        .upsert(
+          {
+            apiary_id: apiaryId,
+            contact_id: finalContactId,
+            role,
+          },
+          { onConflict: 'apiary_id,contact_id' }
+        );
 
-    if (linkError) {
-      return NextResponse.json({ error: 'Kunne ikke knytte kontakt til bigård' }, { status: 500 });
+      if (linkError) {
+        return NextResponse.json(
+          { error: 'Kunne ikke knytte kontakt til bigård', detail: linkError.message },
+          { status: 500 }
+        );
+      }
+    }
+
+    let agreementId: string | null = null;
+
+    if (apiaryId) {
+      const baseText = standardAgreementText({
+        apiaryNumber: apiary?.apiary_number,
+        apiaryName: apiary?.name,
+        apiaryLocation: apiary?.location,
+        contactName: finalName,
+        role,
+      });
+
+      const { data: existingAgreement } = await supabase
+        .from('grunneier_agreements')
+        .select('id, status')
+        .eq('apiary_id', apiaryId)
+        .eq('contact_id', finalContactId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingAgreement?.id) {
+        agreementId = existingAgreement.id;
+        if (sendInvite && existingAgreement.status !== 'active') {
+          await supabase
+            .from('grunneier_agreements')
+            .update({
+              status: 'awaiting_contact',
+              base_text: baseText,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', agreementId);
+        }
+      } else {
+        agreementId =
+          (
+            await supabase
+              .from('grunneier_agreements')
+              .insert({
+                created_by: user.id,
+                apiary_id: apiaryId,
+                contact_id: finalContactId,
+                role,
+                status: sendInvite ? 'awaiting_contact' : 'draft',
+                base_text: baseText,
+                beekeeper_decision: 'pending',
+              })
+              .select('id')
+              .single()
+          ).data?.id || null;
+      }
+
+      if (!agreementId) {
+        return NextResponse.json({ error: 'Kunne ikke opprette avtale' }, { status: 500 });
+      }
+    }
+
+    if (!sendInvite) {
+      return NextResponse.json({
+        success: true,
+        contact: { id: finalContactId, name: finalName, email: finalEmail || null },
+        agreementId,
+      });
+    }
+
+    if (!agreementId) {
+      return NextResponse.json({ error: 'Mangler avtale' }, { status: 500 });
     }
 
     const token = crypto.randomBytes(32).toString('hex');
@@ -133,10 +269,17 @@ export async function POST(request: Request) {
       token,
       expires_at: expiresAt,
       used: false,
+      purpose: 'agreement',
+      agreement_id: agreementId,
+      contact_id: finalContactId,
+      apiary_id: apiaryId,
     });
 
     if (tokenError) {
-      return NextResponse.json({ error: 'Kunne ikke opprette invitasjon' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Kunne ikke opprette invitasjon', detail: tokenError.message },
+        { status: 500 }
+      );
     }
 
     const url = `${getBaseUrl(request)}/grunneier?token=${encodeURIComponent(token)}`;
@@ -145,20 +288,24 @@ export async function POST(request: Request) {
     await mail.sendMail(
       'Biens Vokter',
       finalEmail,
-      'Du er invitert til å se din bigård',
+      'Signer avtale for tilgang til bigård',
       [
         `Hei${finalName ? ` ${finalName}` : ''}!`,
         '',
-        'Du er invitert til å se din bigård.',
+        'Du er invitert til å signere avtale for tilgang til bigård-oversikt.',
         '',
-        `Åpne portal: ${url}`,
+        `Signer avtalen her: ${url}`,
         '',
-        `<a href="${url}" style="display:inline-block;background:#111827;color:#ffffff;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600">Åpne portal</a>`,
+        `<a href="${url}" style="display:inline-block;background:#111827;color:#ffffff;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600">Åpne og signer</a>`,
       ].join('\n'),
       user.id
     );
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      agreementId,
+      contact: { id: finalContactId, name: finalName, email: finalEmail || null },
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Ukjent feil' }, { status: 500 });
   }
