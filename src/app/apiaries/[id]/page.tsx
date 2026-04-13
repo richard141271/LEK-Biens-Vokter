@@ -78,6 +78,13 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const supabase = createClient();
   const router = useRouter();
 
+  const formatApiaryNumber = (raw: any, type?: any) => {
+    const s = String(raw || '');
+    const t = String(type || '').toLowerCase();
+    if (t === 'bil' || s.toUpperCase().startsWith('BIL-')) return s.split('.')[0];
+    return s;
+  };
+
   useEffect(() => {
     fetchData();
   }, [params.id]);
@@ -350,8 +357,8 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             .eq('id', existingHive.apiary_id)
             .maybeSingle();
 
-          const fromLabel = sourceApiary?.apiary_number || sourceApiary?.name || 'annen bigård';
-          const toLabel = apiary?.apiary_number || apiary?.name || 'denne bigården';
+          const fromLabel = formatApiaryNumber(sourceApiary?.apiary_number) || sourceApiary?.name || 'annen bigård';
+          const toLabel = formatApiaryNumber(apiary?.apiary_number, apiary?.type) || apiary?.name || 'denne bigården';
 
           const confirmMessage = `Kuben står registrert i ${fromLabel}. Er det riktig at du har flyttet denne bikuben til ${toLabel}?`;
           const confirmed = typeof window !== 'undefined' ? window.confirm(confirmMessage) : false;
@@ -702,7 +709,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             </Link>
             <div>
               <h1 className="text-2xl font-black text-gray-900 font-mono tracking-tight">
-                {apiary.apiary_number}
+                {formatApiaryNumber(apiary.apiary_number, apiary.type)}
               </h1>
               {apiary.name && (
                 <p className="text-sm text-gray-600">
@@ -1131,7 +1138,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                       </div>
                       <div className="text-left flex-1">
                         <div className="font-medium text-gray-900">{a.name}</div>
-                        <div className="text-xs text-gray-500">{a.apiary_number}</div>
+                        <div className="text-xs text-gray-500">{formatApiaryNumber(a.apiary_number, a.type)}</div>
                       </div>
                       {isSelected && <Check className="w-5 h-5 text-honey-600" />}
                     </button>

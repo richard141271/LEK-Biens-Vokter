@@ -56,6 +56,13 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   const supabase = createClient();
   const router = useRouter();
 
+  const formatApiaryNumber = (raw: any, type?: any) => {
+    const s = String(raw || '');
+    const t = String(type || '').toLowerCase();
+    if (t === 'bil' || s.toUpperCase().startsWith('BIL-')) return s.split('.')[0];
+    return s;
+  };
+
   useEffect(() => {
     fetchHiveDetails();
   }, [params.id]);
@@ -1070,7 +1077,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                         </div>
                         <div className="text-left flex-1">
                             <div className="font-medium text-gray-900">{apiary.name}</div>
-                            <div className="text-xs text-gray-500">{apiary.apiary_number}</div>
+                            <div className="text-xs text-gray-500">{formatApiaryNumber(apiary.apiary_number, apiary.type)}</div>
                         </div>
                         {isSelected && <Check className="w-5 h-5 text-honey-600" />}
                         </button>

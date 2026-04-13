@@ -54,12 +54,23 @@ export default function DashboardPage() {
   const [latestHiveLog, setLatestHiveLog] = useState<any>(null); // New State for Tenant Log
   const [pendingMissionsCount, setPendingMissionsCount] = useState(0);
   const [meetingDate, setMeetingDate] = useState<string | null>(null);
+  const [showHandsfreeModal, setShowHandsfreeModal] = useState(false);
+  const [handsfreeBusy, setHandsfreeBusy] = useState(false);
+  const [handsfreeStatus, setHandsfreeStatus] = useState('');
 
   // Data State
   const [allHives, setAllHives] = useState<any[]>([]);
 
   const supabase = createClient();
   const router = useRouter();
+
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      if (localStorage.getItem('handsfree_setup_done') === '1') return;
+      setShowHandsfreeModal(true);
+    } catch {}
+  }, []);
 
   const getApiaryTypeLabel = (t?: string) => {
     if (t === 'bigård') return 'Bigård';
@@ -515,11 +526,115 @@ export default function DashboardPage() {
     router.push('/');
   };
 
+  const handleHandsfreeSetup = async () => {
+    if (handsfreeBusy) return;
+    setHandsfreeBusy(true);
+    setHandsfreeStatus('Åpner tillatelser…');
+
+    const stopTracks = (stream: MediaStream | null | undefined) => {
+      try {
+        if (!stream) return;
+        for (const t of stream.getTracks()) {
+          try { t.stop(); } catch {}
+        }
+      } catch {}
+    };
+
+    try {
+      try {
+        setHandsfreeStatus('Mikrofon…');
+        if (navigator.mediaDevices?.getUserMedia) {
+          const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stopTracks(s);
+        }
+      } catch {}
+
+      try {
+        setHandsfreeStatus('Kamera…');
+        if (navigator.mediaDevices?.getUserMedia) {
+          const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+          stopTracks(s);
+        }
+      } catch {}
+
+      try {
+        setHandsfreeStatus('Posisjon…');
+        if (navigator.geolocation) {
+          await new Promise<void>((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+              () => resolve(),
+              () => resolve(),
+              { enableHighAccuracy: false, timeout: 8000 }
+            );
+          });
+        }
+      } catch {}
+
+      try {
+        setHandsfreeStatus('Varsler…');
+        if (typeof window !== 'undefined' && 'Notification' in window) {
+          if (Notification.permission === 'default') {
+            await Notification.requestPermission();
+          }
+        }
+      } catch {}
+
+      try {
+        localStorage.setItem('handsfree_setup_done', '1');
+      } catch {}
+
+      setShowHandsfreeModal(false);
+    } finally {
+      setHandsfreeBusy(false);
+      setHandsfreeStatus('');
+    }
+  };
+
   if (loading) return <div className="p-8 text-center">Laster oversikt...</div>;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <BeekeeperAlertsPoller />
+
+      {showHandsfreeModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-5 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900">Handsfree-oppsett</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Trykk én gang for å gi tilgang til mikrofon, kamera, posisjon og varsler. Da slipper du popups midt i bruk.
+              </p>
+            </div>
+            <div className="p-5 space-y-4">
+              {handsfreeStatus ? (
+                <div className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  {handsfreeStatus}
+                </div>
+              ) : null}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={handleHandsfreeSetup}
+                  disabled={handsfreeBusy}
+                  className="bg-honey-500 hover:bg-honey-600 disabled:bg-honey-700 text-white font-bold py-3 rounded-xl"
+                >
+                  {handsfreeBusy ? 'Åpner…' : 'Aktiver'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    try { localStorage.setItem('handsfree_setup_done', '1'); } catch {}
+                    setShowHandsfreeModal(false);
+                  }}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-3 rounded-xl"
+                >
+                  Ikke nå
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       <main className="p-2 space-y-2 max-w-lg mx-auto">
           

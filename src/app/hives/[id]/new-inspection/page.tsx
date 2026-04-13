@@ -17,6 +17,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [submitting, setSubmitting] = useState(false);
   const searchParams = useSearchParams();
   const autoVoice = searchParams.get('autoVoice');
+  const [handsfreeReady, setHandsfreeReady] = useState(false);
   
   const { isOffline, saveInspection } = useOffline();
 
@@ -297,6 +298,13 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const router = useRouter();
 
   useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      setHandsfreeReady(localStorage.getItem('handsfree_setup_done') === '1');
+    } catch {}
+  }, []);
+
+  useEffect(() => {
     fetchHiveAndWeather();
   }, [params.id]);
 
@@ -403,9 +411,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   // Sikre kontinuerlig lytting gjennom hele inspeksjonen
   useEffect(() => {
+    if (!handsfreeReady) return;
     try { startListening(); } catch {}
     return () => { try { stopListening(); } catch {} };
-  }, []);
+  }, [handsfreeReady]);
 
 
   const fetchHiveAndWeather = async () => {
@@ -453,7 +462,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         if (hiveRes?.data) setHive(hiveRes.data);
       }
 
-      if (navigator.geolocation && !isOffline) {
+      if (handsfreeReady && navigator.geolocation && !isOffline) {
         setWeatherLoading(true);
         navigator.geolocation.getCurrentPosition(
           async (position) => {
