@@ -8,7 +8,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 // VoiceAssistant removed by user request
 
-export default function Header() {
+type HeaderProps = {
+  isStagingHost?: boolean;
+};
+
+export default function Header({ isStagingHost }: HeaderProps) {
   const [profile, setProfile] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
@@ -132,6 +136,12 @@ export default function Header() {
           <div className="w-12"></div>
         </div>
 
+        {isStagingHost ? (
+          <div className="bg-red-600 text-white text-[10px] font-semibold text-center h-[20px] flex items-center justify-center print:hidden">
+            STAGING – ikke ekte app
+          </div>
+        ) : null}
+
         {/* Bottom Black Bar - Hide on Dashboard as it has its own controls */}
         {pathname !== '/dashboard' && (
           <div className="bg-black text-white px-4 py-2 flex justify-between items-center shadow-md z-40 h-[44px]">
@@ -156,7 +166,11 @@ export default function Header() {
       </div>
 
       {/* Spacer to prevent content overlap */}
-      <div className={`md:hidden w-full transition-all duration-200 ${pathname !== '/dashboard' ? 'h-[116px]' : 'h-[72px]'}`}></div>
+      <div className={`md:hidden w-full transition-all duration-200 ${
+        pathname !== '/dashboard'
+          ? (isStagingHost ? 'h-[136px]' : 'h-[116px]')
+          : (isStagingHost ? 'h-[92px]' : 'h-[72px]')
+      }`}></div>
     </>
   );
 }

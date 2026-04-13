@@ -151,7 +151,7 @@ export default function RootLayout({
             <OfflineProvider>
               <CartProvider>
                 {isStagingHost ? (
-                  <div className="print:hidden bg-red-600 text-white text-xs font-semibold text-center py-1">
+                  <div className="hidden md:block print:hidden bg-red-600 text-white text-xs font-semibold text-center py-1">
                     STAGING – ikke ekte app
                   </div>
                 ) : null}
@@ -159,7 +159,7 @@ export default function RootLayout({
                 <CartSidebar />
 
                 <MainLayout>
-                  <Header />
+                  <Header isStagingHost={isStagingHost} />
                   {children}
                 </MainLayout>
 
