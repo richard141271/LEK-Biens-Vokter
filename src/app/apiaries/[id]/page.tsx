@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Archive, Truck, Trash2, X, Check, ClipboardList, Edit, QrCode, Calendar } from 'lucide-react';
+import { ArrowLeft, Archive, Truck, Trash2, X, Check, ClipboardList, Edit, QrCode, Calendar, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store, MapPin } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -27,6 +27,23 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [targetApiaryId, setTargetApiaryId] = useState('');
   const [availableApiaries, setAvailableApiaries] = useState<any[]>([]);
   const [isMoving, setIsMoving] = useState(false);
+
+  const [apiaryContacts, setApiaryContacts] = useState<any[]>([]);
+  const [selectedContactId, setSelectedContactId] = useState<string>('');
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteTab, setInviteTab] = useState<'existing' | 'new'>('existing');
+  const [contactsList, setContactsList] = useState<any[]>([]);
+  const [inviteRole, setInviteRole] = useState<'grunneier' | 'kontaktperson' | 'samarbeidspartner'>('grunneier');
+  const [existingContactId, setExistingContactId] = useState('');
+  const [newContact, setNewContact] = useState({
+    name: '',
+    address: '',
+    postal_code: '',
+    city: '',
+    phone: '',
+    email: '',
+  });
+  const [isInviting, setIsInviting] = useState(false);
 
   // Scan Modal State
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
@@ -94,6 +111,23 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       fetchAvailableApiaries();
     }
   }, [isMoveModalOpen]);
+
+  useEffect(() => {
+    if (isInviteModalOpen) {
+      fetchContactsList();
+      setInviteTab('existing');
+      setInviteRole('grunneier');
+      setExistingContactId(selectedContactId || '');
+      setNewContact({
+        name: '',
+        address: '',
+        postal_code: '',
+        city: '',
+        phone: '',
+        email: '',
+      });
+    }
+  }, [isInviteModalOpen]);
 
   const fetchData = async () => {
     if (!navigator.onLine) {
@@ -236,7 +270,41 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     }
 
     if (finalHives) setHives(finalHives);
+    await fetchApiaryContacts();
     setLoading(false);
+  };
+
+  const fetchApiaryContacts = async () => {
+    const { data: links, error: linksError } = await supabase
+      .from('apiary_contacts')
+      .select('contact_id, role')
+      .eq('apiary_id', params.id);
+
+    if (linksError || !links || links.length === 0) {
+      setApiaryContacts([]);
+      setSelectedContactId('');
+      return;
+    }
+
+    const contactIds = Array.from(new Set(links.map((l: any) => l.contact_id)));
+    const { data: contacts } = await supabase
+      .from('contacts')
+      .select('id, name, email')
+      .in('id', contactIds);
+
+    const contactMap = new Map((contacts || []).map((c: any) => [c.id, c]));
+    const combined = links
+      .map((l: any) => ({
+        contact_id: l.contact_id,
+        role: l.role,
+        contact: contactMap.get(l.contact_id) || null,
+      }))
+      .filter((x: any) => !!x.contact);
+
+    setApiaryContacts(combined);
+    if (!selectedContactId && combined.length > 0) {
+      setSelectedContactId(combined[0].contact_id);
+    }
   };
 
   const fetchAvailableApiaries = async () => {
@@ -247,6 +315,57 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       .order('name');
     
     if (data) setAvailableApiaries(data);
+  };
+
+  const fetchContactsList = async () => {
+    const { data } = await supabase.from('contacts').select('id, name, email').order('name');
+    setContactsList(data || []);
+  };
+
+  const getRoleLabel = (r: string) => {
+    if (r === 'kontaktperson') return 'Kontaktperson';
+    if (r === 'samarbeidspartner') return 'Samarbeidspartner';
+    return 'Grunneier';
+  };
+
+  const handleInviteSubmit = async () => {
+    if (!apiary?.id) return;
+    if (inviteTab === 'existing' && !existingContactId) return;
+    if (inviteTab === 'new' && (!newContact.name.trim() || !newContact.email.trim())) return;
+
+    setIsInviting(true);
+    try {
+      const payload =
+        inviteTab === 'existing'
+          ? {
+              apiaryId: apiary.id,
+              role: inviteRole,
+              contactId: existingContactId,
+            }
+          : {
+              apiaryId: apiary.id,
+              role: inviteRole,
+              contact: newContact,
+            };
+
+      const res = await fetch('/api/grunneier/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data?.error || 'Kunne ikke invitere');
+        return;
+      }
+
+      setIsInviteModalOpen(false);
+      await fetchApiaryContacts();
+      alert('Invitasjon sendt!');
+    } finally {
+      setIsInviting(false);
+    }
   };
 
   // --- SELECTION LOGIC ---
@@ -729,6 +848,27 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <select
+                value={selectedContactId}
+                onChange={(e) => setSelectedContactId(e.target.value)}
+                className="w-full sm:w-auto max-w-[240px] border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white"
+              >
+                <option value="">Kontakter</option>
+                {apiaryContacts.map((ac: any) => (
+                  <option key={ac.contact_id} value={ac.contact_id}>
+                    {ac.contact?.name || 'Ukjent'} {ac.role ? `(${getRoleLabel(ac.role)})` : ''}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => setIsInviteModalOpen(true)}
+                className="flex items-center gap-2 px-3 py-2 bg-honey-500 hover:bg-honey-600 text-white rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Inviter grunneier</span>
+              </button>
+            </div>
             <Link
               href={`/apiaries/${params.id}/edit`}
               className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm font-medium"
@@ -1152,6 +1292,142 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 className="w-full bg-honey-500 hover:bg-honey-600 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {isMoving ? 'Flytter...' : 'Bekreft flytting'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* INVITE CONTACT MODAL */}
+      {isInviteModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-honey-50">
+              <h3 className="font-bold text-lg text-gray-900">Inviter grunneier</h3>
+              <button onClick={() => setIsInviteModalOpen(false)}>
+                <X className="w-6 h-6 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setInviteTab('existing')}
+                  className={`flex-1 py-2 rounded-lg text-sm font-bold border ${
+                    inviteTab === 'existing'
+                      ? 'bg-gray-900 text-white border-gray-900'
+                      : 'bg-white text-gray-700 border-gray-200'
+                  }`}
+                >
+                  Velg eksisterende
+                </button>
+                <button
+                  onClick={() => setInviteTab('new')}
+                  className={`flex-1 py-2 rounded-lg text-sm font-bold border ${
+                    inviteTab === 'new'
+                      ? 'bg-gray-900 text-white border-gray-900'
+                      : 'bg-white text-gray-700 border-gray-200'
+                  }`}
+                >
+                  Opprett ny
+                </button>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Rolle</label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) =>
+                    setInviteRole(e.target.value as 'grunneier' | 'kontaktperson' | 'samarbeidspartner')
+                  }
+                  className="w-full border border-gray-300 rounded-lg p-2.5"
+                >
+                  <option value="grunneier">Grunneier</option>
+                  <option value="kontaktperson">Kontaktperson</option>
+                  <option value="samarbeidspartner">Samarbeidspartner</option>
+                </select>
+              </div>
+
+              {inviteTab === 'existing' ? (
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Person</label>
+                  <select
+                    value={existingContactId}
+                    onChange={(e) => setExistingContactId(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg p-2.5"
+                  >
+                    <option value="">Velg person...</option>
+                    {contactsList.map((c: any) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {c.email ? `(${c.email})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Navn</label>
+                    <input
+                      value={newContact.name}
+                      onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Adresse</label>
+                    <input
+                      value={newContact.address}
+                      onChange={(e) => setNewContact({ ...newContact, address: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Postnummer</label>
+                    <input
+                      value={newContact.postal_code}
+                      onChange={(e) => setNewContact({ ...newContact, postal_code: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Sted</label>
+                    <input
+                      value={newContact.city}
+                      onChange={(e) => setNewContact({ ...newContact, city: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Telefon</label>
+                    <input
+                      value={newContact.phone}
+                      onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">E-post</label>
+                    <input
+                      value={newContact.email}
+                      onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                      type="email"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={handleInviteSubmit}
+                disabled={
+                  isInviting ||
+                  (inviteTab === 'existing' && !existingContactId) ||
+                  (inviteTab === 'new' && (!newContact.name.trim() || !newContact.email.trim()))
+                }
+                className="w-full bg-honey-500 hover:bg-honey-600 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isInviting ? 'Sender...' : 'Send invitasjon'}
               </button>
             </div>
           </div>
