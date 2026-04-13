@@ -997,11 +997,11 @@ export default function DashboardPage() {
               <h3 className="text-[10px] font-bold text-gray-500 uppercase px-1">Nyttige lenker</h3>
               <div className="grid grid-cols-3 gap-1.5">
                   <ExternalLinkButton href="https://leksystem.no/" label="LEKSYSTEM" imageSrc="/images/logos/lek_honning.png" />
-                  <ExternalLinkButton href="https://reddenbie.no/" label="REDD EN BIE" />
+                  <ExternalLinkButton href="https://reddenbie.no/" label="REDD EN BIE" imageSrc="/images/logos/reddenbie.svg" />
                   <ExternalLinkButton href="https://norges-birokterlag.no" label="BIRØKTERLAG" imageSrc="/images/logos/norbi.svg" />
                   <ExternalLinkButton href="https://honninglandet.no/nyheter/nm-i-honning-2025/" label="NM HONNING" imageSrc="/images/logos/honninglandet.png" />
                   <ExternalLinkButton href="https://mattilsynet.no" label="MATTILSYNET" imageSrc="/images/logos/mattilsynet.png" />
-                  <ExternalLinkButton href="https://biehelse.no" label="BIEHELSE" />
+                  <ExternalLinkButton href="https://biehelse.no" label="BIEHELSE" imageSrc="/images/logos/biehelse.svg" />
               </div>
           </div>
 
