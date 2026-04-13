@@ -734,22 +734,6 @@ export default function DashboardPage() {
               </div>
           </div>
 
-          {/* System Upgrade Info */}
-          <div className="bg-honey-50 border border-honey-200 rounded-xl p-3 space-y-1">
-              <div className="text-xs font-semibold text-honey-900">
-                  🔧 Vi oppgraderer kjernen i systemet
-              </div>
-              <p className="text-[11px] text-honey-900">
-                  Vi jobber nå med en større opprydding og forbedring av kjernen i appen. Målet er å gjøre systemet mer stabilt, mer logisk og mer pålitelig fremover.
-              </p>
-              <p className="text-[11px] text-honey-900">
-                  I en kort periode kan enkelte funksjoner oppføre seg litt annerledes enn vanlig, eller være midlertidig utilgjengelige. Dette er en del av arbeidet med å gjøre løsningen bedre og mer robust.
-              </p>
-              <p className="text-[11px] text-honey-900">
-                  Takk for tålmodigheten – vi bygger for langsiktig kvalitet og trygg drift 🌱
-              </p>
-          </div>
-
           {/* Mail & Founder/Kursvenn Grid */}
           {(profile?.email_enabled || profile?.is_founder || profile?.is_course_friend) && (
             <div className="grid grid-cols-2 gap-2">
@@ -1012,11 +996,12 @@ export default function DashboardPage() {
           <div className="space-y-1 pt-1">
               <h3 className="text-[10px] font-bold text-gray-500 uppercase px-1">Nyttige lenker</h3>
               <div className="grid grid-cols-3 gap-1.5">
-                  <ExternalLinkButton href="https://richard141271.github.io/" label="LEK-HONNING" imageSrc="/images/logos/lek_honning.png" />
-                  <ExternalLinkButton href="https://honning.no/" label="HC" imageSrc="/images/logos/hc.png" />
+                  <ExternalLinkButton href="https://leksystem.no/" label="LEKSYSTEM" imageSrc="/images/logos/lek_honning.png" />
+                  <ExternalLinkButton href="https://reddenbie.no/" label="REDD EN BIE" />
                   <ExternalLinkButton href="https://norges-birokterlag.no" label="BIRØKTERLAG" imageSrc="/images/logos/norbi.svg" />
                   <ExternalLinkButton href="https://honninglandet.no/nyheter/nm-i-honning-2025/" label="NM HONNING" imageSrc="/images/logos/honninglandet.png" />
                   <ExternalLinkButton href="https://mattilsynet.no" label="MATTILSYNET" imageSrc="/images/logos/mattilsynet.png" />
+                  <ExternalLinkButton href="https://biehelse.no" label="BIEHELSE" />
               </div>
           </div>
 
