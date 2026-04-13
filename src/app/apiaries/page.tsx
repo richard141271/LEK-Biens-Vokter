@@ -90,6 +90,13 @@ export default function ApiariesPage() {
       .replace(/\s+/g, ' ')
       .trim();
 
+  const formatApiaryNumber = (raw: string, type?: string) => {
+    const s = String(raw || '');
+    const t = String(type || '').toLowerCase();
+    if (t === 'bil' || s.toUpperCase().startsWith('BIL-')) return s.split('.')[0];
+    return s;
+  };
+
   const extractHiveDigits = (t: string): string | null => {
     const s = normalizeText(t)
       .replace(/\bkune\b/g, 'kube')
@@ -581,7 +588,7 @@ export default function ApiariesPage() {
         doc.setTextColor(0, 0, 0);
         doc.setFont('courier', 'bold'); // Monospace look
         doc.setFontSize(36);
-        doc.text(apiary.apiary_number || '', 20, 260);
+        doc.text(formatApiaryNumber(String(apiary.apiary_number || ''), apiary.type), 20, 260);
 
         // QR Code
         try {
@@ -814,7 +821,7 @@ export default function ApiariesPage() {
             const Icon = getIcon(apiary.type);
             const activeHiveCount = apiary.hives?.filter((h: any) => h.active).length || 0;
             const isSelected = selectedApiaries.includes(apiary.id);
-            const apiaryNumberRaw = String(apiary.apiary_number || '');
+            const apiaryNumberRaw = formatApiaryNumber(String(apiary.apiary_number || ''), apiary.type);
             const dashIndex = apiaryNumberRaw.indexOf('-');
             const apiaryNumberPrefix = dashIndex > 0 ? apiaryNumberRaw.slice(0, dashIndex + 1) : apiaryNumberRaw;
             const apiaryNumberRest = dashIndex > 0 ? apiaryNumberRaw.slice(dashIndex + 1) : '';

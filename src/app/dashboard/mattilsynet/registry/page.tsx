@@ -16,6 +16,13 @@ export default function RegistryPage() {
 
   const supabase = createClient();
 
+  const formatApiaryNumber = (raw: any, type?: any) => {
+    const s = String(raw || '');
+    const t = String(type || '').toLowerCase();
+    if (t === 'bil' || s.toUpperCase().startsWith('BIL-')) return s.split('.')[0];
+    return s;
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -182,7 +189,7 @@ export default function RegistryPage() {
                   <tbody className="divide-y divide-gray-100">
                     {filteredApiaries.map(apiary => (
                       <tr key={apiary.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="p-4 font-mono text-gray-600">{apiary.apiary_number || 'N/A'}</td>
+                        <td className="p-4 font-mono text-gray-600">{formatApiaryNumber(apiary.apiary_number, apiary.type) || 'N/A'}</td>
                         <td className="p-4 font-medium text-gray-900">{apiary.name}</td>
                         <td className="p-4 text-gray-600">{apiary.profiles?.full_name}</td>
                         <td className="p-4 text-gray-600">{apiary.location}</td>

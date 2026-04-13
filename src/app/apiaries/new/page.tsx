@@ -280,7 +280,7 @@ export default function NewApiaryPage() {
       const nextNum = await getNextSequenceNo(user.id, prefixes);
       const prefix = prefixes[0];
 
-      const suffix = memberNumber ? `.${memberNumber}` : '';
+      const suffix = type === 'bil' ? '' : (memberNumber ? `.${memberNumber}` : '');
       const apiaryNumber = `${prefix}-${nextNum.toString().padStart(3, '0')}${suffix}`;
 
       const parsed = parseLatLng(coordinates);
