@@ -71,6 +71,7 @@ export default function GrunneierPage() {
   const [proposal, setProposal] = useState('');
   const [signatureName, setSignatureName] = useState('');
   const [activeAgreementId, setActiveAgreementId] = useState<string | null>(null);
+  const [selectedApiaryId, setSelectedApiaryId] = useState<string | null>(null);
 
   const fetchSession = async () => {
     setSessionLoading(true);
@@ -96,6 +97,14 @@ export default function GrunneierPage() {
   useEffect(() => {
     fetchSession();
   }, []);
+
+  useEffect(() => {
+    if (selectedApiaryId && linkedApiaries.some((i) => i.apiary.id === selectedApiaryId)) return;
+    const firstWithCoords = linkedApiaries.find(
+      (i) => typeof i.apiary.latitude === 'number' && typeof i.apiary.longitude === 'number'
+    );
+    setSelectedApiaryId(firstWithCoords?.apiary.id || linkedApiaries[0]?.apiary.id || null);
+  }, [linkedApiaries, selectedApiaryId]);
 
   useEffect(() => {
     const validate = async () => {
@@ -146,6 +155,16 @@ export default function GrunneierPage() {
   };
 
   const mapCenter = useMemo<[number, number]>(() => {
+    const selected = selectedApiaryId
+      ? linkedApiaries.find((i) => i.apiary.id === selectedApiaryId)
+      : null;
+    if (selected) {
+      const lat = selected.apiary.latitude;
+      const lng = selected.apiary.longitude;
+      if (typeof lat === 'number' && typeof lng === 'number') {
+        return [lat, lng];
+      }
+    }
     for (const item of linkedApiaries) {
       const lat = item.apiary.latitude;
       const lng = item.apiary.longitude;
@@ -154,7 +173,7 @@ export default function GrunneierPage() {
       }
     }
     return [60.3913, 5.3221];
-  }, [linkedApiaries]);
+  }, [linkedApiaries, selectedApiaryId]);
 
   const markers = useMemo(() => {
     return linkedApiaries
@@ -175,12 +194,12 @@ export default function GrunneierPage() {
           id: `${item.apiary.id}:${item.contact.id}`,
           position: [lat, lng] as [number, number],
           title,
-          type: 'user' as const,
+          type: item.apiary.id === selectedApiaryId ? ('user' as const) : ('healthy' as const),
           description,
         };
       })
       .filter(Boolean) as any[];
-  }, [linkedApiaries]);
+  }, [linkedApiaries, selectedApiaryId]);
 
   const hasSession = linkedApiaries.length > 0;
   const pendingAgreements = useMemo(
@@ -377,9 +396,13 @@ export default function GrunneierPage() {
                   </h2>
                   <div className="grid gap-2">
                     {linkedApiaries.map((item) => (
-                      <div
+                      <button
+                        type="button"
                         key={`${item.apiary.id}:${item.contact.id}`}
-                        className="border border-gray-200 rounded-lg p-3"
+                        onClick={() => setSelectedApiaryId(item.apiary.id)}
+                        className={`border border-gray-200 rounded-lg p-3 text-left hover:bg-gray-50 ${
+                          selectedApiaryId === item.apiary.id ? 'ring-2 ring-gray-900' : ''
+                        }`}
                       >
                         <div className="font-semibold text-gray-900">
                           {item.apiary.apiary_number || 'Bigård'}{' '}
@@ -388,7 +411,10 @@ export default function GrunneierPage() {
                         <div className="text-xs text-gray-600">
                           {item.apiary.location || 'Ukjent sted'} • Rolle: {item.role}
                         </div>
-                      </div>
+                        {(typeof item.apiary.latitude !== 'number' || typeof item.apiary.longitude !== 'number') && (
+                          <div className="text-xs text-red-600 mt-1">Mangler posisjon (lat/lon)</div>
+                        )}
+                      </button>
                     ))}
                   </div>
                 </div>

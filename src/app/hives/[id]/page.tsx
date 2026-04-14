@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, MapPin, Truck, Calendar, Activity, X, Check, Printer, ChevronDown, ChevronUp, History, AlertTriangle, Trash2, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, MapPin, Truck, Calendar, Activity, X, Check, Printer, ChevronDown, ChevronUp, History, AlertTriangle, Trash2, Image as ImageIcon, Pencil, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store } from 'lucide-react';
 import { useOffline } from '@/context/OfflineContext';
@@ -28,8 +28,25 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   const [offlineTemperament, setOfflineTemperament] = useState('rolig');
   const [offlineStatus, setOfflineStatus] = useState('OK');
   const [offlineNotes, setOfflineNotes] = useState('');
-  const [offlineImage, setOfflineImage] = useState<File | null>(null);
+  const [offlineImages, setOfflineImages] = useState<File[] | null>(null);
   
+  const [editInspectionOpen, setEditInspectionOpen] = useState(false);
+  const [editInspectionSubmitting, setEditInspectionSubmitting] = useState(false);
+  const [editInspection, setEditInspection] = useState<any | null>(null);
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
+  const [editQueenSeen, setEditQueenSeen] = useState(false);
+  const [editEggsSeen, setEditEggsSeen] = useState(false);
+  const [editBroodCondition, setEditBroodCondition] = useState('Bra');
+  const [editHoneyStores, setEditHoneyStores] = useState('middels');
+  const [editTemperament, setEditTemperament] = useState('rolig');
+  const [editStatus, setEditStatus] = useState('OK');
+  const [editTemperature, setEditTemperature] = useState<string>('');
+  const [editWeather, setEditWeather] = useState<string>('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editNewImages, setEditNewImages] = useState<File[] | null>(null);
+  const [editRemovedUrls, setEditRemovedUrls] = useState<string[]>([]);
+
   // Move Modal State
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
   const [apiaries, setApiaries] = useState<any[]>([]);
@@ -177,13 +194,10 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
         action: 'FULL_INSPECTION',
         details: `Inspeksjon utført (Offline). Status: ${offlineStatus}.`,
         sharedWithMattilsynet: false,
-        image: offlineImage
-          ? {
-              name: offlineImage.name,
-              type: offlineImage.type,
-              blob: offlineImage,
-            }
-          : undefined,
+        images:
+          offlineImages && offlineImages.length > 0
+            ? offlineImages.map((f) => ({ name: f.name, type: f.type, blob: f }))
+            : undefined,
         data: {
           inspection: {
             id: opId,
@@ -208,7 +222,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
       });
       setOfflineInspectionOpen(false);
       setOfflineNotes('');
-      setOfflineImage(null);
+      setOfflineImages(null);
       alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
     } catch (e: any) {
       alert('Kunne ikke lagre inspeksjon offline: ' + (e?.message || 'ukjent feil'));
@@ -382,6 +396,133 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
       setExpandedInspectionId(null);
     } else {
       setExpandedInspectionId(id);
+    }
+  };
+
+  const extractInspectionImageUrls = (inspection: any) => {
+    const images: string[] = [];
+    if (inspection?.image_url) images.push(String(inspection.image_url));
+    const notes = String(inspection?.notes || '');
+    if (notes) {
+      const iter = notes.matchAll(/https?:\/\/[^\s)'"`]+/g) as Iterable<RegExpMatchArray>;
+      const urls = Array.from(iter).map((m) => m[0]);
+      urls.forEach((u) => {
+        if (u.includes('/inspection-images/')) images.push(u);
+      });
+    }
+    return Array.from(new Set(images));
+  };
+
+  const openEditInspection = (inspection: any) => {
+    setEditInspection(inspection);
+    setEditDate(String(inspection?.inspection_date || '').slice(0, 10));
+    setEditTime(String(inspection?.time || '').slice(0, 5));
+    setEditQueenSeen(Boolean(inspection?.queen_seen));
+    setEditEggsSeen(Boolean(inspection?.eggs_seen));
+    setEditBroodCondition(String(inspection?.brood_condition || 'Bra'));
+    setEditHoneyStores(String(inspection?.honey_stores || 'middels'));
+    setEditTemperament(String(inspection?.temperament || 'rolig'));
+    setEditStatus(String(inspection?.status || 'OK'));
+    setEditTemperature(inspection?.temperature != null ? String(inspection.temperature) : '');
+    setEditWeather(inspection?.weather != null ? String(inspection.weather) : '');
+    setEditNotes(String(inspection?.notes || ''));
+    setEditNewImages(null);
+    setEditRemovedUrls([]);
+    setEditInspectionOpen(true);
+  };
+
+  const isBucketNotFoundError = (error: any) => {
+    const msg = String(error?.message || error?.error_description || error || '').toLowerCase();
+    return (msg.includes('bucket') && msg.includes('not found')) || msg.includes('bucket not found');
+  };
+
+  const uploadInspectionImage = async (file: File, inspectionId: string, index: number) => {
+    const fileExt = file.name.split('.').pop() || 'jpg';
+    const filePath = `${params.id}/${inspectionId}/edit-${Date.now()}-${index}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage
+      .from('inspection-images')
+      .upload(filePath, file, { upsert: true });
+    if (uploadError) throw uploadError;
+    const { data } = supabase.storage.from('inspection-images').getPublicUrl(filePath);
+    return data.publicUrl;
+  };
+
+  const submitEditInspection = async () => {
+    if (!editInspection?.id) return;
+    setEditInspectionSubmitting(true);
+    try {
+      const baseNotes = String(editNotes || '');
+      const removed = new Set((editRemovedUrls || []).filter(Boolean));
+      const existingUrls = extractInspectionImageUrls(editInspection).filter((u) => !removed.has(u));
+
+      const uploadedUrls: string[] = [];
+      const files = editNewImages && editNewImages.length > 0 ? editNewImages : [];
+      if (files.length > 0) {
+        for (let i = 0; i < files.length; i++) {
+          try {
+            const u = await uploadInspectionImage(files[i], editInspection.id, i + 1);
+            uploadedUrls.push(u);
+          } catch (e: any) {
+            if (isBucketNotFoundError(e)) {
+              alert('Bilde-lagring er ikke satt opp (bucket mangler). Endringen lagres uten nye bilder.');
+              break;
+            }
+            throw e;
+          }
+        }
+      }
+
+      const allUrls = [...existingUrls, ...uploadedUrls];
+
+      const chosenPrimary =
+        editInspection.image_url && !removed.has(String(editInspection.image_url))
+          ? String(editInspection.image_url)
+          : allUrls[0] || null;
+
+      let nextNotes = baseNotes;
+      Array.from(removed).forEach((u) => {
+        nextNotes = nextNotes.split(u).join('');
+      });
+      nextNotes = nextNotes
+        .split('\n')
+        .map((l) => l.trimEnd())
+        .filter((l) => l.trim() !== '')
+        .join('\n');
+
+      const extras = allUrls.filter((u) => u && u !== chosenPrimary);
+      const missingExtras = extras.filter((u) => !nextNotes.includes(u));
+      if (missingExtras.length > 0) {
+        const startIndex = 2;
+        const lines = missingExtras.map((u, idx) => `Bilde ${startIndex + idx}: ${u}`);
+        nextNotes = `${nextNotes}${nextNotes ? '\n' : ''}${lines.join('\n')}`;
+      }
+
+      const payload: any = {
+        inspection_date: editDate,
+        time: editTime || null,
+        queen_seen: editQueenSeen,
+        eggs_seen: editEggsSeen,
+        brood_condition: editBroodCondition,
+        honey_stores: editHoneyStores,
+        temperament: editTemperament,
+        notes: nextNotes,
+        status: editStatus,
+        temperature: editTemperature ? Number(editTemperature) : null,
+        weather: editWeather || null,
+        image_url: chosenPrimary,
+      };
+
+      const { error: updateError } = await supabase.from('inspections').update(payload).eq('id', editInspection.id);
+      if (updateError) throw updateError;
+
+      setInspections((prev) =>
+        prev.map((i) => (i.id === editInspection.id ? { ...i, ...payload } : i))
+      );
+      setEditInspectionOpen(false);
+    } catch (e: any) {
+      alert('Kunne ikke oppdatere inspeksjon: ' + (e?.message || 'Ukjent feil'));
+    } finally {
+      setEditInspectionSubmitting(false);
     }
   };
 
@@ -797,13 +938,46 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bilde (valgfritt)</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bilder (valgfritt)</label>
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => setOfflineImage(e.target.files?.[0] || null)}
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length === 0) return;
+                      setOfflineImages((prev) => (prev ? [...prev, ...files] : files));
+                      e.currentTarget.value = '';
+                    }}
                     className="w-full text-sm"
                   />
+                  {offlineImages && offlineImages.length > 0 && (
+                    <div className="mt-2 grid grid-cols-4 gap-2">
+                      {offlineImages.map((f) => (
+                        <div
+                          key={`${f.name}:${f.size}:${f.lastModified}`}
+                          className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-50"
+                        >
+                          <img src={URL.createObjectURL(f)} alt="Bilde" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOfflineImages((prev) => {
+                                const list = prev || [];
+                                const idx = list.findIndex((x) => x === f);
+                                if (idx === -1) return prev;
+                                const next = [...list.slice(0, idx), ...list.slice(idx + 1)];
+                                return next.length > 0 ? next : null;
+                              });
+                            }}
+                            className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -822,6 +996,251 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                   className="px-4 py-2 rounded-lg bg-honey-500 text-white font-bold disabled:opacity-50"
                 >
                   {offlineSubmitting ? 'Lagrer...' : 'Lagre offline'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {editInspectionOpen && (
+          <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-[210] p-4 print:hidden">
+            <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden">
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-gray-500">Inspeksjon</div>
+                  <div className="font-bold text-gray-900">Rediger inspeksjon</div>
+                </div>
+                <button
+                  onClick={() => setEditInspectionOpen(false)}
+                  className="p-2 rounded-full hover:bg-gray-100"
+                  type="button"
+                >
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Dato</label>
+                    <input
+                      value={editDate}
+                      onChange={(e) => setEditDate(e.target.value)}
+                      type="date"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tid</label>
+                    <input
+                      value={editTime}
+                      onChange={(e) => setEditTime(e.target.value)}
+                      type="time"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                    <input
+                      checked={editQueenSeen}
+                      onChange={(e) => setEditQueenSeen(e.target.checked)}
+                      type="checkbox"
+                      className="text-honey-600 focus:ring-honey-500"
+                    />
+                    <span className="text-sm font-medium text-gray-800">Dronning sett</span>
+                  </label>
+                  <label className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                    <input
+                      checked={editEggsSeen}
+                      onChange={(e) => setEditEggsSeen(e.target.checked)}
+                      type="checkbox"
+                      className="text-honey-600 focus:ring-honey-500"
+                    />
+                    <span className="text-sm font-medium text-gray-800">Egg sett</span>
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Yngel</label>
+                    <select
+                      value={editBroodCondition}
+                      onChange={(e) => setEditBroodCondition(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                    >
+                      <option value="Bra">Bra</option>
+                      <option value="Middels">Middels</option>
+                      <option value="Dårlig">Dårlig</option>
+                      <option value="Ingen">Ingen</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Honning</label>
+                    <select
+                      value={editHoneyStores}
+                      onChange={(e) => setEditHoneyStores(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                    >
+                      <option value="lite">Lite</option>
+                      <option value="middels">Middels</option>
+                      <option value="mye">Mye</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Gemytt</label>
+                    <select
+                      value={editTemperament}
+                      onChange={(e) => setEditTemperament(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                    >
+                      <option value="rolig">Rolig</option>
+                      <option value="normal">Normal</option>
+                      <option value="hissig">Hissig</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Status</label>
+                    <select
+                      value={editStatus}
+                      onChange={(e) => setEditStatus(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                    >
+                      <option value="OK">OK</option>
+                      <option value="SVAK">Svak</option>
+                      <option value="SYKDOM">Sykdom</option>
+                      <option value="DØD">Død</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Temperatur (°C)</label>
+                    <input
+                      value={editTemperature}
+                      onChange={(e) => setEditTemperature(e.target.value)}
+                      type="number"
+                      inputMode="decimal"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                      placeholder="Valgfritt"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Vær</label>
+                    <input
+                      value={editWeather}
+                      onChange={(e) => setEditWeather(e.target.value)}
+                      type="text"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                      placeholder="Valgfritt"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Notater</label>
+                  <textarea
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    rows={4}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                    placeholder="Skriv notater"
+                  />
+                </div>
+
+                {editInspection && (() => {
+                  const removed = new Set((editRemovedUrls || []).filter(Boolean));
+                  const existing = extractInspectionImageUrls(editInspection).filter((u) => !removed.has(u));
+                  return existing.length > 0 ? (
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Eksisterende bilder</label>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {existing.map((src) => (
+                          <div key={src} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                            <img src={src} alt="Bilde" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => setEditRemovedUrls((prev) => (prev.includes(src) ? prev : [...prev, src]))}
+                              className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Legg til bilder
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      if (files.length === 0) return;
+                      setEditNewImages((prev) => (prev ? [...prev, ...files] : files));
+                      e.currentTarget.value = '';
+                    }}
+                    className="w-full text-sm"
+                  />
+                  {editNewImages && editNewImages.length > 0 && (
+                    <div className="mt-2 grid grid-cols-4 gap-2">
+                      {editNewImages.map((f) => (
+                        <div
+                          key={`${f.name}:${f.size}:${f.lastModified}`}
+                          className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-50"
+                        >
+                          <img src={URL.createObjectURL(f)} alt="Nytt bilde" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditNewImages((prev) => {
+                                const list = prev || [];
+                                const idx = list.findIndex((x) => x === f);
+                                if (idx === -1) return prev;
+                                const next = [...list.slice(0, idx), ...list.slice(idx + 1)];
+                                return next.length > 0 ? next : null;
+                              });
+                            }}
+                            className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-4 border-t border-gray-200 flex gap-3 justify-end">
+                <button
+                  onClick={() => setEditInspectionOpen(false)}
+                  type="button"
+                  className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-900 font-bold"
+                >
+                  Avbryt
+                </button>
+                <button
+                  onClick={submitEditInspection}
+                  type="button"
+                  disabled={editInspectionSubmitting}
+                  className="px-4 py-2 rounded-lg bg-honey-500 text-white font-bold disabled:opacity-50"
+                >
+                  {editInspectionSubmitting ? 'Lagrer...' : 'Lagre endringer'}
                 </button>
               </div>
             </div>
@@ -858,7 +1277,9 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                              {inspection.status}
                            </span>
                            {inspection.weather && <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{inspection.weather}</span>}
-                           {inspection.image_url && <ImageIcon className="w-4 h-4 text-gray-400" />}
+                           {(inspection.image_url || (inspection.notes && String(inspection.notes).includes('/inspection-images/'))) && (
+                             <ImageIcon className="w-4 h-4 text-gray-400" />
+                           )}
                         </div>
                         <p className="text-sm text-gray-500 truncate max-w-[200px] mt-1">
                           {inspection.notes || 'Ingen notater'}
@@ -937,7 +1358,17 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                       ) : null;
                     })()}
                     
-                    <div className="mt-4 flex justify-end">
+                    <div className="mt-4 flex justify-end gap-2">
+                        <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditInspection(inspection);
+                            }}
+                            className="flex items-center gap-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                            <Pencil className="w-4 h-4" />
+                            Rediger
+                        </button>
                         <button 
                             onClick={(e) => handleDeleteInspection(inspection.id, e)}
                             className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-2 rounded-lg text-sm font-medium transition-colors"

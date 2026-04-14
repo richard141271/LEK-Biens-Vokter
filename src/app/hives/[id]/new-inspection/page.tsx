@@ -32,6 +32,16 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [pendingCapture, setPendingCapture] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const speakRef = useRef<(text: string) => void>(() => {});
+  const selectedImageRef = useRef<File | null>(null);
+  const filePreviewRef = useRef<Map<File, string>>(new Map());
+  const getPreviewUrl = (file: File) => {
+    const existing = filePreviewRef.current.get(file);
+    if (existing) return existing;
+    const url = URL.createObjectURL(file);
+    filePreviewRef.current.set(file, url);
+    return url;
+  };
 
   // Capture Photo Function
   const capturePhoto = useCallback(() => {
@@ -52,15 +62,18 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         canvas.toBlob((blob) => {
             if (blob) {
                 const file = new File([blob], `voice_capture_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                const nextPreviewUrl = getPreviewUrl(file);
                 setPhotoCount((n) => {
                   const next = n + 1;
-                  // Announce inside updater to use correct next number
-                  speak(`Bilde tatt. Dette er bilde nummer ${next}`);
+                  speakRef.current(`Bilde tatt. Dette er bilde nummer ${next}`);
                   return next;
                 });
-                setSelectedImage((prev) => prev ? prev : file);
-                setExtraImages((prev) => prev ? [...prev, file] : [file]);
-                setImagePreview((prev) => prev || URL.createObjectURL(file));
+                setSelectedImage((prev) => {
+                  if (!prev) return file;
+                  setExtraImages((old) => (old ? [...old, file] : [file]));
+                  return prev;
+                });
+                setImagePreview((prev) => prev || nextPreviewUrl);
                 setLastCommand("Bilde tatt!");
                 // Optional: Flash effect or sound here
                 setTimeout(() => setLastCommand(null), 3000);
@@ -166,10 +179,16 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               if (last.type === 'photo') {
                   setExtraImages((prev) => {
                       const copy = [...(prev || [])];
-                      copy.pop();
-                      return copy;
+                      if (copy.length > 0) {
+                        copy.pop();
+                        setPhotoCount((n) => Math.max(0, n - 1));
+                        return copy;
+                      }
+                      setSelectedImage(null);
+                      setImagePreview(null);
+                      setPhotoCount((n) => Math.max(0, n - 1));
+                      return null;
                   });
-                  setPhotoCount((n) => Math.max(0, n - 1));
               }
               setHistory(prev => prev.slice(0, -1));
               speak('Siste endring avbrutt');
@@ -408,6 +427,26 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       };
     } catch {}
   };
+  useEffect(() => {
+    speakRef.current = speak;
+  }, [speak]);
+
+  useEffect(() => {
+    selectedImageRef.current = selectedImage;
+  }, [selectedImage]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        Array.from(filePreviewRef.current.values()).forEach((url) => {
+          try {
+            URL.revokeObjectURL(url);
+          } catch {}
+        });
+      } catch {}
+      filePreviewRef.current.clear();
+    };
+  }, []);
 
   // Sikre kontinuerlig lytting gjennom hele inspeksjonen
   useEffect(() => {
@@ -510,11 +549,26 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setSelectedImage(file);
-      setImagePreview(URL.createObjectURL(file));
-    }
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setSelectedImage((prevSelected) => {
+      if (!prevSelected) {
+        const first = files[0];
+        setImagePreview(URL.createObjectURL(first));
+        if (files.length > 1) {
+          setExtraImages((prev) => (prev ? [...prev, ...files.slice(1)] : files.slice(1)));
+        }
+        setPhotoCount((n) => n + files.length);
+        return first;
+      }
+
+      setExtraImages((prev) => (prev ? [...prev, ...files] : files));
+      setPhotoCount((n) => n + files.length);
+      return prevSelected;
+    });
+
+    e.target.value = '';
   };
 
   const uploadImage = async (file: File, opId: string, index: number): Promise<string> => {
@@ -1040,34 +1094,83 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             
             {/* Image Upload */}
             <div className="space-y-2">
-                <label className="block text-xs font-bold text-gray-500 uppercase">Last opp bilde (valgfritt)</label>
-                <div className="flex items-center gap-4">
+                <label className="block text-xs font-bold text-gray-500 uppercase">Bilder (valgfritt)</label>
+                <div className="flex items-center gap-3 flex-wrap">
                     <label className="cursor-pointer flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
                         <ImageIcon className="w-5 h-5 text-gray-500" />
-                        <span className="text-sm text-gray-700">Velg bilde</span>
+                        <span className="text-sm text-gray-700">Legg til bilde</span>
                         <input 
                             type="file" 
                             accept="image/*"
+                            multiple
                             onChange={handleImageChange}
                             className="hidden"
                         />
                     </label>
-                    {imagePreview && (
-                        <div className="relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200">
-                            <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                            <button 
-                                type="button"
-                                onClick={() => {
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPendingCapture(true);
+                        setCameraActive(true);
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <Camera className="w-5 h-5 text-gray-500" />
+                      <span className="text-sm text-gray-700">Ta bilde</span>
+                    </button>
+                </div>
+                {(() => {
+                  const files: Array<{ key: string; file: File; isPrimary: boolean }> = [];
+                  if (selectedImage) files.push({ key: `primary:${selectedImage.name}:${selectedImage.size}:${selectedImage.lastModified}`, file: selectedImage, isPrimary: true });
+                  (extraImages || []).forEach((f) => files.push({ key: `extra:${f.name}:${f.size}:${f.lastModified}`, file: f, isPrimary: false }));
+                  if (files.length === 0) return null;
+                  return (
+                    <div className="grid grid-cols-4 gap-2">
+                      {files.map(({ key, file, isPrimary }) => {
+                        const src = getPreviewUrl(file);
+                        return (
+                          <div key={key} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                            <img src={src} alt="Bilde" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isPrimary) {
+                                  if ((extraImages || []).length > 0) {
+                                    const nextPrimary = (extraImages || [])[0];
+                                    setSelectedImage(nextPrimary);
+                                    setImagePreview(URL.createObjectURL(nextPrimary));
+                                    setExtraImages((prev) => (prev ? prev.slice(1) : null));
+                                  } else {
                                     setSelectedImage(null);
                                     setImagePreview(null);
-                                }}
-                                className="absolute top-0 right-0 bg-red-500 text-white p-0.5 rounded-bl"
+                                  }
+                                  setPhotoCount((n) => Math.max(0, n - 1));
+                                  return;
+                                }
+                                setExtraImages((prev) => {
+                                  const list = prev || [];
+                                  const idx = list.findIndex((x) => x === file);
+                                  if (idx === -1) return prev;
+                                  const next = [...list.slice(0, idx), ...list.slice(idx + 1)];
+                                  setPhotoCount((n) => Math.max(0, n - 1));
+                                  return next.length > 0 ? next : null;
+                                });
+                              }}
+                              className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded"
                             >
-                                <X className="w-3 h-3" />
+                              <X className="w-3 h-3" />
                             </button>
-                        </div>
-                    )}
-                </div>
+                            {isPrimary && (
+                              <div className="absolute bottom-1 left-1 bg-black/70 text-white text-[10px] px-1.5 py-0.5 rounded">
+                                Hoved
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
             </div>
 
             <div>
