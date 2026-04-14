@@ -67,6 +67,7 @@ export default function Header({ isStagingHost }: HeaderProps) {
       pathname === '/' || 
       pathname === '/about' || 
       pathname === '/signin' || 
+      pathname.startsWith('/grunneier') ||
       pathname === '/lei-en-kube' || 
       pathname.startsWith('/info/') ||
       pathname.startsWith('/survey') ||

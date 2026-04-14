@@ -151,6 +151,44 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  const protectedPrefixes = [
+    '/dashboard',
+    '/apiaries',
+    '/hives',
+    '/settings',
+    '/network',
+    '/wallet',
+    '/missions',
+    '/referater',
+    '/archive',
+    '/scan',
+    '/shop',
+    '/honey-exchange',
+  ]
+  const isProtectedPath = protectedPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  )
+
+  if (isProtectedPath) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = '/signin'
+      redirectUrl.search = ''
+      const requestedPath = `${pathname}${request.nextUrl.search || ''}`
+      redirectUrl.searchParams.set('next', requestedPath)
+
+      const redirectResponse = NextResponse.redirect(redirectUrl)
+      for (const cookie of response.cookies.getAll()) {
+        redirectResponse.cookies.set(cookie)
+      }
+      return redirectResponse
+    }
+  }
+
   return response
 }
 

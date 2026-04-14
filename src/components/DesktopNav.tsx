@@ -26,6 +26,7 @@ export default function DesktopNav() {
       pathname === '/' || 
       pathname === '/about' || 
       pathname === '/signin' || 
+      pathname.startsWith('/grunneier') ||
       pathname === '/lei-en-kube' || 
       pathname.startsWith('/info/') ||
       pathname.startsWith('/survey') ||
