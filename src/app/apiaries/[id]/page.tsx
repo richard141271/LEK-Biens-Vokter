@@ -360,7 +360,11 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   };
 
   const fetchContactsList = async () => {
-    const { data } = await supabase.from('contacts').select('id, name, email').order('name');
+    const { data } = await supabase
+      .from('contacts')
+      .select('id, name, email, is_active')
+      .neq('is_active', false)
+      .order('name');
     setContactsList(data || []);
   };
 

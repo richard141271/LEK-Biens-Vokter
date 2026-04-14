@@ -112,12 +112,15 @@ export async function POST(request: Request) {
     if (finalContactId) {
       const { data: existingContact, error: contactError } = await supabase
         .from('contacts')
-        .select('id, name, email')
+        .select('id, name, email, is_active')
         .eq('id', finalContactId)
         .single();
 
       if (contactError || !existingContact) {
         return NextResponse.json({ error: 'Ingen tilgang til kontakt' }, { status: 403 });
+      }
+      if (existingContact.is_active === false) {
+        return NextResponse.json({ error: 'Kontakt er deaktivert' }, { status: 400 });
       }
 
       finalEmail = existingContact.email || '';

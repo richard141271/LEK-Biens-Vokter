@@ -2,8 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Plus, Link as LinkIcon, User, Mail, Phone, MapPin, ArrowLeft, Edit } from 'lucide-react';
+import { Plus, Link as LinkIcon, User, Mail, Phone, MapPin, ArrowLeft, Edit, Trash2, Power, X } from 'lucide-react';
 import Link from 'next/link';
 
 type Contact = {
@@ -14,6 +13,7 @@ type Contact = {
   address: string | null;
   postal_code: string | null;
   city: string | null;
+  is_active?: boolean;
 };
 
 type Apiary = {
@@ -36,6 +36,7 @@ export default function ContactsPage() {
   const [apiaryContacts, setApiaryContacts] = useState<ApiaryContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newContact, setNewContact] = useState({
@@ -67,7 +68,6 @@ export default function ContactsPage() {
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const supabase = createClient();
-  const router = useRouter();
 
   const fetchData = async () => {
     setLoading(true);
@@ -217,6 +217,66 @@ export default function ContactsPage() {
     }
   };
 
+  const handleToggleActive = async (contact: Contact, nextActive: boolean) => {
+    const ok = window.confirm(
+      nextActive
+        ? `Aktiver ${contact.name} igjen?`
+        : `Sett ${contact.name} som inaktiv? Kontakten blir skjult i standardlister.`
+    );
+    if (!ok) return;
+
+    try {
+      const { error } = await supabase
+        .from('contacts')
+        .update({ is_active: nextActive })
+        .eq('id', contact.id);
+      if (error) throw error;
+      await fetchData();
+    } catch (err: any) {
+      alert(err.message || 'Kunne ikke oppdatere status');
+    }
+  };
+
+  const handleDeleteContact = async (contact: Contact) => {
+    const ok = window.confirm(
+      `Slette ${contact.name} permanent?\n\nDette sletter også tilknytninger til bigårder og eventuelle avtaler knyttet til kontakten.`
+    );
+    if (!ok) return;
+
+    try {
+      const { error } = await supabase.from('contacts').delete().eq('id', contact.id);
+      if (error) throw error;
+      await fetchData();
+    } catch (err: any) {
+      alert(err.message || 'Kunne ikke slette kontakt');
+    }
+  };
+
+  const handleUnlinkFromApiary = async (contactId: string, apiaryId: string) => {
+    const ok = window.confirm('Oppheve tilknytningen mellom denne kontakten og bigården?');
+    if (!ok) return;
+
+    try {
+      const { error: unlinkError } = await supabase
+        .from('apiary_contacts')
+        .delete()
+        .eq('contact_id', contactId)
+        .eq('apiary_id', apiaryId);
+      if (unlinkError) throw unlinkError;
+
+      await supabase
+        .from('grunneier_agreements')
+        .update({ status: 'rejected', updated_at: new Date().toISOString() })
+        .eq('contact_id', contactId)
+        .eq('apiary_id', apiaryId)
+        .neq('status', 'rejected');
+
+      await fetchData();
+    } catch (err: any) {
+      alert(err.message || 'Kunne ikke oppheve tilknytning');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <header className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10">
@@ -263,15 +323,38 @@ export default function ContactsPage() {
           </div>
         ) : (
           <div className="grid gap-3">
-            {contacts.map((contact) => {
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-gray-500">
+                {showInactive ? 'Viser aktive + inaktive' : 'Viser kun aktive'}
+              </div>
+              <button
+                onClick={() => setShowInactive((v) => !v)}
+                className="text-xs font-bold px-3 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50"
+                type="button"
+              >
+                {showInactive ? 'Skjul inaktive' : 'Vis inaktive'}
+              </button>
+            </div>
+
+            {contacts
+              .filter((c) => showInactive || c.is_active !== false)
+              .map((contact) => {
               const linked = apiaryContacts.filter(ac => ac.contact_id === contact.id);
               return (
-                <div key={contact.id} className="bg-white border border-gray-200 rounded-xl p-4">
+                <div
+                  key={contact.id}
+                  className={`bg-white border border-gray-200 rounded-xl p-4 ${contact.is_active === false ? 'opacity-70' : ''}`}
+                >
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                     <div>
                       <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
                         <User className="w-5 h-5 text-gray-400" />
                         {contact.name}
+                        {contact.is_active === false && (
+                          <span className="text-[10px] bg-gray-100 px-2 py-1 rounded border border-gray-200 text-gray-700 uppercase font-bold">
+                            Inaktiv
+                          </span>
+                        )}
                       </h3>
                       <div className="mt-2 space-y-1">
                         {contact.email && (
@@ -308,10 +391,29 @@ export default function ContactsPage() {
                           setSelectedContact(contact);
                           setIsLinkModalOpen(true);
                         }}
-                        className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm font-medium w-full"
+                        disabled={contact.is_active === false}
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm font-medium w-full disabled:opacity-50"
                       >
                         <LinkIcon className="w-4 h-4" />
                         Knytt til bigård
+                      </button>
+
+                      <button
+                        onClick={() => handleToggleActive(contact, !(contact.is_active === false))}
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 rounded-lg transition-colors text-sm font-medium w-full"
+                        type="button"
+                      >
+                        <Power className="w-4 h-4" />
+                        {contact.is_active === false ? 'Aktiver' : 'Sett inaktiv'}
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteContact(contact)}
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-red-300 hover:bg-red-50 text-red-700 rounded-lg transition-colors text-sm font-medium w-full"
+                        type="button"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Slett
                       </button>
                       
                       {linked.length > 0 && (
@@ -323,8 +425,18 @@ export default function ContactsPage() {
                                 <span className="truncate pr-2">
                                   {l.apiary?.apiary_number || 'Bigård'} {l.apiary?.name ? `- ${l.apiary.name}` : ''}
                                 </span>
-                                <span className="text-[10px] bg-white px-1.5 py-0.5 rounded border border-gray-200 text-gray-500">
-                                  {l.role}
+                                <span className="flex items-center gap-2">
+                                  <span className="text-[10px] bg-white px-1.5 py-0.5 rounded border border-gray-200 text-gray-500">
+                                    {l.role}
+                                  </span>
+                                  <button
+                                    onClick={() => handleUnlinkFromApiary(contact.id, l.apiary_id)}
+                                    className="p-1 rounded hover:bg-gray-200 text-gray-500"
+                                    type="button"
+                                    title="Opphev tilknytning"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
                                 </span>
                               </li>
                             ))}
