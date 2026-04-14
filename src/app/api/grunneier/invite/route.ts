@@ -194,6 +194,7 @@ export async function POST(request: Request) {
     }
 
     let agreementId: string | null = null;
+    let agreementAlreadyActive = false;
 
     if (apiaryId) {
       const baseText = standardAgreementText({
@@ -215,7 +216,9 @@ export async function POST(request: Request) {
 
       if (existingAgreement?.id) {
         agreementId = existingAgreement.id;
-        if (sendInvite && existingAgreement.status !== 'active') {
+        if (existingAgreement.status === 'active') {
+          agreementAlreadyActive = true;
+        } else if (sendInvite) {
           await supabase
             .from('grunneier_agreements')
             .update({
@@ -226,22 +229,37 @@ export async function POST(request: Request) {
             .eq('id', agreementId);
         }
       } else {
-        agreementId =
-          (
-            await supabase
-              .from('grunneier_agreements')
-              .insert({
-                created_by: user.id,
-                apiary_id: apiaryId,
-                contact_id: finalContactId,
-                role,
-                status: sendInvite ? 'awaiting_contact' : 'draft',
-                base_text: baseText,
-                beekeeper_decision: 'pending',
-              })
-              .select('id')
-              .single()
-          ).data?.id || null;
+        const { data: activeAgreement } = await supabase
+          .from('grunneier_agreements')
+          .select('id')
+          .eq('contact_id', finalContactId)
+          .eq('created_by', user.id)
+          .eq('status', 'active')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (activeAgreement?.id) {
+          agreementId = activeAgreement.id;
+          agreementAlreadyActive = true;
+        } else {
+          agreementId =
+            (
+              await supabase
+                .from('grunneier_agreements')
+                .insert({
+                  created_by: user.id,
+                  apiary_id: apiaryId,
+                  contact_id: finalContactId,
+                  role,
+                  status: sendInvite ? 'awaiting_contact' : 'draft',
+                  base_text: baseText,
+                  beekeeper_decision: 'pending',
+                })
+                .select('id')
+                .single()
+            ).data?.id || null;
+        }
       }
 
       if (!agreementId) {
@@ -254,11 +272,21 @@ export async function POST(request: Request) {
         success: true,
         contact: { id: finalContactId, name: finalName, email: finalEmail || null },
         agreementId,
+        agreementAlreadyActive,
       });
     }
 
     if (!agreementId) {
       return NextResponse.json({ error: 'Mangler avtale' }, { status: 500 });
+    }
+
+    if (agreementAlreadyActive) {
+      return NextResponse.json({
+        success: true,
+        agreementId,
+        contact: { id: finalContactId, name: finalName, email: finalEmail || null },
+        agreementAlreadyActive: true,
+      });
     }
 
     const token = crypto.randomBytes(32).toString('hex');

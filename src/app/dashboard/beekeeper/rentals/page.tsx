@@ -55,6 +55,14 @@ export default function BeekeeperRentalsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      const { data: profileRow } = await supabase
+        .from('profiles')
+        .select('member_number')
+        .eq('id', user.id)
+        .single();
+      const memberNumber = String(profileRow?.member_number || '').trim();
+      const suffix = memberNumber ? `.${memberNumber}` : '';
+
       // 1. Calculate Next BG Number for THIS Beekeeper
       const { data: existingApiaries } = await supabase
         .from('apiaries')
@@ -64,13 +72,18 @@ export default function BeekeeperRentalsPage() {
       let nextNum = 1;
       if (existingApiaries && existingApiaries.length > 0) {
         const numbers = existingApiaries
-          .map(a => parseInt(a.apiary_number.replace(/\D/g, ''), 10))
-          .filter(n => !isNaN(n));
+          .map((a) => String(a?.apiary_number || ''))
+          .filter((n) => n.toUpperCase().startsWith('BG-'))
+          .map((n) => {
+            const match = n.match(/^BG-(\d+)/i);
+            return match ? parseInt(match[1], 10) : NaN;
+          })
+          .filter((n) => !Number.isNaN(n));
         if (numbers.length > 0) {
           nextNum = Math.max(...numbers) + 1;
         }
       }
-      const newApiaryNumber = `BG-${nextNum.toString().padStart(3, '0')}`;
+      const newApiaryNumber = `BG-${nextNum.toString().padStart(3, '0')}${suffix}`;
 
       // 2. Create Apiary
       const { data: newApiary, error: apiaryError } = await supabase

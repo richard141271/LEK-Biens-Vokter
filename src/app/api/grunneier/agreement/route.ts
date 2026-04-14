@@ -21,8 +21,13 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const action = asString(body?.action).trim();
     const agreementId = asString(body?.agreementId).trim();
+    const apiaryId = asString(body?.apiaryId).trim();
+    const contactId = asString(body?.contactId).trim();
 
-    if (!action || !agreementId) {
+    if (!action) {
+      return NextResponse.json({ error: 'Mangler data' }, { status: 400 });
+    }
+    if (action !== 'update_special_terms' && !agreementId) {
       return NextResponse.json({ error: 'Mangler data' }, { status: 400 });
     }
 
@@ -46,6 +51,47 @@ export async function POST(request: Request) {
     const email = String(magicToken.email || '').trim();
     if (!email) {
       return NextResponse.json({ error: 'Ikke logget inn' }, { status: 401 });
+    }
+
+    if (action === 'update_special_terms') {
+      if (!apiaryId || !contactId) {
+        return NextResponse.json({ error: 'Mangler data' }, { status: 400 });
+      }
+
+      const { data: contact } = await admin
+        .from('contacts')
+        .select('id, email')
+        .eq('id', contactId)
+        .single();
+
+      const contactEmail = String(contact?.email || '').trim().toLowerCase();
+      if (!contact || contactEmail !== email.toLowerCase()) {
+        return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
+      }
+
+      const specialTerms = asString(body?.specialTerms);
+
+      const { data: link } = await admin
+        .from('apiary_contacts')
+        .select('id')
+        .eq('apiary_id', apiaryId)
+        .eq('contact_id', contactId)
+        .maybeSingle();
+
+      if (!link?.id) {
+        return NextResponse.json({ error: 'Fant ikke kobling til bigård' }, { status: 404 });
+      }
+
+      const { error } = await admin
+        .from('apiary_contacts')
+        .update({ special_terms: specialTerms })
+        .eq('id', link.id);
+
+      if (error) {
+        return NextResponse.json({ error: 'Kunne ikke lagre vilkår', detail: error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true });
     }
 
     const { data: agreement } = await admin

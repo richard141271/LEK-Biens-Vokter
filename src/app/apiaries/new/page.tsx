@@ -372,7 +372,9 @@ export default function NewApiaryPage() {
             <div className="space-y-4">
               {pendingRentals.map((rental, index) => {
                 const lastName = rental.contact_name.split(' ').pop() || rental.contact_name;
-                const predictedNumber = `BG-${(nextApiaryNumber + index).toString().padStart(3, '0')}`;
+                const predictedNumber = `BG-${(nextApiaryNumber + index).toString().padStart(3, '0')}${
+                  memberNumber ? `.${memberNumber}` : ''
+                }`;
                 const displayName = `${predictedNumber} - ${lastName}`;
 
                 return (

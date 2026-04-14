@@ -34,6 +34,7 @@ type LinkedApiary = {
     phone: string | null;
   };
   role: 'grunneier' | 'kontaktperson' | 'samarbeidspartner';
+  special_terms: string | null;
 };
 
 type Agreement = {
@@ -64,6 +65,15 @@ export default function GrunneierPage() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
+  const toNumber = (v: unknown): number | null => {
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'string') {
+      const n = Number(v);
+      if (Number.isFinite(n)) return n;
+    }
+    return null;
+  };
+
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -75,6 +85,10 @@ export default function GrunneierPage() {
   const [activeAgreementId, setActiveAgreementId] = useState<string | null>(null);
   const [selectedApiaryId, setSelectedApiaryId] = useState<string | null>(null);
   const [recreatingAgreement, setRecreatingAgreement] = useState(false);
+  const [isAgreementCollapsed, setIsAgreementCollapsed] = useState(true);
+  const [specialTerms, setSpecialTerms] = useState('');
+  const [specialTermsOriginal, setSpecialTermsOriginal] = useState('');
+  const [savingSpecialTerms, setSavingSpecialTerms] = useState(false);
 
   const fetchSession = async () => {
     setSessionLoading(true);
@@ -104,10 +118,21 @@ export default function GrunneierPage() {
   useEffect(() => {
     if (selectedApiaryId && linkedApiaries.some((i) => i.apiary.id === selectedApiaryId)) return;
     const firstWithCoords = linkedApiaries.find(
-      (i) => typeof i.apiary.latitude === 'number' && typeof i.apiary.longitude === 'number'
+      (i) => toNumber(i.apiary.latitude) != null && toNumber(i.apiary.longitude) != null
     );
     setSelectedApiaryId(firstWithCoords?.apiary.id || linkedApiaries[0]?.apiary.id || null);
   }, [linkedApiaries, selectedApiaryId]);
+
+  const selectedLink = useMemo(() => {
+    if (!selectedApiaryId) return null;
+    return linkedApiaries.find((i) => i.apiary.id === selectedApiaryId) || null;
+  }, [linkedApiaries, selectedApiaryId]);
+
+  useEffect(() => {
+    const next = selectedLink?.special_terms || '';
+    setSpecialTerms(next);
+    setSpecialTermsOriginal(next);
+  }, [selectedLink?.apiary.id, selectedLink?.contact.id]);
 
   useEffect(() => {
     const validate = async () => {
@@ -162,16 +187,16 @@ export default function GrunneierPage() {
       ? linkedApiaries.find((i) => i.apiary.id === selectedApiaryId)
       : null;
     if (selected) {
-      const lat = selected.apiary.latitude;
-      const lng = selected.apiary.longitude;
-      if (typeof lat === 'number' && typeof lng === 'number') {
+      const lat = toNumber(selected.apiary.latitude);
+      const lng = toNumber(selected.apiary.longitude);
+      if (lat != null && lng != null) {
         return [lat, lng];
       }
     }
     for (const item of linkedApiaries) {
-      const lat = item.apiary.latitude;
-      const lng = item.apiary.longitude;
-      if (typeof lat === 'number' && typeof lng === 'number') {
+      const lat = toNumber(item.apiary.latitude);
+      const lng = toNumber(item.apiary.longitude);
+      if (lat != null && lng != null) {
         return [lat, lng];
       }
     }
@@ -181,9 +206,9 @@ export default function GrunneierPage() {
   const markers = useMemo(() => {
     return linkedApiaries
       .map((item) => {
-        const lat = item.apiary.latitude;
-        const lng = item.apiary.longitude;
-        if (typeof lat !== 'number' || typeof lng !== 'number') return null;
+        const lat = toNumber(item.apiary.latitude);
+        const lng = toNumber(item.apiary.longitude);
+        if (lat == null || lng == null) return null;
         const title = item.apiary.apiary_number || item.apiary.name || 'Bigård';
         const description = [
           item.apiary.name ? `Navn: ${item.apiary.name}` : null,
@@ -277,6 +302,34 @@ export default function GrunneierPage() {
     }
   };
 
+  const saveSpecialTerms = async () => {
+    if (!selectedLink?.apiary?.id || !selectedLink?.contact?.id) return;
+    setSavingSpecialTerms(true);
+    setStatus(null);
+    try {
+      const res = await fetch('/api/grunneier/agreement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_special_terms',
+          apiaryId: selectedLink.apiary.id,
+          contactId: selectedLink.contact.id,
+          specialTerms,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(data?.error || 'Kunne ikke lagre vilkår');
+        return;
+      }
+      setSpecialTermsOriginal(specialTerms);
+      setStatus('Spesielle vilkår er lagret.');
+      await fetchSession();
+    } finally {
+      setSavingSpecialTerms(false);
+    }
+  };
+
   const recreateOriginalAgreement = async () => {
     if (!currentAgreement?.id) return;
     setRecreatingAgreement(true);
@@ -349,6 +402,13 @@ export default function GrunneierPage() {
                       Tilgang til kart og oversikt aktiveres etter at begge parter har signert.
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAgreementCollapsed((v) => !v)}
+                    className="shrink-0 bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 px-3 py-2 rounded-lg text-sm font-medium"
+                  >
+                    {isAgreementCollapsed ? 'Åpne' : 'Lukk'}
+                  </button>
                   {pendingAgreements.length > 1 && (
                     <select
                       value={currentAgreement?.id || ''}
@@ -364,7 +424,7 @@ export default function GrunneierPage() {
                   )}
                 </div>
 
-                {currentAgreement && (
+                {!isAgreementCollapsed && currentAgreement && (
                   <>
                     {currentAgreement.status === 'rejected' ? (
                       <button
@@ -439,6 +499,29 @@ export default function GrunneierPage() {
                   </div>
                 </div>
 
+                {selectedLink && (
+                  <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
+                    <div className="text-sm font-bold text-gray-900">Spesielle vilkår for denne bigården</div>
+                    <div className="text-xs text-gray-500">
+                      {selectedLink.apiary.apiary_number || 'Bigård'}
+                      {selectedLink.apiary.name ? ` – ${selectedLink.apiary.name}` : ''}
+                    </div>
+                    <textarea
+                      value={specialTerms}
+                      onChange={(e) => setSpecialTerms(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm min-h-[90px]"
+                      placeholder="Skriv inn eventuelle spesielle vilkår/tillegg/endringer for denne bigården..."
+                    />
+                    <button
+                      disabled={savingSpecialTerms || specialTerms.trim() === specialTermsOriginal.trim()}
+                      onClick={saveSpecialTerms}
+                      className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                    >
+                      Lagre
+                    </button>
+                  </div>
+                )}
+
                 <div className="bg-white border border-gray-200 rounded-xl p-4">
                   <h2 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-gray-600" />
@@ -461,7 +544,7 @@ export default function GrunneierPage() {
                         <div className="text-xs text-gray-600">
                           {item.apiary.location || 'Ukjent sted'} • Rolle: {item.role}
                         </div>
-                        {(typeof item.apiary.latitude !== 'number' || typeof item.apiary.longitude !== 'number') && (
+                        {(toNumber(item.apiary.latitude) == null || toNumber(item.apiary.longitude) == null) && (
                           <div className="text-xs text-red-600 mt-1">Mangler posisjon (lat/lon)</div>
                         )}
                       </button>

@@ -50,9 +50,12 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
   const [beekeeperSignatureName, setBeekeeperSignatureName] = useState('');
   const [isAgreementUpdating, setIsAgreementUpdating] = useState(false);
-  const [isAgreementCollapsed, setIsAgreementCollapsed] = useState(false);
+  const [isAgreementCollapsed, setIsAgreementCollapsed] = useState(true);
   const [isCounterProposalOpen, setIsCounterProposalOpen] = useState(false);
   const [counterProposalText, setCounterProposalText] = useState('');
+  const [specialTerms, setSpecialTerms] = useState('');
+  const [specialTermsOriginal, setSpecialTermsOriginal] = useState('');
+  const [isSavingSpecialTerms, setIsSavingSpecialTerms] = useState(false);
 
   // Scan Modal State
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
@@ -139,8 +142,33 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   }, [isInviteModalOpen]);
 
   useEffect(() => {
-    setIsAgreementCollapsed(false);
-  }, [selectedContactId]);
+    setIsAgreementCollapsed(true);
+    const ac = apiaryContacts.find((x: any) => x.contact_id === selectedContactId);
+    const next = String(ac?.special_terms || '');
+    setSpecialTerms(next);
+    setSpecialTermsOriginal(next);
+  }, [selectedContactId, apiaryContacts]);
+
+  const saveSpecialTerms = async () => {
+    if (!apiary?.id || !selectedContactId) return;
+    setIsSavingSpecialTerms(true);
+    try {
+      const { error } = await supabase
+        .from('apiary_contacts')
+        .update({ special_terms: specialTerms })
+        .eq('apiary_id', apiary.id)
+        .eq('contact_id', selectedContactId);
+      if (error) {
+        alert(error.message);
+        return;
+      }
+      setSpecialTermsOriginal(specialTerms);
+      await fetchApiaryContacts();
+      alert('Spesielle vilkår lagret.');
+    } finally {
+      setIsSavingSpecialTerms(false);
+    }
+  };
 
   const fetchData = async () => {
     if (!navigator.onLine) {
@@ -290,7 +318,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const fetchApiaryContacts = async () => {
     const { data: links, error: linksError } = await supabase
       .from('apiary_contacts')
-      .select('contact_id, role')
+      .select('contact_id, role, special_terms')
       .eq('apiary_id', params.id);
 
     if (linksError || !links || links.length === 0) {
@@ -310,6 +338,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       .map((l: any) => ({
         contact_id: l.contact_id,
         role: l.role,
+        special_terms: l.special_terms ?? null,
         contact: contactMap.get(l.contact_id) || null,
       }))
       .filter((x: any) => !!x.contact);
@@ -1223,6 +1252,24 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 <>
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs whitespace-pre-line font-mono max-h-[220px] overflow-auto">
                     {selectedAgreement.final_text || selectedAgreement.base_text}
+                  </div>
+
+                  <div className="grid gap-2">
+                    <div className="text-xs font-bold uppercase text-gray-700">Spesielle vilkår for denne bigården</div>
+                    <textarea
+                      value={specialTerms}
+                      onChange={(e) => setSpecialTerms(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm min-h-[90px]"
+                      placeholder="Skriv inn eventuelle spesielle vilkår/tillegg/endringer for denne bigården..."
+                    />
+                    <button
+                      onClick={saveSpecialTerms}
+                      disabled={isSavingSpecialTerms || specialTerms.trim() === specialTermsOriginal.trim()}
+                      className="w-full bg-gray-900 text-white font-bold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
+                      type="button"
+                    >
+                      Lagre vilkår
+                    </button>
                   </div>
 
                   <button

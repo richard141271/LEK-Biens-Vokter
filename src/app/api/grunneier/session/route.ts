@@ -55,20 +55,15 @@ export async function GET() {
       .in('contact_id', contactIds)
       .limit(500);
 
-    const activeAgreementApiaryIds = Array.from(
-      new Set(
-        (agreements || [])
-          .filter((a: any) => a.status === 'active' && a.apiary_id)
-          .map((a: any) => a.apiary_id)
-      )
+    const contactsWithActiveAgreement = Array.from(
+      new Set((agreements || []).filter((a: any) => a.status === 'active').map((a: any) => a.contact_id))
     );
 
-    const { data: apiaryContacts } = activeAgreementApiaryIds.length
+    const { data: apiaryContacts } = contactsWithActiveAgreement.length
       ? await admin
           .from('apiary_contacts')
-          .select('apiary_id, contact_id, role')
-          .in('contact_id', contactIds)
-          .in('apiary_id', activeAgreementApiaryIds)
+          .select('apiary_id, contact_id, role, special_terms')
+          .in('contact_id', contactsWithActiveAgreement)
           .limit(500)
       : { data: [] as any[] };
 
@@ -119,6 +114,7 @@ export async function GET() {
               phone: contact.phone,
             },
             role: ac.role,
+            special_terms: ac.special_terms ?? null,
           };
         })
         .filter(Boolean) || [];
