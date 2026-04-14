@@ -72,6 +72,7 @@ export default function GrunneierPage() {
   const [signatureName, setSignatureName] = useState('');
   const [activeAgreementId, setActiveAgreementId] = useState<string | null>(null);
   const [selectedApiaryId, setSelectedApiaryId] = useState<string | null>(null);
+  const [recreatingAgreement, setRecreatingAgreement] = useState(false);
 
   const fetchSession = async () => {
     setSessionLoading(true);
@@ -266,6 +267,35 @@ export default function GrunneierPage() {
     }
   };
 
+  const recreateOriginalAgreement = async () => {
+    if (!currentAgreement?.id) return;
+    setRecreatingAgreement(true);
+    setStatus(null);
+    try {
+      const res = await fetch('/api/grunneier/agreement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'new_original',
+          agreementId: currentAgreement.id,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(data?.error || 'Kunne ikke opprette ny avtale');
+        return;
+      }
+      const newId = String(data?.agreementId || '');
+      await fetchSession();
+      if (newId) setActiveAgreementId(newId);
+      setProposal('');
+      setSignatureName('');
+      setStatus('Ny standardavtale er opprettet. Du kan signere den under.');
+    } finally {
+      setRecreatingAgreement(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-4 py-4">
@@ -326,10 +356,15 @@ export default function GrunneierPage() {
 
                 {currentAgreement && (
                   <>
-                    {currentAgreement.status === 'rejected' || currentAgreement.beekeeper_decision === 'rejected' ? (
-                      <div className="border border-red-200 bg-red-50 text-red-800 rounded-lg p-3 text-sm">
-                        Avtalen er avvist. Be birøkter opprette ny avtale.
-                      </div>
+                    {currentAgreement.status === 'rejected' ? (
+                      <button
+                        type="button"
+                        disabled={recreatingAgreement}
+                        onClick={recreateOriginalAgreement}
+                        className="w-full border border-red-200 bg-red-50 text-red-800 rounded-lg p-3 text-sm text-left disabled:opacity-50"
+                      >
+                        Avtalen er avvist. Trykk her for å opprette en ny standardavtale.
+                      </button>
                     ) : currentAgreement.status === 'contact_proposed' ||
                       (currentAgreement.contact_proposal && currentAgreement.beekeeper_decision === 'pending') ? (
                       <div className="border border-yellow-200 bg-yellow-50 text-yellow-900 rounded-lg p-3 text-sm">
@@ -337,6 +372,11 @@ export default function GrunneierPage() {
                       </div>
                     ) : (
                       <>
+                        {currentAgreement.beekeeper_decision === 'rejected' && currentAgreement.contact_proposal && (
+                          <div className="border border-gray-200 bg-gray-50 text-gray-800 rounded-lg p-3 text-sm">
+                            Tilleggsforslaget ditt er avvist. Standard avtale gjelder, og du kan signere under.
+                          </div>
+                        )}
                         <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs whitespace-pre-line font-mono max-h-[280px] overflow-auto">
                           {currentAgreement.final_text || currentAgreement.base_text}
                         </div>

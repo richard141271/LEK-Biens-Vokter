@@ -51,6 +51,8 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [beekeeperSignatureName, setBeekeeperSignatureName] = useState('');
   const [isAgreementUpdating, setIsAgreementUpdating] = useState(false);
   const [isAgreementCollapsed, setIsAgreementCollapsed] = useState(false);
+  const [isCounterProposalOpen, setIsCounterProposalOpen] = useState(false);
+  const [counterProposalText, setCounterProposalText] = useState('');
 
   // Scan Modal State
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
@@ -378,6 +380,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     setIsAgreementUpdating(true);
     setAgreementStatus(null);
     try {
+      setIsCounterProposalOpen(false);
       const baseText = String(selectedAgreement.base_text || '');
       const proposal = String(selectedAgreement.contact_proposal || '').trim();
       const finalText = [
@@ -394,6 +397,10 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
           beekeeper_decision: 'accepted',
           final_text: finalText,
           status: 'awaiting_contact_signature',
+          contact_signature_name: null,
+          contact_signed_at: null,
+          beekeeper_signature_name: null,
+          beekeeper_signed_at: null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', selectedAgreement.id);
@@ -420,8 +427,12 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         .from('grunneier_agreements')
         .update({
           beekeeper_decision: 'rejected',
-          final_text: selectedAgreement.base_text,
+          final_text: null,
           status: 'awaiting_contact_signature',
+          contact_signature_name: null,
+          contact_signed_at: null,
+          beekeeper_signature_name: null,
+          beekeeper_signed_at: null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', selectedAgreement.id);
@@ -432,6 +443,65 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       }
 
       setAgreementStatus('Forslag avvist. Standard avtale gjelder.');
+      await fetchSelectedAgreement(selectedContactId);
+
+      const shouldSend = window.confirm('Vil du sende standardavtalen på nytt til grunneier nå?');
+      if (shouldSend) {
+        await requestPortalLink();
+      }
+    } finally {
+      setIsAgreementUpdating(false);
+    }
+  };
+
+  const submitCounterProposal = async () => {
+    if (!selectedAgreement?.id) return;
+    if (!selectedAgreement.contact_proposal) return;
+    const text = counterProposalText.trim();
+    if (!text) {
+      setAgreementStatus('Skriv inn et motforslag før du sender.');
+      return;
+    }
+    setIsAgreementUpdating(true);
+    setAgreementStatus(null);
+    try {
+      const baseText = String(selectedAgreement.base_text || '');
+      const originalProposal = String(selectedAgreement.contact_proposal || '').trim();
+
+      const finalText = [
+        baseText,
+        '',
+        '---',
+        'UNNTAK/TILLEGG (foreslått av grunneier):',
+        originalProposal,
+        '',
+        '---',
+        'MOTFORSLAG (foreslått av birøkter):',
+        text,
+      ].join('\n');
+
+      const { error } = await supabase
+        .from('grunneier_agreements')
+        .update({
+          beekeeper_decision: 'accepted',
+          final_text: finalText,
+          status: 'awaiting_contact_signature',
+          contact_signature_name: null,
+          contact_signed_at: null,
+          beekeeper_signature_name: null,
+          beekeeper_signed_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedAgreement.id);
+
+      if (error) {
+        setAgreementStatus(error.message);
+        return;
+      }
+
+      setAgreementStatus('Motforslag sendt. Venter på signatur fra grunneier.');
+      setIsCounterProposalOpen(false);
+      setCounterProposalText('');
       await fetchSelectedAgreement(selectedContactId);
     } finally {
       setIsAgreementUpdating(false);
@@ -1165,7 +1235,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
                   {selectedAgreement.contact_proposal &&
                     selectedAgreement.beekeeper_decision === 'pending' &&
-                    !selectedAgreement.beekeeper_signed_at && (
+                    (
                       <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-3 space-y-2">
                         <div className="text-xs font-bold uppercase text-yellow-900">
                           Unntak/tillegg foreslått av grunneier
@@ -1173,7 +1243,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                         <div className="text-sm text-yellow-900 whitespace-pre-line">
                           {selectedAgreement.contact_proposal}
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           <button
                             onClick={acceptContactProposal}
                             disabled={isAgreementUpdating}
@@ -1188,7 +1258,45 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                           >
                             Avvis forslag
                           </button>
+                          <button
+                            onClick={() => {
+                              setIsCounterProposalOpen(true);
+                              setCounterProposalText('');
+                            }}
+                            disabled={isAgreementUpdating}
+                            className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 font-bold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            Motforslag
+                          </button>
                         </div>
+
+                        {isCounterProposalOpen && (
+                          <div className="grid gap-2 pt-1">
+                            <label className="text-xs font-bold uppercase text-yellow-900">Motforslag fra birøkter</label>
+                            <textarea
+                              value={counterProposalText}
+                              onChange={(e) => setCounterProposalText(e.target.value)}
+                              className="border border-yellow-200 rounded-lg px-3 py-2 text-sm min-h-[110px] bg-white"
+                              placeholder="Skriv hva du ønsker endret/justert..."
+                            />
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <button
+                                onClick={submitCounterProposal}
+                                disabled={isAgreementUpdating || !counterProposalText.trim()}
+                                className="w-full bg-gray-900 text-white font-bold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
+                              >
+                                Send motforslag
+                              </button>
+                              <button
+                                onClick={() => setIsCounterProposalOpen(false)}
+                                disabled={isAgreementUpdating}
+                                className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 font-bold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
+                              >
+                                Avbryt
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 

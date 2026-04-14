@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     const { data: agreement } = await admin
       .from('grunneier_agreements')
       .select(
-        'id, status, base_text, final_text, contact_proposal, beekeeper_decision, contact_signed_at, beekeeper_signed_at, contact_id'
+        'id, status, base_text, final_text, contact_proposal, beekeeper_decision, contact_signed_at, beekeeper_signed_at, contact_id, created_by, apiary_id, role'
       )
       .eq('id', agreementId)
       .single();
@@ -69,6 +69,47 @@ export async function POST(request: Request) {
     const contactEmail = String(contact?.email || '').trim().toLowerCase();
     if (!contact || contactEmail !== email.toLowerCase()) {
       return NextResponse.json({ error: 'Ingen tilgang til avtale' }, { status: 403 });
+    }
+
+    if (action === 'new_original') {
+      if (!agreement.base_text) {
+        return NextResponse.json({ error: 'Avtale-tekst mangler' }, { status: 500 });
+      }
+
+      const createdBy = agreement.created_by;
+      if (!createdBy) {
+        return NextResponse.json({ error: 'Mangler birøkter for avtalen' }, { status: 500 });
+      }
+
+      const { data: inserted, error: insertError } = await admin
+        .from('grunneier_agreements')
+        .insert({
+          created_by: createdBy,
+          contact_id: agreement.contact_id,
+          apiary_id: agreement.apiary_id,
+          role: agreement.role,
+          status: 'awaiting_contact_signature',
+          base_text: agreement.base_text,
+          contact_proposal: null,
+          beekeeper_decision: 'pending',
+          final_text: null,
+          contact_signature_name: null,
+          contact_signed_at: null,
+          beekeeper_signature_name: null,
+          beekeeper_signed_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .select('id')
+        .single();
+
+      if (insertError || !inserted?.id) {
+        return NextResponse.json(
+          { error: 'Kunne ikke opprette ny avtale', detail: insertError?.message || '' },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ success: true, agreementId: inserted.id });
     }
 
     if (action === 'propose') {
@@ -154,4 +195,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: e?.message || 'Ukjent feil' }, { status: 500 });
   }
 }
-
