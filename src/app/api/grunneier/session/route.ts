@@ -55,15 +55,20 @@ export async function GET() {
       .in('contact_id', contactIds)
       .limit(500);
 
-    const contactsWithActiveAgreement = Array.from(
-      new Set((agreements || []).filter((a: any) => a.status === 'active').map((a: any) => a.contact_id))
+    const activeAgreementApiaryIds = Array.from(
+      new Set(
+        (agreements || [])
+          .filter((a: any) => a.status === 'active' && a.apiary_id)
+          .map((a: any) => a.apiary_id)
+      )
     );
 
-    const { data: apiaryContacts } = contactsWithActiveAgreement.length
+    const { data: apiaryContacts } = activeAgreementApiaryIds.length
       ? await admin
           .from('apiary_contacts')
           .select('apiary_id, contact_id, role, special_terms')
-          .in('contact_id', contactsWithActiveAgreement)
+          .in('contact_id', contactIds)
+          .in('apiary_id', activeAgreementApiaryIds)
           .limit(500)
       : { data: [] as any[] };
 

@@ -628,6 +628,11 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         await fetchSelectedAgreement(nextContactId);
       }
       const inviteUrl = String(data?.inviteUrl || '');
+      const agreementAlreadyActive = Boolean(data?.agreementAlreadyActive);
+      if (agreementAlreadyActive) {
+        alert('Kontakt er knyttet. Avtalen er allerede aktiv, så det trengs ingen ny signering for denne bigården.');
+        return;
+      }
       if (sendInvite && inviteUrl) {
         try {
           await navigator.clipboard.writeText(inviteUrl);

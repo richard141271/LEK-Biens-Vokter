@@ -231,7 +231,9 @@ export async function POST(request: Request) {
       } else {
         const { data: activeAgreement } = await supabase
           .from('grunneier_agreements')
-          .select('id')
+          .select(
+            'id, contact_signature_name, contact_signed_at, beekeeper_signature_name, beekeeper_signed_at, final_text'
+          )
           .eq('contact_id', finalContactId)
           .eq('created_by', user.id)
           .eq('status', 'active')
@@ -240,7 +242,35 @@ export async function POST(request: Request) {
           .maybeSingle();
 
         if (activeAgreement?.id) {
-          agreementId = activeAgreement.id;
+          const { data: inserted, error: insertError } = await supabase
+            .from('grunneier_agreements')
+            .insert({
+              created_by: user.id,
+              apiary_id: apiaryId,
+              contact_id: finalContactId,
+              role,
+              status: 'active',
+              base_text: baseText,
+              contact_proposal: null,
+              beekeeper_decision: 'accepted',
+              final_text: activeAgreement.final_text || null,
+              contact_signature_name: activeAgreement.contact_signature_name || null,
+              contact_signed_at: activeAgreement.contact_signed_at || null,
+              beekeeper_signature_name: activeAgreement.beekeeper_signature_name || null,
+              beekeeper_signed_at: activeAgreement.beekeeper_signed_at || null,
+              updated_at: new Date().toISOString(),
+            })
+            .select('id')
+            .single();
+
+          if (insertError || !inserted?.id) {
+            return NextResponse.json(
+              { error: 'Kunne ikke opprette avtale', detail: insertError?.message || '' },
+              { status: 500 }
+            );
+          }
+
+          agreementId = inserted.id;
           agreementAlreadyActive = true;
         } else {
           agreementId =
