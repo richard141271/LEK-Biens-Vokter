@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Link as LinkIcon, User, Mail, Phone, MapPin, ArrowLeft } from 'lucide-react';
+import { Plus, Link as LinkIcon, User, Mail, Phone, MapPin, ArrowLeft, Edit } from 'lucide-react';
 import Link from 'next/link';
 
 type Contact = {
@@ -53,6 +53,18 @@ export default function ContactsPage() {
   const [selectedApiaryId, setSelectedApiaryId] = useState('');
   const [selectedRole, setSelectedRole] = useState('grunneier');
   const [isLinking, setIsLinking] = useState(false);
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editContact, setEditContact] = useState<Contact | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    postal_code: '',
+    city: '',
+  });
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const supabase = createClient();
   const router = useRouter();
@@ -162,6 +174,49 @@ export default function ContactsPage() {
     }
   };
 
+  const openEditModal = (contact: Contact) => {
+    setEditContact(contact);
+    setEditForm({
+      name: contact.name || '',
+      email: contact.email || '',
+      phone: contact.phone || '',
+      address: contact.address || '',
+      postal_code: contact.postal_code || '',
+      city: contact.city || '',
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editContact?.id) return;
+    if (!editForm.name.trim()) return;
+
+    setIsSavingEdit(true);
+    try {
+      const payload = {
+        name: editForm.name.trim(),
+        email: editForm.email.trim() || null,
+        phone: editForm.phone.trim() || null,
+        address: editForm.address.trim() || null,
+        postal_code: editForm.postal_code.trim() || null,
+        city: editForm.city.trim() || null,
+      };
+
+      const { error } = await supabase.from('contacts').update(payload).eq('id', editContact.id);
+      if (error) throw error;
+
+      setIsEditModalOpen(false);
+      setEditContact(null);
+      await fetchData();
+      alert('Kontakt oppdatert!');
+    } catch (err: any) {
+      alert(err.message || 'Kunne ikke oppdatere kontakt');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <header className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10">
@@ -241,6 +296,13 @@ export default function ContactsPage() {
                     </div>
                     
                     <div className="flex flex-col gap-2 min-w-[200px]">
+                      <button
+                        onClick={() => openEditModal(contact)}
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 rounded-lg transition-colors text-sm font-medium w-full"
+                      >
+                        <Edit className="w-4 h-4" />
+                        Rediger
+                      </button>
                       <button
                         onClick={() => {
                           setSelectedContact(contact);
@@ -434,6 +496,106 @@ export default function ContactsPage() {
                 >
                   <LinkIcon className="w-4 h-4" />
                   {isLinking ? 'Knytter...' : 'Knytt til bigård'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {isEditModalOpen && editContact && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200] p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h3 className="font-bold text-lg text-gray-900">Rediger kontakt</h3>
+              <button
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditContact(null);
+                }}
+                className="p-1 hover:bg-gray-200 rounded-full text-gray-500"
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleUpdateContact} className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Navn *</label>
+                <input
+                  required
+                  type="text"
+                  value={editForm.name}
+                  onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">E-post</label>
+                  <input
+                    type="email"
+                    value={editForm.email}
+                    onChange={e => setEditForm({ ...editForm, email: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+                  <input
+                    type="tel"
+                    value={editForm.phone}
+                    onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                <input
+                  type="text"
+                  value={editForm.address}
+                  onChange={e => setEditForm({ ...editForm, address: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Postnr</label>
+                  <input
+                    type="text"
+                    value={editForm.postal_code}
+                    onChange={e => setEditForm({ ...editForm, postal_code: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Poststed</label>
+                  <input
+                    type="text"
+                    value={editForm.city}
+                    onChange={e => setEditForm({ ...editForm, city: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setEditContact(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"
+                >
+                  Avbryt
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit || !editForm.name.trim()}
+                  className="px-4 py-2 bg-honey-500 text-white rounded-lg text-sm font-medium hover:bg-honey-600 disabled:opacity-50"
+                >
+                  {isSavingEdit ? 'Lagrer...' : 'Lagre endringer'}
                 </button>
               </div>
             </form>

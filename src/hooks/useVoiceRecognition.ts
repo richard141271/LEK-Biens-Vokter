@@ -9,6 +9,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
   const pausedRef = useRef(false);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastStartAtRef = useRef<number>(0);
+  const startingRef = useRef(false);
 
   useEffect(() => {
     onResultRef.current = onResult;
@@ -108,27 +109,40 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
                 if (!keepAliveRef.current) return;
                 if (pausedRef.current) return;
                 if (restartTimerRef.current) return;
+                if (startingRef.current) return;
                 restartTimerRef.current = setTimeout(() => {
                   restartTimerRef.current = null;
                   if (!keepAliveRef.current || pausedRef.current) return;
+                  if (startingRef.current) return;
                   const now = Date.now();
                   if (now - lastStartAtRef.current < 250) return;
                   lastStartAtRef.current = now;
                   try {
+                    startingRef.current = true;
                     recognition.start();
                     setIsListening(true);
-                  } catch {}
+                    startingRef.current = false;
+                  } catch {
+                    startingRef.current = false;
+                  }
                 }, delayMs);
               } catch {}
             };
 
+            recognition.onstart = () => {
+              startingRef.current = false;
+              setIsListening(true);
+            };
+
             recognition.onend = () => {
+                startingRef.current = false;
                 setIsListening(false);
                 scheduleRestart(220);
             };
 
             recognition.onerror = (event: any) => {
                 console.error("Speech recognition error", event.error);
+                startingRef.current = false;
                 setIsListening(false);
                 const err = String(event?.error || '').toLowerCase();
                 if (err === 'not-allowed' || err === 'service-not-allowed') return;
@@ -160,21 +174,28 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
   const startListening = useCallback(() => {
     if (recognitionRef.current) {
         try {
+            if (startingRef.current) return;
+            if (isListening) return;
+            const now = Date.now();
+            if (now - lastStartAtRef.current < 250) return;
             if (restartTimerRef.current) {
               clearTimeout(restartTimerRef.current);
               restartTimerRef.current = null;
             }
             keepAliveRef.current = true;
             pausedRef.current = false;
+            lastStartAtRef.current = now;
+            startingRef.current = true;
             recognitionRef.current.start();
             setIsListening(true);
-            lastStartAtRef.current = Date.now();
+            startingRef.current = false;
         } catch (e) {
             keepAliveRef.current = true;
             pausedRef.current = false;
+            startingRef.current = false;
         }
     }
-  }, []);
+  }, [isListening]);
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
@@ -182,10 +203,11 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
           clearTimeout(restartTimerRef.current);
           restartTimerRef.current = null;
         }
-        recognitionRef.current.stop();
-        setIsListening(false);
         keepAliveRef.current = false;
         pausedRef.current = false;
+        startingRef.current = false;
+        setIsListening(false);
+        recognitionRef.current.stop();
     }
   }, []);
 
@@ -197,10 +219,11 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
           clearTimeout(restartTimerRef.current);
           restartTimerRef.current = null;
         }
-        recognitionRef.current.stop();
-        setIsListening(false);
         keepAliveRef.current = true;
         pausedRef.current = true;
+        startingRef.current = false;
+        setIsListening(false);
+        recognitionRef.current.stop();
       } catch (e) {
         console.error("Could not pause recognition", e);
       }
@@ -210,21 +233,28 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
   const resumeListening = useCallback(() => {
     if (recognitionRef.current) {
       try {
+        if (startingRef.current) return;
+        if (isListening) return;
+        const now = Date.now();
+        if (now - lastStartAtRef.current < 250) return;
         if (restartTimerRef.current) {
           clearTimeout(restartTimerRef.current);
           restartTimerRef.current = null;
         }
         keepAliveRef.current = true;
+        pausedRef.current = false;
+        lastStartAtRef.current = now;
+        startingRef.current = true;
         recognitionRef.current.start();
         setIsListening(true);
-        pausedRef.current = false;
-        lastStartAtRef.current = Date.now();
+        startingRef.current = false;
       } catch (e) {
         keepAliveRef.current = true;
         pausedRef.current = false;
+        startingRef.current = false;
       }
     }
-  }, []);
+  }, [isListening]);
 
   const toggleListening = useCallback(() => {
       // If we are effectively listening (state is true), stop.

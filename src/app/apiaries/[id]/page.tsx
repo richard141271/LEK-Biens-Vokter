@@ -501,7 +501,17 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data?.error || 'Kunne ikke lagre');
+        const inviteUrl = String(data?.inviteUrl || '');
+        if (inviteUrl) {
+          try {
+            await navigator.clipboard.writeText(inviteUrl);
+            alert(`${data?.error || 'Kunne ikke sende e-post'}\n\nLenke er kopiert:\n${inviteUrl}`);
+          } catch {
+            alert(`${data?.error || 'Kunne ikke sende e-post'}\n\nLenke:\n${inviteUrl}`);
+          }
+        } else {
+          alert(data?.error || 'Kunne ikke lagre');
+        }
         return;
       }
       const data = await res.json().catch(() => ({}));
@@ -513,7 +523,17 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         setSelectedContactId(nextContactId);
         await fetchSelectedAgreement(nextContactId);
       }
-      alert(sendInvite ? 'Avtale sendt til grunneier!' : 'Kontakt lagret!');
+      const inviteUrl = String(data?.inviteUrl || '');
+      if (sendInvite && inviteUrl) {
+        try {
+          await navigator.clipboard.writeText(inviteUrl);
+          alert(`Avtale sendt til grunneier!\n\nLenke er kopiert:\n${inviteUrl}`);
+        } catch {
+          alert(`Avtale sendt til grunneier!\n\nLenke:\n${inviteUrl}`);
+        }
+      } else {
+        alert(sendInvite ? 'Avtale sendt til grunneier!' : 'Kontakt lagret!');
+      }
     } finally {
       setIsInviting(false);
     }

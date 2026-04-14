@@ -285,7 +285,7 @@ export async function POST(request: Request) {
     const url = `${getBaseUrl(request)}/grunneier?token=${encodeURIComponent(token)}`;
 
     const mail = getMailService(admin);
-    await mail.sendMail(
+    const mailResult = await mail.sendMail(
       'Biens Vokter',
       finalEmail,
       'Signer avtale for tilgang til bigård',
@@ -301,10 +301,18 @@ export async function POST(request: Request) {
       user.id
     );
 
+    if (mailResult?.error) {
+      return NextResponse.json(
+        { error: 'Kunne ikke sende e-post', detail: mailResult.error, inviteUrl: url },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       agreementId,
       contact: { id: finalContactId, name: finalName, email: finalEmail || null },
+      inviteUrl: url,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Ukjent feil' }, { status: 500 });

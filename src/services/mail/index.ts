@@ -5,15 +5,23 @@ import { DomeneshopMailService } from './domeneshop-mail-service';
 import { NodemailerMailService } from './nodemailer-mail-service';
 import { SupabaseClient } from '@supabase/supabase-js';
 
-// Configuration - can be moved to env vars later
-const MAIL_PROVIDER = process.env.MAIL_PROVIDER || 'mock';
+function pickProvider() {
+  const provider = (process.env.MAIL_PROVIDER || '').trim().toLowerCase();
+  if (provider) return provider;
+
+  const hasSmtpCreds = Boolean(process.env.SMTP_USER && process.env.SMTP_PASS);
+  if (hasSmtpCreds) return 'nodemailer';
+
+  return 'mock';
+}
 
 export function getMailService(client?: SupabaseClient): MailService {
-    if (MAIL_PROVIDER === 'domeneshop') {
-        return new DomeneshopMailService();
-    }
-    if (MAIL_PROVIDER === 'smtp' || MAIL_PROVIDER === 'nodemailer') {
-        return new NodemailerMailService();
-    }
-    return new MockMailService(client);
+  const provider = pickProvider();
+  if (provider === 'domeneshop') {
+    return new DomeneshopMailService();
+  }
+  if (provider === 'smtp' || provider === 'nodemailer') {
+    return new NodemailerMailService();
+  }
+  return new MockMailService(client);
 }

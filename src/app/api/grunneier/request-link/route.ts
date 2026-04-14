@@ -76,7 +76,7 @@ export async function POST(request: Request) {
     const url = `${getBaseUrl(request)}/grunneier?token=${encodeURIComponent(token)}`;
 
     const mail = getMailService(admin);
-    await mail.sendMail(
+    const mailResult = await mail.sendMail(
       'Biens Vokter',
       email,
       'Invitasjon til Grunneierportal',
@@ -90,7 +90,14 @@ export async function POST(request: Request) {
       ownerUserId
     );
 
-    return NextResponse.json({ success: true });
+    if (mailResult?.error) {
+      return NextResponse.json(
+        { error: 'Kunne ikke sende e-post', detail: mailResult.error, inviteUrl: url },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true, inviteUrl: url });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Ukjent feil' }, { status: 500 });
   }

@@ -11,7 +11,7 @@ export class DomeneshopMailService implements MailService {
     async sendMail(fromAlias: string, toAlias: string, subject: string, body: string, userId: string, attachments?: MailAttachment[]): Promise<{ success?: boolean; error?: string }> {
         // TODO: Implement SMTP sending via Domeneshop
         console.warn('DomeneshopMailService.sendMail not implemented yet');
-        return { success: true };
+        return { success: false, error: 'E-postleverandør (Domeneshop) er ikke konfigurert' };
     }
 
     async markAsRead(messageId: string): Promise<{ success?: boolean; error?: string }> {
