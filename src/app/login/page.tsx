@@ -32,6 +32,15 @@ function LoginForm() {
     }
   }, [isStockHost]);
 
+  useEffect(() => {
+    const token = searchParams.get('token');
+    if (!isStockHost && token) {
+      setLoading(true);
+      setMessage('Logger inn...');
+      window.location.href = `/api/company/magic-login?token=${encodeURIComponent(token)}`;
+    }
+  }, [isStockHost, searchParams]);
+
   const normalizeEmail = (raw: string) => raw.trim().toLowerCase();
 
   const handleLogin = async (e: React.FormEvent) => {
