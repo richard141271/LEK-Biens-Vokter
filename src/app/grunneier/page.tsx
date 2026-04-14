@@ -53,6 +53,8 @@ type Agreement = {
   beekeeper_decision: 'pending' | 'accepted' | 'rejected';
   contact_signed_at: string | null;
   beekeeper_signed_at: string | null;
+  created_at: string;
+  updated_at: string;
   apiary: { id: string; name: string | null; apiary_number: string | null; location: string | null } | null;
   contact: { id: string; name: string; email: string | null } | null;
 };
@@ -204,7 +206,15 @@ export default function GrunneierPage() {
 
   const hasSession = linkedApiaries.length > 0;
   const pendingAgreements = useMemo(
-    () => (agreements || []).filter((a) => a.status !== 'active').sort((a, b) => a.id.localeCompare(b.id)),
+    () =>
+      (agreements || [])
+        .filter((a) => a.status !== 'active')
+        .sort((a, b) => {
+          const aTime = new Date(a.updated_at || a.created_at).getTime();
+          const bTime = new Date(b.updated_at || b.created_at).getTime();
+          if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) return bTime - aTime;
+          return b.id.localeCompare(a.id);
+        }),
     [agreements]
   );
   const currentAgreement = useMemo(() => {

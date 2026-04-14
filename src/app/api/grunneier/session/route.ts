@@ -50,7 +50,7 @@ export async function GET() {
     const { data: agreements } = await admin
       .from('grunneier_agreements')
       .select(
-        'id, status, base_text, final_text, contact_proposal, beekeeper_decision, apiary_id, contact_id, role, contact_signed_at, beekeeper_signed_at'
+        'id, status, base_text, final_text, contact_proposal, beekeeper_decision, apiary_id, contact_id, role, contact_signed_at, beekeeper_signed_at, created_at, updated_at'
       )
       .in('contact_id', contactIds)
       .limit(500);
@@ -137,6 +137,8 @@ export async function GET() {
           beekeeper_decision: a.beekeeper_decision,
           contact_signed_at: a.contact_signed_at,
           beekeeper_signed_at: a.beekeeper_signed_at,
+          created_at: a.created_at,
+          updated_at: a.updated_at,
           contact: contact
             ? {
                 id: contact.id,
