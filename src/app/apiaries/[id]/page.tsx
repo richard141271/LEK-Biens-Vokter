@@ -50,6 +50,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
   const [beekeeperSignatureName, setBeekeeperSignatureName] = useState('');
   const [isAgreementUpdating, setIsAgreementUpdating] = useState(false);
+  const [isAgreementCollapsed, setIsAgreementCollapsed] = useState(false);
 
   // Scan Modal State
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
@@ -134,6 +135,10 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       });
     }
   }, [isInviteModalOpen]);
+
+  useEffect(() => {
+    setIsAgreementCollapsed(false);
+  }, [selectedContactId]);
 
   const fetchData = async () => {
     if (!navigator.onLine) {
@@ -536,6 +541,46 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       }
     } finally {
       setIsInviting(false);
+    }
+  };
+
+  const requestPortalLink = async () => {
+    const ac = apiaryContacts.find((x: any) => x.contact_id === selectedContactId);
+    const email = String(ac?.contact?.email || '').trim();
+    if (!email) {
+      alert('Kontakt mangler e-post');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/grunneier/request-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const inviteUrl = String(data?.inviteUrl || '');
+      const mailProvider = String(data?.mailProvider || '');
+      if (!inviteUrl) {
+        alert(data?.error || 'Kunne ikke hente lenke');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(inviteUrl);
+        alert(
+          `${res.ok ? 'Lenke er kopiert:' : (data?.error || 'Kunne ikke sende e-post')}\n${inviteUrl}${
+            mailProvider ? `\n\nMail-provider: ${mailProvider}` : ''
+          }`
+        );
+      } catch {
+        alert(
+          `${res.ok ? 'Lenke:' : (data?.error || 'Kunne ikke sende e-post')}\n${inviteUrl}${
+            mailProvider ? `\n\nMail-provider: ${mailProvider}` : ''
+          }`
+        );
+      }
+    } catch {
+      alert('Kunne ikke hente lenke');
     }
   };
 
@@ -1062,17 +1107,40 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       <main className="p-4 space-y-4 print:hidden">
         {selectedContactId && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3 bg-gray-50">
-              <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-gray-600" />
-                <h2 className="font-bold text-gray-900">Avtale</h2>
+            <div
+              className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3 bg-gray-50 cursor-pointer select-none"
+              role="button"
+              tabIndex={0}
+              onClick={() => setIsAgreementCollapsed(v => !v)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') setIsAgreementCollapsed(v => !v);
+              }}
+            >
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-gray-600" />
+                  <h2 className="font-bold text-gray-900">Avtale</h2>
+                </div>
+                <div
+                  className="text-sm text-gray-900 font-semibold"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsAgreementCollapsed(v => !v);
+                  }}
+                >
+                  {apiaryContacts.find((ac: any) => ac.contact_id === selectedContactId)?.contact?.name || 'Kontakt'}
+                  {apiaryContacts.find((ac: any) => ac.contact_id === selectedContactId)?.role
+                    ? ` (${getRoleLabel(apiaryContacts.find((ac: any) => ac.contact_id === selectedContactId)?.role)})`
+                    : ''}
+                </div>
               </div>
               <span className="text-xs font-bold uppercase bg-white px-2 py-1 rounded text-gray-700 border border-gray-200">
                 {selectedAgreement?.status || (agreementLoading ? 'LASTER' : 'INGEN')}
               </span>
             </div>
 
-            <div className="p-4 space-y-3">
+            {!isAgreementCollapsed && (
+              <div className="p-4 space-y-3">
               {agreementStatus && (
                 <div className="border border-gray-200 rounded-lg p-3 text-sm text-gray-700 bg-white">
                   {agreementStatus}
@@ -1083,19 +1151,17 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 <div className="text-sm text-gray-600">Laster avtale...</div>
               ) : selectedAgreement ? (
                 <>
-                  <div className="text-sm text-gray-900 font-semibold">
-                    {
-                      apiaryContacts.find((ac: any) => ac.contact_id === selectedContactId)?.contact?.name ||
-                      'Kontakt'
-                    }
-                    {apiaryContacts.find((ac: any) => ac.contact_id === selectedContactId)?.role
-                      ? ` (${getRoleLabel(apiaryContacts.find((ac: any) => ac.contact_id === selectedContactId)?.role)})`
-                      : ''}
-                  </div>
-
                   <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs whitespace-pre-line font-mono max-h-[220px] overflow-auto">
                     {selectedAgreement.final_text || selectedAgreement.base_text}
                   </div>
+
+                  <button
+                    onClick={requestPortalLink}
+                    className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 font-bold py-2.5 px-4 rounded-lg transition-colors"
+                    type="button"
+                  >
+                    Kopier portal-lenke
+                  </button>
 
                   {selectedAgreement.contact_proposal &&
                     selectedAgreement.beekeeper_decision === 'pending' &&
@@ -1162,7 +1228,8 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                   Ingen avtaleutkast funnet for valgt kontakt. Trykk «Lagre» i kontakt-dialogen for å opprette utkast.
                 </div>
               )}
-            </div>
+              </div>
+            )}
           </div>
         )}
 

@@ -285,6 +285,7 @@ export async function POST(request: Request) {
     const url = `${getBaseUrl(request)}/grunneier?token=${encodeURIComponent(token)}`;
 
     const mail = getMailService(admin);
+    const mailProvider = String((mail as any)?.constructor?.name || '');
     const mailResult = await mail.sendMail(
       'Biens Vokter',
       finalEmail,
@@ -303,7 +304,7 @@ export async function POST(request: Request) {
 
     if (mailResult?.error) {
       return NextResponse.json(
-        { error: 'Kunne ikke sende e-post', detail: mailResult.error, inviteUrl: url },
+        { error: 'Kunne ikke sende e-post', detail: mailResult.error, inviteUrl: url, mailProvider },
         { status: 500 }
       );
     }
@@ -313,6 +314,7 @@ export async function POST(request: Request) {
       agreementId,
       contact: { id: finalContactId, name: finalName, email: finalEmail || null },
       inviteUrl: url,
+      mailProvider,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Ukjent feil' }, { status: 500 });
