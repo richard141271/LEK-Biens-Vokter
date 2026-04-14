@@ -5,11 +5,49 @@ import { getMailService } from '@/services/mail';
 
 export const dynamic = 'force-dynamic';
 
+const ALLOWED_ORIGINS = ['https://minbigard.no', 'http://localhost', 'https://localhost'];
+
 function getBaseUrl(request: Request) {
   const proto = request.headers.get('x-forwarded-proto') || 'https';
   const host =
     request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
   return `${proto}://${host}`;
+}
+
+function isAllowedOrigin(origin: string | null) {
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  if (origin.startsWith('http://localhost:')) return true;
+  if (origin.startsWith('https://localhost:')) return true;
+  return false;
+}
+
+function corsHeaders(request: Request) {
+  const origin = request.headers.get('origin');
+  const allowOrigin = isAllowedOrigin(origin) ? (origin as string) : 'https://minbigard.no';
+
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400',
+    Vary: 'Origin',
+  };
+}
+
+function ok(request: Request) {
+  return NextResponse.json({ success: true }, { status: 200, headers: corsHeaders(request) });
+}
+
+function fail(request: Request, status: number, error: string) {
+  return NextResponse.json(
+    { success: false, error },
+    { status, headers: corsHeaders(request) }
+  );
+}
+
+export async function OPTIONS(request: Request) {
+  return new NextResponse(null, { status: 204, headers: corsHeaders(request) });
 }
 
 function normalizeOrgNumber(v: unknown) {
@@ -66,22 +104,19 @@ export async function POST(request: Request) {
     const packageType = normalizePackageType(body?.package || body?.package_type);
 
     if (!companyName) {
-      return NextResponse.json({ error: 'Mangler firmanavn' }, { status: 400 });
+      return fail(request, 400, 'Mangler firmanavn');
     }
     if (!orgNumber) {
-      return NextResponse.json({ error: 'Mangler organisasjonsnummer' }, { status: 400 });
+      return fail(request, 400, 'Mangler organisasjonsnummer');
     }
     if (!contactName) {
-      return NextResponse.json({ error: 'Mangler navn (kontaktperson)' }, { status: 400 });
+      return fail(request, 400, 'Mangler navn (kontaktperson)');
     }
     if (!contactEmail) {
-      return NextResponse.json({ error: 'Mangler e-post (kontaktperson)' }, { status: 400 });
+      return fail(request, 400, 'Mangler e-post (kontaktperson)');
     }
     if (!packageType) {
-      return NextResponse.json(
-        { error: 'Mangler eller ugyldig pakke', allowed: ['6_kuber', '8_kuber', '10_kuber', 'honningkollektiv'] },
-        { status: 400 }
-      );
+      return fail(request, 400, 'Mangler eller ugyldig pakke');
     }
 
     const { data: existingCompany } = await admin
@@ -91,7 +126,7 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (existingCompany?.id) {
-      return NextResponse.json({ error: 'Bedrift finnes allerede' }, { status: 409 });
+      return fail(request, 400, 'Bedrift finnes allerede');
     }
 
     const baseSlug = slugifyCompanyName(companyName);
@@ -120,7 +155,7 @@ export async function POST(request: Request) {
 
     if (createUserError || !createdUser?.user?.id) {
       const msg = String(createUserError?.message || 'Kunne ikke opprette bruker');
-      return NextResponse.json({ error: msg }, { status: 500 });
+      return fail(request, 500, msg);
     }
 
     const userId = createdUser.user.id;
@@ -143,8 +178,8 @@ export async function POST(request: Request) {
         await admin.auth.admin.deleteUser(userId);
       } catch {}
       return NextResponse.json(
-        { error: 'Kunne ikke opprette bedrift', detail: companyError?.message || undefined },
-        { status: 500 }
+        { success: false, error: 'Kunne ikke opprette bedrift' },
+        { status: 500, headers: corsHeaders(request) }
       );
     }
 
@@ -164,8 +199,8 @@ export async function POST(request: Request) {
         await admin.auth.admin.deleteUser(userId);
       } catch {}
       return NextResponse.json(
-        { error: 'Kunne ikke koble bruker til bedrift', detail: userRowError.message },
-        { status: 500 }
+        { success: false, error: 'Kunne ikke koble bruker til bedrift' },
+        { status: 500, headers: corsHeaders(request) }
       );
     }
 
@@ -188,8 +223,8 @@ export async function POST(request: Request) {
         await admin.auth.admin.deleteUser(userId);
       } catch {}
       return NextResponse.json(
-        { error: 'Kunne ikke opprette kontakt', detail: contactError.message },
-        { status: 500 }
+        { success: false, error: 'Kunne ikke opprette kontakt' },
+        { status: 500, headers: corsHeaders(request) }
       );
     }
 
@@ -220,8 +255,8 @@ export async function POST(request: Request) {
         await admin.auth.admin.deleteUser(userId);
       } catch {}
       return NextResponse.json(
-        { error: 'Kunne ikke opprette bigård', detail: apiaryError?.message || undefined },
-        { status: 500 }
+        { success: false, error: 'Kunne ikke opprette bigård' },
+        { status: 500, headers: corsHeaders(request) }
       );
     }
 
@@ -245,8 +280,8 @@ export async function POST(request: Request) {
         await admin.auth.admin.deleteUser(userId);
       } catch {}
       return NextResponse.json(
-        { error: 'Kunne ikke opprette innloggingslenke', detail: tokenError.message },
-        { status: 500 }
+        { success: false, error: 'Kunne ikke opprette innloggingslenke' },
+        { status: 500, headers: corsHeaders(request) }
       );
     }
 
@@ -270,19 +305,11 @@ export async function POST(request: Request) {
     );
 
     if (mailResult?.error) {
-      return NextResponse.json(
-        { error: 'Kunne ikke sende e-post', detail: mailResult.error, loginUrl },
-        { status: 500 }
-      );
+      return fail(request, 500, 'Kunne ikke sende e-post');
     }
 
-    return NextResponse.json({
-      success: true,
-      company: { id: companyId, name: companyName, public_slug: slug },
-      apiary: { id: apiary.id, status: 'under_etablering', package_type: packageType },
-      loginUrl,
-    });
+    return ok(request);
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Ukjent feil' }, { status: 500 });
+    return fail(request, 500, e?.message || 'Ukjent feil');
   }
 }
