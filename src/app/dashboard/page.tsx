@@ -964,6 +964,11 @@ export default function DashboardPage() {
                   <Download className="w-5 h-5 text-blue-500" />
                   <span className="font-bold text-[10px] text-center leading-tight">OFFLINE</span>
               </Link>
+
+              <Link href="/grunneier" className="col-span-2 bg-green-50 border border-green-100 hover:bg-green-100 text-green-700 p-2 rounded-xl shadow-sm flex items-center justify-center gap-2 transition-transform active:scale-95 h-12 mt-1">
+                  <HeartHandshake className="w-5 h-5" />
+                  <span className="font-bold text-xs text-center leading-tight">GRUNNEIERPORTAL</span>
+              </Link>
           </div>
 
 
