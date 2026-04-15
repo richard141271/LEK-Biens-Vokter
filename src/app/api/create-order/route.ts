@@ -28,7 +28,7 @@ function corsHeaders(request: Request) {
 
   return {
     'Access-Control-Allow-Origin': allowOrigin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
     Vary: 'Origin',
@@ -48,6 +48,13 @@ function fail(request: Request, status: number, error: string) {
 
 export async function OPTIONS(request: Request) {
   return new NextResponse(null, { status: 204, headers: corsHeaders(request) });
+}
+
+export async function GET(request: Request) {
+  return NextResponse.json(
+    { success: false, error: 'Bruk POST /api/create-order' },
+    { status: 200, headers: corsHeaders(request) }
+  );
 }
 
 function normalizeOrgNumber(v: unknown) {
