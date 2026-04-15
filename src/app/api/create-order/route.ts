@@ -320,7 +320,7 @@ export async function POST(request: Request) {
     );
 
     if (mailResult?.error) {
-      return fail(request, 500, 'Kunne ikke sende e-post');
+      console.error('create-order mail failed:', mailResult.error);
     }
 
     return ok(request);
