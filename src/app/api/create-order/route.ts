@@ -148,21 +148,30 @@ export async function POST(request: Request) {
       slug = `${baseSlug}_${i + 2}`;
     }
 
-    const randomPassword = crypto.randomBytes(24).toString('base64url');
     const { data: createdUser, error: createUserError } = await admin.auth.admin.createUser({
       email: contactEmail,
-      password: randomPassword,
       email_confirm: true,
       user_metadata: {
         account_type: 'company',
         company_name: companyName,
         company_slug: slug,
+        full_name: contactName,
+        phone_number: contactPhone,
+        address,
+        postal_code: postalCode,
+        city,
+        role: 'tenant',
       },
     });
 
     if (createUserError || !createdUser?.user?.id) {
+      console.error('create-order createUser failed:', createUserError);
       const msg = String(createUserError?.message || 'Kunne ikke opprette bruker');
-      return fail(request, 500, msg);
+      const isDuplicate =
+        msg.toLowerCase().includes('already') ||
+        msg.toLowerCase().includes('registered') ||
+        msg.toLowerCase().includes('exists');
+      return fail(request, isDuplicate ? 400 : 500, msg);
     }
 
     const userId = createdUser.user.id;
