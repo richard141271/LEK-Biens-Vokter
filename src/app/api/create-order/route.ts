@@ -160,7 +160,6 @@ export async function POST(request: Request) {
         address,
         postal_code: postalCode,
         city,
-        role: 'tenant',
       },
     });
 
