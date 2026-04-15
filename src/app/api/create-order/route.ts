@@ -35,8 +35,11 @@ function corsHeaders(request: Request) {
   };
 }
 
-function ok(request: Request) {
-  return NextResponse.json({ success: true }, { status: 200, headers: corsHeaders(request) });
+function ok(request: Request, payload?: Record<string, unknown>) {
+  return NextResponse.json(
+    { success: true, ...(payload || {}) },
+    { status: 200, headers: corsHeaders(request) }
+  );
 }
 
 function fail(request: Request, status: number, error: string) {
@@ -323,7 +326,7 @@ export async function POST(request: Request) {
       console.error('create-order mail failed:', mailResult.error);
     }
 
-    return ok(request);
+    return ok(request, { loginUrl, companySlug: slug });
   } catch (e: any) {
     return fail(request, 500, e?.message || 'Ukjent feil');
   }
