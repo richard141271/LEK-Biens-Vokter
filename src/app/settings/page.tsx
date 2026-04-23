@@ -811,6 +811,17 @@ export default function SettingsPage() {
                       </button>
 
                       <button 
+                        onClick={() => router.push('/settings/access')}
+                        className="w-full bg-white text-gray-700 font-bold py-3 rounded-xl border border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-between px-4"
+                      >
+                        <div className="flex items-center gap-3">
+                            <ShieldCheck className="w-5 h-5 text-gray-500" />
+                            <span>Tilganger</span>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                      </button>
+
+                      <button 
                         onClick={() => router.push('/referater')}
                         className="w-full bg-white text-gray-700 font-bold py-3 rounded-xl border border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-between px-4"
                       >

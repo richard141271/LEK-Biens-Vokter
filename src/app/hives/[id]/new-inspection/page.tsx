@@ -35,6 +35,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const speakRef = useRef<(text: string) => void>(() => {});
   const lastVoiceCaptureAtRef = useRef<number>(0);
   const lastVoiceCaptureTextRef = useRef<string>('');
+  const lastManualCaptureAtRef = useRef<number>(0);
   const selectedImageRef = useRef<File | null>(null);
   const filePreviewRef = useRef<Map<File, string>>(new Map());
   const getPreviewUrl = (file: File) => {
@@ -83,6 +84,31 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         }, 'image/jpeg', 0.8);
     }
   }, []);
+
+  const handleManualCapture = useCallback(() => {
+    const now = Date.now();
+    if (now - lastManualCaptureAtRef.current < 800) return;
+    lastManualCaptureAtRef.current = now;
+
+    if (!cameraActive) {
+      setPendingCapture(true);
+      setCameraActive(true);
+      return;
+    }
+
+    let tries = 0;
+    const attempt = () => {
+      tries += 1;
+      const v = videoRef.current;
+      if (v && v.readyState >= 2) {
+        capturePhoto();
+        return;
+      }
+      if (tries >= 20) return;
+      setTimeout(attempt, 150);
+    };
+    attempt();
+  }, [cameraActive, capturePhoto]);
 
   // Initialize Camera Stream
   useEffect(() => {
@@ -927,8 +953,16 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                     <div className="w-2 h-2 bg-white rounded-full"></div>
                     BODYCAM
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-white text-xs">
-                    Si «Ta bilde» for å knipse
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-white text-xs flex items-center justify-between gap-3">
+                    <div>Si «Ta bilde» for å knipse</div>
+                    <button
+                      type="button"
+                      onClick={handleManualCapture}
+                      className="shrink-0 px-3 py-2 rounded-lg bg-white/15 hover:bg-white/20 text-white font-semibold text-xs flex items-center gap-2 border border-white/20"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      Ta bilde
+                    </button>
                 </div>
             </div>
         )}
