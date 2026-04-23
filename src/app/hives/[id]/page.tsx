@@ -1276,7 +1276,11 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                            <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getStatusColor(inspection.status)}`}>
                              {inspection.status}
                            </span>
-                           {inspection.weather && <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{inspection.weather}</span>}
+                           {inspection.weather && (
+                             <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
+                               {inspection.weather_place ? `${inspection.weather} (${inspection.weather_place})` : inspection.weather}
+                             </span>
+                           )}
                            {(inspection.image_url || (inspection.notes && String(inspection.notes).includes('/inspection-images/'))) && (
                              <ImageIcon className="w-4 h-4 text-gray-400" />
                            )}
@@ -1303,10 +1307,18 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                         </span>
                       </div>
                       <div>
+                        <span className="block text-xs font-bold text-gray-500 uppercase">Dronningfarge</span>
+                        <span className="text-gray-800">{inspection.queen_color || '-'}</span>
+                      </div>
+                      <div>
                         <span className="block text-xs font-bold text-gray-500 uppercase">Egg</span>
                         <span className={inspection.eggs_seen ? 'text-green-600 font-bold' : 'text-gray-400'}>
                           {inspection.eggs_seen ? 'Observert' : 'Ikke sett'}
                         </span>
+                      </div>
+                      <div>
+                        <span className="block text-xs font-bold text-gray-500 uppercase">Årgang</span>
+                        <span className="text-gray-800">{inspection.queen_year || '-'}</span>
                       </div>
                       <div>
                         <span className="block text-xs font-bold text-gray-500 uppercase">Gemytt</span>
@@ -1325,6 +1337,12 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                         <span>{inspection.temperature ? `${inspection.temperature}°C` : '-'}</span>
                       </div>
                     </div>
+                    {Array.isArray(inspection.actions) && inspection.actions.length > 0 && (
+                      <div className="mt-4 bg-white p-3 rounded border border-gray-200">
+                        <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Handlinger</span>
+                        <p className="text-gray-800">{inspection.actions.join(', ')}</p>
+                      </div>
+                    )}
                     {inspection.notes && (
                       <div className="mt-4 bg-white p-3 rounded border border-gray-200">
                         <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Notater</span>

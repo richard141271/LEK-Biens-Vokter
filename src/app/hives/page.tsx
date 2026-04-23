@@ -41,10 +41,14 @@ export default function AllHivesPage() {
   // Mass Inspection Form
   const [massInspectionData, setMassInspectionData] = useState({
     queen_seen: false,
+    queen_color: '',
+    queen_year: '',
     eggs_seen: false,
     honey_stores: 'middels', // Changed from food_status to honey_stores
     temperament: 'rolig',
-    notes: ''
+    notes: '',
+    actions: [] as string[],
+    other_action: ''
   });
 
   // Mass Log Form
@@ -243,15 +247,37 @@ export default function AllHivesPage() {
         if (!user) return;
 
         if (massActionType === 'inspeksjon') {
+            const actionList = [
+              ...(massInspectionData.actions || []),
+              ...(massInspectionData.other_action?.trim() ? [`Annet: ${massInspectionData.other_action.trim()}`] : []),
+            ];
             const inspections = selectedHives.map(id => ({
                 hive_id: id,
                 user_id: user.id,
                 inspection_date: new Date().toISOString().split('T')[0],
-                ...massInspectionData
+                queen_seen: massInspectionData.queen_seen,
+                queen_color: massInspectionData.queen_color || null,
+                queen_year: massInspectionData.queen_year ? parseInt(massInspectionData.queen_year, 10) : null,
+                eggs_seen: massInspectionData.eggs_seen,
+                honey_stores: massInspectionData.honey_stores,
+                temperament: massInspectionData.temperament,
+                notes: massInspectionData.notes,
+                actions: actionList.length > 0 ? actionList : null
             }));
 
             const { error } = await supabase.from('inspections').insert(inspections);
             if (error) throw error;
+
+            if (actionList.length > 0) {
+              const logs = selectedHives.map(id => ({
+                hive_id: id,
+                user_id: user.id,
+                action: 'BEHANDLING',
+                details: `Masseinspeksjon: ${actionList.join(', ')}${massInspectionData.notes ? `. ${massInspectionData.notes}` : ''}`
+              }));
+              const { error: logError } = await supabase.from('hive_logs').insert(logs);
+              if (logError) throw logError;
+            }
         } else {
             const logs = selectedHives.map(id => ({
                 hive_id: id,
@@ -272,10 +298,14 @@ export default function AllHivesPage() {
         // Reset forms
         setMassInspectionData({
             queen_seen: false,
+            queen_color: '',
+            queen_year: '',
             eggs_seen: false,
             honey_stores: 'middels',
             temperament: 'rolig',
-            notes: ''
+            notes: '',
+            actions: [],
+            other_action: ''
         });
         setMassLogData({
             action: 'BEHANDLING',
@@ -970,6 +1000,63 @@ export default function AllHivesPage() {
                             />
                             <span>Egg sett</span>
                         </label>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Dronningfarge</label>
+                        <select
+                          value={massInspectionData.queen_color}
+                          onChange={e => setMassInspectionData({ ...massInspectionData, queen_color: e.target.value })}
+                          className="w-full p-2 border rounded-lg"
+                        >
+                          <option value="">Ukjent</option>
+                          <option value="Hvit">Hvit</option>
+                          <option value="Gul">Gul</option>
+                          <option value="Rød">Rød</option>
+                          <option value="Grønn">Grønn</option>
+                          <option value="Blå">Blå</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Årgang</label>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          value={massInspectionData.queen_year}
+                          onChange={e => setMassInspectionData({ ...massInspectionData, queen_year: e.target.value })}
+                          className="w-full p-2 border rounded-lg"
+                          placeholder="f.eks. 2025"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Felles handlinger</label>
+                      <div className="flex gap-2 flex-wrap">
+                        {['Medisinering', 'Varroabehandling'].map((a) => (
+                          <label key={a} className="flex items-center gap-2 border p-2 rounded cursor-pointer hover:bg-gray-50">
+                            <input
+                              type="checkbox"
+                              checked={(massInspectionData.actions || []).includes(a)}
+                              onChange={(e) => {
+                                const next = new Set(massInspectionData.actions || []);
+                                if (e.target.checked) next.add(a);
+                                else next.delete(a);
+                                setMassInspectionData({ ...massInspectionData, actions: Array.from(next) });
+                              }}
+                              className="w-4 h-4 text-honey-600"
+                            />
+                            <span>{a}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <input
+                        value={massInspectionData.other_action}
+                        onChange={(e) => setMassInspectionData({ ...massInspectionData, other_action: e.target.value })}
+                        className="w-full p-2 border rounded-lg mt-2"
+                        placeholder="Andre viktige handlinger (valgfritt)"
+                      />
                     </div>
 
                     <div>

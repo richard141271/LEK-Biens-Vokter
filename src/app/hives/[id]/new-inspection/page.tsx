@@ -337,6 +337,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(new Date().toTimeString().split(' ')[0].substring(0, 5));
   const [queenSeen, setQueenSeen] = useState(false);
+  const [queenColor, setQueenColor] = useState<string>('');
+  const [queenYear, setQueenYear] = useState<string>('');
   const [eggsSeen, setEggsSeen] = useState(false);
   const [broodCondition, setBroodCondition] = useState('normal');
   const [honeyStores, setHoneyStores] = useState('middels');
@@ -347,6 +349,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   // Weather State
   const [weather, setWeather] = useState('');
   const [temperature, setTemperature] = useState('');
+  const [weatherPlace, setWeatherPlace] = useState<string>('');
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [coordinates, setCoordinates] = useState<{lat: number, lng: number} | null>(null);
 
@@ -551,6 +554,29 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           async (position) => {
             const { latitude, longitude } = position.coords;
             setCoordinates({ lat: latitude, lng: longitude });
+
+            const fetchPlaceName = async (lat: number, lon: number) => {
+              try {
+                const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&accept-language=no`;
+                const res = await withTimeout(fetch(url, { headers: { Accept: 'application/json' } }), 8000);
+                if (!res.ok) return '';
+                const data: any = await res.json();
+                const addr = data?.address || {};
+                const name =
+                  addr.city ||
+                  addr.town ||
+                  addr.village ||
+                  addr.hamlet ||
+                  addr.municipality ||
+                  addr.county ||
+                  data?.name ||
+                  '';
+                return String(name || '').trim();
+              } catch {
+                return '';
+              }
+            };
+
             try {
               const response = await withTimeout(
                 fetch(
@@ -564,6 +590,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 setTemperature(weatherData.current.temperature_2m.toString());
                 setWeather(getWeatherDescription(weatherData.current.weather_code));
               }
+              const place = await fetchPlaceName(latitude, longitude);
+              if (place) setWeatherPlace(place);
             } catch {} finally {
               setWeatherLoading(false);
             }
@@ -660,6 +688,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               inspection_date: date,
               time: time,
               queen_seen: queenSeen,
+              queen_color: queenColor || null,
+              queen_year: queenYear ? parseInt(queenYear, 10) : null,
               eggs_seen: eggsSeen,
               brood_condition: broodCondition,
               honey_stores: honeyStores,
@@ -667,7 +697,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               notes: notes,
               status: status, 
               temperature: temperature ? parseFloat(temperature) : null,
-              weather: weather
+              weather: weather,
+              weather_place: weatherPlace || null,
             },
             hiveUpdate: {
               status: status === 'DØD' ? 'DØD' : 'AKTIV',
@@ -697,6 +728,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               inspection_date: date,
               time: time,
               queen_seen: queenSeen,
+              queen_color: queenColor || null,
+              queen_year: queenYear ? parseInt(queenYear, 10) : null,
               eggs_seen: eggsSeen,
               brood_condition: broodCondition,
               honey_stores: honeyStores,
@@ -705,6 +738,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               status: status,
               temperature: temperature ? parseFloat(temperature) : null,
               weather: weather,
+              weather_place: weatherPlace || null,
             },
             hiveUpdate: {
               status: status === 'DØD' ? 'DØD' : 'AKTIV',
@@ -768,6 +802,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           inspection_date: date,
           time: time,
           queen_seen: queenSeen,
+          queen_color: queenColor || null,
+          queen_year: queenYear ? parseInt(queenYear, 10) : null,
           eggs_seen: eggsSeen,
           brood_condition: broodCondition,
           honey_stores: honeyStores,
@@ -776,6 +812,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           status: status, 
           temperature: temperature ? parseFloat(temperature) : null,
           weather: weather,
+          weather_place: weatherPlace || null,
           image_url: imageUrl
         });
 
@@ -833,6 +870,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 inspection_date: date,
                 time: time,
                 queen_seen: queenSeen,
+                queen_color: queenColor || null,
+                queen_year: queenYear ? parseInt(queenYear, 10) : null,
                 eggs_seen: eggsSeen,
                 brood_condition: broodCondition,
                 honey_stores: honeyStores,
@@ -841,6 +880,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 status: status,
                 temperature: temperature ? parseFloat(temperature) : null,
                 weather: weather,
+                weather_place: weatherPlace || null,
               },
               hiveUpdate: {
                 status: status === 'DØD' ? 'DØD' : 'AKTIV',
@@ -1035,6 +1075,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 <Cloud className="w-5 h-5 text-blue-500" />
                  <div className="flex flex-col">
                   <label className="text-xs font-bold text-blue-700 uppercase">Vær</label>
+                  {weatherPlace && (
+                    <span className="text-[10px] text-blue-600 leading-tight">{weatherPlace}</span>
+                  )}
                   {weatherLoading ? (
                     <span className="text-xs text-blue-400">Henter...</span>
                   ) : (
@@ -1069,6 +1112,35 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 <input type="checkbox" checked={eggsSeen} onChange={e => setEggsSeen(e.target.checked)} className="sr-only peer" />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-honey-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-honey-500"></div>
               </label>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Dronningfarge</label>
+                <select
+                  value={queenColor}
+                  onChange={(e) => setQueenColor(e.target.value)}
+                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
+                >
+                  <option value="">Ukjent</option>
+                  <option value="Hvit">Hvit</option>
+                  <option value="Gul">Gul</option>
+                  <option value="Rød">Rød</option>
+                  <option value="Grønn">Grønn</option>
+                  <option value="Blå">Blå</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Årgang</label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={queenYear}
+                  onChange={(e) => setQueenYear(e.target.value)}
+                  placeholder="f.eks. 2025"
+                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
+                />
+              </div>
             </div>
           </div>
 

@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Archive, Truck, Trash2, X, Check, ClipboardList, Edit, QrCode, Calendar, UserPlus, FileText } from 'lucide-react';
+import { ArrowLeft, Archive, Truck, Trash2, X, Check, ClipboardList, Edit, QrCode, Calendar, UserPlus, FileText, ExternalLink, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store, MapPin } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -92,10 +92,14 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   // Mass Inspection Form
   const [massInspectionData, setMassInspectionData] = useState({
     queen_seen: false,
+    queen_color: '',
+    queen_year: '',
     eggs_seen: false,
     honey_stores: 'middels',
     temperament: 'rolig',
-    notes: ''
+    notes: '',
+    actions: [] as string[],
+    other_action: ''
   });
 
   // Mass Log Form
@@ -103,6 +107,19 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     action: 'BEHANDLING',
     details: ''
   });
+
+  const [latestCertification, setLatestCertification] = useState<any>(null);
+  const [isCertificationModalOpen, setIsCertificationModalOpen] = useState(false);
+  const [isSubmittingCertification, setIsSubmittingCertification] = useState(false);
+  const [certChecklist, setCertChecklist] = useState({
+    noDisease: false,
+    normalBrood: false,
+    queenOk: false,
+    normalActivity: false,
+    equipmentOk: false,
+    physicalCheck: false,
+  });
+  const [certHiveFiles, setCertHiveFiles] = useState<Record<string, File | null>>({});
 
   const supabase = createClient();
   const router = useRouter();
@@ -311,6 +328,14 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     }
 
     if (finalHives) setHives(finalHives);
+    const { data: certData } = await supabase
+      .from('apiary_certifications')
+      .select('*')
+      .eq('apiary_id', params.id)
+      .order('certified_from', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setLatestCertification(certData || null);
     await fetchApiaryContacts();
     setLoading(false);
   };
@@ -977,15 +1002,37 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         const ids = Array.from(selectedHiveIds);
 
         if (massActionType === 'inspeksjon') {
+            const actionList = [
+              ...(massInspectionData.actions || []),
+              ...(massInspectionData.other_action?.trim() ? [`Annet: ${massInspectionData.other_action.trim()}`] : []),
+            ];
             const inspections = ids.map(id => ({
                 hive_id: id,
                 user_id: user.id,
                 inspection_date: new Date().toISOString().split('T')[0],
-                ...massInspectionData
+                queen_seen: massInspectionData.queen_seen,
+                queen_color: massInspectionData.queen_color || null,
+                queen_year: massInspectionData.queen_year ? parseInt(massInspectionData.queen_year, 10) : null,
+                eggs_seen: massInspectionData.eggs_seen,
+                honey_stores: massInspectionData.honey_stores,
+                temperament: massInspectionData.temperament,
+                notes: massInspectionData.notes,
+                actions: actionList.length > 0 ? actionList : null
             }));
 
             const { error } = await supabase.from('inspections').insert(inspections);
             if (error) throw error;
+
+            if (actionList.length > 0) {
+              const logs = ids.map(id => ({
+                hive_id: id,
+                user_id: user.id,
+                action: 'BEHANDLING',
+                details: `Masseinspeksjon: ${actionList.join(', ')}${massInspectionData.notes ? `. ${massInspectionData.notes}` : ''}`
+              }));
+              const { error: logError } = await supabase.from('hive_logs').insert(logs);
+              if (logError) throw logError;
+            }
         } else {
             const logs = ids.map(id => ({
                 hive_id: id,
@@ -1004,10 +1051,14 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         // Reset forms
         setMassInspectionData({
             queen_seen: false,
+            queen_color: '',
+            queen_year: '',
             eggs_seen: false,
             honey_stores: 'middels',
             temperament: 'rolig',
-            notes: ''
+            notes: '',
+            actions: [],
+            other_action: ''
         });
         setMassLogData({
             action: 'BEHANDLING',
@@ -1130,6 +1181,114 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   if (loading) return <div className="p-8 text-center">Laster...</div>;
   if (!apiary) return <div className="p-8 text-center">Fant ikke bigård</div>;
 
+  const mattilsynetUrl = 'https://www.mattilsynet.no/skjemaer/registrere-eller-oppdatere-birokt-registreringsskjema-nn';
+  const todayIso = new Date().toISOString().split('T')[0];
+  const plusTwoYearsIso = (() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + 2);
+    return d.toISOString().split('T')[0];
+  })();
+
+  const certificationTo = latestCertification?.certified_to ? new Date(latestCertification.certified_to) : null;
+  const certificationFrom = latestCertification?.certified_from ? new Date(latestCertification.certified_from) : null;
+  const isCertificationActive = certificationTo ? certificationTo.getTime() >= new Date().setHours(0, 0, 0, 0) : false;
+  const daysToExpiry = certificationTo
+    ? Math.ceil((certificationTo.getTime() - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24))
+    : null;
+  const reminderDays =
+    daysToExpiry != null && daysToExpiry >= 0 && daysToExpiry <= 30
+      ? (daysToExpiry <= 7 ? 7 : daysToExpiry <= 14 ? 14 : 30)
+      : null;
+
+  const openCertificationModal = () => {
+    setCertChecklist({
+      noDisease: false,
+      normalBrood: false,
+      queenOk: false,
+      normalActivity: false,
+      equipmentOk: false,
+      physicalCheck: false,
+    });
+    const nextFiles: Record<string, File | null> = {};
+    (hives || []).forEach((h: any) => {
+      if (h?.id) nextFiles[h.id] = null;
+    });
+    setCertHiveFiles(nextFiles);
+    setIsCertificationModalOpen(true);
+  };
+
+  const canCompleteCertification =
+    Object.values(certChecklist).every(Boolean) &&
+    (hives || []).length > 0 &&
+    (hives || []).every((h: any) => !!certHiveFiles[h.id]);
+
+  const submitCertification = async () => {
+    if (!canCompleteCertification) return;
+    setIsSubmittingCertification(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      const certId = crypto.randomUUID();
+      const ownerId = apiary?.user_id || user.id;
+      const hivePhotos: Record<string, string> = {};
+
+      for (const h of (hives || [])) {
+        const file = certHiveFiles[h.id];
+        if (!file) throw new Error('Mangler bilde for en eller flere kuber.');
+        const ext = String(file.name || '').split('.').pop() || 'jpg';
+        const path = `certifications/${apiary.id}/${certId}/${h.id}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('inspection-images')
+          .upload(path, file, { upsert: true });
+        if (uploadError) {
+          const msg = String(uploadError.message || '').toLowerCase();
+          if (msg.includes('bucket') && msg.includes('not found')) {
+            throw new Error('Bilde-lagring er ikke satt opp (bucket mangler).');
+          }
+          throw uploadError;
+        }
+        const { data } = supabase.storage.from('inspection-images').getPublicUrl(path);
+        hivePhotos[h.id] = data.publicUrl;
+      }
+
+      const checklistPayload = {
+        no_disease: certChecklist.noDisease,
+        normal_brood: certChecklist.normalBrood,
+        queen_ok: certChecklist.queenOk,
+        normal_activity: certChecklist.normalActivity,
+        equipment_ok: certChecklist.equipmentOk,
+        physical_check: certChecklist.physicalCheck,
+      };
+
+      const { data: inserted, error } = await supabase
+        .from('apiary_certifications')
+        .insert({
+          id: certId,
+          apiary_id: apiary.id,
+          owner_id: ownerId,
+          certified_from: todayIso,
+          certified_to: plusTwoYearsIso,
+          checklist: checklistPayload,
+          hive_photos: hivePhotos,
+        })
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      setLatestCertification(inserted);
+      setIsCertificationModalOpen(false);
+      alert(`Egensertifisering fullført. Sertifisert til ${new Date(inserted.certified_to).toLocaleDateString()}.`);
+    } catch (e: any) {
+      alert('Kunne ikke fullføre sertifisering: ' + (e?.message || 'Ukjent feil'));
+    } finally {
+      setIsSubmittingCertification(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24 print:bg-white print:pb-0">
       {/* Loading Overlay */}
@@ -1213,6 +1372,63 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       </div>
 
       <main className="p-4 space-y-4 print:hidden">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3 bg-gray-50">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="w-5 h-5 text-gray-600" />
+              <h2 className="font-bold text-gray-900">Egensertifisering</h2>
+            </div>
+            <button
+              onClick={openCertificationModal}
+              disabled={(hives || []).length === 0}
+              className="px-3 py-2 rounded-lg bg-honey-500 hover:bg-honey-600 text-white font-bold text-sm disabled:opacity-50"
+            >
+              Ny sertifisering
+            </button>
+          </div>
+          <div className="p-4 space-y-3">
+            {latestCertification ? (
+              <div className="text-sm text-gray-800">
+                <div className="font-bold">
+                  {isCertificationActive ? 'Sertifisert' : 'Utløpt'}
+                  {certificationTo ? ` til ${certificationTo.toLocaleDateString()}` : ''}
+                </div>
+                <div className="text-xs text-gray-600">
+                  {certificationFrom ? `Sertifisert fra ${certificationFrom.toLocaleDateString()}. ` : ''}
+                  {daysToExpiry != null ? `Gjenstår ${daysToExpiry} dager.` : ''}
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-700">
+                Ingen egensertifisering registrert på denne bigården enda.
+              </div>
+            )}
+
+            {reminderDays != null && (
+              <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-900">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="font-bold text-sm">
+                      {reminderDays} dager før utløp
+                    </div>
+                    <div className="text-xs mt-1">
+                      Husk å oppdatere hos Mattilsynet.
+                    </div>
+                    <button
+                      onClick={() => window.open(mattilsynetUrl, '_blank')}
+                      className="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-amber-200 hover:bg-amber-100 text-amber-900 font-bold text-xs"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Åpne Mattilsynet
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         {selectedContactId && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div
@@ -1992,6 +2208,76 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                     </label>
                   </div>
 
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Dronningfarge</label>
+                      <select
+                        value={massInspectionData.queen_color}
+                        onChange={e => setMassInspectionData({ ...massInspectionData, queen_color: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg p-2.5"
+                      >
+                        <option value="">Ukjent</option>
+                        <option value="Hvit">Hvit</option>
+                        <option value="Gul">Gul</option>
+                        <option value="Rød">Rød</option>
+                        <option value="Grønn">Grønn</option>
+                        <option value="Blå">Blå</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-1">Årgang</label>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={massInspectionData.queen_year}
+                        onChange={e => setMassInspectionData({ ...massInspectionData, queen_year: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg p-2.5"
+                        placeholder="f.eks. 2025"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Felles handlinger</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {['Medisinering', 'Varroabehandling'].map((a) => (
+                        <label key={a} className="flex items-center gap-2 border p-2 rounded cursor-pointer hover:bg-gray-50">
+                          <input
+                            type="checkbox"
+                            checked={(massInspectionData.actions || []).includes(a)}
+                            onChange={(e) => {
+                              const next = new Set(massInspectionData.actions || []);
+                              if (e.target.checked) next.add(a);
+                              else next.delete(a);
+                              setMassInspectionData({ ...massInspectionData, actions: Array.from(next) });
+                            }}
+                            className="w-5 h-5 text-honey-600 rounded"
+                          />
+                          <span className="font-medium">{a}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <input
+                      value={massInspectionData.other_action}
+                      onChange={(e) => setMassInspectionData({ ...massInspectionData, other_action: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 mt-2"
+                      placeholder="Andre viktige handlinger (valgfritt)"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Fôr</label>
+                    <select
+                      value={massInspectionData.honey_stores}
+                      onChange={e => setMassInspectionData({ ...massInspectionData, honey_stores: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg p-2.5"
+                    >
+                      <option value="lite">Lite</option>
+                      <option value="middels">Middels</option>
+                      <option value="mye">Mye</option>
+                    </select>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Lynne</label>
                     <select 
@@ -2036,6 +2322,100 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                   {isSubmittingMassAction ? 'Lagrer...' : 'Lagre registrering'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CERTIFICATION MODAL */}
+      {isCertificationModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden max-h-[90vh]">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-900 text-white">
+              <h3 className="font-bold text-lg">Egensertifisering</h3>
+              <button onClick={() => setIsCertificationModalOpen(false)}>
+                <X className="w-6 h-6 text-gray-400 hover:text-white" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 overflow-y-auto max-h-[calc(90vh-136px)]">
+              <div className="text-sm text-gray-700">
+                <div className="font-bold text-gray-900">Sertifiseringsperiode</div>
+                <div className="text-xs text-gray-600">Sertifisert fra: {new Date(todayIso).toLocaleDateString()}</div>
+                <div className="text-xs text-gray-600">Sertifisert til: {new Date(plusTwoYearsIso).toLocaleDateString()}</div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="font-bold text-gray-900 text-sm">Sjekkliste (må bekreftes)</div>
+                {[
+                  { key: 'noDisease', label: 'Ingen tegn til sykdom' },
+                  { key: 'normalBrood', label: 'Normal yngel' },
+                  { key: 'queenOk', label: 'Dronning ok' },
+                  { key: 'normalActivity', label: 'Normal aktivitet' },
+                  { key: 'equipmentOk', label: 'Utstyr og kube i orden' },
+                  { key: 'physicalCheck', label: 'Kontroll gjennomført fysisk' },
+                ].map((item) => (
+                  <label key={item.key} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={(certChecklist as any)[item.key]}
+                      onChange={(e) => setCertChecklist({ ...certChecklist, [item.key]: e.target.checked } as any)}
+                      className="w-5 h-5 text-honey-600"
+                    />
+                    <span className="font-medium text-gray-800">{item.label}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="space-y-3">
+                <div className="font-bold text-gray-900 text-sm">
+                  Bilder av hver bikube ({(hives || []).length} kuber = minst {(hives || []).length} bilder)
+                </div>
+                <div className="space-y-2">
+                  {(hives || []).map((h: any) => (
+                    <div key={h.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
+                      <div className="text-sm font-bold text-gray-900">
+                        {h.hive_number || h.name || 'Kube'}
+                      </div>
+                      <label className="shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-honey-500 hover:bg-honey-600 text-white font-bold text-xs cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;
+                            setCertHiveFiles((prev) => ({ ...prev, [h.id]: file }));
+                            e.currentTarget.value = '';
+                          }}
+                        />
+                        {certHiveFiles[h.id] ? 'Bilde valgt' : 'Ta/legg ved bilde'}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                Dette er en veiledning basert på krav fra Mattilsynet – bruker er selv ansvarlig for korrekt registrering.
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-100 flex gap-3">
+              <button
+                onClick={() => setIsCertificationModalOpen(false)}
+                className="flex-1 py-3 border border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-50"
+                disabled={isSubmittingCertification}
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={submitCertification}
+                disabled={!canCompleteCertification || isSubmittingCertification}
+                className="flex-1 py-3 bg-honey-500 text-white rounded-lg font-bold hover:bg-honey-600 disabled:opacity-50"
+              >
+                {isSubmittingCertification ? 'Fullfører...' : 'Fullfør sertifisering'}
+              </button>
             </div>
           </div>
         </div>

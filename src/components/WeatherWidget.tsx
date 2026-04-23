@@ -9,6 +9,63 @@ export default function WeatherWidget() {
   const [label, setLabel] = useState<string>('Været hos deg');
 
   useEffect(() => {
+    const readCachedPlace = () => {
+      try {
+        const raw = localStorage.getItem('lek_last_weather_place');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        const name = String(parsed?.name || '').trim();
+        const lat = Number(parsed?.lat);
+        const lon = Number(parsed?.lon);
+        if (!name) return null;
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+        return { name, lat, lon };
+      } catch {
+        return null;
+      }
+    };
+
+    const setPlaceLabel = (placeName: string | null, fallbackLabel: string) => {
+      if (placeName && placeName.trim()) {
+        setLabel(`Været i ${placeName.trim()}`);
+        return;
+      }
+      setLabel(fallbackLabel);
+    };
+
+    const fetchPlace = async (lat: number, lon: number) => {
+      const cached = readCachedPlace();
+      if (cached) {
+        const dLat = Math.abs(cached.lat - lat);
+        const dLon = Math.abs(cached.lon - lon);
+        if (dLat < 0.02 && dLon < 0.02) return cached.name;
+      }
+
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&accept-language=no`;
+        const res = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (!res.ok) return null;
+        const data: any = await res.json();
+        const addr = data?.address || {};
+        const name =
+          addr.city ||
+          addr.town ||
+          addr.village ||
+          addr.hamlet ||
+          addr.municipality ||
+          addr.county ||
+          data?.name ||
+          null;
+        if (name) {
+          try {
+            localStorage.setItem('lek_last_weather_place', JSON.stringify({ name, lat, lon, at: Date.now() }));
+          } catch {}
+          return String(name);
+        }
+      } catch {}
+      return null;
+    };
+
     const fallback = () => {
       try {
         const raw = localStorage.getItem('lek_last_weather_coords');
@@ -18,13 +75,14 @@ export default function WeatherWidget() {
           const lon = Number(parsed?.lon);
           if (Number.isFinite(lat) && Number.isFinite(lon)) {
             fetchWeather(lat, lon);
-            setLabel('Været hos deg');
+            const cached = readCachedPlace();
+            setPlaceLabel(cached?.name || null, 'Været hos deg');
             return;
           }
         }
       } catch {}
       fetchWeather(59.12, 11.38);
-      setLabel('Været (standard)');
+      setPlaceLabel('Halden', 'Været (standard)');
     };
 
     if (!navigator?.geolocation) {
@@ -44,7 +102,9 @@ export default function WeatherWidget() {
           localStorage.setItem('lek_last_weather_coords', JSON.stringify({ lat, lon, at: Date.now() }));
         } catch {}
         fetchWeather(lat, lon);
-        setLabel('Været hos deg');
+        fetchPlace(lat, lon)
+          .then((name) => setPlaceLabel(name, 'Været hos deg'))
+          .catch(() => setPlaceLabel(null, 'Været hos deg'));
       },
       () => {
         fallback();
