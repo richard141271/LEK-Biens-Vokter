@@ -33,6 +33,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const speakRef = useRef<(text: string) => void>(() => {});
+  const lastVoiceCaptureAtRef = useRef<number>(0);
+  const lastVoiceCaptureTextRef = useRef<string>('');
   const selectedImageRef = useRef<File | null>(null);
   const filePreviewRef = useRef<Map<File, string>>(new Map());
   const getPreviewUrl = (file: File) => {
@@ -208,14 +210,30 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       // Action: Take Photo
       if (parsed.action === 'TAKE_PHOTO') {
-          if (cameraActive) {
+          const now = Date.now();
+          const rawKey = String(text || '').trim().toLowerCase();
+          const isDuplicateText =
+            rawKey &&
+            rawKey === lastVoiceCaptureTextRef.current &&
+            now - lastVoiceCaptureAtRef.current < 6000;
+          if (now - lastVoiceCaptureAtRef.current < 2500 || isDuplicateText) {
+              feedback.push("Bilde er allerede tatt");
+          } else if (cameraActive) {
+              lastVoiceCaptureAtRef.current = now;
+              lastVoiceCaptureTextRef.current = rawKey;
               capturePhoto();
               feedback.push("Tar bilde...");
           } else {
               // Start camera and schedule capture when ready
-              setPendingCapture(true);
-              setCameraActive(true);
-              feedback.push("Starter kamera og tar bilde...");
+              if (!pendingCapture) {
+                  lastVoiceCaptureAtRef.current = now;
+                  lastVoiceCaptureTextRef.current = rawKey;
+                  setPendingCapture(true);
+                  setCameraActive(true);
+                  feedback.push("Starter kamera og tar bilde...");
+              } else {
+                  feedback.push("Kamera starter allerede");
+              }
           }
       }
 

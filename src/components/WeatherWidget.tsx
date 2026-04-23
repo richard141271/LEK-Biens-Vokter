@@ -6,11 +6,51 @@ import { Cloud, CloudRain, Sun, Wind, Droplets } from 'lucide-react';
 export default function WeatherWidget() {
   const [weather, setWeather] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [label, setLabel] = useState<string>('Været hos deg');
 
   useEffect(() => {
-    // Default to Halden (approx coords)
-    // 59.12° N, 11.38° E
-    fetchWeather(59.12, 11.38);
+    const fallback = () => {
+      try {
+        const raw = localStorage.getItem('lek_last_weather_coords');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const lat = Number(parsed?.lat);
+          const lon = Number(parsed?.lon);
+          if (Number.isFinite(lat) && Number.isFinite(lon)) {
+            fetchWeather(lat, lon);
+            setLabel('Været hos deg');
+            return;
+          }
+        }
+      } catch {}
+      fetchWeather(59.12, 11.38);
+      setLabel('Været (standard)');
+    };
+
+    if (!navigator?.geolocation) {
+      fallback();
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+          fallback();
+          return;
+        }
+        try {
+          localStorage.setItem('lek_last_weather_coords', JSON.stringify({ lat, lon, at: Date.now() }));
+        } catch {}
+        fetchWeather(lat, lon);
+        setLabel('Været hos deg');
+      },
+      () => {
+        fallback();
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 }
+    );
   }, []);
 
   const fetchWeather = async (lat: number, lon: number) => {
@@ -52,7 +92,7 @@ export default function WeatherWidget() {
     <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-3 text-white shadow-sm">
       <div className="flex justify-between items-start mb-1">
         <div>
-          <h3 className="font-bold text-xs">Været i Halden</h3>
+          <h3 className="font-bold text-xs">{label}</h3>
           <p className="text-blue-100 text-[10px]">{getWeatherText(weather.weather_code)}</p>
         </div>
         <div className="bg-white/20 p-1.5 rounded-lg backdrop-blur-sm">
