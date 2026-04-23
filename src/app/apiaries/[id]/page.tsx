@@ -1048,6 +1048,8 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         alert(`${massActionType === 'inspeksjon' ? 'Inspeksjoner' : 'Logger'} registrert på ${ids.length} kuber!`);
         setIsMassActionModalOpen(false);
         setMassActionType(null);
+        setSelectedHiveIds(new Set());
+        setIsSelectionMode(false);
         // Reset forms
         setMassInspectionData({
             queen_seen: false,
@@ -1283,7 +1285,19 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       setIsCertificationModalOpen(false);
       alert(`Egensertifisering fullført. Sertifisert til ${new Date(inserted.certified_to).toLocaleDateString()}.`);
     } catch (e: any) {
-      alert('Kunne ikke fullføre sertifisering: ' + (e?.message || 'Ukjent feil'));
+      const raw = String(e?.message || 'Ukjent feil');
+      const msg = raw.toLowerCase();
+      if (msg.includes('apiary_certifications') && msg.includes('schema cache')) {
+        alert(
+          'Kunne ikke fullføre sertifisering: Databasen mangler tabellen apiary_certifications. Kjør migrasjon 85_apiary_certification_and_inspection_extras.sql i Supabase (staging), og prøv igjen.'
+        );
+      } else if (msg.includes('apiary_certifications') && msg.includes('does not exist')) {
+        alert(
+          'Kunne ikke fullføre sertifisering: Databasen mangler tabellen apiary_certifications. Kjør migrasjon 85_apiary_certification_and_inspection_extras.sql i Supabase (staging), og prøv igjen.'
+        );
+      } else {
+        alert('Kunne ikke fullføre sertifisering: ' + raw);
+      }
     } finally {
       setIsSubmittingCertification(false);
     }
@@ -1638,13 +1652,13 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                   {/* Mass Actions */}
                   <button 
                     onClick={() => {
-                        setMassActionType('inspeksjon');
+                        setMassActionType(null);
                         setIsMassActionModalOpen(true);
                     }}
                     className="px-3 py-1.5 rounded-lg text-sm font-medium bg-honey-500 text-white hover:bg-honey-600 whitespace-nowrap flex items-center gap-2"
                   >
                     <ClipboardList className="w-4 h-4" />
-                    <span>Registrer Hendelse</span>
+                    <span>Massehandling</span>
                   </button>
                 
                   <div className="h-6 w-px bg-gray-300 mx-1 hidden md:block"></div>
@@ -2171,37 +2185,55 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
       {/* MASS ACTION MODAL */}
       {isMassActionModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[200]">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-900 text-white">
-              <h3 className="font-bold text-lg">
-                {massActionType === 'inspeksjon' ? 'Masse-inspeksjon' : 'Masse-logg'}
-              </h3>
+              <h3 className="font-bold text-lg">Massehandling ({selectedHiveIds.size} kuber)</h3>
               <button onClick={() => setIsMassActionModalOpen(false)}><X className="w-6 h-6 text-gray-400 hover:text-white" /></button>
             </div>
             
             <div className="p-6">
-              <p className="text-sm text-gray-600 mb-6">
-                Du registrerer nå på <span className="font-bold">{selectedHiveIds.size}</span> valgte kuber.
-              </p>
-
-              {massActionType === 'inspeksjon' ? (
+              {!massActionType ? (
+                <div className="space-y-3">
+                  <p className="text-gray-600 mb-4">Hva vil du registrere for disse kubene?</p>
+                  <button
+                    onClick={() => setMassActionType('inspeksjon')}
+                    className="w-full p-4 rounded-lg border border-gray-200 hover:border-honey-500 hover:bg-honey-50 flex items-center gap-3 transition-colors text-left"
+                  >
+                    <Calendar className="w-6 h-6 text-honey-500" />
+                    <div>
+                      <div className="font-bold text-gray-900">Inspeksjon</div>
+                      <div className="text-sm text-gray-500">Registrer samme inspeksjon på alle</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setMassActionType('logg')}
+                    className="w-full p-4 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 flex items-center gap-3 transition-colors text-left"
+                  >
+                    <Archive className="w-6 h-6 text-blue-500" />
+                    <div>
+                      <div className="font-bold text-gray-900">Logghendelse</div>
+                      <div className="text-sm text-gray-500">F.eks. fôring eller behandling</div>
+                    </div>
+                  </button>
+                </div>
+              ) : massActionType === 'inspeksjon' ? (
                 <div className="space-y-4">
                   <div className="flex gap-4">
                     <label className="flex items-center gap-2 border p-3 rounded-lg w-full cursor-pointer hover:bg-gray-50">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={massInspectionData.queen_seen}
-                        onChange={e => setMassInspectionData({...massInspectionData, queen_seen: e.target.checked})}
+                        onChange={e => setMassInspectionData({ ...massInspectionData, queen_seen: e.target.checked })}
                         className="w-5 h-5 text-honey-600 rounded"
                       />
                       <span className="font-medium">Dronning sett</span>
                     </label>
                     <label className="flex items-center gap-2 border p-3 rounded-lg w-full cursor-pointer hover:bg-gray-50">
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={massInspectionData.eggs_seen}
-                        onChange={e => setMassInspectionData({...massInspectionData, eggs_seen: e.target.checked})}
+                        onChange={e => setMassInspectionData({ ...massInspectionData, eggs_seen: e.target.checked })}
                         className="w-5 h-5 text-honey-600 rounded"
                       />
                       <span className="font-medium">Egg sett</span>
@@ -2280,22 +2312,22 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Lynne</label>
-                    <select 
+                    <select
                       value={massInspectionData.temperament}
-                      onChange={e => setMassInspectionData({...massInspectionData, temperament: e.target.value})}
+                      onChange={e => setMassInspectionData({ ...massInspectionData, temperament: e.target.value })}
                       className="w-full border border-gray-300 rounded-lg p-2.5"
                     >
                       <option value="rolig">Rolig</option>
-                      <option value="middels">Middels</option>
+                      <option value="urolig">Urolig</option>
                       <option value="aggressiv">Aggressiv</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Notat</label>
-                    <textarea 
+                    <textarea
                       value={massInspectionData.notes}
-                      onChange={e => setMassInspectionData({...massInspectionData, notes: e.target.value})}
+                      onChange={e => setMassInspectionData({ ...massInspectionData, notes: e.target.value })}
                       className="w-full border border-gray-300 rounded-lg p-2.5 h-24"
                       placeholder="Notat som gjelder alle kubene..."
                     />
@@ -2303,24 +2335,49 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 </div>
               ) : (
                 <div className="space-y-4">
-                   {/* Logg form fields here if needed later */}
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Handling</label>
+                    <select
+                      value={massLogData.action}
+                      onChange={e => setMassLogData({ ...massLogData, action: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg p-2.5"
+                    >
+                      <option value="BEHANDLING">Behandling (f.eks. Varroa)</option>
+                      <option value="FÔRING">Fôring</option>
+                      <option value="ANNET">Annet</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Detaljer</label>
+                    <textarea
+                      value={massLogData.details}
+                      onChange={e => setMassLogData({ ...massLogData, details: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg p-2.5 h-24"
+                      placeholder="Beskriv hva som ble gjort..."
+                    />
+                  </div>
                 </div>
               )}
 
-              <div className="mt-8 flex gap-3">
-                <button 
-                  onClick={() => setIsMassActionModalOpen(false)}
-                  className="flex-1 py-3 border border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-50"
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    if (massActionType) setMassActionType(null);
+                    else setIsMassActionModalOpen(false);
+                  }}
+                  className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg"
                 >
-                  Avbryt
+                  {massActionType ? 'Tilbake' : 'Avbryt'}
                 </button>
-                <button 
-                  onClick={handleMassActionSubmit}
-                  disabled={isSubmittingMassAction}
-                  className="flex-1 py-3 bg-honey-500 text-white rounded-lg font-bold hover:bg-honey-600 disabled:opacity-50"
-                >
-                  {isSubmittingMassAction ? 'Lagrer...' : 'Lagre registrering'}
-                </button>
+                {massActionType && (
+                  <button
+                    onClick={handleMassActionSubmit}
+                    disabled={isSubmittingMassAction}
+                    className="flex-1 py-3 px-4 bg-honey-500 hover:bg-honey-600 text-white font-bold rounded-lg disabled:opacity-50"
+                  >
+                    {isSubmittingMassAction ? 'Lagrer...' : 'Bekreft'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -2329,7 +2386,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
       {/* CERTIFICATION MODAL */}
       {isCertificationModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[200]">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden max-h-[90vh]">
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-900 text-white">
               <h3 className="font-bold text-lg">Egensertifisering</h3>
@@ -2338,7 +2395,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
               </button>
             </div>
 
-            <div className="p-6 space-y-5 overflow-y-auto max-h-[calc(90vh-136px)]">
+            <div className="p-6 space-y-5 overflow-y-auto max-h-[calc(90vh-136px)] pb-10">
               <div className="text-sm text-gray-700">
                 <div className="font-bold text-gray-900">Sertifiseringsperiode</div>
                 <div className="text-xs text-gray-600">Sertifisert fra: {new Date(todayIso).toLocaleDateString()}</div>
@@ -2401,7 +2458,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
               </div>
             </div>
 
-            <div className="p-4 border-t border-gray-100 flex gap-3">
+            <div className="p-4 border-t border-gray-100 flex gap-3 pb-[calc(env(safe-area-inset-bottom)+16px)]">
               <button
                 onClick={() => setIsCertificationModalOpen(false)}
                 className="flex-1 py-3 border border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-50"

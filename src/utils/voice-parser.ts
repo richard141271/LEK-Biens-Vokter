@@ -2,6 +2,8 @@ import { getAliasMap } from './voice-alias';
 
 export interface ParsedInspection {
     queenSeen?: boolean;
+    queenColor?: string;
+    queenYear?: string;
     eggsSeen?: boolean;
     honeyStores?: 'lite' | 'middels' | 'mye';
     temperament?: 'rolig' | 'urolig' | 'aggressiv';
@@ -29,10 +31,49 @@ export function parseVoiceCommand(text: string): ParsedInspection {
     if (cmd.temperament) result.temperament = cmd.temperament as any;
     if (cmd.eggsSeen !== undefined) result.eggsSeen = cmd.eggsSeen;
     if (cmd.queenSeen !== undefined) result.queenSeen = cmd.queenSeen;
+    if (cmd.queenColor) result.queenColor = cmd.queenColor;
+    if (cmd.queenYear) result.queenYear = cmd.queenYear;
     if (cmd.temperature) result.temperature = cmd.temperature;
     if (cmd.weather) result.weather = cmd.weather;
-    if (result.status || result.broodCondition || result.honeyStores || result.temperament || result.eggsSeen !== undefined || result.queenSeen !== undefined) {
+    if (
+        result.status ||
+        result.broodCondition ||
+        result.honeyStores ||
+        result.temperament ||
+        result.eggsSeen !== undefined ||
+        result.queenSeen !== undefined ||
+        result.queenColor ||
+        result.queenYear
+    ) {
         return result;
+    }
+
+    // --- Queen color / year ---
+    const normalizeColor = (c: string) => {
+        const v = c.toLowerCase();
+        if (v === 'hvit') return 'Hvit';
+        if (v === 'gul') return 'Gul';
+        if (v === 'rød' || v === 'rod') return 'Rød';
+        if (v === 'grønn' || v === 'gronn') return 'Grønn';
+        if (v === 'blå' || v === 'bla') return 'Blå';
+        return '';
+    };
+    const colorMatch =
+        t.match(/\b(dronningfarge|dronning\s*farge|farge)\s+(hvit|gul|rød|rod|grønn|gronn|blå|bla)\b/) ||
+        t.match(/\b(hvit|gul|rød|rod|grønn|gronn|blå|bla)\s+dronning(a)?\b/);
+    if (colorMatch) {
+        const rawColor = String(colorMatch[2] || colorMatch[1] || '');
+        const norm = normalizeColor(String(rawColor || ''));
+        if (norm) result.queenColor = norm;
+    }
+
+    const yearMatch =
+        t.match(/\b(årgang|ar(gang)?|år|alder)\s*(20\d{2})\b/) ||
+        t.match(/\b(20\d{2})\s*(årgang|ar(gang)?|år|alder)\b/) ||
+        (/\bdronning(a)?\b/.test(t) ? t.match(/\b(20\d{2})\b/) : null);
+    if (yearMatch) {
+        const yr = yearMatch.find((x) => /^\d{4}$/.test(String(x))) || '';
+        if (yr) result.queenYear = String(yr);
     }
 
     // --- Action: Save Inspection ---
@@ -250,6 +291,15 @@ function parseStructured(t: string): any {
         } else if (key === 'dronning') {
             if (/\bingen\b|\bikke\b|\bmangler\b/.test(v)) out.queenSeen = false;
             else if (/\bsett\b|\bser\b|\bfant\b/.test(v)) out.queenSeen = true;
+        } else if (key === 'dronningfarge' || key === 'dronning farge' || key === 'farge') {
+            if (/\bhvit\b/.test(v)) out.queenColor = 'Hvit';
+            else if (/\bgul\b/.test(v)) out.queenColor = 'Gul';
+            else if (/\br[øo]d\b/.test(v)) out.queenColor = 'Rød';
+            else if (/\bgr[øo]nn\b/.test(v)) out.queenColor = 'Grønn';
+            else if (/\bbl[åa]\b/.test(v)) out.queenColor = 'Blå';
+        } else if (key === 'årgang' || key === 'ar' || key === 'år' || key === 'alder') {
+            const m = v.match(/\b(20\d{2})\b/);
+            if (m) out.queenYear = m[1];
         } else if (key === 'temperatur') {
             const m = v.match(/(\d+([.,]\d+)?)/);
             if (m) out.temperature = m[1].replace(',', '.');

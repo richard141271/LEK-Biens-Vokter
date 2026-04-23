@@ -197,6 +197,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           const last = history[history.length - 1];
           if (last) {
               if (last.type === 'queenSeen') setQueenSeen(last.prev);
+              if (last.type === 'queenColor') setQueenColor(last.prev);
+              if (last.type === 'queenYear') setQueenYear(last.prev);
               if (last.type === 'eggsSeen') setEggsSeen(last.prev);
               if (last.type === 'honeyStores') setHoneyStores(last.prev);
               if (last.type === 'temperament') setTemperament(last.prev);
@@ -274,6 +276,18 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           setHistory(prev => [...prev, { type: 'queenSeen', prev: queenSeen }]);
           setQueenSeen(parsed.queenSeen);
           feedback.push(parsed.queenSeen ? 'Dronning sett' : 'Ingen dronning');
+      }
+
+      if (parsed.queenColor) {
+          setHistory(prev => [...prev, { type: 'queenColor', prev: queenColor }]);
+          setQueenColor(parsed.queenColor);
+          feedback.push(`Dronningfarge: ${parsed.queenColor}`);
+      }
+
+      if (parsed.queenYear) {
+          setHistory(prev => [...prev, { type: 'queenYear', prev: queenYear }]);
+          setQueenYear(parsed.queenYear);
+          feedback.push(`Årgang: ${parsed.queenYear}`);
       }
 
       if (parsed.eggsSeen !== undefined) {
@@ -379,6 +393,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   }, []);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const ttsPrimedRef = useRef(false);
   const beep = (freq = 880, ms = 220) => {
     try {
       if (typeof window === 'undefined') return;
@@ -401,6 +416,38 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       o.stop(ctx.currentTime + ms / 1000 + 0.05);
     } catch {}
   };
+
+  const primeTts = (shouldSpeak: boolean) => {
+    try {
+      if (typeof window === 'undefined') return;
+      if (ttsPrimedRef.current) return;
+      const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
+      if (!s) return;
+      ttsPrimedRef.current = true;
+      if (!shouldSpeak) return;
+      s.cancel();
+      const u = new SpeechSynthesisUtterance('Talestyring aktivert');
+      u.lang = 'nb-NO';
+      u.rate = 0.95;
+      u.pitch = 1.0;
+      u.volume = 0.9;
+      s.speak(u);
+    } catch {}
+  };
+
+  useEffect(() => {
+    const onFirst = () => {
+      primeTts(false);
+    };
+    try {
+      window.addEventListener('pointerdown', onFirst, { once: true, passive: true } as any);
+    } catch {}
+    return () => {
+      try {
+        window.removeEventListener('pointerdown', onFirst as any);
+      } catch {}
+    };
+  }, []);
   const speak = (text: string) => {
     try {
       if (typeof window === 'undefined') return;
@@ -965,7 +1012,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             </button>
 
             <button
-                onClick={toggleListening}
+                onClick={() => {
+                  if (!isListening) primeTts(true);
+                  toggleListening();
+                }}
                 className={`p-3 rounded-full transition-all ${
                     isListening 
                     ? 'bg-red-500 text-white animate-pulse shadow-lg' 

@@ -2,6 +2,8 @@
 
 type Parsed = {
   queenSeen?: boolean;
+  queenColor?: string;
+  queenYear?: string;
   eggsSeen?: boolean;
   honeyStores?: 'lite' | 'middels' | 'mye';
   temperament?: 'rolig' | 'urolig' | 'aggressiv';
@@ -23,6 +25,8 @@ const catalog: Phrase[] = [
   { group: 'Handling', text: 'Lagre inspeksjon', expected: { action: 'SAVE_INSPECTION' } },
   { group: 'Dronning', text: 'Dronning sett', expected: { queenSeen: true } },
   { group: 'Dronning', text: 'Ingen dronning', expected: { queenSeen: false } },
+  { group: 'Dronning', text: 'Dronningfarge gul', expected: { queenColor: 'Gul' } },
+  { group: 'Dronning', text: 'Årgang 2025', expected: { queenYear: '2025' } },
   { group: 'Egg', text: 'Egg sett', expected: { eggsSeen: true } },
   { group: 'Egg', text: 'Ingen egg', expected: { eggsSeen: false } },
   { group: 'Honning', text: 'Lite honning', expected: { honeyStores: 'lite' } },

@@ -1073,6 +1073,19 @@ export default function AllHivesPage() {
                     </div>
 
                     <div>
+                      <label className="block text-sm font-medium mb-1">Lynne</label>
+                      <select
+                        value={massInspectionData.temperament}
+                        onChange={e => setMassInspectionData({ ...massInspectionData, temperament: e.target.value })}
+                        className="w-full p-2 border rounded-lg"
+                      >
+                        <option value="rolig">Rolig</option>
+                        <option value="urolig">Urolig</option>
+                        <option value="aggressiv">Aggressiv</option>
+                      </select>
+                    </div>
+
+                    <div>
                         <label className="block text-sm font-medium mb-1">Notater (gjelder alle)</label>
                         <textarea
                             value={massInspectionData.notes}

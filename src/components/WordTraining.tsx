@@ -16,6 +16,8 @@ export default function WordTraining({ onClose }: Props) {
       { group: 'Handling', text: 'Lagre inspeksjon', expected: { action: 'SAVE_INSPECTION' } },
       { group: 'Dronning', text: 'Dronning sett', expected: { queenSeen: true } },
       { group: 'Dronning', text: 'Ingen dronning', expected: { queenSeen: false } },
+      { group: 'Dronning', text: 'Dronningfarge gul', expected: { queenColor: 'Gul' } },
+      { group: 'Dronning', text: 'Årgang 2025', expected: { queenYear: '2025' } },
       { group: 'Egg', text: 'Egg sett', expected: { eggsSeen: true } },
       { group: 'Egg', text: 'Ingen egg', expected: { eggsSeen: false } },
       { group: 'Honning', text: 'Lite honning', expected: { honeyStores: 'lite' } },
@@ -260,6 +262,12 @@ export default function WordTraining({ onClose }: Props) {
                       <CheckCircle className={`w-4 h-4 ${parsed.queenSeen ? 'text-green-600' : 'text-gray-400'}`} />
                       <span>Dronning: {parsed.queenSeen ? 'Sett' : 'Ikke sett'}</span>
                     </div>
+                  )}
+                  {'queenColor' in parsed && (
+                    <div>Dronningfarge: {parsed.queenColor || '-'}</div>
+                  )}
+                  {'queenYear' in parsed && (
+                    <div>Årgang: {parsed.queenYear || '-'}</div>
                   )}
                   {'eggsSeen' in parsed && (
                     <div className="flex items-center gap-2">

@@ -53,6 +53,17 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
                         .trim();
                     const keywords = [
                       'dronning',
+                      'farge',
+                      'årgang',
+                      'ar',
+                      'gul',
+                      'hvit',
+                      'rød',
+                      'rod',
+                      'grønn',
+                      'gronn',
+                      'blå',
+                      'bla',
                       'egg',
                       'stift',
                       'yngel',

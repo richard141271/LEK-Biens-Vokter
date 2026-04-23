@@ -28,6 +28,7 @@ type InviteRow = {
   token: string;
   expires_at: string;
   created_at: string;
+  ownerProfile?: { id: string; full_name: string | null; city: string | null } | null;
 };
 
 export default function AccessSettingsPage() {
@@ -37,6 +38,7 @@ export default function AccessSettingsPage() {
   const [outgoing, setOutgoing] = useState<AccessRow[]>([]);
   const [incoming, setIncoming] = useState<AccessRow[]>([]);
   const [invites, setInvites] = useState<InviteRow[]>([]);
+  const [incomingInvites, setIncomingInvites] = useState<InviteRow[]>([]);
 
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<InviteRole>('viewer');
@@ -66,6 +68,7 @@ export default function AccessSettingsPage() {
       setOutgoing((data.outgoing || []) as AccessRow[]);
       setIncoming((data.incoming || []) as AccessRow[]);
       setInvites((data.invites || []) as InviteRow[]);
+      setIncomingInvites((data.incomingInvites || []) as InviteRow[]);
     } catch (e: any) {
       setError(String(e?.message || 'Kunne ikke hente tilganger'));
     } finally {
@@ -156,6 +159,22 @@ export default function AccessSettingsPage() {
       alert('Lenke kopiert');
     } catch {
       alert(text);
+    }
+  };
+
+  const acceptInvite = async (token: string) => {
+    try {
+      const res = await fetch('/api/access/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) throw new Error(String(data?.error || 'Kunne ikke godta invitasjon'));
+      await fetchData();
+      alert('Invitasjon godtatt');
+    } catch (e: any) {
+      alert(String(e?.message || 'Kunne ikke godta invitasjon'));
     }
   };
 
@@ -332,6 +351,49 @@ export default function AccessSettingsPage() {
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
           <div className="flex items-center gap-2 mb-3">
             <LinkIcon className="w-5 h-5 text-honey-600" />
+            <h2 className="font-bold text-gray-900">Invitasjoner til deg</h2>
+          </div>
+
+          {incomingInvites.length === 0 ? <div className="text-sm text-gray-500">Ingen ennå.</div> : null}
+          <div className="space-y-3">
+            {incomingInvites.map((i) => (
+              <div key={i.id} className="border border-gray-200 rounded-xl p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-bold text-gray-900 truncate">
+                      {i.ownerProfile?.full_name ? `Fra ${i.ownerProfile.full_name}` : `Fra ${i.owner_id}`}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {i.role === 'viewer' ? 'Venn (innsyn)' : i.role === 'substitute' ? 'Avløser' : 'Familie'} •
+                      Utløper {new Date(i.expires_at).toLocaleDateString('nb-NO')}
+                    </div>
+                  </div>
+                  <div className="shrink-0 flex items-center gap-2">
+                    <button
+                      onClick={() => acceptInvite(i.token)}
+                      className="bg-black text-white px-3 py-2 rounded-lg font-bold hover:bg-gray-800 flex items-center gap-2 text-xs"
+                    >
+                      Godta
+                    </button>
+                    <button
+                      onClick={() =>
+                        copy(`${window.location.origin}/settings/access/accept?token=${encodeURIComponent(i.token)}`)
+                      }
+                      className="bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-2 text-xs"
+                    >
+                      <Copy className="w-4 h-4" />
+                      Kopier
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <LinkIcon className="w-5 h-5 text-honey-600" />
             <h2 className="font-bold text-gray-900">Ventende invitasjoner</h2>
           </div>
 
@@ -365,4 +427,3 @@ export default function AccessSettingsPage() {
     </div>
   );
 }
-

@@ -17,7 +17,10 @@ export async function GET() {
 
     const admin = createAdminClient();
 
-    const [outgoingAccessRes, incomingAccessRes, outgoingInvitesRes] = await Promise.all([
+    const userEmail = String(user.email || '').trim().toLowerCase();
+    const nowIso = new Date().toISOString();
+
+    const [outgoingAccessRes, incomingAccessRes, outgoingInvitesRes, incomingInvitesRes] = await Promise.all([
       admin
         .from('account_access')
         .select('owner_id, member_id, role, can_write, can_delete, created_at')
@@ -34,9 +37,22 @@ export async function GET() {
         .eq('owner_id', user.id)
         .is('accepted_at', null)
         .order('created_at', { ascending: false }),
+      userEmail
+        ? admin
+            .from('account_invites')
+            .select('id, owner_id, email, role, can_write, can_delete, token, expires_at, accepted_at, created_at')
+            .eq('email', userEmail)
+            .is('accepted_at', null)
+            .gt('expires_at', nowIso)
+            .order('created_at', { ascending: false })
+        : Promise.resolve({ data: [] as any[], error: null as any } as any),
     ]);
 
-    const err = outgoingAccessRes.error || incomingAccessRes.error || outgoingInvitesRes.error;
+    const err =
+      outgoingAccessRes.error ||
+      incomingAccessRes.error ||
+      outgoingInvitesRes.error ||
+      incomingInvitesRes.error;
     if (err) {
       const msg = String(err?.message || 'Kunne ikke hente tilganger');
       if (msg.toLowerCase().includes('does not exist')) {
@@ -51,10 +67,12 @@ export async function GET() {
     const outgoingAccess = outgoingAccessRes.data || [];
     const incomingAccess = incomingAccessRes.data || [];
     const outgoingInvites = outgoingInvitesRes.data || [];
+    const incomingInvites = incomingInvitesRes.data || [];
 
     const memberIds = Array.from(new Set(outgoingAccess.map((a: any) => String(a.member_id))));
     const ownerIds = Array.from(new Set(incomingAccess.map((a: any) => String(a.owner_id))));
-    const profileIds = Array.from(new Set([...memberIds, ...ownerIds]));
+    const inviteOwnerIds = Array.from(new Set(incomingInvites.map((i: any) => String(i.owner_id))));
+    const profileIds = Array.from(new Set([...memberIds, ...ownerIds, ...inviteOwnerIds]));
 
     const profilesRes = profileIds.length
       ? await admin.from('profiles').select('id, full_name, city').in('id', profileIds)
@@ -78,9 +96,12 @@ export async function GET() {
         ownerProfile: byId.get(String(a.owner_id)) || null,
       })),
       invites: outgoingInvites.map((i: any) => ({ ...i })),
+      incomingInvites: incomingInvites.map((i: any) => ({
+        ...i,
+        ownerProfile: byId.get(String(i.owner_id)) || null,
+      })),
     });
   } catch (e: any) {
     return NextResponse.json({ success: false, error: e?.message || 'Ukjent feil' }, { status: 500 });
   }
 }
-
