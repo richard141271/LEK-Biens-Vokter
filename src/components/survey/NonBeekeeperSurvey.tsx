@@ -40,12 +40,11 @@ const DISEASE_OPTIONS = [
 ];
 
 const RENTAL_PRICE_OPTIONS = [
-  "Inntil 199 kr per måned",
-  "Inntil 299 kr per måned",
-  "Inntil 399 kr per måned",
-  "Inntil 599 kr per måned",
+  "Inntil 499 kr per måned",
+  "Inntil 750 kr per måned",
   "Inntil 999 kr per måned",
-  "Over 1000 kr per måned",
+  "Inntil 1 099 kr per måned",
+  "Over 1 099 kr per måned",
   "Kun hvis det er gratis",
 ];
 

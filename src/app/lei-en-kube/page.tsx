@@ -75,7 +75,7 @@ Leiepris: [PRIS_MND] kr per måned (faktureres sesongvis forskudd: [PRIS_TOTAL] 
 
 6. Honning og inntektsfordeling
 Hvis honningproduksjon og salg er del av leien, fordeles inntekten slik:
-Leietaker betaler en fast lav pris for kjøp av honning fra leide kuber, og har forkjøpsrett til ALL honning i de leide kubene. Honningprisen blir beregnet hvert år ved sesongens slutt, og offentliggjøres på LEK-Honning™️ sine nettsider, og i appen.
+Leietaker kan kjøpe honning fra leide kuber til fast pris (450 kr/kg), og har forkjøpsrett til ALL honning i de leide kubene. Honningprisen kan justeres over tid, og offentliggjøres på LEK-Honning™️ sine nettsider, og i appen.
 Alle salg skal dokumenteres og gjennomføres i appen
 
 7. Allergi og helse
@@ -186,10 +186,9 @@ export default function RentHivePage() {
   // Pricing Logic (Annual)
   const calculateAnnualPrice = (count: number) => {
     let monthly = 0;
-    if (count === 1) monthly = 350;
-    else if (count === 2) monthly = 299; 
-    // 3+ hives: 299 base + 100 per extra hive above 2
-    else monthly = 299 + ((count - 2) * 100);
+    if (count === 1) monthly = 750;
+    else if (count === 2) monthly = 499;
+    else monthly = 499 + ((count - 2) * 150);
     
     return monthly * 12;
   };
@@ -488,15 +487,15 @@ export default function RentHivePage() {
                   <input 
                     type="range" 
                     min="1" 
-                    max="10" 
+                    max="6" 
                     value={hiveCount} 
                     onChange={(e) => setHiveCount(parseInt(e.target.value))}
                     className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-honey-500"
                   />
                   <div className="flex justify-between text-xs text-gray-400 mt-2">
                     <span>1</span>
-                    <span>5</span>
-                    <span>10</span>
+                    <span>3</span>
+                    <span>6</span>
                   </div>
                 </div>
 
@@ -617,7 +616,7 @@ export default function RentHivePage() {
                             </div>
                             <div>
                               <p className="text-gray-500 text-xs">Hva koster LEK-kube-leie?</p>
-                              <p className="font-bold text-green-600 text-lg">3 588 kr / år</p>
+                              <p className="font-bold text-green-600 text-lg">5 988 kr / år</p>
                               <p className="text-xs text-gray-400">2 kuber, driftet for deg</p>
                             </div>
                           </div>
@@ -648,7 +647,7 @@ export default function RentHivePage() {
             <div className="bg-white rounded-2xl shadow-xl p-8 border border-honey-100">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">SLIK FUNGERER DET</h2>
               <p className="text-gray-600 mb-8 leading-relaxed">
-                Enkelt å komme i gang, trygt å gjennomføre. Opplegget kan skaleres opp eller ned etter behov. 
+                Enkelt å komme i gang, trygt å gjennomføre. Opplegget kan skaleres opp eller ned etter behov (opptil 6 kuber). 
                 Dere velger selv hvor involverte dere ønsker å være – resten hjelper vi dere med å strukturere.
               </p>
 
@@ -723,7 +722,7 @@ export default function RentHivePage() {
                         <td className="p-4 text-gray-600 hidden md:table-cell">Moro for barn + læring</td>
                         <td className="p-4 text-gray-600 hidden md:table-cell">Roller, trygg flyt, verdikjede-innsikt</td>
                         <td className="p-4 text-gray-600">
-                          <span className="font-medium text-gray-900">200 kr/kg</span> honning i glass til jul, gaver, egen bruk
+                          <span className="font-medium text-gray-900">450 kr/kg</span> honning i glass til jul, gaver, egen bruk
                         </td>
                       </tr>
                       <tr className="bg-gray-50/50">
@@ -731,7 +730,7 @@ export default function RentHivePage() {
                           Honning-hage-investor
                         </td>
                         <td className="p-4 text-gray-600 hidden md:table-cell">Tjene penger, minimal innsats</td>
-                        <td className="p-4 text-gray-600 hidden md:table-cell">4–20+ kuber, lokal birøkter følger alt</td>
+                        <td className="p-4 text-gray-600 hidden md:table-cell">4–6 kuber, lokal birøkter følger alt</td>
                         <td className="p-4 text-gray-600">
                           20 kg bøtter, glass, etiketter, MLM/boder etter ønske
                         </td>
@@ -798,8 +797,8 @@ export default function RentHivePage() {
                     <tbody className="divide-y divide-gray-100">
                       <tr className="hover:bg-honey-50/30 transition-colors">
                         <td className="p-3 font-medium">1 kube</td>
-                        <td className="p-3 text-gray-600">350 kr</td>
-                        <td className="p-3 text-gray-400 hidden sm:table-cell">4 200 kr</td>
+                        <td className="p-3 text-gray-600">750 kr</td>
+                        <td className="p-3 text-gray-400 hidden sm:table-cell">9 000 kr</td>
                         <td className="p-3 text-gray-500">Ingen fortrinn</td>
                         <td className="p-3 text-right">
                           <button onClick={() => scrollToOrder(1)} className="text-honey-600 font-bold hover:underline text-xs">Velg</button>
@@ -807,8 +806,8 @@ export default function RentHivePage() {
                       </tr>
                       <tr className="bg-green-50/50 hover:bg-green-50 transition-colors border-l-4 border-green-400">
                         <td className="p-3 font-bold text-gray-900">2 kuber <span className="bg-green-100 text-green-800 text-xs px-1.5 py-0.5 rounded ml-1">Start</span></td>
-                        <td className="p-3 font-bold text-green-700">299 kr</td>
-                        <td className="p-3 text-green-700 font-medium hidden sm:table-cell">3 588 kr</td>
+                        <td className="p-3 font-bold text-green-700">499 kr</td>
+                        <td className="p-3 text-green-700 font-medium hidden sm:table-cell">5 988 kr</td>
                         <td className="p-3 text-gray-700">Begrenset uttak</td>
                         <td className="p-3 text-right">
                            <button onClick={() => scrollToOrder(2)} className="bg-green-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-green-700 shadow-sm">Velg</button>
@@ -816,8 +815,8 @@ export default function RentHivePage() {
                       </tr>
                       <tr className="hover:bg-honey-50/30 transition-colors">
                         <td className="p-3 font-medium">3 kuber</td>
-                        <td className="p-3 text-gray-600">399 kr</td>
-                        <td className="p-3 text-gray-400 hidden sm:table-cell">4 788 kr</td>
+                        <td className="p-3 text-gray-600">649 kr</td>
+                        <td className="p-3 text-gray-400 hidden sm:table-cell">7 788 kr</td>
                         <td className="p-3 text-gray-500">-</td>
                         <td className="p-3 text-right">
                           <button onClick={() => scrollToOrder(3)} className="text-honey-600 font-bold hover:underline text-xs">Velg</button>
@@ -825,8 +824,8 @@ export default function RentHivePage() {
                       </tr>
                       <tr className="bg-honey-50/50 hover:bg-honey-100/50 transition-colors border-l-4 border-honey-400">
                         <td className="p-3 font-bold text-gray-900">4 kuber <span className="bg-honey-100 text-honey-800 text-xs px-1.5 py-0.5 rounded ml-1">Anbefalt</span></td>
-                        <td className="p-3 font-bold text-honey-700">499 kr</td>
-                        <td className="p-3 text-honey-700 font-medium hidden sm:table-cell">5 988 kr</td>
+                        <td className="p-3 font-bold text-honey-700">799 kr</td>
+                        <td className="p-3 text-honey-700 font-medium hidden sm:table-cell">9 588 kr</td>
                         <td className="p-3 text-gray-900 font-medium">
                           Nok honning til verdikjede + fortrinn på 80 kg/år
                           <button onClick={() => setIsPremiumModalOpen(true)} className="block mt-1 text-xs text-honey-600 underline hover:text-honey-800 flex items-center gap-1">
@@ -839,8 +838,8 @@ export default function RentHivePage() {
                       </tr>
                       <tr className="hover:bg-honey-50/30 transition-colors">
                         <td className="p-3 font-medium">5 kuber</td>
-                        <td className="p-3 text-gray-600">599 kr</td>
-                        <td className="p-3 text-gray-400 hidden sm:table-cell">7 188 kr</td>
+                        <td className="p-3 text-gray-600">949 kr</td>
+                        <td className="p-3 text-gray-400 hidden sm:table-cell">11 388 kr</td>
                         <td className="p-3 text-gray-500">-</td>
                         <td className="p-3 text-right">
                           <button onClick={() => scrollToOrder(5)} className="text-honey-600 font-bold hover:underline text-xs">Velg</button>
@@ -848,20 +847,11 @@ export default function RentHivePage() {
                       </tr>
                       <tr className="bg-amber-50/50 hover:bg-amber-50 transition-colors border-l-4 border-amber-400">
                         <td className="p-3 font-bold text-gray-900">6 kuber <span className="bg-amber-100 text-amber-800 text-xs px-1.5 py-0.5 rounded ml-1">Optimal</span></td>
-                        <td className="p-3 font-bold text-amber-700">699 kr</td>
-                        <td className="p-3 text-amber-700 font-medium hidden sm:table-cell">8 388 kr</td>
+                        <td className="p-3 font-bold text-amber-700">1 099 kr</td>
+                        <td className="p-3 text-amber-700 font-medium hidden sm:table-cell">13 188 kr</td>
                         <td className="p-3 text-gray-900 font-medium">Optimal drift + fortrinn på 120 kg/år</td>
                         <td className="p-3 text-right">
                            <button onClick={() => scrollToOrder(6)} className="bg-amber-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-amber-700 shadow-sm">Velg</button>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="p-3 font-medium">10-20+ kuber</td>
-                        <td className="p-3 text-gray-600">Skalerer</td>
-                        <td className="p-3 text-gray-400 hidden sm:table-cell">Kontakt oss</td>
-                        <td className="p-3 text-gray-900 font-bold">Stor bulk-rett på honning (Hage-investor)</td>
-                        <td className="p-3 text-right">
-                          <button onClick={() => scrollToOrder(10)} className="text-gray-400 font-bold hover:underline text-xs">Kontakt</button>
                         </td>
                       </tr>
                     </tbody>
@@ -879,8 +869,8 @@ export default function RentHivePage() {
                 </div>
                 
                 <p className="text-gray-600 mb-6 leading-relaxed">
-                  Når du leier kuber, får du <strong className="text-honey-700">førsterett på å kjøpe honning fra egne kuber</strong> – til sterkt redusert pris (kun 200 kr/kg). 
-                  Du kan selge den videre for 260–700 kr/kg (eller mer for premium).
+                  Når du leier kuber, får du <strong className="text-honey-700">førsterett på honning fra egne kuber</strong>. 
+                  Sommerhonning prises typisk til <strong className="text-honey-700">450 kr/kg</strong> (premium kan prises høyere).
                 </p>
 
                 <div className="grid md:grid-cols-2 gap-8">
@@ -889,7 +879,7 @@ export default function RentHivePage() {
                         <h4 className="font-bold text-gray-900 mb-3">Hvorfor høyere pris på 1 kube / premium?</h4>
                         <ul className="space-y-3 text-sm text-gray-700">
                             <li><strong className="text-gray-900">Logistikk:</strong> Birøkteren må kjøre ut til én adresse uansett. Separat slynging krever egen prosess.</li>
-                            <li><strong className="text-gray-900">Premium (Lyng/Skog):</strong> Må høstes og slynges separat. Kan ikke blandes. Derfor er innkjøpsprisen høyere (400 kr/kg), men videresalgsverdien er også dobbel (800+ kr/kg).</li>
+                            <li><strong className="text-gray-900">Premium (Lyng/Skog):</strong> Må høstes og slynges separat. Kan ikke blandes. Derfor prises den ofte høyere (800+ kr/kg).</li>
                         </ul>
                     </div>
 
@@ -902,11 +892,11 @@ export default function RentHivePage() {
                             <tbody className="divide-y divide-green-200">
                                 <tr>
                                     <td className="p-3 text-gray-700">20 kg sommerhonning</td>
-                                    <td className="p-3 text-right font-bold text-green-700">+ 4 000 kr</td>
+                                    <td className="p-3 text-right font-bold text-green-700">+ 9 000 kr</td>
                                 </tr>
                                 <tr>
                                     <td className="p-3 text-gray-700">20 kg premium (lyng)</td>
-                                    <td className="p-3 text-right font-bold text-green-700">+ 8 000 kr</td>
+                                    <td className="p-3 text-right font-bold text-green-700">+ 16 000 kr</td>
                                 </tr>
                                 <tr>
                                     <td className="p-3 text-gray-700">20 kg småglass (marked)</td>
@@ -1281,7 +1271,7 @@ export default function RentHivePage() {
                     </h4>
                     <p className="text-sm text-gray-600 leading-relaxed">
                         Den vanlige honningen biene lager av bringebær, kløver og hageblomster. 
-                        Deilig, mild og lys. Selges typisk for <strong>200–250 kr/kg</strong>.
+                        Deilig, mild og lys. Selges typisk for <strong>450 kr/kg</strong>.
                     </p>
                 </div>
 
@@ -1295,7 +1285,7 @@ export default function RentHivePage() {
                     <p className="text-sm text-gray-600 leading-relaxed">
                         Kommer sent på sesongen. Krever at biene fraktes til heia/skogen. 
                         Mørkere, kraftigere smak og veldig ettertraktet.
-                        Selges ofte for <strong>400–800 kr/kg</strong>!
+                        Selges ofte for <strong>450–800 kr/kg</strong>!
                     </p>
                 </div>
 
@@ -1313,11 +1303,11 @@ export default function RentHivePage() {
                         <p className="font-bold text-amber-900 mb-1">💰 Din merverdi (Eksempel ved 20 kg salg):</p>
                         <div className="flex justify-between mb-1">
                             <span>Sommerhonning (Standard):</span>
-                            <span className="font-mono">4.000 kr</span>
+                            <span className="font-mono">9.000 kr</span>
                         </div>
                         <div className="flex justify-between font-bold text-green-700 border-t border-amber-200 pt-1">
                             <span>Din Premium Honning:</span>
-                            <span className="font-mono">8.000 kr</span>
+                            <span className="font-mono">16.000 kr</span>
                         </div>
                         <p className="text-right text-[10px] text-green-600 mt-1 italic">
                             + 100% verdiøkning med eget navn!

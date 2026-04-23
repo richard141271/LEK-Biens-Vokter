@@ -62,12 +62,11 @@ export const NonBeekeeperSurvey: Survey = {
             { question_id: "nb_rental_interest", equals: ["ja", "kanskje"] }
           ],
           options: [
-            { value: "Inntil 199 kr per måned", label: "Inntil 199 kr per måned" },
-            { value: "Inntil 299 kr per måned", label: "Inntil 299 kr per måned" },
-            { value: "Inntil 399 kr per måned", label: "Inntil 399 kr per måned" },
-            { value: "Inntil 599 kr per måned", label: "Inntil 599 kr per måned" },
+            { value: "Inntil 499 kr per måned", label: "Inntil 499 kr per måned" },
+            { value: "Inntil 750 kr per måned", label: "Inntil 750 kr per måned" },
             { value: "Inntil 999 kr per måned", label: "Inntil 999 kr per måned" },
-            { value: "Over 1000 kr per måned", label: "Over 1000 kr per måned" },
+            { value: "Inntil 1 099 kr per måned", label: "Inntil 1 099 kr per måned" },
+            { value: "Over 1 099 kr per måned", label: "Over 1 099 kr per måned" },
             { value: "Kun hvis det er gratis", label: "Kun hvis det er gratis" }
           ]
         },

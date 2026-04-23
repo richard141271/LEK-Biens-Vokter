@@ -106,14 +106,14 @@ export default function BeekeeperChecklistPage() {
       items: [
         { id: 'honey_std_1', text: 'Ta ut honningrammer' },
         { id: 'honey_std_2', text: 'Slynge 20–120 kg samlet på lokasjon' },
-        { id: 'honey_std_3', text: 'Tapp i 20 kg bøtter (200 kr/kg for leier ved standard bulk)' },
+        { id: 'honey_std_3', text: 'Tapp i 20 kg bøtter (450 kr/kg for leier ved standard bulk)' },
         { id: 'honey_std_4', text: 'Registrer mengde og batch i børsmodulen' },
       ],
       premiumItems: [
         { id: 'honey_prem_1', text: 'Planlegg separat utrykning i kalender-modulen' },
         { id: 'honey_prem_2', text: 'Slyng KUN denne honningen alene' },
         { id: 'honey_prem_3', text: 'Lever i 20 kg bøtter eller glass etter avtale' },
-        { id: 'honey_prem_4', text: 'Pris for leier: 400 kr/kg' },
+        { id: 'honey_prem_4', text: 'Pris for leier: 450 kr/kg' },
         { id: 'honey_prem_5', text: 'Ta 3 bilder og dokumenter premiumbatch i LEK-loggen' },
       ],
       note: 'Premiumhonning må merkes tydelig i børsen som "Egen LEK-Kube-Premium Batch – ikke blandet"'
