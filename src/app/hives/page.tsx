@@ -8,9 +8,14 @@ import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
 import { generateHiveLabelsPDF } from '@/utils/hive-labels-pdf';
 
+const ACTIVE_OWNER_KEY = 'lek_active_owner_id';
+
 export default function AllHivesPage() {
   const [hives, setHives] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
+  const [accounts, setAccounts] = useState<{ id: string; label: string }[]>([]);
+  const [activeOwnerId, setActiveOwnerId] = useState<string>('');
+  const [currentUserId, setCurrentUserId] = useState<string>('');
   const [rentalsMap, setRentalsMap] = useState<Map<string, any>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -71,7 +76,20 @@ export default function AllHivesPage() {
         if (offlineData) {
           const parsed = JSON.parse(offlineData);
           if (parsed.profile) setProfile(parsed.profile);
-          if (parsed.hives) setHives(parsed.hives);
+          let targetUserId: string | null = null;
+          try {
+            const params = new URLSearchParams(window.location.search);
+            targetUserId = params.get('user_id');
+          } catch {}
+          if (!targetUserId) {
+            try {
+              targetUserId = localStorage.getItem(ACTIVE_OWNER_KEY);
+            } catch {}
+          }
+          if (parsed.hives) {
+            const list = Array.isArray(parsed.hives) ? parsed.hives : [];
+            setHives(targetUserId ? list.filter((h: any) => String(h?.user_id || '') === String(targetUserId)) : list);
+          }
         }
       } catch {}
       setLoading(false);
@@ -83,6 +101,7 @@ export default function AllHivesPage() {
       router.push('/login');
       return;
     }
+    setCurrentUserId(user.id);
 
     // Fetch Profile
     const { data: profileData } = await supabase
@@ -93,11 +112,53 @@ export default function AllHivesPage() {
     
     setProfile(profileData);
 
-    let targetUserId: string | null = null;
-    if (typeof window !== 'undefined') {
+    let targetUserIdRaw: string | null = null;
+    try {
       const params = new URLSearchParams(window.location.search);
-      targetUserId = params.get('user_id');
+      targetUserIdRaw = params.get('user_id');
+    } catch {}
+    if (!targetUserIdRaw) {
+      try {
+        targetUserIdRaw = localStorage.getItem(ACTIVE_OWNER_KEY);
+      } catch {}
     }
+    let targetUserId: string = targetUserIdRaw || user.id;
+    setActiveOwnerId(targetUserId);
+
+    try {
+      const res = await fetch('/api/access/list', { method: 'GET' });
+      const data = await res.json().catch(() => ({}));
+      const incoming = Array.isArray(data?.incoming) ? data.incoming : [];
+      const owners = new Map<string, string>();
+      const myLabel = profileData?.full_name ? String(profileData.full_name) : 'Min konto';
+      owners.set(user.id, myLabel === 'Min konto' ? 'Min konto' : `Min konto (${myLabel})`);
+      for (const row of incoming) {
+        const ownerId = String(row?.owner_id || '').trim();
+        if (!ownerId) continue;
+        const name = row?.ownerProfile?.full_name ? String(row.ownerProfile.full_name) : ownerId.slice(0, 8);
+        owners.set(ownerId, name);
+      }
+      setAccounts(Array.from(owners.entries()).map(([id, label]) => ({ id, label })));
+      const stored = (() => {
+        try {
+          return localStorage.getItem(ACTIVE_OWNER_KEY);
+        } catch {
+          return null;
+        }
+      })();
+      const storedId = stored || user.id;
+      const ok = owners.has(storedId);
+      const finalId = ok ? storedId : user.id;
+      if (finalId !== storedId) {
+        try {
+          localStorage.setItem(ACTIVE_OWNER_KEY, finalId);
+        } catch {}
+      }
+      if (!targetUserId || !owners.has(targetUserId)) {
+        targetUserId = finalId;
+        setActiveOwnerId(finalId);
+      }
+    } catch {}
 
     // Fetch all hives with apiary info (valgfritt filtrert på spesifikk bruker)
     let hiveQuery = supabase
@@ -108,9 +169,7 @@ export default function AllHivesPage() {
       .neq('status', 'SYKDOM')
       .order('hive_number', { ascending: true });
 
-    if (targetUserId) {
-      hiveQuery = hiveQuery.eq('user_id', targetUserId);
-    }
+    if (targetUserId) hiveQuery = hiveQuery.eq('user_id', targetUserId);
 
     const { data, error } = await hiveQuery;
 
@@ -622,7 +681,39 @@ export default function AllHivesPage() {
       {/* Screen Header */}
       <div className="bg-white border-b border-gray-200 px-4 py-4 print:hidden">
         <div className="flex justify-between items-center mb-4">
-            <h1 className="text-xl font-bold text-gray-900">Alle Bikuber</h1>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-gray-900">Alle Bikuber</h1>
+              {accounts.length > 1 ? (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-xs font-bold text-gray-500 uppercase">Konto</span>
+                  <select
+                    value={activeOwnerId || currentUserId || ''}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setActiveOwnerId(next);
+                      try {
+                        localStorage.setItem(ACTIVE_OWNER_KEY, next);
+                      } catch {}
+                      setIsSelectionMode(false);
+                      setSelectedHives([]);
+                      setLoading(true);
+                      fetchHives();
+                    }}
+                    className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white max-w-[260px]"
+                  >
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500 mt-1">
+                  Konto: {profile?.full_name ? String(profile.full_name) : 'Min konto'}
+                </div>
+              )}
+            </div>
         </div>
         
         {/* Search Bar */}

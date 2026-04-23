@@ -10,9 +10,14 @@ import QRCode from 'qrcode';
 import { getDistanceFromLatLonInM } from '@/utils/geo';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 
+const ACTIVE_OWNER_KEY = 'lek_active_owner_id';
+
 export default function ApiariesPage() {
   const [apiaries, setApiaries] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
+  const [accounts, setAccounts] = useState<{ id: string; label: string }[]>([]);
+  const [activeOwnerId, setActiveOwnerId] = useState<string>('');
+  const [currentUserId, setCurrentUserId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [isServiceWorkerControlling, setIsServiceWorkerControlling] = useState<boolean | null>(null);
   const [offlineReady, setOfflineReady] = useState(false);
@@ -58,9 +63,15 @@ export default function ApiariesPage() {
     selectedVoiceApiaryRef.current = selectedVoiceApiary;
   }, [selectedVoiceApiary]);
 
+  const visibleApiaries = useMemo(() => {
+    const ownerId = activeOwnerId || currentUserId;
+    if (!ownerId) return apiaries || [];
+    return (apiaries || []).filter((a: any) => String(a?.user_id || '') === String(ownerId));
+  }, [activeOwnerId, apiaries, currentUserId]);
+
   useEffect(() => {
-    apiariesRef.current = apiaries || [];
-  }, [apiaries]);
+    apiariesRef.current = visibleApiaries || [];
+  }, [visibleApiaries]);
 
   const parseLatLng = (value: any): { lat: number; lon: number } | null => {
     if (typeof value === 'number') return null;
@@ -401,6 +412,15 @@ export default function ApiariesPage() {
         router.push('/login');
         return;
       }
+      setCurrentUserId(user.id);
+
+      try {
+        const stored = typeof window !== 'undefined' ? localStorage.getItem(ACTIVE_OWNER_KEY) : null;
+        const initial = stored || user.id;
+        setActiveOwnerId(initial);
+      } catch {
+        setActiveOwnerId(user.id);
+      }
 
       // Fetch Profile
       const { data: profileData } = await supabase
@@ -410,6 +430,36 @@ export default function ApiariesPage() {
         .single();
       
       setProfile(profileData);
+
+      try {
+        const res = await fetch('/api/access/list', { method: 'GET' });
+        const data = await res.json().catch(() => ({}));
+        const incoming = Array.isArray(data?.incoming) ? data.incoming : [];
+        const owners = new Map<string, string>();
+        const myLabel = profileData?.full_name ? String(profileData.full_name) : 'Min konto';
+        owners.set(user.id, myLabel === 'Min konto' ? 'Min konto' : `Min konto (${myLabel})`);
+
+        for (const row of incoming) {
+          const ownerId = String(row?.owner_id || '').trim();
+          if (!ownerId) continue;
+          const name = row?.ownerProfile?.full_name ? String(row.ownerProfile.full_name) : ownerId.slice(0, 8);
+          owners.set(ownerId, name);
+        }
+
+        const list = Array.from(owners.entries()).map(([id, label]) => ({ id, label }));
+        setAccounts(list);
+
+        const stored = typeof window !== 'undefined' ? localStorage.getItem(ACTIVE_OWNER_KEY) : null;
+        const storedId = stored || user.id;
+        const ok = owners.has(storedId);
+        const finalId = ok ? storedId : user.id;
+        if (finalId !== storedId) {
+          try {
+            localStorage.setItem(ACTIVE_OWNER_KEY, finalId);
+          } catch {}
+        }
+        setActiveOwnerId(finalId);
+      } catch {}
 
       // Fetch Apiaries
       const { data: apiariesData, error } = await supabase
@@ -493,13 +543,17 @@ export default function ApiariesPage() {
   };
 
   const toggleSelectAll = () => {
-    const selectableIds = apiaries.filter((a: any) => !a?.is_pending).map((a: any) => a.id);
+    const selectableIds = visibleApiaries.filter((a: any) => !a?.is_pending).map((a: any) => a.id);
     const allSelected = selectableIds.length > 0 && selectableIds.every((id: string) => selectedApiaries.includes(id));
     setSelectedApiaries(allSelected ? [] : selectableIds);
   };
 
   const handlePrintSigns = async () => {
     if (selectedApiaries.length === 0) return;
+    if (currentUserId && activeOwnerId && activeOwnerId !== currentUserId) {
+      alert('Du kan ikke skrive ut skilt for en annen konto. Bytt til "Min konto" først.');
+      return;
+    }
     setIsGeneratingPDF(true);
 
     try {
@@ -509,7 +563,7 @@ export default function ApiariesPage() {
         format: 'a4'
       });
 
-      const apiariesToPrint = apiaries.filter(a => selectedApiaries.includes(a.id));
+      const apiariesToPrint = visibleApiaries.filter(a => selectedApiaries.includes(a.id));
 
       for (let i = 0; i < apiariesToPrint.length; i++) {
         const apiary = apiariesToPrint[i];
@@ -739,8 +793,38 @@ export default function ApiariesPage() {
     <div className="min-h-screen bg-gray-50 pb-24 print:bg-white print:pb-0">
       
       {/* HEADER & ACTIONS */}
-      <div className="p-4 flex justify-between items-center print:hidden">
-        <h1 className="text-xl font-bold text-gray-900">Mine Lokasjoner</h1>
+      <div className="p-4 flex justify-between items-start gap-3 print:hidden">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-gray-900">Mine Lokasjoner</h1>
+          {accounts.length > 1 ? (
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs font-bold text-gray-500 uppercase">Konto</span>
+              <select
+                value={activeOwnerId || currentUserId || ''}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setActiveOwnerId(next);
+                  try {
+                    localStorage.setItem(ACTIVE_OWNER_KEY, next);
+                  } catch {}
+                  setSelectedApiaries([]);
+                  setIsSelectionMode(false);
+                }}
+                className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white max-w-[260px]"
+              >
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="text-xs text-gray-500 mt-1">
+              Konto: {profile?.full_name ? String(profile.full_name) : 'Min konto'}
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           {profile?.role !== 'tenant' && (
             <button
@@ -789,7 +873,7 @@ export default function ApiariesPage() {
             onClick={toggleSelectAll}
             className="bg-gray-100 text-gray-900 px-3 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 flex items-center gap-2"
           >
-            {selectedApiaries.length === apiaries.filter((a: any) => !a?.is_pending).length ? (
+            {selectedApiaries.length === visibleApiaries.filter((a: any) => !a?.is_pending).length ? (
               <CheckSquare className="w-4 h-4" />
             ) : (
               <Square className="w-4 h-4" />
@@ -811,13 +895,13 @@ export default function ApiariesPage() {
 
       {/* LIST VIEW (Screen) */}
       <main className="p-4 space-y-4 print:hidden">
-        {apiaries.length === 0 ? (
+        {visibleApiaries.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <p className="mb-4">Du har ingen lokasjoner enda.</p>
             <p>Trykk på + for å komme i gang!</p>
           </div>
         ) : (
-          apiaries.map((apiary) => {
+          visibleApiaries.map((apiary) => {
             const Icon = getIcon(apiary.type);
             const activeHiveCount = apiary.hives?.filter((h: any) => h.active).length || 0;
             const isSelected = selectedApiaries.includes(apiary.id);

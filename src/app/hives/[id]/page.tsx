@@ -14,6 +14,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   const [inspections, setInspections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedInspectionId, setExpandedInspectionId] = useState<string | null>(null);
+  const [accountContextLabel, setAccountContextLabel] = useState<string>('');
 
   const { isOffline, saveInspection } = useOffline();
 
@@ -162,6 +163,29 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
       core_sequence_no: coreSequenceNo,
     });
 
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const res = await fetch('/api/access/list', { method: 'GET' });
+      const data = await res.json().catch(() => ({}));
+      const incoming = Array.isArray(data?.incoming) ? data.incoming : [];
+      const owners = new Map<string, string>();
+      if (user?.id) owners.set(String(user.id), 'Min konto');
+      for (const row of incoming) {
+        const ownerId = String(row?.owner_id || '').trim();
+        if (!ownerId) continue;
+        const name = row?.ownerProfile?.full_name ? String(row.ownerProfile.full_name) : ownerId.slice(0, 8);
+        owners.set(ownerId, name);
+      }
+      const ownerId = String(hiveData?.user_id || '').trim();
+      if (ownerId) {
+        setAccountContextLabel(owners.get(ownerId) || ownerId.slice(0, 8));
+      } else {
+        setAccountContextLabel('');
+      }
+    } catch {
+      setAccountContextLabel('');
+    }
+
     // Fetch Logs
     const { data: logsData } = await supabase
       .from('hive_logs')
@@ -241,7 +265,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
     
     // Use hive.apiary_id which is on the hive object itself
     const otherApiaries = data ? data.filter(a => 
-      a.id !== hive.apiary_id
+      a.id !== hive.apiary_id && String(a.user_id || '') === String(hive.user_id || '')
     ) : [];
 
     setApiaries(otherApiaries);
@@ -679,6 +703,11 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
               {hive.name && hive.name !== hive.hive_number && (
                 <p className="text-sm text-gray-600">
                   {hive.name}
+                </p>
+              )}
+              {accountContextLabel && (
+                <p className="text-[11px] text-gray-500 font-mono mt-1">
+                  Konto: {accountContextLabel}
                 </p>
               )}
               {hive.core_sequence_no && (

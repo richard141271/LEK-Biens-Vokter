@@ -137,6 +137,22 @@ export default function AccessSettingsPage() {
     }
   };
 
+  const leave = async (ownerId: string) => {
+    if (!ownerId) return;
+    try {
+      const res = await fetch('/api/access/leave', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ownerId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) throw new Error(String(data?.error || 'Kunne ikke fjerne tilgang'));
+      await fetchData();
+    } catch (e: any) {
+      alert(String(e?.message || 'Kunne ikke fjerne tilgang'));
+    }
+  };
+
   const updateAccess = async (memberId: string, canWrite: boolean, canDelete: boolean) => {
     if (!memberId) return;
     try {
@@ -337,11 +353,22 @@ export default function AccessSettingsPage() {
           <div className="space-y-3">
             {incoming.map((a) => (
               <div key={`${a.owner_id}-${a.member_id}`} className="border border-gray-200 rounded-xl p-3">
-                <div className="font-bold text-gray-900 truncate">{a.ownerProfile?.full_name || a.owner_id}</div>
-                <div className="text-xs text-gray-500">
-                  {a.role === 'viewer' ? 'Innsyn' : a.role === 'substitute' ? 'Avløser' : 'Familie'} •{' '}
-                  {a.can_write ? 'Kan endre' : 'Kun innsyn'}
-                  {a.can_delete ? ' • Kan slette' : ''}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-bold text-gray-900 truncate">{a.ownerProfile?.full_name || a.owner_id}</div>
+                    <div className="text-xs text-gray-500">
+                      {a.role === 'viewer' ? 'Innsyn' : a.role === 'substitute' ? 'Avløser' : 'Familie'} •{' '}
+                      {a.can_write ? 'Kan endre' : 'Kun innsyn'}
+                      {a.can_delete ? ' • Kan slette' : ''}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => leave(a.owner_id)}
+                    className="shrink-0 bg-white border border-red-200 text-red-700 px-3 py-2 rounded-lg font-bold hover:bg-red-50 flex items-center gap-2 text-xs"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Fjern
+                  </button>
                 </div>
               </div>
             ))}

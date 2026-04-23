@@ -16,6 +16,8 @@ const Map = dynamic(() => import('@/components/Map'), {
   ),
 });
 
+const ACTIVE_OWNER_KEY = 'lek_active_owner_id';
+
 export default function NewApiaryPage() {
   const [name, setName] = useState('');
   const [type, setType] = useState('bigård');
@@ -27,8 +29,21 @@ export default function NewApiaryPage() {
   const [nextApiaryNumber, setNextApiaryNumber] = useState(1);
   const [memberNumber, setMemberNumber] = useState<string>('');
   const [showMapPicker, setShowMapPicker] = useState(false);
+  const [activeOwnerId, setActiveOwnerId] = useState<string>('');
+  const [activeOwnerLabel, setActiveOwnerLabel] = useState<string>('Min konto');
   const router = useRouter();
   const supabase = createClient();
+
+  const getActiveOwner = (fallbackUserId: string) => {
+    try {
+      if (typeof window === 'undefined') return { id: fallbackUserId, label: 'Min konto' };
+      const stored = localStorage.getItem(ACTIVE_OWNER_KEY);
+      const id = stored || fallbackUserId;
+      return { id, label: id === fallbackUserId ? 'Min konto' : id.slice(0, 8) };
+    } catch {
+      return { id: fallbackUserId, label: 'Min konto' };
+    }
+  };
 
   const parseLatLng = (value: string | null | undefined): [number, number] | null => {
     if (!value) return null;
@@ -79,6 +94,23 @@ export default function NewApiaryPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      const owner = getActiveOwner(user.id);
+      setActiveOwnerId(owner.id);
+      setActiveOwnerLabel(owner.label);
+
+      try {
+        const res = await fetch('/api/access/list', { method: 'GET' });
+        const data = await res.json().catch(() => ({}));
+        const incoming = Array.isArray(data?.incoming) ? data.incoming : [];
+        if (owner.id === user.id) {
+          setActiveOwnerLabel('Min konto');
+        } else {
+          const row = incoming.find((r: any) => String(r?.owner_id || '') === owner.id);
+          const name = row?.ownerProfile?.full_name ? String(row.ownerProfile.full_name) : owner.label;
+          setActiveOwnerLabel(name);
+        }
+      } catch {}
+
       // 0. Fetch Member Number
       const { data: profile } = await supabase
         .from('profiles')
@@ -100,7 +132,7 @@ export default function NewApiaryPage() {
       if (rentals) setPendingRentals(rentals);
 
       // 2. Fetch Next Apiary Number
-      const nextNum = await getNextSequenceNo(user.id, ['BG']);
+      const nextNum = await getNextSequenceNo(owner.id, ['BG']);
       setNextApiaryNumber(nextNum);
     };
     fetchData();
@@ -119,9 +151,10 @@ export default function NewApiaryPage() {
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Not authenticated');
+        const owner = getActiveOwner(user.id);
 
         // 1. Get Next Apiary Number
-        const nextNum = await getNextSequenceNo(user.id, ['BG']);
+        const nextNum = await getNextSequenceNo(owner.id, ['BG']);
         
         // Fetch member number if not already in state (though it should be)
         let currentMemberNumber = memberNumber;
@@ -141,7 +174,7 @@ export default function NewApiaryPage() {
         const { data: newApiary, error: apiaryError } = await supabase
             .from('apiaries')
             .insert({
-                user_id: user.id,
+                user_id: owner.id,
                 name: apiaryName,
                 apiary_number: apiaryNumber,
                 type: 'utleie', // New type
@@ -162,7 +195,7 @@ export default function NewApiaryPage() {
         const { data: allUserHives } = await supabase
             .from('hives')
             .select('*')
-            .eq('user_id', user.id);
+            .eq('user_id', owner.id);
         
         const inactiveHives = allUserHives?.filter(h => h.status !== 'aktiv' && h.status !== 'active') || [];
         
@@ -198,7 +231,7 @@ export default function NewApiaryPage() {
              const newHives: any[] = [];
              for(let i=0; i<hivesToCreateCount; i++) {
                  newHives.push({
-                     user_id: user.id,
+                     user_id: owner.id,
                      apiary_id: newApiary.id,
                      hive_number: `KUBE-${(maxHiveNum + 1 + i).toString().padStart(3, '0')}${suffix}`,
                      status: 'aktiv'
@@ -275,9 +308,10 @@ export default function NewApiaryPage() {
       // 1. Hent brukeren
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Du må være logget inn');
+      const owner = getActiveOwner(user.id);
 
       const prefixes = getPrefixesForType(type);
-      const nextNum = await getNextSequenceNo(user.id, prefixes);
+      const nextNum = await getNextSequenceNo(owner.id, prefixes);
       const prefix = prefixes[0];
 
       const suffix = type === 'bil' ? '' : (memberNumber ? `.${memberNumber}` : '');
@@ -289,7 +323,7 @@ export default function NewApiaryPage() {
 
       // 3. Lagre i databasen
       const { data: createdApiary, error } = await supabase.from('apiaries').insert({
-        user_id: user.id,
+        user_id: owner.id,
         name,
         type,
         location: locationStr,
@@ -357,7 +391,10 @@ export default function NewApiaryPage() {
         <Link href="/dashboard" className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
           <ArrowLeft className="w-6 h-6 text-gray-600" />
         </Link>
-        <h1 className="text-xl font-bold text-gray-900">Registrer ny lokasjon</h1>
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-gray-900">Registrer ny lokasjon</h1>
+          <div className="text-xs text-gray-500 mt-0.5">Konto: {activeOwnerLabel || activeOwnerId || 'Min konto'}</div>
+        </div>
       </header>
 
       <main className="max-w-md mx-auto p-4">

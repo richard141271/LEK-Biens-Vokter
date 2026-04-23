@@ -16,6 +16,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [rental, setRental] = useState<any>(null);
   const [inspections, setInspections] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [accountContextLabel, setAccountContextLabel] = useState<string>('');
   const [memberNumber, setMemberNumber] = useState<string>('');
   
   // Selection State
@@ -273,6 +274,28 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       br_id: brId,
       core_apiary_number: coreApiaryNumber,
     });
+
+    try {
+      const res = await fetch('/api/access/list', { method: 'GET' });
+      const data = await res.json().catch(() => ({}));
+      const incoming = Array.isArray(data?.incoming) ? data.incoming : [];
+      const owners = new Map<string, string>();
+      if (user?.id) owners.set(String(user.id), 'Min konto');
+      for (const row of incoming) {
+        const ownerId = String(row?.owner_id || '').trim();
+        if (!ownerId) continue;
+        const name = row?.ownerProfile?.full_name ? String(row.ownerProfile.full_name) : ownerId.slice(0, 8);
+        owners.set(ownerId, name);
+      }
+      const ownerId = String(apiaryData?.user_id || '').trim();
+      if (ownerId) {
+        setAccountContextLabel(owners.get(ownerId) || ownerId.slice(0, 8));
+      } else {
+        setAccountContextLabel('');
+      }
+    } catch {
+      setAccountContextLabel('');
+    }
 
     // 1.1 Fetch Rental Info (if rental type)
     if (apiaryData.type === 'rental') {
@@ -1330,6 +1353,11 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
               {apiary.name && (
                 <p className="text-sm text-gray-600">
                   {apiary.name}
+                </p>
+              )}
+              {accountContextLabel && (
+                <p className="text-[11px] text-gray-500 font-mono mt-1">
+                  Konto: {accountContextLabel}
                 </p>
               )}
               {apiary.core_apiary_number && (
