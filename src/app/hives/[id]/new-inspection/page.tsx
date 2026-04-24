@@ -17,9 +17,22 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [submitting, setSubmitting] = useState(false);
   const searchParams = useSearchParams();
   const autoVoice = searchParams.get('autoVoice');
+  const isDemoParam = searchParams.get('demo') === '1';
+  const [isDemoActive, setIsDemoActive] = useState(isDemoParam);
   const [handsfreeReady, setHandsfreeReady] = useState(false);
   
   const { isOffline, saveInspection } = useOffline();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (isDemoParam) {
+      setIsDemoActive(true);
+      return;
+    }
+    try {
+      if (window.localStorage.getItem('lek_demo_session_id')) setIsDemoActive(true);
+    } catch {}
+  }, [isDemoParam]);
 
   // Voice State
   const [lastCommand, setLastCommand] = useState<string | null>(null);
@@ -721,6 +734,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       // 1. Check Offline Mode
       if (isOffline) {
+        if (isDemoActive) {
+          alert('Demo-modus krever nett for å kunne lagre inspeksjoner.');
+          return;
+        }
         await saveInspection({
           id: opId,
           hiveId: params.id,
@@ -755,12 +772,16 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         });
         
         alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
-        router.push('/hives');
+        router.push(isDemoActive ? '/hives?demo=1' : '/hives');
         return;
       }
 
       const user = await getUserWithSessionFallback(supabase);
       if (!user) {
+        if (isDemoActive) {
+          alert('Demo-modus krever at du er logget inn.');
+          return;
+        }
         await saveInspection({
           id: opId,
           hiveId: params.id,
@@ -795,7 +816,48 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         });
 
         alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
-        router.push('/hives');
+        router.push(isDemoActive ? '/hives?demo=1' : '/hives');
+        return;
+      }
+
+      if (isDemoActive) {
+        if (allFiles.length > 0) {
+          alert('Bilder er deaktivert i demo-modus.');
+        }
+
+        const details = `Inspeksjon utført. Status: ${status}. Temp: ${temperature}°C. ${notes ? 'Notater lagt til.' : ''}`;
+        const res = await fetch('/api/demo/write/inspection', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-lek-demo-source': 'demo-ui' },
+          body: JSON.stringify({
+            hiveId: params.id,
+            operationId: opId,
+            details,
+            inspection: {
+              inspection_date: date,
+              time: time,
+              queen_seen: queenSeen,
+              queen_color: queenColor || null,
+              queen_year: queenYear ? parseInt(queenYear, 10) : null,
+              eggs_seen: eggsSeen,
+              brood_condition: broodCondition,
+              honey_stores: honeyStores,
+              temperament: temperament,
+              notes: notes,
+              status: status,
+              temperature: temperature ? parseFloat(temperature) : null,
+              weather: weather,
+              weather_place: weatherPlace || null,
+              image_url: null,
+            },
+          }),
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || !payload?.success) {
+          throw new Error(payload?.error || 'Kunne ikke lagre inspeksjon i demo');
+        }
+
+        router.push('/hives?demo=1');
         return;
       }
 

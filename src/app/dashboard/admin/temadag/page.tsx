@@ -143,6 +143,7 @@ const LESSONS: Lesson[] = [
 ];
 
 export default function AdminTemadagPage() {
+  const ACTIVE_OWNER_KEY = 'lek_active_owner_id';
   const supabase = createClient();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -179,8 +180,14 @@ export default function AdminTemadagPage() {
 
     const storedSessionId = window.localStorage.getItem('lek_demo_session_id');
     const storedExpiresAt = window.localStorage.getItem('lek_demo_session_expires_at');
+    const storedDemoOwnerId = window.localStorage.getItem('lek_demo_owner_id');
     if (storedSessionId) setDemoSessionId(storedSessionId);
     if (storedExpiresAt) setDemoExpiresAt(storedExpiresAt);
+    if (storedDemoOwnerId) {
+      try {
+        window.localStorage.setItem(ACTIVE_OWNER_KEY, storedDemoOwnerId);
+      } catch {}
+    }
   }, []);
 
   const totalMinutes = useMemo(() => LESSONS.reduce((sum, l) => sum + l.minutes, 0), []);
@@ -217,11 +224,16 @@ export default function AdminTemadagPage() {
       const sessionId = String(data?.session?.id || '');
       const expiresAt = String(data?.session?.expiresAt || '');
       const token = String(data?.token || '');
+      const demoOwnerId = String(data?.demoOwnerId || '');
 
       if (typeof window !== 'undefined') {
         window.localStorage.setItem('lek_demo_session_id', sessionId);
         window.localStorage.setItem('lek_demo_session_expires_at', expiresAt);
         window.localStorage.setItem('lek_demo_session_token', token);
+        if (demoOwnerId) {
+          window.localStorage.setItem('lek_demo_owner_id', demoOwnerId);
+          window.localStorage.setItem(ACTIVE_OWNER_KEY, demoOwnerId);
+        }
       }
 
       setDemoSessionId(sessionId || null);

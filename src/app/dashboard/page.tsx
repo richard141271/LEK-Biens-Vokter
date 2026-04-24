@@ -4,7 +4,7 @@ import { createClient, getUserWithSessionFallback } from '@/utils/supabase/clien
 import { ensureMemberNumber } from '@/app/actions/profile';
 import { getFounderMeeting } from '@/app/actions/founder';
 import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { jsPDF } from 'jspdf';
 import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert, Mail, Building, HeartHandshake, Calendar, GraduationCap, Download } from 'lucide-react';
@@ -67,6 +67,20 @@ export default function DashboardPage() {
 
   const supabase = createClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isDemoParam = searchParams?.get('demo') === '1';
+  const [isDemoActive, setIsDemoActive] = useState(isDemoParam);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (isDemoParam) {
+      setIsDemoActive(true);
+      return;
+    }
+    try {
+      if (window.localStorage.getItem('lek_demo_session_id')) setIsDemoActive(true);
+    } catch {}
+  }, [isDemoParam]);
 
   useEffect(() => {
     try {
@@ -278,24 +292,43 @@ export default function DashboardPage() {
         } catch {}
 
         let ownerIdForCreate = storedOwnerId || user.id;
-        try {
-          const res = await fetch('/api/access/list', { method: 'GET' });
-          const data = await res.json().catch(() => ({}));
-          const incoming = Array.isArray(data?.incoming) ? data.incoming : [];
-          const owners = new Map<string, string>();
-          const myLabel = mergedProfile?.full_name ? String(mergedProfile.full_name) : 'Min konto';
-          owners.set(user.id, myLabel === 'Min konto' ? 'Min konto' : `Min konto (${myLabel})`);
-          for (const row of incoming) {
-            const ownerId = String(row?.owner_id || '').trim();
-            if (!ownerId) continue;
-            const name = row?.ownerProfile?.full_name ? String(row.ownerProfile.full_name) : ownerId.slice(0, 8);
-            owners.set(ownerId, name);
+        let ownerIdForStats = user.id;
+        let demoSessionId: string | null = null;
+
+        if (isDemoActive) {
+          let demoOwnerId: string | null = null;
+          try {
+            demoOwnerId = localStorage.getItem('lek_demo_owner_id');
+            demoSessionId = localStorage.getItem('lek_demo_session_id');
+          } catch {}
+
+          if (demoOwnerId) {
+            ownerIdForCreate = demoOwnerId;
+            ownerIdForStats = demoOwnerId;
+            setAccounts([{ id: demoOwnerId, label: 'Demo konto' }]);
+          } else {
+            setAccounts([{ id: user.id, label: 'Min konto' }]);
           }
-          setAccounts(Array.from(owners.entries()).map(([id, label]) => ({ id, label })));
-          if (!owners.has(ownerIdForCreate)) ownerIdForCreate = user.id;
-        } catch {
-          setAccounts([{ id: user.id, label: 'Min konto' }]);
-          ownerIdForCreate = user.id;
+        } else {
+          try {
+            const res = await fetch('/api/access/list', { method: 'GET' });
+            const data = await res.json().catch(() => ({}));
+            const incoming = Array.isArray(data?.incoming) ? data.incoming : [];
+            const owners = new Map<string, string>();
+            const myLabel = mergedProfile?.full_name ? String(mergedProfile.full_name) : 'Min konto';
+            owners.set(user.id, myLabel === 'Min konto' ? 'Min konto' : `Min konto (${myLabel})`);
+            for (const row of incoming) {
+              const ownerId = String(row?.owner_id || '').trim();
+              if (!ownerId) continue;
+              const name = row?.ownerProfile?.full_name ? String(row.ownerProfile.full_name) : ownerId.slice(0, 8);
+              owners.set(ownerId, name);
+            }
+            setAccounts(Array.from(owners.entries()).map(([id, label]) => ({ id, label })));
+            if (!owners.has(ownerIdForCreate)) ownerIdForCreate = user.id;
+          } catch {
+            setAccounts([{ id: user.id, label: 'Min konto' }]);
+            ownerIdForCreate = user.id;
+          }
         }
 
         setCreateOwnerId(ownerIdForCreate);
@@ -317,12 +350,12 @@ export default function DashboardPage() {
         const { count: apiaryCount } = await supabase
         .from('apiaries')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
+        .eq('user_id', ownerIdForStats);
 
         const { data: hivesData } = await supabase
         .from('hives')
         .select('id, hive_number, active')
-        .eq('user_id', user.id);
+        .eq('user_id', ownerIdForStats);
 
         const totalHives = hivesData?.length || 0;
         const activeHives = hivesData?.filter(h => h.active).length || 0;
@@ -347,81 +380,95 @@ export default function DashboardPage() {
         }
 
 
-        // Fetch Recent Activity (Logs)
-        const { data: logs } = await supabase
-        .from('hive_logs')
-        .select('*, hives(hive_number)')
-        .order('created_at', { ascending: false })
-        .limit(5);
+        if (isDemoActive) {
+          if (demoSessionId) {
+            const { data: logs } = await supabase
+              .from('hive_logs')
+              .select('*, hives(hive_number)')
+              .eq('demo_session_id', demoSessionId)
+              .order('created_at', { ascending: false })
+              .limit(5);
+            if (logs) setRecentLogs(logs);
+          } else {
+            setRecentLogs([]);
+          }
+          setNearbyAlerts([]);
+          setLatestHiveLog(null);
+          setPendingMissionsCount(0);
+        } else {
+          // Fetch Recent Activity (Logs)
+          const { data: logs } = await supabase
+          .from('hive_logs')
+          .select('*, hives(hive_number)')
+          .order('created_at', { ascending: false })
+          .limit(5);
 
-        if (logs) setRecentLogs(logs);
+          if (logs) setRecentLogs(logs);
 
-        // Fetch Nearby Alerts (Pilot: Just fetch recent SYKDOM logs generally)
-        const { data: alerts } = await supabase
-        .from('hive_logs')
-        .select('*, hives(apiaries(location))')
-        .eq('action', 'SYKDOM')
-        // Remove .neq('admin_status', 'resolved') to ensure we get NULLs too.
-        // We will filter in memory below.
-        .order('created_at', { ascending: false })
-        .limit(10);
+          // Fetch Nearby Alerts (Pilot: Just fetch recent SYKDOM logs generally)
+          const { data: alerts } = await supabase
+          .from('hive_logs')
+          .select('*, hives(apiaries(location))')
+          .eq('action', 'SYKDOM')
+          .order('created_at', { ascending: false })
+          .limit(10);
 
-        if (alerts) {
-            // Filter out resolved alerts in memory to handle NULLs correctly
-            const activeAlerts = alerts
-                .filter(a => a.admin_status !== 'resolved')
-                .slice(0, 3);
-            setNearbyAlerts(activeAlerts);
-        }
+          if (alerts) {
+              const activeAlerts = alerts
+                  .filter(a => a.admin_status !== 'resolved')
+                  .slice(0, 3);
+              setNearbyAlerts(activeAlerts);
+          }
 
-        const { data: rental } = await supabase
-            .from('rentals')
-            .select(`
-                *,
-                assigned_beekeeper:assigned_beekeeper_id (
-                    full_name,
-                    phone_number,
-                    email
-                )
-            `)
-            .eq('user_id', user.id)
-            .in('status', ['pending', 'assigned', 'active'])
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-        
-        if (rental) {
-            if (rental.apiary_id) {
-                 const { data: hives } = await supabase
-                    .from('hives')
-                    .select('id')
-                    .eq('apiary_id', rental.apiary_id);
-                 
-                 if (hives && hives.length > 0) {
-                     const hiveIds = hives.map(h => h.id);
-                     const { data: log } = await supabase
-                        .from('hive_logs')
-                        .select('*')
-                        .in('hive_id', hiveIds)
-                        .eq('action', 'INSPEKSJON')
-                        .order('created_at', { ascending: false })
-                        .limit(1)
-                        .single();
-                    
-                    if (log) setLatestHiveLog(log);
-                 }
-            }
-        }
+          const { data: rental } = await supabase
+              .from('rentals')
+              .select(`
+                  *,
+                  assigned_beekeeper:assigned_beekeeper_id (
+                      full_name,
+                      phone_number,
+                      email
+                  )
+              `)
+              .eq('user_id', user.id)
+              .in('status', ['pending', 'assigned', 'active'])
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+          
+          if (rental) {
+              if (rental.apiary_id) {
+                   const { data: hives } = await supabase
+                      .from('hives')
+                      .select('id')
+                      .eq('apiary_id', rental.apiary_id);
+                   
+                   if (hives && hives.length > 0) {
+                       const hiveIds = hives.map(h => h.id);
+                       const { data: log } = await supabase
+                          .from('hive_logs')
+                          .select('*')
+                          .in('hive_id', hiveIds)
+                          .eq('action', 'INSPEKSJON')
+                          .order('created_at', { ascending: false })
+                          .limit(1)
+                          .single();
+                      
+                      if (log) setLatestHiveLog(log);
+                   }
+              }
+          }
 
-        // Fetch Pending Missions (For Beekeepers)
-        if (profileData?.role === 'beekeeper' || profileData?.role === 'admin') {
-            const { count } = await supabase
-                .from('rentals')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', 'active')
-                .is('apiary_id', null);
-            
-            setPendingMissionsCount(count || 0);
+          // Fetch Pending Missions (For Beekeepers)
+          if (profileData?.role === 'beekeeper' || profileData?.role === 'admin') {
+              const { count } = await supabase
+                  .from('rentals')
+                  .select('*', { count: 'exact', head: true })
+                  .eq('status', 'active')
+                  .is('apiary_id', null);
+              
+              setPendingMissionsCount(count || 0);
+          }
         }
 
         await fetchApiariesForOwner(ownerIdForCreate);
@@ -443,6 +490,25 @@ export default function DashboardPage() {
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
+
+        if (isDemoActive) {
+          const res = await fetch('/api/demo/write/apiary', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-lek-demo-source': 'demo-ui' },
+            body: JSON.stringify({ name: wizardApiaryName, type: 'bigård', location: 'Hjemme' }),
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok || !payload?.success || !payload?.apiary?.id) {
+            throw new Error(payload?.error || 'Kunne ikke opprette bigård i demo');
+          }
+
+          const createdApiaryId = String(payload.apiary.id);
+          setStats(prev => ({ ...prev, apiaries: prev.apiaries + 1 }));
+          setAvailableApiaries(prev => [...prev, { id: createdApiaryId, name: wizardApiaryName, type: 'bigård' }]);
+          setSelectedApiaryId(createdApiaryId);
+          setWizardStep(2);
+          return;
+        }
 
         // Generate sequential number for user
         const { data: existingApiaries } = await supabase
@@ -514,6 +580,29 @@ export default function DashboardPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      if (isDemoActive) {
+        const res = await fetch('/api/demo/write/hives', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-lek-demo-source': 'demo-ui' },
+          body: JSON.stringify({ apiaryId: selectedApiaryId, count: createCount }),
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || !payload?.success) {
+          throw new Error(payload?.error || 'Kunne ikke opprette kuber i demo');
+        }
+
+        setStats(prev => ({
+            ...prev,
+            hives: prev.hives + createCount,
+            activeHives: prev.activeHives + createCount
+        }));
+
+        setIsCreateModalOpen(false);
+        setCreateCount(1);
+        alert(`${createCount} nye kuber opprettet!`);
+        return;
+      }
 
       const selectedApiary = availableApiaries.find((a: any) => String(a?.id || '') === String(selectedApiaryId));
       const ownerId = String(selectedApiary?.user_id || createOwnerId || user.id);

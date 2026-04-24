@@ -109,6 +109,44 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
+    const demoEmail = `demo-session-${data.id}@example.com`;
+    const demoPassword = crypto.randomBytes(48).toString('base64url');
+    const { data: demoAuth, error: demoAuthError } = await admin.auth.admin.createUser({
+      email: demoEmail,
+      password: demoPassword,
+      email_confirm: true,
+      user_metadata: { full_name: 'Demo konto' },
+    });
+
+    if (demoAuthError || !demoAuth?.user?.id) {
+      await admin.from('demo_sessions').delete().eq('id', data.id);
+      return NextResponse.json(
+        { success: false, error: demoAuthError?.message || 'Kunne ikke opprette demo-konto' },
+        { status: 500 }
+      );
+    }
+
+    const demoOwnerId = demoAuth.user.id;
+
+    try {
+      await admin.from('profiles').upsert({ id: demoOwnerId, full_name: 'Demo konto' }, { onConflict: 'id' });
+    } catch {}
+
+    const { error: demoOwnerError } = await admin.from('demo_sessions').update({ demo_owner_id: demoOwnerId }).eq('id', data.id);
+    if (demoOwnerError) {
+      const missingColumn = /demo_owner_id/i.test(demoOwnerError.message) && /(column .* does not exist|schema cache)/i.test(demoOwnerError.message);
+      if (missingColumn) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Demo-skriving er ikke aktivert i databasen. Kjør migrasjon: src/db/migrations/87_demo_writing.sql',
+          },
+          { status: 500 }
+        );
+      }
+      return NextResponse.json({ success: false, error: demoOwnerError.message }, { status: 500 });
+    }
+
     const response = NextResponse.json({
       success: true,
       session: {
@@ -117,6 +155,7 @@ export async function POST(request: Request) {
         expiresAt: data.expires_at,
       },
       token,
+      demoOwnerId,
     });
 
     const isSecure = host !== 'localhost' && host !== '127.0.0.1';

@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient } from '@/utils/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { MapPin, Warehouse, Store, Truck, ArrowLeft, ClipboardCheck, Map as MapIcon, X } from 'lucide-react';
 import Link from 'next/link';
@@ -32,7 +32,21 @@ export default function NewApiaryPage() {
   const [activeOwnerId, setActiveOwnerId] = useState<string>('');
   const [activeOwnerLabel, setActiveOwnerLabel] = useState<string>('Min konto');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isDemoParam = searchParams?.get('demo') === '1';
+  const [isDemoActive, setIsDemoActive] = useState(isDemoParam);
   const supabase = createClient();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (isDemoParam) {
+      setIsDemoActive(true);
+      return;
+    }
+    try {
+      if (window.localStorage.getItem('lek_demo_session_id')) setIsDemoActive(true);
+    } catch {}
+  }, [isDemoParam]);
 
   const getActiveOwner = (fallbackUserId: string) => {
     try {
@@ -320,6 +334,28 @@ export default function NewApiaryPage() {
       const parsed = parseLatLng(coordinates);
       const latitude = parsed ? parsed[0] : null;
       const longitude = parsed ? parsed[1] : null;
+
+      if (isDemoActive) {
+        const res = await fetch('/api/demo/write/apiary', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-lek-demo-source': 'demo-ui' },
+          body: JSON.stringify({
+            name,
+            type,
+            location: locationStr,
+            coordinates,
+            latitude,
+            longitude,
+            registration_number: type === 'bil' ? registrationNumber : null,
+          }),
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || !payload?.success) {
+          throw new Error(payload?.error || 'Kunne ikke opprette bigård i demo');
+        }
+        router.push('/apiaries?demo=1');
+        return;
+      }
 
       // 3. Lagre i databasen
       const { data: createdApiary, error } = await supabase.from('apiaries').insert({
