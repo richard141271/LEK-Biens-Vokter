@@ -157,7 +157,15 @@ export default async function StockAdminPage({
           <Link href="/aksjer/dashboard" className="text-sm font-semibold text-gray-700 hover:underline">
             ← Dashboard
           </Link>
-          <div className="text-sm text-gray-500">Admin</div>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/aksjer/admin/temadag"
+              className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold"
+            >
+              Temadag
+            </Link>
+            <div className="text-sm text-gray-500">Admin</div>
+          </div>
         </div>
       </header>
 
