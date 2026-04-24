@@ -202,7 +202,28 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
       .eq('hive_id', params.id)
       .order('inspection_date', { ascending: false });
 
-    if (inspectionsData) setInspections(inspectionsData);
+    const hasInspectionLog = Array.isArray(logsData)
+      ? logsData.some((l: any) => String(l?.action || '').toUpperCase() === 'INSPEKSJON')
+      : false;
+    const list = Array.isArray(inspectionsData) ? inspectionsData : [];
+
+    if (list.length === 0 && hasInspectionLog) {
+      try {
+        await fetch('/api/inspections/repair-owner', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hiveId: params.id }),
+        });
+        const { data: repaired } = await supabase
+          .from('inspections')
+          .select('*')
+          .eq('hive_id', params.id)
+          .order('inspection_date', { ascending: false });
+        if (repaired) setInspections(repaired);
+      } catch {}
+    } else if (inspectionsData) {
+      setInspections(inspectionsData);
+    }
 
     setLoading(false);
   };

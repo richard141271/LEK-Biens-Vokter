@@ -101,6 +101,16 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
           const imageUrl = uploadedUrls.length > 0 ? uploadedUrls[0] : null;
 
           if (item.action === 'FULL_INSPECTION') {
+             let ownerId = user.id;
+             try {
+               const { data: hiveRow } = await supabase
+                 .from('hives')
+                 .select('user_id')
+                 .eq('id', item.hiveId)
+                 .maybeSingle();
+               if (hiveRow?.user_id) ownerId = String(hiveRow.user_id);
+             } catch {}
+
              // 1. Insert Inspection
              const inspectionId = item?.data?.inspection?.id || item.id;
              const baseNotes = String(item?.data?.inspection?.notes || '');
@@ -118,7 +128,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
                  id: inspectionId,
                  image_url: imageUrl,
                  notes: notesWithPhotos,
-                 user_id: user.id
+                 user_id: ownerId
                });
              if (inspectionError) {
                const msg = String((inspectionError as any)?.message || '');

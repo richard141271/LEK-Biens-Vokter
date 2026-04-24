@@ -586,7 +586,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         const hiveRes: any = await withTimeout(
           supabase
             .from('hives')
-            .select('name, hive_number, apiary_id')
+            .select('name, hive_number, apiary_id, user_id')
             .eq('id', params.id)
             .single() as any,
           9000
@@ -845,7 +845,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         .insert({
           id: opId,
           hive_id: params.id,
-          user_id: user.id,
+          user_id: String((hive as any)?.user_id || user.id),
           inspection_date: date,
           time: time,
           queen_seen: queenSeen,
