@@ -14,6 +14,8 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.hostname ||
     ''
   const host = rawHost.split(',')[0]?.trim().split(':')[0]?.toLowerCase() || ''
+  const isLocalhost = host === 'localhost' || host === '127.0.0.1'
+  const isStagingHost = isLocalhost || host === 'staging.lekbie.no' || host.startsWith('staging.')
   const isStockHost = host === 'aksjer.lekbie.no' || host.startsWith('aksjer.')
   const isAdminHost = host === 'admin.lekbie.no' || host.startsWith('admin.')
   const isMattilsynetHost =
@@ -50,6 +52,21 @@ export async function middleware(request: NextRequest) {
   )
 
   const pathname = request.nextUrl.pathname
+
+  const isTemadagPath =
+    pathname === '/dashboard/admin/temadag' || pathname.startsWith('/dashboard/admin/temadag/')
+  const isDemoApiPath = pathname === '/api/demo' || pathname.startsWith('/api/demo/')
+
+  if ((isTemadagPath || isDemoApiPath) && !isStagingHost) {
+    if (isDemoApiPath) {
+      return NextResponse.json({ success: false, error: 'Not available' }, { status: 404 })
+    }
+
+    const rewriteUrl = request.nextUrl.clone()
+    rewriteUrl.pathname = '/_not-found'
+    rewriteUrl.search = ''
+    return NextResponse.rewrite(rewriteUrl)
+  }
 
   const isAsset =
     pathname.startsWith('/_next') ||

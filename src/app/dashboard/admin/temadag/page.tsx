@@ -146,6 +146,7 @@ export default function AdminTemadagPage() {
   const supabase = createClient();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [isStaging, setIsStaging] = useState(false);
 
   useEffect(() => {
     const run = async () => {
@@ -166,6 +167,12 @@ export default function AdminTemadagPage() {
     };
     run().catch(() => setLoading(false));
   }, [router, supabase]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const host = window.location.hostname.toLowerCase();
+    setIsStaging(host === 'staging.lekbie.no' || host.startsWith('staging.') || host === 'localhost' || host === '127.0.0.1');
+  }, []);
 
   const totalMinutes = useMemo(() => LESSONS.reduce((sum, l) => sum + l.minutes, 0), []);
 
@@ -188,6 +195,23 @@ export default function AdminTemadagPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+        {!isStaging ? (
+          <section className="bg-white border border-red-200 rounded-xl p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-gray-900">Demo-modus</h2>
+            <div className="mt-2 text-sm text-gray-700">
+              Temadag er låst til staging og kan ikke kjøres herfra.
+            </div>
+          </section>
+        ) : (
+          <section className="bg-white border border-yellow-200 rounded-xl p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-gray-900">Demo-modus</h2>
+            <div className="mt-2 text-sm text-gray-700">
+              For å unngå at opplæringen blander seg med ekte data, er demo-flyt og “Nullstill demo” låst bak egne
+              sikkerhetsregler. Navigasjonsknappene aktiveres når demo-sesjoner er på plass.
+            </div>
+          </section>
+        )}
+
         <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
           <h2 className="text-lg font-bold text-gray-900">Oversikt</h2>
           <div className="mt-2 text-sm text-gray-600">
@@ -246,13 +270,14 @@ export default function AdminTemadagPage() {
               {l.links && l.links.length > 0 ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {l.links.map((x) => (
-                    <Link
+                    <button
                       key={`${l.title}-${x.href}`}
-                      href={x.href}
-                      className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold"
+                      type="button"
+                      disabled
+                      className="px-3 py-2 rounded-lg bg-gray-400 text-white text-sm font-bold cursor-not-allowed"
                     >
                       {x.label}
-                    </Link>
+                    </button>
                   ))}
                 </div>
               ) : null}
@@ -276,4 +301,3 @@ export default function AdminTemadagPage() {
     </div>
   );
 }
-
