@@ -12,7 +12,8 @@ import {
   LayoutDashboard,
   MessageSquare,
   Mic,
-  TrendingUp
+  TrendingUp,
+  GraduationCap
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
@@ -40,6 +41,7 @@ export default function AdminNav() {
 
   const navItems = [
     { href: '/dashboard/admin', label: 'Oversikt', icon: LayoutDashboard },
+    { href: '/dashboard/admin/temadag', label: 'Temadag', icon: GraduationCap },
     { href: '/dashboard/admin/users', label: 'Brukere', icon: Users },
     { href: '/dashboard/admin/founders', label: 'Gründer-oppfølging', icon: Activity, badge: alertCount },
     { href: '/dashboard/admin/community', label: 'War Room', icon: MessageSquare },
