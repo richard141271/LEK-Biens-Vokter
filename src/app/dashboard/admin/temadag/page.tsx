@@ -147,6 +147,10 @@ export default function AdminTemadagPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [isStaging, setIsStaging] = useState(false);
+  const [startingDemo, setStartingDemo] = useState(false);
+  const [demoError, setDemoError] = useState<string | null>(null);
+  const [demoSessionId, setDemoSessionId] = useState<string | null>(null);
+  const [demoExpiresAt, setDemoExpiresAt] = useState<string | null>(null);
 
   useEffect(() => {
     const run = async () => {
@@ -172,9 +176,51 @@ export default function AdminTemadagPage() {
     if (typeof window === 'undefined') return;
     const host = window.location.hostname.toLowerCase();
     setIsStaging(host === 'staging.lekbie.no' || host.startsWith('staging.') || host === 'localhost' || host === '127.0.0.1');
+
+    const storedSessionId = window.localStorage.getItem('lek_demo_session_id');
+    const storedExpiresAt = window.localStorage.getItem('lek_demo_session_expires_at');
+    if (storedSessionId) setDemoSessionId(storedSessionId);
+    if (storedExpiresAt) setDemoExpiresAt(storedExpiresAt);
   }, []);
 
   const totalMinutes = useMemo(() => LESSONS.reduce((sum, l) => sum + l.minutes, 0), []);
+
+  const startDemo = async () => {
+    setDemoError(null);
+    setStartingDemo(true);
+    try {
+      const res = await fetch('/api/demo/session/start', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-lek-demo-source': 'temadag',
+        },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        setDemoError(data?.error || 'Kunne ikke starte demo');
+        return;
+      }
+
+      const sessionId = String(data?.session?.id || '');
+      const expiresAt = String(data?.session?.expiresAt || '');
+      const token = String(data?.token || '');
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('lek_demo_session_id', sessionId);
+        window.localStorage.setItem('lek_demo_session_expires_at', expiresAt);
+        window.localStorage.setItem('lek_demo_session_token', token);
+      }
+
+      setDemoSessionId(sessionId || null);
+      setDemoExpiresAt(expiresAt || null);
+    } catch {
+      setDemoError('Kunne ikke starte demo');
+    } finally {
+      setStartingDemo(false);
+    }
+  };
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">Laster temadag…</div>;
@@ -209,6 +255,25 @@ export default function AdminTemadagPage() {
               For å unngå at opplæringen blander seg med ekte data, er demo-flyt og “Nullstill demo” låst bak egne
               sikkerhetsregler. Navigasjonsknappene aktiveres når demo-sesjoner er på plass.
             </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={startDemo}
+                disabled={startingDemo}
+                className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold disabled:bg-gray-400"
+              >
+                {startingDemo ? 'Starter demo…' : 'Start demo'}
+              </button>
+              {demoSessionId ? (
+                <div className="text-sm text-gray-700">
+                  Demo-session: <span className="font-bold">{demoSessionId}</span>
+                  {demoExpiresAt ? <span className="text-gray-500"> (utløper {demoExpiresAt})</span> : null}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-600">Ingen aktiv demo-session ennå.</div>
+              )}
+            </div>
+            {demoError ? <div className="mt-3 text-sm text-red-700">{demoError}</div> : null}
           </section>
         )}
 
