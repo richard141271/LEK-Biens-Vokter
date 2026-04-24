@@ -16,6 +16,7 @@ import BeekeeperAlertsPoller from './components/BeekeeperAlertsPoller';
 
 
 export default function DashboardPage() {
+  const ACTIVE_OWNER_KEY = 'lek_active_owner_id';
   const [profile, setProfile] = useState<any>(null);
   const [isFranchiseOwner, setIsFranchiseOwner] = useState(false);
   const [honeyStatus, setHoneyStatus] = useState('Ikke klar');
@@ -31,6 +32,9 @@ export default function DashboardPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [createCount, setCreateCount] = useState(1);
   const [isCreating, setIsCreating] = useState(false);
+  const [accounts, setAccounts] = useState<{ id: string; label: string }[]>([]);
+  const [createOwnerId, setCreateOwnerId] = useState<string>('');
+  const [currentUserId, setCurrentUserId] = useState<string>('');
   const [selectedApiaryId, setSelectedApiaryId] = useState('');
   const [availableApiaries, setAvailableApiaries] = useState<any[]>([]);
   const createCountRepeatTimeoutRef = useRef<number | null>(null);
@@ -137,6 +141,50 @@ export default function DashboardPage() {
     return () => stopCreateCountRepeat();
   }, [isCreateModalOpen]);
 
+  const fetchApiariesForOwner = async (ownerId: string) => {
+    const resolvedOwnerId = String(ownerId || '').trim();
+    if (!resolvedOwnerId) {
+      setAvailableApiaries([]);
+      setSelectedApiaryId('');
+      return;
+    }
+
+    if (!navigator.onLine) {
+      try {
+        const offlineRaw = localStorage.getItem('offline_data');
+        if (offlineRaw) {
+          const parsed = JSON.parse(offlineRaw);
+          const offlineApiariesAll = Array.isArray(parsed.apiaries) ? parsed.apiaries : [];
+          const offlineApiaries = offlineApiariesAll.filter((a: any) => String(a?.user_id || '') === resolvedOwnerId);
+          const list = offlineApiaries.map((a: any) => ({ id: a.id, name: a.name, type: a.type, user_id: a.user_id }));
+          setAvailableApiaries(list);
+          setSelectedApiaryId(list[0]?.id || '');
+          return;
+        }
+      } catch {}
+      setAvailableApiaries([]);
+      setSelectedApiaryId('');
+      return;
+    }
+
+    const { data: apiariesData } = await supabase
+      .from('apiaries')
+      .select('id, name, type, user_id')
+      .eq('user_id', resolvedOwnerId)
+      .order('name');
+
+    const list = Array.isArray(apiariesData) ? apiariesData : [];
+    setAvailableApiaries(list);
+    setSelectedApiaryId(list[0]?.id || '');
+  };
+
+  useEffect(() => {
+    if (!isCreateModalOpen) return;
+    const ownerId = createOwnerId || currentUserId;
+    if (!ownerId) return;
+    fetchApiariesForOwner(ownerId).catch(() => {});
+  }, [isCreateModalOpen, createOwnerId, currentUserId]);
+
   useEffect(() => {
     const handleProfileUpdated = () => {
       fetchData().catch(() => {});
@@ -186,6 +234,7 @@ export default function DashboardPage() {
             router.push('/login');
             return;
         }
+        setCurrentUserId(user.id);
 
         // Fetch Profile Data
         const { data: profileData } = await supabase
@@ -222,6 +271,37 @@ export default function DashboardPage() {
         };
 
         setProfile(mergedProfile);
+
+        let storedOwnerId: string | null = null;
+        try {
+          storedOwnerId = localStorage.getItem(ACTIVE_OWNER_KEY);
+        } catch {}
+
+        let ownerIdForCreate = storedOwnerId || user.id;
+        try {
+          const res = await fetch('/api/access/list', { method: 'GET' });
+          const data = await res.json().catch(() => ({}));
+          const incoming = Array.isArray(data?.incoming) ? data.incoming : [];
+          const owners = new Map<string, string>();
+          const myLabel = mergedProfile?.full_name ? String(mergedProfile.full_name) : 'Min konto';
+          owners.set(user.id, myLabel === 'Min konto' ? 'Min konto' : `Min konto (${myLabel})`);
+          for (const row of incoming) {
+            const ownerId = String(row?.owner_id || '').trim();
+            if (!ownerId) continue;
+            const name = row?.ownerProfile?.full_name ? String(row.ownerProfile.full_name) : ownerId.slice(0, 8);
+            owners.set(ownerId, name);
+          }
+          setAccounts(Array.from(owners.entries()).map(([id, label]) => ({ id, label })));
+          if (!owners.has(ownerIdForCreate)) ownerIdForCreate = user.id;
+        } catch {
+          setAccounts([{ id: user.id, label: 'Min konto' }]);
+          ownerIdForCreate = user.id;
+        }
+
+        setCreateOwnerId(ownerIdForCreate);
+        try {
+          localStorage.setItem(ACTIVE_OWNER_KEY, ownerIdForCreate);
+        } catch {}
 
         // Check if franchise owner (role or actual ownership)
         const { count: franchiseCount } = await supabase
@@ -344,17 +424,7 @@ export default function DashboardPage() {
             setPendingMissionsCount(count || 0);
         }
 
-        // Fetch Apiaries for dropdown
-        const { data: apiariesData } = await supabase
-        .from('apiaries')
-        .select('id, name, type')
-        .eq('user_id', user.id)
-        .order('name');
-        
-        if (apiariesData) {
-            setAvailableApiaries(apiariesData);
-            if (apiariesData.length > 0) setSelectedApiaryId(apiariesData[0].id);
-        }
+        await fetchApiariesForOwner(ownerIdForCreate);
 
         // Trigger Wizard if no apiaries (Only for Beekeepers)
         if ((apiaryCount || 0) === 0 && profileData?.role !== 'tenant') {
@@ -445,11 +515,14 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch all hive numbers for this user to determine the next available number safely
+      const selectedApiary = availableApiaries.find((a: any) => String(a?.id || '') === String(selectedApiaryId));
+      const ownerId = String(selectedApiary?.user_id || createOwnerId || user.id);
+
+      // Fetch all hive numbers for this konto to determine the next available number safely
       const { data: hivesData, error: hivesError } = await supabase
         .from('hives')
         .select('hive_number')
-        .eq('user_id', user.id);
+        .eq('user_id', ownerId);
       
       if (hivesError) throw hivesError;
 
@@ -472,7 +545,7 @@ export default function DashboardPage() {
       for (let i = 0; i < createCount; i++) {
         const hiveNumber = `KUBE-${(startNum + i).toString().padStart(3, '0')}`;
         newHives.push({
-          user_id: user.id,
+          user_id: ownerId,
           apiary_id: selectedApiaryId,
           hive_number: hiveNumber,
           status: 'aktiv'
@@ -1059,6 +1132,33 @@ export default function DashboardPage() {
             </div>
             
             <div className="space-y-4">
+                {accounts.length > 1 && (
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Velg konto</label>
+                        <div className="relative">
+                            <select
+                                value={createOwnerId || currentUserId || ''}
+                                onChange={(e) => {
+                                  const next = e.target.value;
+                                  setCreateOwnerId(next);
+                                  try {
+                                    localStorage.setItem(ACTIVE_OWNER_KEY, next);
+                                  } catch {}
+                                  setSelectedApiaryId('');
+                                  fetchApiariesForOwner(next).catch(() => {});
+                                }}
+                                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg appearance-none font-medium text-gray-900 pr-10"
+                            >
+                                {accounts.map((a) => (
+                                    <option key={a.id} value={a.id}>
+                                        {a.label}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-3.5 w-5 h-5 text-gray-400 pointer-events-none" />
+                        </div>
+                    </div>
+                )}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Velg lokasjon</label>
                     <div className="relative">
