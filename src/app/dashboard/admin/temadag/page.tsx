@@ -149,9 +149,11 @@ export default function AdminTemadagPage() {
   const [loading, setLoading] = useState(true);
   const [isStaging, setIsStaging] = useState(false);
   const [startingDemo, setStartingDemo] = useState(false);
+  const [resettingDemo, setResettingDemo] = useState(false);
   const [demoError, setDemoError] = useState<string | null>(null);
   const [demoSessionId, setDemoSessionId] = useState<string | null>(null);
   const [demoExpiresAt, setDemoExpiresAt] = useState<string | null>(null);
+  const [demoResetResult, setDemoResetResult] = useState<string | null>(null);
 
   useEffect(() => {
     const run = async () => {
@@ -204,6 +206,7 @@ export default function AdminTemadagPage() {
 
   const startDemo = async () => {
     setDemoError(null);
+    setDemoResetResult(null);
     setStartingDemo(true);
     try {
       await requestFullscreen();
@@ -242,6 +245,63 @@ export default function AdminTemadagPage() {
       setDemoError('Kunne ikke starte demo');
     } finally {
       setStartingDemo(false);
+    }
+  };
+
+  const resetDemo = async () => {
+    setDemoError(null);
+    setDemoResetResult(null);
+
+    if (!demoSessionId) {
+      setDemoError('Ingen aktiv demo-session');
+      return;
+    }
+
+    const ok = typeof window !== 'undefined' ? window.confirm('Avslutt og nullstill demo?\n\nAll demo-data slettes nå.') : false;
+    if (!ok) return;
+
+    setResettingDemo(true);
+    try {
+      const res = await fetch('/api/demo/session/reset', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-lek-demo-source': 'temadag',
+        },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        setDemoError(data?.error || 'Kunne ikke nullstille demo');
+        return;
+      }
+
+      let userId = '';
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        userId = String(authData?.user?.id || '');
+      } catch {}
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('lek_demo_session_id');
+        window.localStorage.removeItem('lek_demo_session_expires_at');
+        window.localStorage.removeItem('lek_demo_session_token');
+        window.localStorage.removeItem('lek_demo_owner_id');
+        if (userId) window.localStorage.setItem(ACTIVE_OWNER_KEY, userId);
+      }
+
+      setDemoSessionId(null);
+      setDemoExpiresAt(null);
+      const d = data?.deleted || {};
+      setDemoResetResult(
+        `Slettet: bigårder ${Number(d.apiaries || 0)}, kuber ${Number(d.hives || 0)}, inspeksjoner ${Number(
+          d.inspections || 0
+        )}, logger ${Number(d.logs || 0)}, bilder ${Number(d.images || 0)}.`
+      );
+    } catch {
+      setDemoError('Kunne ikke nullstille demo');
+    } finally {
+      setResettingDemo(false);
     }
   };
 
@@ -287,6 +347,14 @@ export default function AdminTemadagPage() {
               >
                 {startingDemo ? 'Starter demo…' : 'Start demo'}
               </button>
+              <button
+                type="button"
+                onClick={resetDemo}
+                disabled={!demoSessionId || resettingDemo}
+                className="px-4 py-2 rounded-lg bg-red-700 text-white text-sm font-bold disabled:bg-gray-400"
+              >
+                {resettingDemo ? 'Nullstiller…' : 'Avslutt og nullstill demo'}
+              </button>
               {demoSessionId ? (
                 <div className="text-sm text-gray-700">
                   Demo-session: <span className="font-bold">{demoSessionId}</span>
@@ -297,6 +365,7 @@ export default function AdminTemadagPage() {
               )}
             </div>
             {demoError ? <div className="mt-3 text-sm text-red-700">{demoError}</div> : null}
+            {demoResetResult ? <div className="mt-3 text-sm text-emerald-700">{demoResetResult}</div> : null}
           </section>
         )}
 
