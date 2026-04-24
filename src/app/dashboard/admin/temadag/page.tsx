@@ -185,10 +185,21 @@ export default function AdminTemadagPage() {
 
   const totalMinutes = useMemo(() => LESSONS.reduce((sum, l) => sum + l.minutes, 0), []);
 
+  const requestFullscreen = async () => {
+    try {
+      if (typeof document === 'undefined') return;
+      if (document.fullscreenElement) return;
+      await document.documentElement.requestFullscreen();
+    } catch {
+      // ignore
+    }
+  };
+
   const startDemo = async () => {
     setDemoError(null);
     setStartingDemo(true);
     try {
+      await requestFullscreen();
       const res = await fetch('/api/demo/session/start', {
         method: 'POST',
         headers: {
@@ -334,16 +345,29 @@ export default function AdminTemadagPage() {
 
               {l.links && l.links.length > 0 ? (
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {l.links.map((x) => (
-                    <button
-                      key={`${l.title}-${x.href}`}
-                      type="button"
-                      disabled
-                      className="px-3 py-2 rounded-lg bg-gray-400 text-white text-sm font-bold cursor-not-allowed"
-                    >
-                      {x.label}
-                    </button>
-                  ))}
+                  {l.links.map((x) => {
+                    const hrefWithDemo = x.href.includes('?') ? `${x.href}&demo=1` : `${x.href}?demo=1`;
+                    const canNavigate = Boolean(isStaging && demoSessionId);
+
+                    return canNavigate ? (
+                      <Link
+                        key={`${l.title}-${x.href}`}
+                        href={hrefWithDemo}
+                        className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold"
+                      >
+                        {x.label}
+                      </Link>
+                    ) : (
+                      <button
+                        key={`${l.title}-${x.href}`}
+                        type="button"
+                        disabled
+                        className="px-3 py-2 rounded-lg bg-gray-400 text-white text-sm font-bold cursor-not-allowed"
+                      >
+                        {x.label}
+                      </button>
+                    );
+                  })}
                 </div>
               ) : null}
 

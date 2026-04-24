@@ -109,7 +109,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       session: {
         id: data.id,
@@ -118,8 +118,26 @@ export async function POST(request: Request) {
       },
       token,
     });
+
+    const isSecure = host !== 'localhost' && host !== '127.0.0.1';
+    const maxAgeSeconds = 60 * 60 * 12;
+    response.cookies.set('lek_demo_session_id', data.id, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: isSecure,
+      path: '/',
+      maxAge: maxAgeSeconds,
+    });
+    response.cookies.set('lek_demo_session_token', token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: isSecure,
+      path: '/',
+      maxAge: maxAgeSeconds,
+    });
+
+    return response;
   } catch (e) {
     return NextResponse.json({ success: false, error: 'Ukjent feil' }, { status: 500 });
   }
 }
-

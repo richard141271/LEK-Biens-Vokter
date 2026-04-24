@@ -25,6 +25,7 @@ import DesktopNav from "@/components/DesktopNav";
 import Header from "@/components/Header";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import MainLayout from "@/components/MainLayout";
+import DemoModeBanner from "@/components/DemoModeBanner";
 import { CartProvider } from "@/context/CartContext";
 import CartSidebar from "@/components/shop/CartSidebar";
 import { PWAProvider } from "@/context/PWAContext";
@@ -160,6 +161,7 @@ export default function RootLayout({
 
                 <MainLayout>
                   <Header isStagingHost={isStagingHost} />
+                  <DemoModeBanner isStagingHost={isStagingHost} />
                   {children}
                 </MainLayout>
 
