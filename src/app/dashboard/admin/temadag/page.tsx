@@ -154,6 +154,7 @@ export default function AdminTemadagPage() {
   const [demoSessionId, setDemoSessionId] = useState<string | null>(null);
   const [demoExpiresAt, setDemoExpiresAt] = useState<string | null>(null);
   const [demoResetResult, setDemoResetResult] = useState<string | null>(null);
+  const [activeLessonIndex, setActiveLessonIndex] = useState(0);
 
   useEffect(() => {
     const run = async () => {
@@ -193,6 +194,33 @@ export default function AdminTemadagPage() {
   }, []);
 
   const totalMinutes = useMemo(() => LESSONS.reduce((sum, l) => sum + l.minutes, 0), []);
+  const canNavigate = Boolean(isStaging && demoSessionId);
+  const activeLesson = LESSONS[activeLessonIndex] || LESSONS[0];
+  const progressPercent = LESSONS.length > 0 ? Math.round(((activeLessonIndex + 1) / LESSONS.length) * 100) : 0;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const elements = LESSONS.map((_, idx) => document.getElementById(`del-${idx + 1}`)).filter(Boolean) as HTMLElement[];
+    if (elements.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => (b.intersectionRatio || 0) - (a.intersectionRatio || 0))[0];
+        if (!visible) return;
+        const id = String((visible.target as HTMLElement)?.id || '');
+        const match = id.match(/^del-(\d+)$/);
+        if (!match) return;
+        const idx = Math.max(0, Math.min(LESSONS.length - 1, parseInt(match[1], 10) - 1));
+        setActiveLessonIndex(idx);
+      },
+      { root: null, threshold: [0.2, 0.35, 0.5, 0.65] }
+    );
+
+    for (const el of elements) observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const requestFullscreen = async () => {
     try {
@@ -324,6 +352,70 @@ export default function AdminTemadagPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+        <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-xs font-bold uppercase tracking-wide text-gray-500">Del {activeLessonIndex + 1}/{LESSONS.length}</div>
+              <div className="font-bold text-gray-900 truncate">{activeLesson?.title}</div>
+              <div className="text-sm text-gray-600">{activeLesson?.description}</div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={startDemo}
+                disabled={!isStaging || startingDemo}
+                className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold disabled:bg-gray-400"
+              >
+                {startingDemo ? 'Starter demo…' : 'Start demo'}
+              </button>
+              <button
+                type="button"
+                onClick={resetDemo}
+                disabled={!demoSessionId || resettingDemo}
+                className="px-4 py-2 rounded-lg bg-red-700 text-white text-sm font-bold disabled:bg-gray-400"
+              >
+                {resettingDemo ? 'Nullstiller…' : 'Avslutt og nullstill demo'}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-2 bg-honey-500" style={{ width: `${progressPercent}%` }} />
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+              {LESSONS.map((l, idx) => {
+                const isActive = idx === activeLessonIndex;
+                return (
+                  <a
+                    key={l.title}
+                    href={`#del-${idx + 1}`}
+                    className={
+                      isActive
+                        ? 'px-2 py-1 rounded-full bg-gray-900 text-white font-bold'
+                        : 'px-2 py-1 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }
+                  >
+                    {idx + 1}
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+
+          {demoSessionId ? (
+            <div className="mt-4 text-sm text-gray-700">
+              Demo-session: <span className="font-bold">{demoSessionId}</span>
+              {demoExpiresAt ? <span className="text-gray-500"> (utløper {demoExpiresAt})</span> : null}
+            </div>
+          ) : (
+            <div className="mt-4 text-sm text-gray-600">Ingen aktiv demo-session ennå.</div>
+          )}
+          {demoError ? <div className="mt-3 text-sm text-red-700">{demoError}</div> : null}
+          {demoResetResult ? <div className="mt-3 text-sm text-emerald-700">{demoResetResult}</div> : null}
+        </section>
+
         {!isStaging ? (
           <section className="bg-white border border-red-200 rounded-xl p-6 shadow-sm">
             <h2 className="text-lg font-bold text-gray-900">Demo-modus</h2>
@@ -338,34 +430,9 @@ export default function AdminTemadagPage() {
               For å unngå at opplæringen blander seg med ekte data, er demo-flyt og “Nullstill demo” låst bak egne
               sikkerhetsregler. Navigasjonsknappene aktiveres når demo-sesjoner er på plass.
             </div>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={startDemo}
-                disabled={startingDemo}
-                className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold disabled:bg-gray-400"
-              >
-                {startingDemo ? 'Starter demo…' : 'Start demo'}
-              </button>
-              <button
-                type="button"
-                onClick={resetDemo}
-                disabled={!demoSessionId || resettingDemo}
-                className="px-4 py-2 rounded-lg bg-red-700 text-white text-sm font-bold disabled:bg-gray-400"
-              >
-                {resettingDemo ? 'Nullstiller…' : 'Avslutt og nullstill demo'}
-              </button>
-              {demoSessionId ? (
-                <div className="text-sm text-gray-700">
-                  Demo-session: <span className="font-bold">{demoSessionId}</span>
-                  {demoExpiresAt ? <span className="text-gray-500"> (utløper {demoExpiresAt})</span> : null}
-                </div>
-              ) : (
-                <div className="text-sm text-gray-600">Ingen aktiv demo-session ennå.</div>
-              )}
+            <div className="mt-4 text-sm text-gray-700">
+              Tips: Start demo først. Deretter blir “Fortsett”-knappene aktive og åpner ekte sider i appen i demo-modus.
             </div>
-            {demoError ? <div className="mt-3 text-sm text-red-700">{demoError}</div> : null}
-            {demoResetResult ? <div className="mt-3 text-sm text-emerald-700">{demoResetResult}</div> : null}
           </section>
         )}
 
@@ -426,10 +493,31 @@ export default function AdminTemadagPage() {
 
               {l.links && l.links.length > 0 ? (
                 <div className="mt-4 flex flex-wrap gap-2">
+                  {(() => {
+                    const primary = l.links?.[0];
+                    if (!primary) return null;
+                    const hrefWithDemo = primary.href.includes('?') ? `${primary.href}&demo=1` : `${primary.href}?demo=1`;
+                    return canNavigate ? (
+                      <Link
+                        key={`${l.title}-primary`}
+                        href={hrefWithDemo}
+                        className="px-4 py-2 rounded-lg bg-honey-600 text-white text-sm font-bold"
+                      >
+                        Fortsett
+                      </Link>
+                    ) : (
+                      <button
+                        key={`${l.title}-primary`}
+                        type="button"
+                        disabled
+                        className="px-4 py-2 rounded-lg bg-gray-400 text-white text-sm font-bold cursor-not-allowed"
+                      >
+                        Fortsett
+                      </button>
+                    );
+                  })()}
                   {l.links.map((x) => {
                     const hrefWithDemo = x.href.includes('?') ? `${x.href}&demo=1` : `${x.href}?demo=1`;
-                    const canNavigate = Boolean(isStaging && demoSessionId);
-
                     return canNavigate ? (
                       <Link
                         key={`${l.title}-${x.href}`}
@@ -466,6 +554,24 @@ export default function AdminTemadagPage() {
               </div>
             </section>
           ))}
+        </section>
+
+        <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-gray-900">Demo ferdig</h2>
+          <div className="mt-2 text-sm text-gray-700">
+            Når dere er ferdige, nullstill demoen så neste kurs starter blankt.
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={resetDemo}
+              disabled={!demoSessionId || resettingDemo}
+              className="px-5 py-3 rounded-lg bg-red-700 text-white text-sm font-bold disabled:bg-gray-400"
+            >
+              {resettingDemo ? 'Nullstiller…' : 'Avslutt og nullstill demo'}
+            </button>
+            {demoResetResult ? <div className="text-sm text-emerald-700">{demoResetResult}</div> : null}
+          </div>
         </section>
       </main>
     </div>
