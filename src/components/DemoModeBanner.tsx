@@ -10,7 +10,7 @@ function getCookieValue(name: string) {
   return match ? decodeURIComponent(match[1] || '') : null;
 }
 
-export default function DemoModeBanner({ isStagingHost }: { isStagingHost: boolean }) {
+export default function DemoModeBanner({ isDemoAllowed, isStagingHost }: { isDemoAllowed: boolean; isStagingHost: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [demoSessionId, setDemoSessionId] = useState<string | null>(null);
@@ -28,15 +28,14 @@ export default function DemoModeBanner({ isStagingHost }: { isStagingHost: boole
   }, [pathname]);
 
   useEffect(() => {
-    if (!isStagingHost) return;
     if (typeof window === 'undefined') return;
     const fromStorage = window.localStorage.getItem('lek_demo_session_id');
     const fromCookie = getCookieValue('lek_demo_session_id');
     const resolved = fromStorage || fromCookie;
     setDemoSessionId(resolved || null);
-  }, [isStagingHost, pathname, searchParams]);
+  }, [pathname, searchParams]);
 
-  if (!isStagingHost) return null;
+  if (!isDemoAllowed) return null;
   if (!isProtectedPath) return null;
   if (!demoSessionId) return null;
 
@@ -44,7 +43,8 @@ export default function DemoModeBanner({ isStagingHost }: { isStagingHost: boole
     <div className="print:hidden bg-black text-yellow-200 text-xs font-semibold">
       <div className="md:pl-64 px-4 py-2 flex flex-wrap items-center justify-between gap-2">
         <div>
-          DEMO MODUS – staging – data slettes ved avslutt (session: <span className="text-yellow-100">{demoSessionId}</span>)
+          DEMO MODUS{isStagingHost ? ' – staging' : ''} – data slettes ved avslutt (session:{' '}
+          <span className="text-yellow-100">{demoSessionId}</span>)
         </div>
         <Link href="/dashboard/admin/temadag" className="text-yellow-200 underline">
           Til Temadag
@@ -53,4 +53,3 @@ export default function DemoModeBanner({ isStagingHost }: { isStagingHost: boole
     </div>
   );
 }
-

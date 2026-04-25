@@ -16,6 +16,22 @@ function isStagingHost(host: string) {
   return host === 'localhost' || host === '127.0.0.1' || host === 'staging.lekbie.no' || host.startsWith('staging.');
 }
 
+function isDemoEnabled() {
+  return process.env.LEK_DEMO_ENABLED === '1' || process.env.LEK_DEMO_ENABLED === 'true';
+}
+
+function isAllowlisted(email: string | null | undefined) {
+  const raw = process.env.LEK_DEMO_ALLOWED_EMAILS || '';
+  const list = raw
+    .split(',')
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean);
+  if (list.length === 0) return true;
+  const e = String(email || '').trim().toLowerCase();
+  if (!e) return false;
+  return list.includes(e);
+}
+
 async function requireAdmin() {
   const supabase = createClient();
   const {
@@ -24,6 +40,10 @@ async function requireAdmin() {
 
   if (!user) {
     return { ok: false as const, response: NextResponse.json({ success: false, error: 'Ikke logget inn' }, { status: 401 }) };
+  }
+
+  if (!isAllowlisted(user.email)) {
+    return { ok: false as const, response: NextResponse.json({ success: false, error: 'Ingen tilgang' }, { status: 403 }) };
   }
 
   const adminVerifier = createAdminClient();
@@ -102,7 +122,7 @@ async function getNextHiveNumber(admin: ReturnType<typeof createAdminClient>, ow
 
 export async function POST(request: Request) {
   const host = getHost(request);
-  if (!isStagingHost(host)) {
+  if (!isStagingHost(host) && !isDemoEnabled()) {
     return NextResponse.json({ success: false, error: 'Not available' }, { status: 404 });
   }
 
@@ -162,4 +182,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ success: true, hives: created || [] });
 }
-

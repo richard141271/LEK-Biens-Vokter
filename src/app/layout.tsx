@@ -50,6 +50,11 @@ export default function RootLayout({
     host.startsWith("staging.") ||
     host.includes("lek-biens-vokter-staging") ||
     host.includes("-staging.");
+  const isDemoEnabled =
+    process.env.LEK_DEMO_ENABLED === "1" ||
+    process.env.LEK_DEMO_ENABLED === "true" ||
+    process.env.NEXT_PUBLIC_LEK_DEMO_ENABLED === "1" ||
+    process.env.NEXT_PUBLIC_LEK_DEMO_ENABLED === "true";
 
   return (
     <html lang="no">
@@ -161,7 +166,7 @@ export default function RootLayout({
 
                 <MainLayout>
                   <Header isStagingHost={isStagingHost} />
-                  <DemoModeBanner isStagingHost={isStagingHost} />
+                  <DemoModeBanner isDemoAllowed={isStagingHost || isDemoEnabled} isStagingHost={isStagingHost} />
                   {children}
                 </MainLayout>
 

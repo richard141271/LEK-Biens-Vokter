@@ -147,7 +147,7 @@ export default function AdminTemadagPage() {
   const supabase = createClient();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [isStaging, setIsStaging] = useState(false);
+  const [isDemoAllowed, setIsDemoAllowed] = useState(false);
   const [startingDemo, setStartingDemo] = useState(false);
   const [resettingDemo, setResettingDemo] = useState(false);
   const [demoError, setDemoError] = useState<string | null>(null);
@@ -179,7 +179,10 @@ export default function AdminTemadagPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const host = window.location.hostname.toLowerCase();
-    setIsStaging(host === 'staging.lekbie.no' || host.startsWith('staging.') || host === 'localhost' || host === '127.0.0.1');
+    const staging = host === 'staging.lekbie.no' || host.startsWith('staging.') || host === 'localhost' || host === '127.0.0.1';
+    const override =
+      process.env.NEXT_PUBLIC_LEK_DEMO_ENABLED === '1' || process.env.NEXT_PUBLIC_LEK_DEMO_ENABLED === 'true';
+    setIsDemoAllowed(staging || override);
 
     const storedSessionId = window.localStorage.getItem('lek_demo_session_id');
     const storedExpiresAt = window.localStorage.getItem('lek_demo_session_expires_at');
@@ -194,7 +197,7 @@ export default function AdminTemadagPage() {
   }, []);
 
   const totalMinutes = useMemo(() => LESSONS.reduce((sum, l) => sum + l.minutes, 0), []);
-  const canNavigate = Boolean(isStaging && demoSessionId);
+  const canNavigate = Boolean(isDemoAllowed && demoSessionId);
   const activeLesson = LESSONS[activeLessonIndex] || LESSONS[0];
   const progressPercent = LESSONS.length > 0 ? Math.round(((activeLessonIndex + 1) / LESSONS.length) * 100) : 0;
 
@@ -364,7 +367,7 @@ export default function AdminTemadagPage() {
               <button
                 type="button"
                 onClick={startDemo}
-                disabled={!isStaging || startingDemo}
+                disabled={!isDemoAllowed || startingDemo}
                 className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold disabled:bg-gray-400"
               >
                 {startingDemo ? 'Starter demo…' : 'Start demo'}
@@ -416,7 +419,7 @@ export default function AdminTemadagPage() {
           {demoResetResult ? <div className="mt-3 text-sm text-emerald-700">{demoResetResult}</div> : null}
         </section>
 
-        {!isStaging ? (
+        {!isDemoAllowed ? (
           <section className="bg-white border border-red-200 rounded-xl p-6 shadow-sm">
             <h2 className="text-lg font-bold text-gray-900">Demo-modus</h2>
             <div className="mt-2 text-sm text-gray-700">
