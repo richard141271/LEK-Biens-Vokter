@@ -458,6 +458,70 @@ export default function AdminTemadagPage() {
         </section>
 
         <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-gray-900">Testing-sjekkliste før kurs</h2>
+          <div className="mt-2 text-sm text-gray-700">
+            Kjør dette én gang før dere starter kurs for å være sikker på at demo-flyten fungerer og at nullstilling faktisk sletter alt.
+          </div>
+          <ol className="mt-4 list-decimal pl-5 text-sm text-gray-800 space-y-2">
+            <li>
+              Trykk <span className="font-bold">Start demo</span> og verifiser at demo-banner vises når du åpner app-sider (Demo-modus aktiv).
+            </li>
+            <li>
+              Åpne <span className="font-bold">Bigårder</span> → <span className="font-bold">Ny lokasjon</span> og opprett én bigård.
+            </li>
+            <li>
+              Åpne <span className="font-bold">Min side</span> → <span className="font-bold">NY KUBE</span> og opprett 2–3 kuber på bigården.
+            </li>
+            <li>
+              Åpne <span className="font-bold">Bikuber</span>, åpne en kube og lagre en <span className="font-bold">Ny inspeksjon</span>.
+            </li>
+            <li>
+              Verifiser: på kube-detalj → <span className="font-bold">Historikk</span> viser inspeksjonen, og <span className="font-bold">Logg</span> viser “INSPEKSJON”.
+            </li>
+            <li>
+              Trykk <span className="font-bold">Avslutt og nullstill demo</span> (på toppen eller nederst).
+            </li>
+            <li>
+              Bekreft at alt er borte:
+              <ul className="mt-2 list-disc pl-5 space-y-1">
+                <li>Bigårder: listen er tom (eller viser ikke bigården du nettopp laget).</li>
+                <li>Bikuber: listen er tom (eller viser ikke kubene du nettopp laget).</li>
+                <li>Åpner du samme kube-lenke på nytt: den skal feile/ikke finnes i demo.</li>
+              </ul>
+            </li>
+          </ol>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {canNavigate ? (
+              <Link href="/dashboard?demo=1" className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold">
+                Åpne Min side
+              </Link>
+            ) : (
+              <button type="button" disabled className="px-3 py-2 rounded-lg bg-gray-300 text-white text-sm font-bold cursor-not-allowed">
+                Åpne Min side
+              </button>
+            )}
+            {canNavigate ? (
+              <Link href="/apiaries?demo=1" className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold">
+                Åpne Bigårder
+              </Link>
+            ) : (
+              <button type="button" disabled className="px-3 py-2 rounded-lg bg-gray-300 text-white text-sm font-bold cursor-not-allowed">
+                Åpne Bigårder
+              </button>
+            )}
+            {canNavigate ? (
+              <Link href="/hives?demo=1" className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold">
+                Åpne Bikuber
+              </Link>
+            ) : (
+              <button type="button" disabled className="px-3 py-2 rounded-lg bg-gray-300 text-white text-sm font-bold cursor-not-allowed">
+                Åpne Bikuber
+              </button>
+            )}
+          </div>
+        </section>
+
+        <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
           <h2 className="text-lg font-bold text-gray-900">Agenda</h2>
           <div className="mt-3 grid gap-2">
             {LESSONS.map((l, idx) => (
