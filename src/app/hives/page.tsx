@@ -103,6 +103,20 @@ export default function AllHivesPage() {
     }
     setCurrentUserId(user.id);
 
+    let isDemoView = false;
+    let demoOwnerId: string | null = null;
+    let demoSessionId: string | null = null;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      isDemoView = params.get('demo') === '1';
+    } catch {}
+    if (isDemoView) {
+      try {
+        demoOwnerId = localStorage.getItem('lek_demo_owner_id');
+        demoSessionId = localStorage.getItem('lek_demo_session_id');
+      } catch {}
+    }
+
     // Fetch Profile
     const { data: profileData } = await supabase
       .from('profiles')
@@ -122,43 +136,52 @@ export default function AllHivesPage() {
         targetUserIdRaw = localStorage.getItem(ACTIVE_OWNER_KEY);
       } catch {}
     }
-    let targetUserId: string = targetUserIdRaw || user.id;
+    let targetUserId: string = (isDemoView && demoOwnerId) ? demoOwnerId : (targetUserIdRaw || user.id);
     setActiveOwnerId(targetUserId);
 
-    try {
-      const res = await fetch('/api/access/list', { method: 'GET' });
-      const data = await res.json().catch(() => ({}));
-      const incoming = Array.isArray(data?.incoming) ? data.incoming : [];
-      const owners = new Map<string, string>();
-      const myLabel = profileData?.full_name ? String(profileData.full_name) : 'Min konto';
-      owners.set(user.id, myLabel === 'Min konto' ? 'Min konto' : `Min konto (${myLabel})`);
-      for (const row of incoming) {
-        const ownerId = String(row?.owner_id || '').trim();
-        if (!ownerId) continue;
-        const name = row?.ownerProfile?.full_name ? String(row.ownerProfile.full_name) : ownerId.slice(0, 8);
-        owners.set(ownerId, name);
-      }
-      setAccounts(Array.from(owners.entries()).map(([id, label]) => ({ id, label })));
-      const stored = (() => {
-        try {
-          return localStorage.getItem(ACTIVE_OWNER_KEY);
-        } catch {
-          return null;
+    if (isDemoView && demoOwnerId && demoSessionId) {
+      setAccounts([{ id: demoOwnerId, label: 'Demo konto' }]);
+      targetUserId = demoOwnerId;
+      setActiveOwnerId(demoOwnerId);
+      try {
+        localStorage.setItem(ACTIVE_OWNER_KEY, demoOwnerId);
+      } catch {}
+    } else {
+      try {
+        const res = await fetch('/api/access/list', { method: 'GET' });
+        const data = await res.json().catch(() => ({}));
+        const incoming = Array.isArray(data?.incoming) ? data.incoming : [];
+        const owners = new Map<string, string>();
+        const myLabel = profileData?.full_name ? String(profileData.full_name) : 'Min konto';
+        owners.set(user.id, myLabel === 'Min konto' ? 'Min konto' : `Min konto (${myLabel})`);
+        for (const row of incoming) {
+          const ownerId = String(row?.owner_id || '').trim();
+          if (!ownerId) continue;
+          const name = row?.ownerProfile?.full_name ? String(row.ownerProfile.full_name) : ownerId.slice(0, 8);
+          owners.set(ownerId, name);
         }
-      })();
-      const storedId = stored || user.id;
-      const ok = owners.has(storedId);
-      const finalId = ok ? storedId : user.id;
-      if (finalId !== storedId) {
-        try {
-          localStorage.setItem(ACTIVE_OWNER_KEY, finalId);
-        } catch {}
-      }
-      if (!targetUserId || !owners.has(targetUserId)) {
-        targetUserId = finalId;
-        setActiveOwnerId(finalId);
-      }
-    } catch {}
+        setAccounts(Array.from(owners.entries()).map(([id, label]) => ({ id, label })));
+        const stored = (() => {
+          try {
+            return localStorage.getItem(ACTIVE_OWNER_KEY);
+          } catch {
+            return null;
+          }
+        })();
+        const storedId = stored || user.id;
+        const ok = owners.has(storedId);
+        const finalId = ok ? storedId : user.id;
+        if (finalId !== storedId) {
+          try {
+            localStorage.setItem(ACTIVE_OWNER_KEY, finalId);
+          } catch {}
+        }
+        if (!targetUserId || !owners.has(targetUserId)) {
+          targetUserId = finalId;
+          setActiveOwnerId(finalId);
+        }
+      } catch {}
+    }
 
     // Fetch all hives with apiary info (valgfritt filtrert på spesifikk bruker)
     let hiveQuery = supabase
@@ -169,6 +192,7 @@ export default function AllHivesPage() {
       .neq('status', 'SYKDOM')
       .order('hive_number', { ascending: true });
 
+    if (isDemoView && demoSessionId) hiveQuery = hiveQuery.eq('demo_session_id', demoSessionId);
     if (targetUserId) hiveQuery = hiveQuery.eq('user_id', targetUserId);
 
     const { data, error } = await hiveQuery;

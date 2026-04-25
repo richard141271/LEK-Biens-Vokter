@@ -414,12 +414,26 @@ export default function ApiariesPage() {
       }
       setCurrentUserId(user.id);
 
+      let isDemoView = false;
+      let demoOwnerId: string | null = null;
+      let demoSessionId: string | null = null;
+      try {
+        const params = new URLSearchParams(window.location.search);
+        isDemoView = params.get('demo') === '1';
+      } catch {}
+      if (isDemoView) {
+        try {
+          demoOwnerId = localStorage.getItem('lek_demo_owner_id');
+          demoSessionId = localStorage.getItem('lek_demo_session_id');
+        } catch {}
+      }
+
       try {
         const stored = typeof window !== 'undefined' ? localStorage.getItem(ACTIVE_OWNER_KEY) : null;
-        const initial = stored || user.id;
+        const initial = (isDemoView && demoOwnerId) ? demoOwnerId : (stored || user.id);
         setActiveOwnerId(initial);
       } catch {
-        setActiveOwnerId(user.id);
+        setActiveOwnerId((isDemoView && demoOwnerId) ? demoOwnerId : user.id);
       }
 
       // Fetch Profile
@@ -431,44 +445,58 @@ export default function ApiariesPage() {
       
       setProfile(profileData);
 
-      try {
-        const res = await fetch('/api/access/list', { method: 'GET' });
-        const data = await res.json().catch(() => ({}));
-        const incoming = Array.isArray(data?.incoming) ? data.incoming : [];
-        const owners = new Map<string, string>();
-        const myLabel = profileData?.full_name ? String(profileData.full_name) : 'Min konto';
-        owners.set(user.id, myLabel === 'Min konto' ? 'Min konto' : `Min konto (${myLabel})`);
+      if (isDemoView && demoOwnerId && demoSessionId) {
+        setAccounts([{ id: demoOwnerId, label: 'Demo konto' }]);
+        setActiveOwnerId(demoOwnerId);
+        try {
+          localStorage.setItem(ACTIVE_OWNER_KEY, demoOwnerId);
+        } catch {}
+      } else {
+        try {
+          const res = await fetch('/api/access/list', { method: 'GET' });
+          const data = await res.json().catch(() => ({}));
+          const incoming = Array.isArray(data?.incoming) ? data.incoming : [];
+          const owners = new Map<string, string>();
+          const myLabel = profileData?.full_name ? String(profileData.full_name) : 'Min konto';
+          owners.set(user.id, myLabel === 'Min konto' ? 'Min konto' : `Min konto (${myLabel})`);
 
-        for (const row of incoming) {
-          const ownerId = String(row?.owner_id || '').trim();
-          if (!ownerId) continue;
-          const name = row?.ownerProfile?.full_name ? String(row.ownerProfile.full_name) : ownerId.slice(0, 8);
-          owners.set(ownerId, name);
-        }
+          for (const row of incoming) {
+            const ownerId = String(row?.owner_id || '').trim();
+            if (!ownerId) continue;
+            const name = row?.ownerProfile?.full_name ? String(row.ownerProfile.full_name) : ownerId.slice(0, 8);
+            owners.set(ownerId, name);
+          }
 
-        const list = Array.from(owners.entries()).map(([id, label]) => ({ id, label }));
-        setAccounts(list);
+          const list = Array.from(owners.entries()).map(([id, label]) => ({ id, label }));
+          setAccounts(list);
 
-        const stored = typeof window !== 'undefined' ? localStorage.getItem(ACTIVE_OWNER_KEY) : null;
-        const storedId = stored || user.id;
-        const ok = owners.has(storedId);
-        const finalId = ok ? storedId : user.id;
-        if (finalId !== storedId) {
-          try {
-            localStorage.setItem(ACTIVE_OWNER_KEY, finalId);
-          } catch {}
-        }
-        setActiveOwnerId(finalId);
-      } catch {}
+          const stored = typeof window !== 'undefined' ? localStorage.getItem(ACTIVE_OWNER_KEY) : null;
+          const storedId = stored || user.id;
+          const ok = owners.has(storedId);
+          const finalId = ok ? storedId : user.id;
+          if (finalId !== storedId) {
+            try {
+              localStorage.setItem(ACTIVE_OWNER_KEY, finalId);
+            } catch {}
+          }
+          setActiveOwnerId(finalId);
+        } catch {}
+      }
 
       // Fetch Apiaries
-      const { data: apiariesData, error } = await supabase
+      let apiaryQuery = supabase
         .from('apiaries')
         .select(`
           *,
           hives (*)
         `)
         .order('created_at', { ascending: false });
+
+      if (isDemoView && demoSessionId) {
+        apiaryQuery = apiaryQuery.eq('demo_session_id', demoSessionId);
+      }
+
+      const { data: apiariesData, error } = await apiaryQuery;
 
       if (error) throw error;
       const normalizedApiaries = (apiariesData || []).map((a: any) => {
