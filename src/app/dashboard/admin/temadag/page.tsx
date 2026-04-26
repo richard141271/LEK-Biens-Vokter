@@ -5,6 +5,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 
+type PosterDef = {
+  key: string;
+  title: string;
+  filenames: string[];
+};
+
 type Lesson = {
   title: string;
   minutes: number;
@@ -12,6 +18,23 @@ type Lesson = {
   steps: { title: string; items: string[] }[];
   links?: { label: string; href: string }[];
 };
+
+const POSTER_BASE_PATH = '/Temadag%20plakater/';
+
+const POSTERS: PosterDef[] = [
+  { key: '0', title: 'Forside', filenames: ['nr0.png', 'nr0.jpg', 'nr0.jpeg'] },
+  { key: '1', title: 'Registrer deg', filenames: ['nr1.png', 'nr1.jpg', 'nr1.jpeg'] },
+  { key: '2', title: 'Logg inn', filenames: ['nr2.png', 'nr2.jpg', 'nr2.jpeg'] },
+  { key: '3', title: 'Min side', filenames: ['nr3.png', 'nr3.jpg', 'nr3.jpeg'] },
+  { key: '4', title: 'Opprett bigård', filenames: ['nr4.png', 'nr4.jpg', 'nr4.jpeg'] },
+  { key: '5', title: 'Opprett kuber', filenames: ['nr5.png', 'nr5.jpg', 'nr5.jpeg'] },
+  { key: '6', title: 'Plakat 6', filenames: ['nr6.png', 'nr6.jpg', 'nr6.jpeg'] },
+  { key: '7', title: 'Plakat 7', filenames: ['nr7.png', 'nr7.jpg', 'nr7.jpeg'] },
+  { key: '8', title: 'Plakat 8', filenames: ['nr8.png', 'nr8.jpg', 'nr8.jpeg'] },
+  { key: '9', title: 'Plakat 9', filenames: ['nr9.png', 'nr9.jpg', 'nr9.jpeg'] },
+  { key: '9.5', title: 'Takk for i dag', filenames: ['nr9,5.png', 'nr9.5.png', 'nr9_5.png', 'nr9,5.jpg', 'nr9.5.jpg', 'nr9_5.jpg'] },
+  { key: '10', title: 'Plakat 10', filenames: ['nr10.png', 'nr10.jpg', 'nr10.jpeg'] },
+];
 
 const LESSONS: Lesson[] = [
   {
@@ -155,6 +178,10 @@ export default function AdminTemadagPage() {
   const [demoExpiresAt, setDemoExpiresAt] = useState<string | null>(null);
   const [demoResetResult, setDemoResetResult] = useState<string | null>(null);
   const [activeLessonIndex, setActiveLessonIndex] = useState(0);
+  const [posterOpen, setPosterOpen] = useState(false);
+  const [posterIndex, setPosterIndex] = useState(0);
+  const [posterSrcByKey, setPosterSrcByKey] = useState<Record<string, string>>({});
+  const [availablePosterKeys, setAvailablePosterKeys] = useState<string[]>([]);
 
   useEffect(() => {
     const run = async () => {
@@ -200,6 +227,79 @@ export default function AdminTemadagPage() {
   const canNavigate = Boolean(isDemoAllowed && demoSessionId);
   const activeLesson = LESSONS[activeLessonIndex] || LESSONS[0];
   const progressPercent = LESSONS.length > 0 ? Math.round(((activeLessonIndex + 1) / LESSONS.length) * 100) : 0;
+
+  const buildPosterSrc = (filename: string) => `${POSTER_BASE_PATH}${encodeURIComponent(filename)}`;
+
+  const postersForLessonIndex = (idx: number) => {
+    if (idx === 0) return ['1', '2', '3'];
+    if (idx === 1) return ['4'];
+    if (idx === 2) return ['5'];
+    if (idx === 3) return ['6'];
+    return ['7', '8', '9', '9.5', '10'];
+  };
+
+  const openPosterByKey = async (key: string) => {
+    const idx = availablePosterKeys.indexOf(key);
+    if (idx < 0) return;
+    setPosterIndex(idx);
+    setPosterOpen(true);
+    await requestFullscreen();
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let cancelled = false;
+
+    const probe = (src: string) =>
+      new Promise<boolean>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = src;
+      });
+
+    const run = async () => {
+      const found: Record<string, string> = {};
+      const keys: string[] = [];
+
+      for (const def of POSTERS) {
+        let resolvedSrc: string | null = null;
+        for (const filename of def.filenames) {
+          const src = buildPosterSrc(filename);
+          const ok = await probe(src);
+          if (ok) {
+            resolvedSrc = src;
+            break;
+          }
+        }
+        if (resolvedSrc) {
+          found[def.key] = resolvedSrc;
+          keys.push(def.key);
+        }
+      }
+
+      if (cancelled) return;
+      setPosterSrcByKey(found);
+      setAvailablePosterKeys(keys);
+      if (keys.length > 0) setPosterIndex(0);
+    };
+
+    run().catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!posterOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPosterOpen(false);
+      if (e.key === 'ArrowLeft') setPosterIndex((p) => Math.max(0, p - 1));
+      if (e.key === 'ArrowRight') setPosterIndex((p) => Math.min(Math.max(availablePosterKeys.length - 1, 0), p + 1));
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [availablePosterKeys.length, posterOpen]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -340,6 +440,10 @@ export default function AdminTemadagPage() {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">Laster temadag…</div>;
   }
 
+  const currentPosterKey = availablePosterKeys[posterIndex] || null;
+  const currentPosterSrc = currentPosterKey ? posterSrcByKey[currentPosterKey] : null;
+  const currentPosterTitle = currentPosterKey ? POSTERS.find((p) => p.key === currentPosterKey)?.title || `Plakat ${currentPosterKey}` : '';
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
       <header className="bg-[#111827] text-white py-6 px-6 shadow-md">
@@ -355,6 +459,60 @@ export default function AdminTemadagPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+        {posterOpen && currentPosterSrc ? (
+          <div className="fixed inset-0 z-50 bg-black/95">
+            <div className="absolute inset-x-0 top-0 px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-white">
+              <div className="min-w-0">
+                <div className="text-xs uppercase tracking-wide text-white/70">Plakat {currentPosterKey}</div>
+                <div className="font-bold truncate">{currentPosterTitle}</div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <a href={currentPosterSrc} target="_blank" rel="noreferrer" className="px-3 py-2 rounded-lg bg-white/10 text-sm font-bold">
+                  Åpne i ny fane
+                </a>
+                <button type="button" onClick={() => setPosterOpen(false)} className="px-3 py-2 rounded-lg bg-white/10 text-sm font-bold">
+                  Lukk
+                </button>
+              </div>
+            </div>
+
+            <div className="absolute inset-0 flex items-center justify-center px-4 pt-16 pb-20">
+              <img src={currentPosterSrc} alt={currentPosterTitle} className="max-h-full max-w-full object-contain" />
+            </div>
+
+            <div className="absolute inset-x-0 bottom-0 px-4 py-4 flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setPosterIndex((p) => Math.max(0, p - 1))}
+                disabled={posterIndex <= 0}
+                className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-bold disabled:opacity-40"
+              >
+                Forrige
+              </button>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {availablePosterKeys.map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setPosterIndex(availablePosterKeys.indexOf(k))}
+                    className={k === currentPosterKey ? 'px-2 py-1 rounded-full bg-white text-black text-xs font-bold' : 'px-2 py-1 rounded-full bg-white/10 text-white text-xs font-bold'}
+                  >
+                    {k}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setPosterIndex((p) => Math.min(Math.max(availablePosterKeys.length - 1, 0), p + 1))}
+                disabled={posterIndex >= Math.max(availablePosterKeys.length - 1, 0)}
+                className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-bold disabled:opacity-40"
+              >
+                Neste
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
@@ -417,6 +575,46 @@ export default function AdminTemadagPage() {
           )}
           {demoError ? <div className="mt-3 text-sm text-red-700">{demoError}</div> : null}
           {demoResetResult ? <div className="mt-3 text-sm text-emerald-700">{demoResetResult}</div> : null}
+        </section>
+
+        <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Temadag-plakater (storskjerm)</h2>
+              <div className="mt-1 text-sm text-gray-600">Vis plakatene i fullskjerm. Pil venstre/høyre bytter plakat. Escape lukker.</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const key = availablePosterKeys[0];
+                if (key) void openPosterByKey(key);
+              }}
+              disabled={availablePosterKeys.length === 0}
+              className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold disabled:bg-gray-400"
+            >
+              Vis plakater
+            </button>
+          </div>
+
+          {availablePosterKeys.length === 0 ? (
+            <div className="mt-4 text-sm text-gray-700">
+              Fant ingen plakater. Legg bildene i <span className="font-bold">public/Temadag plakater</span> og navn dem
+              <span className="font-bold"> nr1.png</span> … <span className="font-bold">nr10.png</span>.
+            </div>
+          ) : (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {availablePosterKeys.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => void openPosterByKey(k)}
+                  className="px-3 py-2 rounded-lg bg-gray-100 text-gray-900 text-sm font-bold hover:bg-gray-200"
+                >
+                  Plakat {k}
+                </button>
+              ))}
+            </div>
+          )}
         </section>
 
         {!isDemoAllowed ? (
@@ -558,6 +756,22 @@ export default function AdminTemadagPage() {
                 <div className="text-xs font-bold uppercase tracking-wide text-gray-500">{l.minutes} min</div>
               </div>
 
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {postersForLessonIndex(idx)
+                  .filter((k) => availablePosterKeys.includes(k))
+                  .slice(0, 3)
+                  .map((k) => (
+                    <button
+                      key={`${l.title}-poster-${k}`}
+                      type="button"
+                      onClick={() => void openPosterByKey(k)}
+                      className="px-3 py-2 rounded-lg bg-gray-100 text-gray-900 text-sm font-bold hover:bg-gray-200"
+                    >
+                      Vis plakat {k}
+                    </button>
+                  ))}
+              </div>
+
               {l.links && l.links.length > 0 ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {(() => {
@@ -627,6 +841,20 @@ export default function AdminTemadagPage() {
           <h2 className="text-lg font-bold text-gray-900">Demo ferdig</h2>
           <div className="mt-2 text-sm text-gray-700">
             Når dere er ferdige, nullstill demoen så neste kurs starter blankt.
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {['9.5', '10']
+              .filter((k) => availablePosterKeys.includes(k))
+              .map((k) => (
+                <button
+                  key={`end-poster-${k}`}
+                  type="button"
+                  onClick={() => void openPosterByKey(k)}
+                  className="px-3 py-2 rounded-lg bg-gray-100 text-gray-900 text-sm font-bold hover:bg-gray-200"
+                >
+                  Vis plakat {k}
+                </button>
+              ))}
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <button
