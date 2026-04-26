@@ -9,14 +9,17 @@ type PosterDef = {
   key: string;
   title: string;
   filenames: string[];
+  orientation?: 'landscape' | 'portrait';
 };
 
-type Lesson = {
+type Slide = {
+  id: string;
   title: string;
-  minutes: number;
-  description: string;
-  steps: { title: string; items: string[] }[];
-  links?: { label: string; href: string }[];
+  kind: 'poster' | 'split' | 'end';
+  posterKey?: string;
+  posterPrefer?: 'nr' | 'sta';
+  appHref?: string;
+  body?: string[];
 };
 
 const POSTER_BASE_PATH = '/Temadag%20plakater/';
@@ -36,137 +39,68 @@ const POSTERS: PosterDef[] = [
   { key: '10', title: 'Plakat 10', filenames: ['nr10.png', 'nr10.jpg', 'nr10.jpeg'] },
 ];
 
-const LESSONS: Lesson[] = [
-  {
-    title: 'Del 1: Registrering og første oppsett',
-    minutes: 20,
-    description: 'Målet er at du kommer helt i gang: konto, innlogging, profil og første oversikt.',
-    steps: [
-      {
-        title: 'Registrer deg',
-        items: [
-          'Åpne appen og velg Registrer.',
-          'Fyll inn e-post og passord.',
-          'Logg inn når kontoen er opprettet.',
-        ],
-      },
-      {
-        title: 'Første gang i appen',
-        items: [
-          'Gå til Min side og sjekk at du ser dine tall og snarveier.',
-          'Gi appen nødvendige tillatelser (kamera/mikrofon/posisjon) når du blir spurt.',
-          'Hvis du bruker handsfree: test at tale fungerer (si en enkel kommando).',
-        ],
-      },
-    ],
-    links: [
-      { label: 'Gå til innlogging', href: '/login' },
-      { label: 'Gå til registrering', href: '/register' },
-      { label: 'Åpne Min side', href: '/dashboard' },
-    ],
-  },
-  {
-    title: 'Del 2: Opprett bigård (lokasjon)',
-    minutes: 20,
-    description: 'Målet er at du får opprettet minst én bigård og skjønner hvordan konto-kontekst fungerer.',
-    steps: [
-      {
-        title: 'Opprett bigård',
-        items: [
-          'Gå til Bigårder.',
-          'Velg Ny lokasjon / Opprett bigård.',
-          'Sjekk at “Konto” i toppen er riktig før du lagrer (viktig hvis du er avløser).',
-        ],
-      },
-      {
-        title: 'For avløser (jobber for flere birøktere)',
-        items: [
-          'Bytt Konto i Bigårder-listen før du oppretter/registrerer noe.',
-          'Husk: alt du oppretter må havne på riktig eier-konto.',
-        ],
-      },
-    ],
-    links: [
-      { label: 'Åpne Bigårder', href: '/apiaries' },
-      { label: 'Opprett ny bigård', href: '/apiaries/new' },
-    ],
-  },
-  {
-    title: 'Del 3: Opprett de første kubene',
-    minutes: 20,
-    description: 'Målet er at du får opprettet kuber på riktig lokasjon og skjønner nummerering og konto-valg.',
-    steps: [
-      {
-        title: 'Registrer nye kuber',
-        items: [
-          'Gå til Min side og trykk NY KUBE.',
-          'Velg konto (hvis du har flere).',
-          'Velg riktig lokasjon (bigård).',
-          'Velg antall kuber og trykk Opprett.',
-        ],
-      },
-      {
-        title: 'Sjekk at alt havnet riktig',
-        items: [
-          'Gå til Bikuber og bytt Konto hvis nødvendig.',
-          'Sjekk at kubene ligger i riktig bigård.',
-        ],
-      },
-    ],
-    links: [
-      { label: 'Åpne Bikuber', href: '/hives' },
-      { label: 'Åpne Bigårder', href: '/apiaries' },
-      { label: 'Åpne Min side', href: '/dashboard' },
-    ],
-  },
-  {
-    title: 'Del 4: Første inspeksjon (grunnflyt)',
-    minutes: 20,
-    description: 'Målet er at du kan registrere inspeksjon med/uten tale og at historikken blir riktig.',
-    steps: [
-      {
-        title: 'Utfør inspeksjon',
-        items: [
-          'Åpne en kube fra Bikuber.',
-          'Trykk Ny inspeksjon.',
-          'Fyll inn status/notater og eventuelt dronningfarge/årgang.',
-          'Ta bilde (knapp eller tale).',
-          'Lagre inspeksjon.',
-        ],
-      },
-      {
-        title: 'Kontroller resultatet',
-        items: [
-          'Sjekk at Inspeksjonshistorikk viser registreringen.',
-          'Sjekk at Logg viser “INSPEKSJON”.',
-          'Hvis du er avløser: inspeksjonen skal vises hos eier i historikken.',
-        ],
-      },
-    ],
-    links: [{ label: 'Åpne Bikuber', href: '/hives' }],
-  },
-  {
-    title: 'Del 5: Videre opplæring (blokker á ca. 20 minutter)',
-    minutes: 20,
-    description: 'Dette er planen for resten av temadagen. Hver blokk kan kjøres som en egen økt.',
-    steps: [
-      {
-        title: 'Forslag til videre moduler',
-        items: [
-          'Massehandlinger: registrer inspeksjon/logg på flere kuber samtidig.',
-          'Egensertifisering på bigård: sjekkliste, bildekrav, gyldighet og varsler.',
-          'Rapporter: hva som lagres hvor, og hvordan man finner igjen historikk.',
-          'Avløser-arbeid: konto-kontekst, tilgangsstyring og avslutte tilgang.',
-          'Offline-modus: hva som lagres lokalt og hvordan synk fungerer.',
-          'Skanning/QR: inn/ut av kubevisning, og praktisk bruk i felt.',
-        ],
-      },
-    ],
-  },
-];
+const buildPosterSrc = (filename: string) => `${POSTER_BASE_PATH}${encodeURIComponent(filename)}`;
+
+const posterFilesFor = (posterKey: string, prefer: 'nr' | 'sta') => {
+  const def = POSTERS.find((p) => p.key === posterKey) || null;
+  const nr = def?.filenames || [];
+  const sta =
+    posterKey === '9.5'
+      ? ['sta9,5.png', 'sta9.5.png', 'sta9_5.png', 'sta9,5.jpg', 'sta9.5.jpg', 'sta9_5.jpg']
+      : [`sta${posterKey}.png`, `sta${posterKey}.jpg`, `sta${posterKey}.jpeg`];
+  const ordered = prefer === 'sta' ? [...sta, ...nr] : [...nr, ...sta];
+  return Array.from(new Set(ordered));
+};
+
+const withDemoQuery = (href: string) => {
+  const [path, query] = href.split('?', 2);
+  const params = new URLSearchParams(query || '');
+  if (!params.has('demo')) params.set('demo', '1');
+  return `${path}?${params.toString()}`;
+};
+
+function PosterImage({ title, filenames, className }: { title: string; filenames: string[]; className: string }) {
+  const [filenameIndex, setFilenameIndex] = useState(0);
+
+  useEffect(() => setFilenameIndex(0), [filenames.join('|')]);
+
+  if (filenames.length === 0) return null;
+
+  const filename = filenames[Math.min(filenameIndex, filenames.length - 1)];
+  const src = buildPosterSrc(filename);
+
+  return (
+    <img
+      src={src}
+      alt={title}
+      className={className}
+      onError={() => {
+        setFilenameIndex((p) => (p + 1 < filenames.length ? p + 1 : p));
+      }}
+    />
+  );
+}
+
+function PhoneFrame({ href, title }: { href: string; title: string }) {
+  const src = useMemo(() => withDemoQuery(href), [href]);
+  return (
+    <div className="w-full h-full flex items-center justify-center">
+      <div className="bg-black rounded-[2.5rem] p-3 shadow-2xl border border-white/10">
+        <div className="bg-black rounded-[2rem] p-2">
+          <div className="bg-white rounded-[1.6rem] overflow-hidden">
+            <div className="w-[390px] h-[844px] bg-white">
+              <iframe key={src} title={title} src={src} className="w-full h-full border-0" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminTemadagPage() {
   const ACTIVE_OWNER_KEY = 'lek_active_owner_id';
+  const SLIDE_KEY = 'lek_temadag_slide_index';
   const supabase = createClient();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -177,11 +111,8 @@ export default function AdminTemadagPage() {
   const [demoSessionId, setDemoSessionId] = useState<string | null>(null);
   const [demoExpiresAt, setDemoExpiresAt] = useState<string | null>(null);
   const [demoResetResult, setDemoResetResult] = useState<string | null>(null);
-  const [activeLessonIndex, setActiveLessonIndex] = useState(0);
-  const [posterOpen, setPosterOpen] = useState(false);
-  const [posterIndex, setPosterIndex] = useState(0);
-  const [posterSrcByKey, setPosterSrcByKey] = useState<Record<string, string>>({});
-  const [availablePosterKeys, setAvailablePosterKeys] = useState<string[]>([]);
+  const [playerOpen, setPlayerOpen] = useState(false);
+  const [slideIndex, setSlideIndex] = useState(0);
 
   useEffect(() => {
     const run = async () => {
@@ -221,109 +152,15 @@ export default function AdminTemadagPage() {
         window.localStorage.setItem(ACTIVE_OWNER_KEY, storedDemoOwnerId);
       } catch {}
     }
+
+    const storedSlide = window.localStorage.getItem(SLIDE_KEY);
+    if (storedSlide) {
+      const idx = Number(storedSlide);
+      if (Number.isFinite(idx) && idx >= 0) setSlideIndex(idx);
+    }
   }, []);
 
-  const totalMinutes = useMemo(() => LESSONS.reduce((sum, l) => sum + l.minutes, 0), []);
   const canNavigate = Boolean(isDemoAllowed && demoSessionId);
-  const activeLesson = LESSONS[activeLessonIndex] || LESSONS[0];
-  const progressPercent = LESSONS.length > 0 ? Math.round(((activeLessonIndex + 1) / LESSONS.length) * 100) : 0;
-
-  const buildPosterSrc = (filename: string) => `${POSTER_BASE_PATH}${encodeURIComponent(filename)}`;
-
-  const postersForLessonIndex = (idx: number) => {
-    if (idx === 0) return ['1', '2', '3'];
-    if (idx === 1) return ['4'];
-    if (idx === 2) return ['5'];
-    if (idx === 3) return ['6'];
-    return ['7', '8', '9', '9.5', '10'];
-  };
-
-  const openPosterByKey = async (key: string) => {
-    const idx = availablePosterKeys.indexOf(key);
-    if (idx < 0) return;
-    setPosterIndex(idx);
-    setPosterOpen(true);
-    await requestFullscreen();
-  };
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    let cancelled = false;
-
-    const probe = (src: string) =>
-      new Promise<boolean>((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve(true);
-        img.onerror = () => resolve(false);
-        img.src = src;
-      });
-
-    const run = async () => {
-      const found: Record<string, string> = {};
-      const keys: string[] = [];
-
-      for (const def of POSTERS) {
-        let resolvedSrc: string | null = null;
-        for (const filename of def.filenames) {
-          const src = buildPosterSrc(filename);
-          const ok = await probe(src);
-          if (ok) {
-            resolvedSrc = src;
-            break;
-          }
-        }
-        if (resolvedSrc) {
-          found[def.key] = resolvedSrc;
-          keys.push(def.key);
-        }
-      }
-
-      if (cancelled) return;
-      setPosterSrcByKey(found);
-      setAvailablePosterKeys(keys);
-      if (keys.length > 0) setPosterIndex(0);
-    };
-
-    run().catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!posterOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPosterOpen(false);
-      if (e.key === 'ArrowLeft') setPosterIndex((p) => Math.max(0, p - 1));
-      if (e.key === 'ArrowRight') setPosterIndex((p) => Math.min(Math.max(availablePosterKeys.length - 1, 0), p + 1));
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [availablePosterKeys.length, posterOpen]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const elements = LESSONS.map((_, idx) => document.getElementById(`del-${idx + 1}`)).filter(Boolean) as HTMLElement[];
-    if (elements.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => (b.intersectionRatio || 0) - (a.intersectionRatio || 0))[0];
-        if (!visible) return;
-        const id = String((visible.target as HTMLElement)?.id || '');
-        const match = id.match(/^del-(\d+)$/);
-        if (!match) return;
-        const idx = Math.max(0, Math.min(LESSONS.length - 1, parseInt(match[1], 10) - 1));
-        setActiveLessonIndex(idx);
-      },
-      { root: null, threshold: [0.2, 0.35, 0.5, 0.65] }
-    );
-
-    for (const el of elements) observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
 
   const requestFullscreen = async () => {
     try {
@@ -334,6 +171,48 @@ export default function AdminTemadagPage() {
       // ignore
     }
   };
+
+  const slides: Slide[] = useMemo(
+    () => [
+      { id: 'poster-0', title: 'Forside', kind: 'poster', posterKey: '0', posterPrefer: 'nr' },
+      { id: 'split-1', title: 'Registrering', kind: 'split', posterKey: '1', posterPrefer: 'sta', appHref: '/register', body: ['Vis registrering på høyre side.', 'Tips: bruk en test-epost.'] },
+      { id: 'poster-2', title: 'Logg inn', kind: 'poster', posterKey: '2', posterPrefer: 'nr' },
+      { id: 'split-3', title: 'Min side', kind: 'split', posterKey: '3', posterPrefer: 'sta', appHref: '/dashboard', body: ['Vis Min side og snarveier.', 'Når demo er aktiv: demo-banner skal vises.'] },
+      { id: 'poster-4', title: 'Opprett bigård', kind: 'poster', posterKey: '4', posterPrefer: 'nr' },
+      { id: 'split-4b', title: 'Opprett bigård (demo)', kind: 'split', posterKey: '4', posterPrefer: 'sta', appHref: '/apiaries/new', body: ['Opprett én bigård i demo.', 'Kartet skal starte nær posisjon (eller fallback Norge).'] },
+      { id: 'poster-5', title: 'Opprett kuber', kind: 'poster', posterKey: '5', posterPrefer: 'nr' },
+      { id: 'split-5b', title: 'Opprett kuber (demo)', kind: 'split', posterKey: '5', posterPrefer: 'sta', appHref: '/dashboard', body: ['Trykk NY KUBE og opprett 2–3 kuber.', 'Velg riktig bigård.'] },
+      { id: 'poster-6', title: 'Plakat 6', kind: 'poster', posterKey: '6', posterPrefer: 'nr' },
+      { id: 'split-7', title: 'Bikuber (demo)', kind: 'split', posterKey: '7', posterPrefer: 'sta', appHref: '/hives', body: ['Åpne Bikuber og vis at demo-data dukker opp.', 'Åpne en kube og vis historikk/logg.'] },
+      { id: 'poster-8', title: 'Plakat 8', kind: 'poster', posterKey: '8', posterPrefer: 'nr' },
+      { id: 'split-9', title: 'Ny inspeksjon (demo)', kind: 'split', posterKey: '9', posterPrefer: 'sta', appHref: '/hives', body: ['Åpne en kube → Ny inspeksjon.', 'Ta minst ett bilde og lagre.'] },
+      { id: 'poster-9-5', title: 'Takk for i dag', kind: 'poster', posterKey: '9.5', posterPrefer: 'nr' },
+      { id: 'end', title: 'Avslutt', kind: 'end', body: ['Når dere er ferdige: nullstill demo så neste kurs starter blankt.'] },
+    ],
+    []
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(SLIDE_KEY, String(slideIndex));
+    } catch {}
+  }, [SLIDE_KEY, slideIndex]);
+
+  useEffect(() => {
+    if (!playerOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPlayerOpen(false);
+        return;
+      }
+      if (e.key === 'ArrowLeft') setSlideIndex((p) => Math.max(0, p - 1));
+      if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') setSlideIndex((p) => Math.min(slides.length - 1, p + 1));
+      if (e.key.toLowerCase() === 'f') void requestFullscreen();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [playerOpen, slides.length]);
 
   const startDemo = async () => {
     setDemoError(null);
@@ -368,10 +247,14 @@ export default function AdminTemadagPage() {
           window.localStorage.setItem('lek_demo_owner_id', demoOwnerId);
           window.localStorage.setItem(ACTIVE_OWNER_KEY, demoOwnerId);
         }
+        window.localStorage.setItem(SLIDE_KEY, '0');
       }
 
       setDemoSessionId(sessionId || null);
       setDemoExpiresAt(expiresAt || null);
+      setSlideIndex(0);
+      setPlayerOpen(true);
+      await requestFullscreen();
     } catch {
       setDemoError('Kunne ikke starte demo');
     } finally {
@@ -418,11 +301,14 @@ export default function AdminTemadagPage() {
         window.localStorage.removeItem('lek_demo_session_expires_at');
         window.localStorage.removeItem('lek_demo_session_token');
         window.localStorage.removeItem('lek_demo_owner_id');
+        window.localStorage.removeItem(SLIDE_KEY);
         if (userId) window.localStorage.setItem(ACTIVE_OWNER_KEY, userId);
       }
 
       setDemoSessionId(null);
       setDemoExpiresAt(null);
+      setSlideIndex(0);
+      setPlayerOpen(false);
       const d = data?.deleted || {};
       setDemoResetResult(
         `Slettet: bigårder ${Number(d.apiaries || 0)}, kuber ${Number(d.hives || 0)}, inspeksjoner ${Number(
@@ -440,9 +326,14 @@ export default function AdminTemadagPage() {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">Laster temadag…</div>;
   }
 
-  const currentPosterKey = availablePosterKeys[posterIndex] || null;
-  const currentPosterSrc = currentPosterKey ? posterSrcByKey[currentPosterKey] : null;
-  const currentPosterTitle = currentPosterKey ? POSTERS.find((p) => p.key === currentPosterKey)?.title || `Plakat ${currentPosterKey}` : '';
+  const currentSlide = slides[Math.max(0, Math.min(slides.length - 1, slideIndex))] || slides[0];
+  const posterTitle = currentSlide.posterKey ? POSTERS.find((p) => p.key === currentSlide.posterKey)?.title || currentSlide.title : currentSlide.title;
+  const posterFiles =
+    currentSlide.posterKey && currentSlide.posterPrefer
+      ? posterFilesFor(currentSlide.posterKey, currentSlide.posterPrefer)
+      : currentSlide.posterKey
+        ? posterFilesFor(currentSlide.posterKey, 'nr')
+        : [];
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -450,7 +341,7 @@ export default function AdminTemadagPage() {
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Temadag</h1>
-            <p className="text-gray-400 text-sm">Opplæring og bruksanvisning (steg for steg)</p>
+            <p className="text-gray-400 text-sm">Storskjerm-kurs (plakat + demo)</p>
           </div>
           <Link href="/dashboard/admin" className="text-sm font-semibold text-gray-300 hover:text-white hover:underline">
             ← Tilbake
@@ -459,66 +350,12 @@ export default function AdminTemadagPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-6 py-8 space-y-6">
-        {posterOpen && currentPosterSrc ? (
-          <div className="fixed inset-0 z-50 bg-black/95">
-            <div className="absolute inset-x-0 top-0 px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-white">
-              <div className="min-w-0">
-                <div className="text-xs uppercase tracking-wide text-white/70">Plakat {currentPosterKey}</div>
-                <div className="font-bold truncate">{currentPosterTitle}</div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <a href={currentPosterSrc} target="_blank" rel="noreferrer" className="px-3 py-2 rounded-lg bg-white/10 text-sm font-bold">
-                  Åpne i ny fane
-                </a>
-                <button type="button" onClick={() => setPosterOpen(false)} className="px-3 py-2 rounded-lg bg-white/10 text-sm font-bold">
-                  Lukk
-                </button>
-              </div>
-            </div>
-
-            <div className="absolute inset-0 flex items-center justify-center px-4 pt-16 pb-20">
-              <img src={currentPosterSrc} alt={currentPosterTitle} className="max-h-full max-w-full object-contain" />
-            </div>
-
-            <div className="absolute inset-x-0 bottom-0 px-4 py-4 flex flex-wrap items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => setPosterIndex((p) => Math.max(0, p - 1))}
-                disabled={posterIndex <= 0}
-                className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-bold disabled:opacity-40"
-              >
-                Forrige
-              </button>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {availablePosterKeys.map((k) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setPosterIndex(availablePosterKeys.indexOf(k))}
-                    className={k === currentPosterKey ? 'px-2 py-1 rounded-full bg-white text-black text-xs font-bold' : 'px-2 py-1 rounded-full bg-white/10 text-white text-xs font-bold'}
-                  >
-                    {k}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setPosterIndex((p) => Math.min(Math.max(availablePosterKeys.length - 1, 0), p + 1))}
-                disabled={posterIndex >= Math.max(availablePosterKeys.length - 1, 0)}
-                className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-bold disabled:opacity-40"
-              >
-                Neste
-              </button>
-            </div>
-          </div>
-        ) : null}
-
         <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-xs font-bold uppercase tracking-wide text-gray-500">Del {activeLessonIndex + 1}/{LESSONS.length}</div>
-              <div className="font-bold text-gray-900 truncate">{activeLesson?.title}</div>
-              <div className="text-sm text-gray-600">{activeLesson?.description}</div>
+              <div className="text-xs font-bold uppercase tracking-wide text-gray-500">Kurs-player</div>
+              <div className="font-bold text-gray-900 truncate">Lineær flyt med tastatur (←/→)</div>
+              <div className="text-sm text-gray-600">Start demo og gå steg for steg. Delt skjerm veksler mellom plakat og “telefon” med appen.</div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -532,36 +369,24 @@ export default function AdminTemadagPage() {
               </button>
               <button
                 type="button"
+                onClick={() => {
+                  if (!canNavigate) return;
+                  setPlayerOpen(true);
+                  void requestFullscreen();
+                }}
+                disabled={!canNavigate}
+                className="px-4 py-2 rounded-lg bg-honey-600 text-white text-sm font-bold disabled:bg-gray-400"
+              >
+                Fortsett kurs
+              </button>
+              <button
+                type="button"
                 onClick={resetDemo}
                 disabled={!demoSessionId || resettingDemo}
                 className="px-4 py-2 rounded-lg bg-red-700 text-white text-sm font-bold disabled:bg-gray-400"
               >
-                {resettingDemo ? 'Nullstiller…' : 'Avslutt og nullstill demo'}
+                {resettingDemo ? 'Nullstiller…' : 'Nullstill demo'}
               </button>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-              <div className="h-2 bg-honey-500" style={{ width: `${progressPercent}%` }} />
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2 text-xs">
-              {LESSONS.map((l, idx) => {
-                const isActive = idx === activeLessonIndex;
-                return (
-                  <a
-                    key={l.title}
-                    href={`#del-${idx + 1}`}
-                    className={
-                      isActive
-                        ? 'px-2 py-1 rounded-full bg-gray-900 text-white font-bold'
-                        : 'px-2 py-1 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }
-                  >
-                    {idx + 1}
-                  </a>
-                );
-              })}
             </div>
           </div>
 
@@ -569,6 +394,7 @@ export default function AdminTemadagPage() {
             <div className="mt-4 text-sm text-gray-700">
               Demo-session: <span className="font-bold">{demoSessionId}</span>
               {demoExpiresAt ? <span className="text-gray-500"> (utløper {demoExpiresAt})</span> : null}
+              <span className="text-gray-500"> • Steg {Math.min(slideIndex + 1, slides.length)}/{slides.length}</span>
             </div>
           ) : (
             <div className="mt-4 text-sm text-gray-600">Ingen aktiv demo-session ennå.</div>
@@ -577,298 +403,146 @@ export default function AdminTemadagPage() {
           {demoResetResult ? <div className="mt-3 text-sm text-emerald-700">{demoResetResult}</div> : null}
         </section>
 
-        <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Temadag-plakater (storskjerm)</h2>
-              <div className="mt-1 text-sm text-gray-600">Vis plakatene i fullskjerm. Pil venstre/høyre bytter plakat. Escape lukker.</div>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const key = availablePosterKeys[0];
-                if (key) void openPosterByKey(key);
-              }}
-              disabled={availablePosterKeys.length === 0}
-              className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold disabled:bg-gray-400"
-            >
-              Vis plakater
-            </button>
-          </div>
-
-          {availablePosterKeys.length === 0 ? (
-            <div className="mt-4 text-sm text-gray-700">
-              Fant ingen plakater. Legg bildene i <span className="font-bold">public/Temadag plakater</span> og navn dem
-              <span className="font-bold"> nr1.png</span> … <span className="font-bold">nr10.png</span>.
-            </div>
-          ) : (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {availablePosterKeys.map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => void openPosterByKey(k)}
-                  className="px-3 py-2 rounded-lg bg-gray-100 text-gray-900 text-sm font-bold hover:bg-gray-200"
-                >
-                  Plakat {k}
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-
         {!isDemoAllowed ? (
           <section className="bg-white border border-red-200 rounded-xl p-6 shadow-sm">
             <h2 className="text-lg font-bold text-gray-900">Demo-modus</h2>
-            <div className="mt-2 text-sm text-gray-700">
-              Temadag er låst til staging og kan ikke kjøres herfra.
-            </div>
+            <div className="mt-2 text-sm text-gray-700">Temadag er låst til staging og kan ikke kjøres herfra.</div>
           </section>
-        ) : (
-          <section className="bg-white border border-yellow-200 rounded-xl p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-gray-900">Demo-modus</h2>
-            <div className="mt-2 text-sm text-gray-700">
-              For å unngå at opplæringen blander seg med ekte data, er demo-flyt og “Nullstill demo” låst bak egne
-              sikkerhetsregler. Navigasjonsknappene aktiveres når demo-sesjoner er på plass.
-            </div>
-            <div className="mt-4 text-sm text-gray-700">
-              Tips: Start demo først. Deretter blir “Fortsett”-knappene aktive og åpner ekte sider i appen i demo-modus.
-            </div>
-          </section>
-        )}
+        ) : null}
 
         <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-900">Oversikt</h2>
-          <div className="mt-2 text-sm text-gray-600">
-            Start med registrering, opprett bigård og de første kubene. Fortsett i økter á ca. 20 minutter.
-          </div>
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-            <div className="rounded-xl border border-gray-200 p-4">
-              <div className="text-gray-500">Antall økter</div>
-              <div className="font-bold text-gray-900">{LESSONS.length}</div>
-            </div>
-            <div className="rounded-xl border border-gray-200 p-4">
-              <div className="text-gray-500">Varighet (ca.)</div>
-              <div className="font-bold text-gray-900">{totalMinutes} min</div>
-            </div>
-            <div className="rounded-xl border border-gray-200 p-4">
-              <div className="text-gray-500">Anbefalt</div>
-              <div className="font-bold text-gray-900">Kjør i felt + skjerm</div>
-            </div>
-          </div>
-        </section>
-
-        <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-900">Testing-sjekkliste før kurs</h2>
-          <div className="mt-2 text-sm text-gray-700">
-            Kjør dette én gang før dere starter kurs for å være sikker på at demo-flyten fungerer og at nullstilling faktisk sletter alt.
-          </div>
-          <ol className="mt-4 list-decimal pl-5 text-sm text-gray-800 space-y-2">
-            <li>
-              Trykk <span className="font-bold">Start demo</span> og verifiser at demo-banner vises når du åpner app-sider (Demo-modus aktiv).
-            </li>
-            <li>
-              Åpne <span className="font-bold">Bigårder</span> → <span className="font-bold">Ny lokasjon</span> og opprett én bigård.
-            </li>
-            <li>
-              Åpne <span className="font-bold">Min side</span> → <span className="font-bold">NY KUBE</span> og opprett 2–3 kuber på bigården.
-            </li>
-            <li>
-              Åpne <span className="font-bold">Bikuber</span>, åpne en kube og lagre en <span className="font-bold">Ny inspeksjon</span>.
-            </li>
-            <li>
-              Verifiser: på kube-detalj → <span className="font-bold">Historikk</span> viser inspeksjonen, og <span className="font-bold">Logg</span> viser “INSPEKSJON”.
-            </li>
-            <li>
-              Trykk <span className="font-bold">Avslutt og nullstill demo</span> (på toppen eller nederst).
-            </li>
-            <li>
-              Bekreft at alt er borte:
-              <ul className="mt-2 list-disc pl-5 space-y-1">
-                <li>Bigårder: listen er tom (eller viser ikke bigården du nettopp laget).</li>
-                <li>Bikuber: listen er tom (eller viser ikke kubene du nettopp laget).</li>
-                <li>Åpner du samme kube-lenke på nytt: den skal feile/ikke finnes i demo.</li>
-              </ul>
-            </li>
-          </ol>
+          <h2 className="text-lg font-bold text-gray-900">Direktelenker (feilsøk plakater)</h2>
+          <div className="mt-2 text-sm text-gray-700">Hvis disse åpner, blir plakatene også synlige i kurs-playeren.</div>
           <div className="mt-4 flex flex-wrap gap-2">
-            {canNavigate ? (
-              <Link href="/dashboard?demo=1" className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold">
-                Åpne Min side
-              </Link>
-            ) : (
-              <button type="button" disabled className="px-3 py-2 rounded-lg bg-gray-300 text-white text-sm font-bold cursor-not-allowed">
-                Åpne Min side
-              </button>
-            )}
-            {canNavigate ? (
-              <Link href="/apiaries?demo=1" className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold">
-                Åpne Bigårder
-              </Link>
-            ) : (
-              <button type="button" disabled className="px-3 py-2 rounded-lg bg-gray-300 text-white text-sm font-bold cursor-not-allowed">
-                Åpne Bigårder
-              </button>
-            )}
-            {canNavigate ? (
-              <Link href="/hives?demo=1" className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold">
-                Åpne Bikuber
-              </Link>
-            ) : (
-              <button type="button" disabled className="px-3 py-2 rounded-lg bg-gray-300 text-white text-sm font-bold cursor-not-allowed">
-                Åpne Bikuber
-              </button>
-            )}
-          </div>
-        </section>
-
-        <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-900">Agenda</h2>
-          <div className="mt-3 grid gap-2">
-            {LESSONS.map((l, idx) => (
+            {POSTERS.map((p) => (
               <a
-                key={l.title}
-                href={`#del-${idx + 1}`}
-                className="rounded-xl border border-gray-200 px-4 py-3 hover:bg-gray-50"
+                key={`poster-link-${p.key}`}
+                href={buildPosterSrc(p.filenames[0])}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-2 rounded-lg bg-gray-100 text-gray-900 text-sm font-bold hover:bg-gray-200"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="font-semibold text-gray-900">
-                    {idx + 1}. {l.title}
-                  </div>
-                  <div className="text-xs text-gray-500 whitespace-nowrap">{l.minutes} min</div>
-                </div>
-                <div className="mt-1 text-sm text-gray-600">{l.description}</div>
+                Plakat {p.key}
               </a>
             ))}
           </div>
         </section>
+      </main>
 
-        <section className="space-y-4">
-          {LESSONS.map((l, idx) => (
-            <section key={l.title} id={`del-${idx + 1}`} className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900">
-                    {idx + 1}. {l.title}
-                  </h2>
-                  <div className="mt-1 text-sm text-gray-600">{l.description}</div>
-                </div>
-                <div className="text-xs font-bold uppercase tracking-wide text-gray-500">{l.minutes} min</div>
+      {playerOpen ? (
+        <div className="fixed inset-0 z-50 bg-black">
+          <div className="absolute inset-x-0 top-0 px-4 py-3 flex flex-wrap items-center justify-between gap-2 bg-black/60 backdrop-blur">
+            <div className="min-w-0 text-white">
+              <div className="text-xs uppercase tracking-wide text-white/70">Steg {Math.min(slideIndex + 1, slides.length)}/{slides.length}</div>
+              <div className="font-bold truncate">{currentSlide.title}</div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => void requestFullscreen()} className="px-3 py-2 rounded-lg bg-white/10 text-sm font-bold text-white">
+                Fullskjerm (F)
+              </button>
+              <button type="button" onClick={() => setPlayerOpen(false)} className="px-3 py-2 rounded-lg bg-white/10 text-sm font-bold text-white">
+                Lukk (Esc)
+              </button>
+            </div>
+          </div>
+
+          <div className="absolute inset-0 pt-16 pb-20">
+            {currentSlide.kind === 'poster' && currentSlide.posterKey ? (
+              <div className="w-full h-full flex items-center justify-center px-4">
+                <PosterImage title={posterTitle} filenames={posterFiles} className="max-h-full max-w-full object-contain" />
               </div>
+            ) : null}
 
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                {postersForLessonIndex(idx)
-                  .filter((k) => availablePosterKeys.includes(k))
-                  .slice(0, 3)
-                  .map((k) => (
-                    <button
-                      key={`${l.title}-poster-${k}`}
-                      type="button"
-                      onClick={() => void openPosterByKey(k)}
-                      className="px-3 py-2 rounded-lg bg-gray-100 text-gray-900 text-sm font-bold hover:bg-gray-200"
-                    >
-                      Vis plakat {k}
-                    </button>
-                  ))}
-              </div>
-
-              {l.links && l.links.length > 0 ? (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {(() => {
-                    const primary = l.links?.[0];
-                    if (!primary) return null;
-                    const hrefWithDemo = primary.href.includes('?') ? `${primary.href}&demo=1` : `${primary.href}?demo=1`;
-                    return canNavigate ? (
-                      <Link
-                        key={`${l.title}-primary`}
-                        href={hrefWithDemo}
-                        className="px-4 py-2 rounded-lg bg-honey-600 text-white text-sm font-bold"
-                      >
-                        Fortsett
-                      </Link>
-                    ) : (
-                      <button
-                        key={`${l.title}-primary`}
-                        type="button"
-                        disabled
-                        className="px-4 py-2 rounded-lg bg-gray-400 text-white text-sm font-bold cursor-not-allowed"
-                      >
-                        Fortsett
-                      </button>
-                    );
-                  })()}
-                  {l.links.map((x) => {
-                    const hrefWithDemo = x.href.includes('?') ? `${x.href}&demo=1` : `${x.href}?demo=1`;
-                    return canNavigate ? (
-                      <Link
-                        key={`${l.title}-${x.href}`}
-                        href={hrefWithDemo}
-                        className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold"
-                      >
-                        {x.label}
-                      </Link>
-                    ) : (
-                      <button
-                        key={`${l.title}-${x.href}`}
-                        type="button"
-                        disabled
-                        className="px-3 py-2 rounded-lg bg-gray-400 text-white text-sm font-bold cursor-not-allowed"
-                      >
-                        {x.label}
-                      </button>
-                    );
-                  })}
+            {currentSlide.kind === 'split' && currentSlide.posterKey && currentSlide.appHref ? (
+              <div className="w-full h-full grid grid-cols-1 lg:grid-cols-2">
+                <div className="h-full flex items-center justify-center px-4 bg-black">
+                  <PosterImage title={posterTitle} filenames={posterFiles} className="max-h-full max-w-full object-contain" />
                 </div>
-              ) : null}
+                <div className="h-full bg-[#0b0f1a] flex flex-col">
+                  <div className="px-4 py-3 text-white/90 text-sm flex flex-wrap items-center justify-between gap-2 border-b border-white/10">
+                    <div className="font-bold">Demo</div>
+                    <a href={withDemoQuery(currentSlide.appHref)} target="_blank" rel="noreferrer" className="px-3 py-2 rounded-lg bg-white/10 text-sm font-bold text-white">
+                      Åpne i ny fane
+                    </a>
+                  </div>
+                  <div className="flex-1 overflow-auto p-4">
+                    <PhoneFrame href={currentSlide.appHref} title={currentSlide.title} />
+                    {currentSlide.body && currentSlide.body.length > 0 ? (
+                      <div className="mt-4 max-w-2xl mx-auto text-white/80 text-sm">
+                        <ul className="list-disc pl-5 space-y-1">
+                          {currentSlide.body.map((t) => (
+                            <li key={`${currentSlide.id}-${t}`}>{t}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
-              <div className="mt-5 space-y-3">
-                {l.steps.map((s) => (
-                  <details key={`${l.title}-${s.title}`} className="rounded-xl border border-gray-200 p-4">
-                    <summary className="cursor-pointer font-bold text-gray-900">{s.title}</summary>
-                    <ul className="mt-3 list-disc pl-5 text-sm text-gray-700 space-y-1">
-                      {s.items.map((it) => (
-                        <li key={`${l.title}-${s.title}-${it}`}>{it}</li>
+            {currentSlide.kind === 'end' ? (
+              <div className="w-full h-full flex items-center justify-center px-6">
+                <div className="max-w-2xl w-full bg-white/5 border border-white/10 rounded-2xl p-6 text-white">
+                  <div className="text-xl font-bold">Demo ferdig</div>
+                  {currentSlide.body && currentSlide.body.length > 0 ? (
+                    <ul className="mt-4 list-disc pl-5 space-y-2 text-white/80 text-sm">
+                      {currentSlide.body.map((t) => (
+                        <li key={`${currentSlide.id}-${t}`}>{t}</li>
                       ))}
                     </ul>
-                  </details>
-                ))}
+                  ) : null}
+                  <div className="mt-6 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={resetDemo}
+                      disabled={!demoSessionId || resettingDemo}
+                      className="px-5 py-3 rounded-lg bg-red-700 text-white text-sm font-bold disabled:bg-gray-400"
+                    >
+                      {resettingDemo ? 'Nullstiller…' : 'Avslutt og nullstill demo'}
+                    </button>
+                    <button type="button" onClick={() => setPlayerOpen(false)} className="px-5 py-3 rounded-lg bg-white/10 text-white text-sm font-bold">
+                      Lukk kurs
+                    </button>
+                  </div>
+                  {demoResetResult ? <div className="mt-4 text-sm text-emerald-300">{demoResetResult}</div> : null}
+                </div>
               </div>
-            </section>
-          ))}
-        </section>
+            ) : null}
+          </div>
 
-        <section className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-gray-900">Demo ferdig</h2>
-          <div className="mt-2 text-sm text-gray-700">
-            Når dere er ferdige, nullstill demoen så neste kurs starter blankt.
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {['9.5', '10']
-              .filter((k) => availablePosterKeys.includes(k))
-              .map((k) => (
-                <button
-                  key={`end-poster-${k}`}
-                  type="button"
-                  onClick={() => void openPosterByKey(k)}
-                  className="px-3 py-2 rounded-lg bg-gray-100 text-gray-900 text-sm font-bold hover:bg-gray-200"
-                >
-                  Vis plakat {k}
-                </button>
-              ))}
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
+          <div className="absolute inset-x-0 bottom-0 px-4 py-4 flex flex-wrap items-center justify-between gap-2 bg-black/60 backdrop-blur">
             <button
               type="button"
-              onClick={resetDemo}
-              disabled={!demoSessionId || resettingDemo}
-              className="px-5 py-3 rounded-lg bg-red-700 text-white text-sm font-bold disabled:bg-gray-400"
+              onClick={() => setSlideIndex((p) => Math.max(0, p - 1))}
+              disabled={slideIndex <= 0}
+              className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-bold disabled:opacity-40"
             >
-              {resettingDemo ? 'Nullstiller…' : 'Avslutt og nullstill demo'}
+              Forrige (←)
             </button>
-            {demoResetResult ? <div className="text-sm text-emerald-700">{demoResetResult}</div> : null}
+            <div className="flex flex-wrap gap-2 justify-center">
+              {slides.map((s, idx) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setSlideIndex(idx)}
+                  className={idx === slideIndex ? 'px-2 py-1 rounded-full bg-white text-black text-xs font-bold' : 'px-2 py-1 rounded-full bg-white/10 text-white text-xs font-bold'}
+                >
+                  {idx + 1}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setSlideIndex((p) => Math.min(slides.length - 1, p + 1))}
+              disabled={slideIndex >= slides.length - 1}
+              className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-bold disabled:opacity-40"
+            >
+              Neste (→)
+            </button>
           </div>
-        </section>
-      </main>
+        </div>
+      ) : null}
     </div>
   );
 }
