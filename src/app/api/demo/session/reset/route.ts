@@ -88,6 +88,42 @@ function extractInspectionImagePaths(text: string) {
   return Array.from(paths);
 }
 
+async function listAllStoragePaths(admin: any, bucket: string, rootPath: string) {
+  const paths: string[] = [];
+  const queue: string[] = [rootPath];
+  const seen = new Set<string>();
+
+  while (queue.length > 0) {
+    const current = queue.shift() as string;
+    if (seen.has(current)) continue;
+    seen.add(current);
+
+    let offset = 0;
+    const limit = 100;
+    while (true) {
+      const { data, error } = await admin.storage.from(bucket).list(current, { limit, offset });
+      if (error || !Array.isArray(data) || data.length === 0) break;
+
+      for (const item of data) {
+        const name = String(item?.name || '').trim();
+        if (!name) continue;
+        const isFolder = !item?.metadata;
+        const nextPath = current ? `${current}/${name}` : name;
+        if (isFolder) {
+          queue.push(nextPath);
+        } else {
+          paths.push(nextPath);
+        }
+      }
+
+      if (data.length < limit) break;
+      offset += limit;
+    }
+  }
+
+  return paths;
+}
+
 export async function POST(request: Request) {
   const host = getHost(request);
   if (!isStagingHost(host) && !isDemoEnabled()) {
@@ -160,10 +196,16 @@ export async function POST(request: Request) {
   }
 
   let deletedImages = 0;
+  try {
+    const prefixPaths = await listAllStoragePaths(admin, 'inspection-images', `demo/${sessionId}`);
+    for (const p of prefixPaths) imagePaths.add(p);
+  } catch {}
+
   if (imagePaths.size > 0) {
     try {
-      const { data: removed, error: removeError } = await admin.storage.from('inspection-images').remove(Array.from(imagePaths));
-      if (!removeError) deletedImages = Array.isArray(removed) ? removed.length : Array.from(imagePaths).length;
+      const list = Array.from(imagePaths);
+      const { data: removed, error: removeError } = await admin.storage.from('inspection-images').remove(list);
+      if (!removeError) deletedImages = Array.isArray(removed) ? removed.length : list.length;
     } catch {}
   }
 

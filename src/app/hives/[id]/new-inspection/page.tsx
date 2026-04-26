@@ -704,8 +704,16 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   };
 
   const uploadImage = async (file: File, opId: string, index: number): Promise<string> => {
+    let demoSessionId: string | null = null;
+    if (isDemoActive) {
+      try {
+        demoSessionId = localStorage.getItem('lek_demo_session_id');
+      } catch {}
+    }
     const fileExt = file.name.split('.').pop() || 'jpg';
-    const filePath = `${params.id}/${opId}/${index}.${fileExt}`;
+    const filePath = demoSessionId
+      ? `demo/${demoSessionId}/${params.id}/${opId}/${index}.${fileExt}`
+      : `${params.id}/${opId}/${index}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
       .from('inspection-images')
@@ -821,10 +829,32 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
 
       if (isDemoActive) {
+        let imageUrl: string | null = null;
+        const allPhotos: string[] = [];
         if (allFiles.length > 0) {
-          alert('Bilder er deaktivert i demo-modus.');
+          setUploadingImage(true);
+          try {
+            for (let i = 0; i < allFiles.length; i++) {
+              let u = '';
+              try {
+                u = await uploadImage(allFiles[i], opId, i + 1);
+              } catch (e: any) {
+                if (isBucketNotFoundError(e)) {
+                  alert('Bilde-lagring er ikke satt opp (bucket mangler). Inspeksjonen lagres uten bilde.');
+                  break;
+                }
+                throw e;
+              }
+              if (i === 0) imageUrl = u;
+              if (u) allPhotos.push(u);
+            }
+          } finally {
+            setUploadingImage(false);
+          }
         }
 
+        const notesWithImages =
+          allPhotos.length > 1 ? `${notes}\n${allPhotos.slice(1).map((u, i) => `Bilde ${i + 2}: ${u}`).join('\n')}` : notes;
         const details = `Inspeksjon utført. Status: ${status}. Temp: ${temperature}°C. ${notes ? 'Notater lagt til.' : ''}`;
         const res = await fetch('/api/demo/write/inspection', {
           method: 'POST',
@@ -843,12 +873,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               brood_condition: broodCondition,
               honey_stores: honeyStores,
               temperament: temperament,
-              notes: notes,
+              notes: notesWithImages,
               status: status,
               temperature: temperature ? parseFloat(temperature) : null,
               weather: weather,
               weather_place: weatherPlace || null,
-              image_url: null,
+              image_url: imageUrl,
             },
           }),
         });

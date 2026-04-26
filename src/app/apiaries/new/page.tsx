@@ -29,6 +29,8 @@ export default function NewApiaryPage() {
   const [nextApiaryNumber, setNextApiaryNumber] = useState(1);
   const [memberNumber, setMemberNumber] = useState<string>('');
   const [showMapPicker, setShowMapPicker] = useState(false);
+  const [mapPickerCenter, setMapPickerCenter] = useState<[number, number] | null>(null);
+  const [mapPickerZoom, setMapPickerZoom] = useState<number>(10);
   const [activeOwnerId, setActiveOwnerId] = useState<string>('');
   const [activeOwnerLabel, setActiveOwnerLabel] = useState<string>('Min konto');
   const router = useRouter();
@@ -67,6 +69,32 @@ export default function NewApiaryPage() {
     const lng = Number(matches[1]);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
     return [lat, lng];
+  };
+
+  const readCachedCoords = (key: string): [number, number] | null => {
+    try {
+      if (typeof window === 'undefined') return null;
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      const lat = Number(parsed?.lat ?? parsed?.latitude);
+      const lng = Number(parsed?.lon ?? parsed?.lng ?? parsed?.longitude);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      return [lat, lng];
+    } catch {
+      return null;
+    }
+  };
+
+  const writeCachedCoords = (lat: number, lng: number) => {
+    try {
+      if (typeof window === 'undefined') return;
+      localStorage.setItem('lek_last_map_coords', JSON.stringify({ lat, lng, at: Date.now() }));
+    } catch {}
+    try {
+      if (typeof window === 'undefined') return;
+      localStorage.setItem('lek_last_weather_coords', JSON.stringify({ lat, lon: lng, at: Date.now() }));
+    } catch {}
   };
 
   const getPrefixesForType = (t: string): string[] => {
@@ -405,6 +433,7 @@ export default function NewApiaryPage() {
         const { latitude, longitude } = position.coords;
         const coordString = `${latitude},${longitude}`;
         setCoordinates(coordString);
+        writeCachedCoords(latitude, longitude);
         
         // Update location string if empty or just coordinates
         if (!locationStr || locationStr.startsWith('Koordinater:')) {
@@ -414,11 +443,53 @@ export default function NewApiaryPage() {
       },
       (error) => {
         console.error(error);
-        alert("Kunne ikke hente posisjon. Sjekk at du har gitt tillatelse.");
+        const cached = readCachedCoords('lek_last_map_coords') || readCachedCoords('lek_last_weather_coords');
+        if (cached && (!coordinates || coordinates.startsWith('Koordinater:'))) {
+          const [lat, lng] = cached;
+          setCoordinates(`${lat},${lng}`);
+          if (!locationStr || locationStr.startsWith('Koordinater:')) {
+            setLocationStr(`Koordinater: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+          }
+        }
+        alert("Kunne ikke hente posisjon. Sjekk at du har gitt tillatelse. Du kan også velge posisjon i kart.");
         setLoading(false);
-      }
+      },
+      { enableHighAccuracy: true, maximumAge: 60_000, timeout: 8_000 }
     );
   };
+
+  useEffect(() => {
+    if (!showMapPicker) return;
+    const selected = parseLatLng(coordinates);
+    if (selected) {
+      setMapPickerCenter(selected);
+      setMapPickerZoom(15);
+      return;
+    }
+
+    const cached = readCachedCoords('lek_last_map_coords') || readCachedCoords('lek_last_weather_coords');
+    if (cached) {
+      setMapPickerCenter(cached);
+      setMapPickerZoom(12);
+    } else {
+      setMapPickerCenter([60.472, 8.468]);
+      setMapPickerZoom(6);
+    }
+
+    if (!navigator?.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = Number(pos?.coords?.latitude);
+        const lng = Number(pos?.coords?.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        writeCachedCoords(lat, lng);
+        setMapPickerCenter([lat, lng]);
+        setMapPickerZoom(15);
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 60_000, timeout: 6_000 }
+    );
+  }, [coordinates, showMapPicker]);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -597,7 +668,7 @@ export default function NewApiaryPage() {
             <div className="flex-1 relative bg-gray-100">
               {(() => {
                 const parsed = parseLatLng(coordinates);
-                const center = parsed || ([59.9139, 10.7522] as [number, number]);
+                const center = parsed || mapPickerCenter || ([60.472, 8.468] as [number, number]);
                 const marker = parsed
                   ? [
                       {
@@ -612,10 +683,11 @@ export default function NewApiaryPage() {
                 return (
                   <Map 
                     center={center}
-                    zoom={parsed ? 15 : 10}
+                    zoom={parsed ? 15 : mapPickerZoom}
                     onMapClick={(lat, lng) => {
                       const coordString = `${lat},${lng}`;
                       setCoordinates(coordString);
+                      writeCachedCoords(lat, lng);
                       if (!locationStr || locationStr.startsWith('Koordinater:')) {
                         setLocationStr(`Koordinater: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
                       }
