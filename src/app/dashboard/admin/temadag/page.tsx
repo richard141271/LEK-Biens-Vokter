@@ -83,13 +83,37 @@ function PosterImage({ title, filenames, className }: { title: string; filenames
 
 function PhoneFrame({ href, title }: { href: string; title: string }) {
   const src = useMemo(() => withDemoQuery(href), [href]);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const baseW = 440;
+    const baseH = 940;
+
+    const compute = () => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const availableH = Math.max(320, vh - 220);
+      const availableW = vw >= 1024 ? vw * 0.42 : vw - 32;
+      const next = Math.min(1.35, Math.max(0.55, Math.min(availableH / baseH, availableW / baseW)));
+      setScale(next);
+    };
+
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+  }, []);
+
   return (
     <div className="w-full h-full flex items-center justify-center">
-      <div className="bg-black rounded-[2.5rem] p-3 shadow-2xl border border-white/10">
-        <div className="bg-black rounded-[2rem] p-2">
-          <div className="bg-white rounded-[1.6rem] overflow-hidden">
-            <div className="w-[390px] h-[844px] bg-white">
-              <iframe key={src} title={title} src={src} className="w-full h-full border-0" />
+      <div style={{ transform: `scale(${scale})`, transformOrigin: 'center center' }}>
+        <div className="bg-black rounded-[2.5rem] p-3 shadow-2xl border border-white/10">
+          <div className="bg-black rounded-[2rem] p-2">
+            <div className="bg-white rounded-[1.6rem] overflow-hidden">
+              <div className="w-[390px] h-[844px] bg-white">
+                <iframe key={src} title={title} src={src} className="w-full h-full border-0" />
+              </div>
             </div>
           </div>
         </div>
@@ -469,8 +493,8 @@ export default function AdminTemadagPage() {
             ) : null}
 
             {currentSlide.kind === 'split' && currentSlide.posterKey && currentSlide.appHref ? (
-              <div className="w-full h-full grid grid-cols-1 lg:grid-cols-2">
-                <div className="h-full flex items-center justify-center px-4 bg-black">
+              <div className="w-full h-full grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr]">
+                <div className="h-full flex items-center justify-center px-3 bg-black">
                   <PosterImage title={posterTitle} filenames={posterFiles} className="max-h-full max-w-full object-contain" />
                 </div>
                 <div className="h-full bg-[#0b0f1a] flex flex-col">
@@ -480,10 +504,10 @@ export default function AdminTemadagPage() {
                       Åpne i ny fane
                     </a>
                   </div>
-                  <div className="flex-1 overflow-auto p-4">
+                  <div className="flex-1 overflow-auto p-2">
                     <PhoneFrame href={currentSlide.appHref} title={currentSlide.title} />
                     {currentSlide.body && currentSlide.body.length > 0 ? (
-                      <div className="mt-4 max-w-2xl mx-auto text-white/80 text-sm">
+                      <div className="mt-3 max-w-2xl mx-auto text-white/80 text-sm px-2">
                         <ul className="list-disc pl-5 space-y-1">
                           {currentSlide.body.map((t) => (
                             <li key={`${currentSlide.id}-${t}`}>{t}</li>
