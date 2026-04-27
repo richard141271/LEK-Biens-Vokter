@@ -81,7 +81,7 @@ function PosterImage({ title, filenames, className }: { title: string; filenames
   );
 }
 
-function PhoneFrame({ href, title }: { href: string; title: string }) {
+function PhoneFrame({ href, title, scaleFactor }: { href: string; title: string; scaleFactor: number }) {
   const src = useMemo(() => withDemoQuery(href), [href]);
   const [scale, setScale] = useState(1);
 
@@ -94,16 +94,17 @@ function PhoneFrame({ href, title }: { href: string; title: string }) {
     const compute = () => {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      const availableH = Math.max(320, vh - 220);
-      const availableW = vw >= 1024 ? vw * 0.42 : vw - 32;
-      const next = Math.min(1.35, Math.max(0.55, Math.min(availableH / baseH, availableW / baseW)));
-      setScale(next);
+      const availableH = Math.max(320, vh - 180);
+      const availableW = vw >= 1024 ? vw * 0.5 : vw - 24;
+      const auto = Math.min(2.2, Math.max(0.55, Math.min(availableH / baseH, availableW / baseW)));
+      const combined = Math.min(3, Math.max(0.5, auto * (Number.isFinite(scaleFactor) ? scaleFactor : 1)));
+      setScale(combined);
     };
 
     compute();
     window.addEventListener('resize', compute);
     return () => window.removeEventListener('resize', compute);
-  }, []);
+  }, [scaleFactor]);
 
   return (
     <div className="w-full h-full flex items-center justify-center">
@@ -125,6 +126,7 @@ function PhoneFrame({ href, title }: { href: string; title: string }) {
 export default function AdminTemadagPage() {
   const ACTIVE_OWNER_KEY = 'lek_active_owner_id';
   const SLIDE_KEY = 'lek_temadag_slide_index';
+  const PHONE_SCALE_KEY = 'lek_temadag_phone_scale';
   const supabase = createClient();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -138,6 +140,7 @@ export default function AdminTemadagPage() {
   const [demoResetResult, setDemoResetResult] = useState<string | null>(null);
   const [playerOpen, setPlayerOpen] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
+  const [phoneScale, setPhoneScale] = useState(1);
 
   useEffect(() => {
     const run = async () => {
@@ -193,6 +196,12 @@ export default function AdminTemadagPage() {
       const idx = Number(storedSlide);
       if (Number.isFinite(idx) && idx >= 0) setSlideIndex(idx);
     }
+
+    const storedPhoneScale = window.localStorage.getItem(PHONE_SCALE_KEY);
+    if (storedPhoneScale) {
+      const v = Number(storedPhoneScale);
+      if (Number.isFinite(v) && v > 0) setPhoneScale(Math.min(3, Math.max(0.5, v)));
+    }
   }, []);
 
   const canNavigate = Boolean(isDemoAllowed && demoSessionId);
@@ -233,6 +242,13 @@ export default function AdminTemadagPage() {
       window.localStorage.setItem(SLIDE_KEY, String(slideIndex));
     } catch {}
   }, [SLIDE_KEY, slideIndex]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(PHONE_SCALE_KEY, String(phoneScale));
+    } catch {}
+  }, [PHONE_SCALE_KEY, phoneScale]);
 
   useEffect(() => {
     if (!playerOpen) return;
@@ -500,12 +516,31 @@ export default function AdminTemadagPage() {
                 <div className="h-full bg-[#0b0f1a] flex flex-col">
                   <div className="px-4 py-3 text-white/90 text-sm flex flex-wrap items-center justify-between gap-2 border-b border-white/10">
                     <div className="font-bold">Demo</div>
-                    <a href={withDemoQuery(currentSlide.appHref)} target="_blank" rel="noreferrer" className="px-3 py-2 rounded-lg bg-white/10 text-sm font-bold text-white">
-                      Åpne i ny fane
-                    </a>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPhoneScale((p) => Math.min(3, Math.max(0.5, Math.round((p - 0.1) * 10) / 10)))}
+                        className="px-3 py-2 rounded-lg bg-white/10 text-sm font-bold text-white"
+                      >
+                        Telefon -
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPhoneScale((p) => Math.min(3, Math.max(0.5, Math.round((p + 0.1) * 10) / 10)))}
+                        className="px-3 py-2 rounded-lg bg-white/10 text-sm font-bold text-white"
+                      >
+                        Telefon +
+                      </button>
+                      <button type="button" onClick={() => setPhoneScale(1)} className="px-3 py-2 rounded-lg bg-white/10 text-sm font-bold text-white">
+                        Auto
+                      </button>
+                      <a href={withDemoQuery(currentSlide.appHref)} target="_blank" rel="noreferrer" className="px-3 py-2 rounded-lg bg-white/10 text-sm font-bold text-white">
+                        Åpne i ny fane
+                      </a>
+                    </div>
                   </div>
                   <div className="flex-1 overflow-auto p-2">
-                    <PhoneFrame href={currentSlide.appHref} title={currentSlide.title} />
+                    <PhoneFrame href={currentSlide.appHref} title={currentSlide.title} scaleFactor={phoneScale} />
                     {currentSlide.body && currentSlide.body.length > 0 ? (
                       <div className="mt-3 max-w-2xl mx-auto text-white/80 text-sm px-2">
                         <ul className="list-disc pl-5 space-y-1">
