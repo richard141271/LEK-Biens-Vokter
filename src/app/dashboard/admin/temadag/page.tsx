@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 
@@ -84,30 +84,37 @@ function PosterImage({ title, filenames, className }: { title: string; filenames
 function PhoneFrame({ href, title, scaleFactor }: { href: string; title: string; scaleFactor: number }) {
   const src = useMemo(() => withDemoQuery(href), [href]);
   const [scale, setScale] = useState(1);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!containerRef.current) return;
 
     const baseW = 440;
     const baseH = 940;
 
-    const compute = () => {
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const availableH = Math.max(320, vh - 180);
-      const availableW = vw >= 1024 ? vw * 0.5 : vw - 24;
-      const auto = Math.min(2.2, Math.max(0.55, Math.min(availableH / baseH, availableW / baseW)));
+    const compute = (w: number, h: number) => {
+      const availableW = Math.max(240, w - 24);
+      const availableH = Math.max(240, h - 24);
+      const auto = Math.min(3, Math.max(0.55, Math.min(availableH / baseH, availableW / baseW)));
       const combined = Math.min(3, Math.max(0.5, auto * (Number.isFinite(scaleFactor) ? scaleFactor : 1)));
       setScale(combined);
     };
 
-    compute();
-    window.addEventListener('resize', compute);
-    return () => window.removeEventListener('resize', compute);
+    const el = containerRef.current;
+    const ro = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect;
+      if (!rect) return;
+      compute(rect.width, rect.height);
+    });
+
+    ro.observe(el);
+    compute(el.clientWidth, el.clientHeight);
+    return () => ro.disconnect();
   }, [scaleFactor]);
 
   return (
-    <div className="w-full h-full flex items-center justify-center">
+    <div ref={containerRef} className="w-full h-full flex items-center justify-center">
       <div style={{ transform: `scale(${scale})`, transformOrigin: 'center center' }}>
         <div className="bg-black rounded-[2.5rem] p-3 shadow-2xl border border-white/10">
           <div className="bg-black rounded-[2rem] p-2">
@@ -509,7 +516,7 @@ export default function AdminTemadagPage() {
             ) : null}
 
             {currentSlide.kind === 'split' && currentSlide.posterKey && currentSlide.appHref ? (
-              <div className="w-full h-full grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr]">
+              <div className="w-full h-full grid grid-cols-1 lg:grid-cols-[0.95fr_1.05fr]">
                 <div className="h-full flex items-center justify-center px-3 bg-black">
                   <PosterImage title={posterTitle} filenames={posterFiles} className="max-h-full max-w-full object-contain" />
                 </div>
