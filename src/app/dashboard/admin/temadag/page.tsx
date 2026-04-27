@@ -104,6 +104,7 @@ export default function AdminTemadagPage() {
   const supabase = createClient();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [isInstructor, setIsInstructor] = useState(false);
   const [isDemoAllowed, setIsDemoAllowed] = useState(false);
   const [startingDemo, setStartingDemo] = useState(false);
   const [resettingDemo, setResettingDemo] = useState(false);
@@ -123,7 +124,17 @@ export default function AdminTemadagPage() {
       }
 
       const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-      if (profile?.role !== 'admin') {
+      const isAdmin = profile?.role === 'admin';
+      setIsInstructor(isAdmin);
+
+      let hasDemoSession = false;
+      if (typeof window !== 'undefined') {
+        const sid = window.localStorage.getItem('lek_demo_session_id');
+        const tok = window.localStorage.getItem('lek_demo_session_token');
+        hasDemoSession = Boolean(sid && tok);
+      }
+
+      if (!isAdmin && !hasDemoSession) {
         await supabase.auth.signOut();
         router.push('/admin');
         return;
@@ -217,6 +228,10 @@ export default function AdminTemadagPage() {
   const startDemo = async () => {
     setDemoError(null);
     setDemoResetResult(null);
+    if (!isInstructor) {
+      setDemoError('Ingen tilgang');
+      return;
+    }
     setStartingDemo(true);
     try {
       await requestFullscreen();
@@ -362,7 +377,7 @@ export default function AdminTemadagPage() {
               <button
                 type="button"
                 onClick={startDemo}
-                disabled={!isDemoAllowed || startingDemo}
+                disabled={!isDemoAllowed || startingDemo || !isInstructor}
                 className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold disabled:bg-gray-400"
               >
                 {startingDemo ? 'Starter demo…' : 'Start demo'}

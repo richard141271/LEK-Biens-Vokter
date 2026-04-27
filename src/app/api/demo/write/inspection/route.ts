@@ -20,19 +20,7 @@ function isDemoEnabled() {
   return process.env.LEK_DEMO_ENABLED === '1' || process.env.LEK_DEMO_ENABLED === 'true';
 }
 
-function isAllowlisted(email: string | null | undefined) {
-  const raw = process.env.LEK_DEMO_ALLOWED_EMAILS || '';
-  const list = raw
-    .split(',')
-    .map((x) => x.trim().toLowerCase())
-    .filter(Boolean);
-  if (list.length === 0) return true;
-  const e = String(email || '').trim().toLowerCase();
-  if (!e) return false;
-  return list.includes(e);
-}
-
-async function requireAdmin() {
+async function requireUser() {
   const supabase = createClient();
   const {
     data: { user },
@@ -40,24 +28,6 @@ async function requireAdmin() {
 
   if (!user) {
     return { ok: false as const, response: NextResponse.json({ success: false, error: 'Ikke logget inn' }, { status: 401 }) };
-  }
-
-  if (!isAllowlisted(user.email)) {
-    return { ok: false as const, response: NextResponse.json({ success: false, error: 'Ingen tilgang' }, { status: 403 }) };
-  }
-
-  const adminVerifier = createAdminClient();
-  const { data: profile, error } = await adminVerifier.from('profiles').select('role').eq('id', user.id).single();
-
-  if (error) {
-    return {
-      ok: false as const,
-      response: NextResponse.json({ success: false, error: 'Kunne ikke verifisere tilgang' }, { status: 500 }),
-    };
-  }
-
-  if (profile?.role !== 'admin') {
-    return { ok: false as const, response: NextResponse.json({ success: false, error: 'Ingen tilgang' }, { status: 403 }) };
   }
 
   return { ok: true as const };
@@ -115,7 +85,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: 'Kun tilgjengelig i demo-modus' }, { status: 403 });
   }
 
-  const auth = await requireAdmin();
+  const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
   const demo = await requireValidDemoSession();
