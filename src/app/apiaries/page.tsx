@@ -25,6 +25,7 @@ export default function ApiariesPage() {
   const [nearApiary, setNearApiary] = useState<any | null>(null);
   const [voiceStep, setVoiceStep] = useState<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
   const [selectedVoiceApiary, setSelectedVoiceApiary] = useState<any | null>(null);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(true);
   
   // Offline Download State
   const [isDownloading, setIsDownloading] = useState(false);
@@ -44,12 +45,40 @@ export default function ApiariesPage() {
   const lastPromptApiaryIdRef = useRef<string | null>(null);
   const lastPromptAtRef = useRef<number>(0);
   const isListeningRef = useRef<boolean>(false);
+  const isVoiceEnabledRef = useRef<boolean>(true);
   const prevVoiceStepRef = useRef<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
   const apiariesRef = useRef<any[]>([]);
+  const ttsSafetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem('lek_voice_enabled');
+      if (raw === '0') setIsVoiceEnabled(false);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    isVoiceEnabledRef.current = isVoiceEnabled;
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('lek_voice_enabled', isVoiceEnabled ? '1' : '0');
+    } catch {}
+    if (!isVoiceEnabled) {
+      try {
+        const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
+        if (s) s.cancel();
+      } catch {}
+      if (ttsSafetyRef.current) {
+        clearTimeout(ttsSafetyRef.current);
+        ttsSafetyRef.current = null;
+      }
+    }
+  }, [isVoiceEnabled]);
 
   useEffect(() => {
     voiceStepRef.current = voiceStep;
@@ -233,6 +262,7 @@ export default function ApiariesPage() {
   const speak = useCallback((text: string) => {
     try {
       if (typeof window === 'undefined') return;
+      if (!isVoiceEnabledRef.current) return;
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       const wasListening = isListeningRef.current;
       if (wasListening) {
@@ -243,15 +273,19 @@ export default function ApiariesPage() {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'nb-NO';
       u.rate = 0.95;
+      if (ttsSafetyRef.current) clearTimeout(ttsSafetyRef.current);
       const safety = setTimeout(() => {
         if (wasListening) { try { resumeListening(); } catch {} }
       }, 2500);
+      ttsSafetyRef.current = safety;
       u.onend = () => {
         clearTimeout(safety);
+        if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
         if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 120);
       };
       u.onerror = () => {
         clearTimeout(safety);
+        if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
         if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 120);
       };
       s.speak(u);
@@ -282,6 +316,16 @@ export default function ApiariesPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (isSelectionMode) return;
+    if (!isVoiceEnabled) {
+      setNearApiary(null);
+      setVoiceStep('idle');
+      setSelectedVoiceApiary(null);
+      setVoiceInfo('');
+      if (isListeningRef.current) {
+        try { stopListening(); } catch {}
+      }
+      return;
+    }
     if (!navigator?.geolocation) {
       setVoiceInfo('GPS er ikke tilgjengelig på denne enheten.');
       return;
@@ -289,6 +333,7 @@ export default function ApiariesPage() {
 
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
+        if (!isVoiceEnabledRef.current) return;
         const lat = pos.coords.latitude;
         const lon = pos.coords.longitude;
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
@@ -351,7 +396,7 @@ export default function ApiariesPage() {
     return () => {
       try { navigator.geolocation.clearWatch(watchId); } catch {}
     };
-  }, [apiariesWithCoords, isSelectionMode, isSupported, speak, startListening, stopListening]);
+  }, [apiariesWithCoords, isSelectionMode, isSupported, isVoiceEnabled, speak, startListening, stopListening]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1047,12 +1092,23 @@ export default function ApiariesPage() {
         <div className="fixed bottom-28 left-6 z-[200] print:hidden">
           <button
             onClick={() => {
-              if (isListeningRef.current) {
+              if (isVoiceEnabledRef.current) {
                 try { stopListening(); } catch {}
                 setVoiceStep('idle');
                 setSelectedVoiceApiary(null);
                 setVoiceInfo('');
+                setNearApiary(null);
+                try {
+                  const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
+                  if (s) s.cancel();
+                } catch {}
+                if (ttsSafetyRef.current) {
+                  clearTimeout(ttsSafetyRef.current);
+                  ttsSafetyRef.current = null;
+                }
+                setIsVoiceEnabled(false);
               } else {
+                setIsVoiceEnabled(true);
                 try { startListening(); } catch {}
                 setVoiceStep('armed');
                 setSelectedVoiceApiary(null);
@@ -1061,10 +1117,10 @@ export default function ApiariesPage() {
               }
             }}
             className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 ${
-              isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-honey-500 text-white'
+              !isVoiceEnabled ? 'bg-gray-300 text-gray-700' : isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-honey-500 text-white'
             }`}
           >
-            {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+            {!isVoiceEnabled ? <MicOff className="w-6 h-6" /> : isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
           </button>
           {voiceInfo ? (
             <div className="mt-3 max-w-[280px] bg-white px-4 py-3 rounded-xl shadow-md text-sm font-medium text-gray-700 border border-gray-200">

@@ -252,7 +252,12 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
         listeningRef.current = false;
         lastStopAtRef.current = Date.now();
         setIsListening(false);
-        recognitionRef.current.stop();
+        try {
+          if (typeof recognitionRef.current.abort === 'function') recognitionRef.current.abort();
+        } catch {}
+        try {
+          recognitionRef.current.stop();
+        } catch {}
     }
   }, []);
 
@@ -270,7 +275,12 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
         listeningRef.current = false;
         lastStopAtRef.current = Date.now();
         setIsListening(false);
-        recognitionRef.current.stop();
+        try {
+          if (typeof recognitionRef.current.abort === 'function') recognitionRef.current.abort();
+        } catch {}
+        try {
+          recognitionRef.current.stop();
+        } catch {}
       } catch (e) {
         console.error("Could not pause recognition", e);
       }
