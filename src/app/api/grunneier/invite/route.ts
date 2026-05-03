@@ -20,6 +20,7 @@ function standardAgreementText(params: {
   apiaryName?: string | null;
   apiaryLocation?: string | null;
   contactName?: string | null;
+  beekeeperName?: string | null;
   role: Role;
 }) {
   const apiaryTitle =
@@ -27,41 +28,81 @@ function standardAgreementText(params: {
       ? `${params.apiaryNumber || 'Bigård'}${params.apiaryName ? ` – ${params.apiaryName}` : ''}`
       : 'Bigård';
 
-  const locationLine = params.apiaryLocation ? `Sted: ${params.apiaryLocation}` : '';
-  const contactLine = params.contactName ? `Grunneier/kontakt: ${params.contactName}` : 'Grunneier/kontakt: ________';
-  const roleLine = `Rolle: ${params.role}`;
+  const apiaryNumber = String(params.apiaryNumber || '').trim();
+  const apiaryLocation = String(params.apiaryLocation || '').trim();
+  const contactName = String(params.contactName || '').trim();
+  const beekeeperName = String(params.beekeeperName || '').trim();
+
+  const apiaryNumberLine = `Avtalenummer: ${apiaryNumber || '________'}`;
+  const apiaryLocationLine = `Lokasjon: ${apiaryLocation || '________'}`;
+  const contactLine = `Grunneier/kontaktperson: ${contactName || '________'}`;
+  const beekeeperLine = `Birøkter: ${beekeeperName || '________'}`;
+  const landownerLine = `Grunneier: ${contactName || '________'}`;
 
   return [
     'AVTALE OM TILGANG TIL BIGÅRD-INFO (GRUNNEIERPORTAL)',
-    '',
-    `Gjelder: ${apiaryTitle}`,
-    locationLine,
+    apiaryNumberLine,
+    apiaryLocationLine,
     contactLine,
-    roleLine,
     '',
-    '1. Formål',
-    'Denne avtalen gjør det mulig for grunneier/kontakt å få innsyn i enkel informasjon om bigården (lokasjon og grunnleggende status), for å skape trygghet, transparens og god dialog.',
+    '1. Parter',
+    'Denne avtalen inngås mellom:',
+    beekeeperLine,
+    landownerLine,
+    'Partene benevnes samlet som “Partene”.',
     '',
-    '2. Tilgang og innhold',
-    '- Tilgangen er begrenset til bigårder som er knyttet til avtalen.',
-    '- Ingen passord: tilgang gis via engangslenker på e-post.',
-    '- Det deles ikke sensitive personopplysninger utover det som er nødvendig for drift og samtykke.',
+    '2. Formål',
+    'Formålet med avtalen er å gi grunneier tilgang til begrenset og relevant informasjon om bigården via digital portal, for å sikre transparens, trygghet og effektiv kommunikasjon mellom Partene.',
     '',
-    '3. Ansvar og hensyn',
-    '- Birøkter har ansvar for drift, dyrevelferd og oppfølging av bigården.',
-    '- Grunneier kan når som helst be om at bigården flyttes, innen rimelig tid og praktisk mulighet.',
-    '- Begge parter forplikter seg til saklig og god kommunikasjon ved uenighet.',
+    '3. Tilgang til grunneierportal',
+    '3.1 Grunneier gis tilgang til utvalgt informasjon om bigården, herunder:',
+    '* geografisk plassering',
+    '* enkel statusinformasjon',
+    '3.2 Tilgang gis via personlig engangslenke sendt til registrert e-postadresse.',
+    '3.3 Tilgangen er personlig og kan ikke overdras eller deles uten skriftlig samtykke fra birøkter.',
+    '3.4 Birøkter forbeholder seg retten til å endre, begrense eller stenge tilgang ved misbruk eller sikkerhetsmessige hensyn.',
+    '3.5 Grunneier kan registrere seg med egen konto for enklere tilgang.',
     '',
-    '4. Varighet og opphør',
-    'Avtalen gjelder til den sies opp av en av partene. Ved opphør skal tilgangen fjernes.',
+    '4. Behandling av informasjon og personvern',
+    '4.1 Det deles ikke sensitive personopplysninger utover det som er nødvendig for gjennomføring av avtalen.',
+    '4.2 All behandling av personopplysninger skal skje i henhold til gjeldende personvernlovgivning, herunder Personopplysningsloven og GDPR.',
+    '4.3 Grunneier forplikter seg til ikke å lagre, dele eller videreformidle informasjon fra portalen uten samtykke.',
     '',
-    '5. Unntak/tillegg',
-    'Grunneier kan foreslå unntak/tillegg før avtalen aktiveres. Birøkter kan godta eller avvise forslag. Ved avvisning må partene bli enige om ny tekst før avtalen kan signeres.',
+    '5. Ansvar og rollefordeling',
+    '5.1 Birøkter har det fulle og hele ansvaret for:',
+    '* drift av bigården',
+    '* tilsyn og vedlikehold',
+    '* dyrevelferd',
+    '5.2 Grunneier har ikke ansvar for forhold knyttet til biene eller driften av bigården.',
+    '5.3 Informasjon i portalen er veiledende og kan inneholde forsinkelser eller avvik.',
     '',
-    '6. Signatur',
-    'Avtalen blir aktiv først når begge parter har signert digitalt.',
+    '6. Plassering og flytting av bigård',
+    '6.1 Bigården er plassert etter avtale med grunneier (Påvist geolokasjon +- 100meter)',
+    '6.2 Grunneier kan kreve flytting av bigården med rimelig varsel.',
+    '6.3 Flytting skal gjennomføres innen rimelig tid, og tilpasses sesongmessige og praktiske forhold.',
+    '',
+    '7. Varighet og oppsigelse',
+    '7.1 Avtalen gjelder fra signeringsdato og løper inntil den sies opp av en av Partene.',
+    '7.2 Ved oppsigelse skal:',
+    '* tilgang til portalen opphøre uten ugrunnet opphold',
+    '* eventuell flytting av bigård skje i henhold til punkt 6.3',
+    '',
+    '8. Ansvarsbegrensning',
+    '8.1 Birøkter er ikke ansvarlig for indirekte tap, herunder tap som følge av:',
+    '* bruk av informasjon fra portalen',
+    '* tekniske feil eller nedetid',
+    '8.2 Portalen er et informasjonsverktøy og erstatter ikke direkte dialog mellom Partene.',
+    '',
+    '9. Endringer i avtalen',
+    'Endringer eller tillegg til denne avtalen skal være skriftlige og godkjennes av begge Parter før de trer i kraft.',
+    '',
+    '10. Lovvalg og verneting',
+    'Avtalen reguleres av norsk rett.',
+    'Eventuelle tvister skal søkes løst i minnelighet. Dersom dette ikke lykkes, kan saken bringes inn for ordinære domstoler.',
+    '',
+    '11. Signatur',
+    'Avtalen trer i kraft når begge Parter har signert digitalt.',
   ]
-    .filter((l) => l !== '')
     .join('\n');
 }
 
@@ -200,11 +241,19 @@ export async function POST(request: Request) {
     let agreementAlreadyActive = false;
 
     if (apiaryId) {
+      const { data: beekeeperProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .maybeSingle();
+      const beekeeperName = String(beekeeperProfile?.full_name || user.email || '').trim() || null;
+
       const baseText = standardAgreementText({
         apiaryNumber: apiary?.apiary_number,
         apiaryName: apiary?.name,
         apiaryLocation: apiary?.location,
         contactName: finalName,
+        beekeeperName,
         role,
       });
 
