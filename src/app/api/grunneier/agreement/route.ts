@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { createClient } from '@/utils/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,10 +101,6 @@ export async function POST(request: Request) {
   try {
     const cookieStore = cookies();
     const token = cookieStore.get(COOKIE_NAME)?.value || '';
-    if (!token) {
-      return NextResponse.json({ error: 'Ikke logget inn' }, { status: 401 });
-    }
-
     const body = await request.json().catch(() => ({}));
     const action = asString(body?.action).trim();
     const agreementId = asString(body?.agreementId).trim();
@@ -119,24 +116,38 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient();
 
-    const { data: magicToken } = await admin
-      .from('magic_tokens')
-      .select('email, expires_at')
-      .eq('token', token)
-      .single();
+    let email = '';
+    let tokenExpired = false;
 
-    if (!magicToken) {
-      return NextResponse.json({ error: 'Ikke logget inn' }, { status: 401 });
+    if (token) {
+      const { data: magicToken } = await admin
+        .from('magic_tokens')
+        .select('email, expires_at')
+        .eq('token', token)
+        .single();
+
+      if (magicToken) {
+        const expiresAtMs = new Date(magicToken.expires_at).getTime();
+        tokenExpired = !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now();
+        if (!tokenExpired) {
+          email = String(magicToken.email || '').trim();
+        }
+      }
     }
 
-    const expiresAtMs = new Date(magicToken.expires_at).getTime();
-    if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
-      return NextResponse.json({ error: 'Utløpt', expired: true }, { status: 401 });
-    }
-
-    const email = String(magicToken.email || '').trim();
     if (!email) {
-      return NextResponse.json({ error: 'Ikke logget inn' }, { status: 401 });
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const userEmail = String(user?.email || '').trim();
+      const isLandowner = Boolean((user as any)?.user_metadata?.is_landowner);
+      if (!user || !userEmail || !isLandowner) {
+        return NextResponse.json({ error: 'Ikke logget inn', expired: tokenExpired }, { status: 401 });
+      }
+
+      email = userEmail;
     }
 
     if (action === 'update_special_terms') {

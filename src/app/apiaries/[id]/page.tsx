@@ -124,6 +124,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
   const supabase = createClient();
   const router = useRouter();
+  const selectedContactStorageKey = `lek_apiary_selected_contact_${params.id}`;
 
   const formatApiaryNumber = (raw: any, type?: any) => {
     const s = String(raw || '');
@@ -131,6 +132,22 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     if (t === 'bil' || s.toUpperCase().startsWith('BIL-')) return s.split('.')[0];
     return s;
   };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = window.localStorage.getItem(selectedContactStorageKey);
+      if (stored) setSelectedContactId(stored);
+    } catch {}
+  }, [selectedContactStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      if (selectedContactId) window.localStorage.setItem(selectedContactStorageKey, selectedContactId);
+      else window.localStorage.removeItem(selectedContactStorageKey);
+    } catch {}
+  }, [selectedContactId, selectedContactStorageKey]);
 
   useEffect(() => {
     fetchData();
@@ -372,6 +389,9 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     if (linksError || !links || links.length === 0) {
       setApiaryContacts([]);
       setSelectedContactId('');
+      try {
+        if (typeof window !== 'undefined') window.localStorage.removeItem(selectedContactStorageKey);
+      } catch {}
       return;
     }
 
@@ -392,9 +412,17 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       .filter((x: any) => !!x.contact);
 
     setApiaryContacts(combined);
-    if (!selectedContactId && combined.length > 0) {
-      setSelectedContactId(combined[0].contact_id);
+    const exists = (id: string) => combined.some((x: any) => String(x.contact_id) === String(id));
+    let nextSelected = selectedContactId;
+    if (nextSelected && !exists(nextSelected)) nextSelected = '';
+    if (!nextSelected && combined.length > 0) {
+      let stored = '';
+      try {
+        stored = typeof window !== 'undefined' ? window.localStorage.getItem(selectedContactStorageKey) || '' : '';
+      } catch {}
+      nextSelected = stored && exists(stored) ? stored : combined[0].contact_id;
     }
+    if (nextSelected && nextSelected !== selectedContactId) setSelectedContactId(nextSelected);
   };
 
   const fetchAvailableApiaries = async () => {
@@ -427,15 +455,38 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       const { data } = await supabase
         .from('grunneier_agreements')
         .select(
-          'id, status, role, base_text, final_text, contact_proposal, beekeeper_decision, contact_signature_name, contact_signed_at, beekeeper_signature_name, beekeeper_signed_at, created_at'
+          'id, status, role, base_text, final_text, contact_proposal, beekeeper_decision, contact_signature_name, contact_signed_at, beekeeper_signature_name, beekeeper_signed_at, created_at, updated_at'
         )
         .eq('apiary_id', apiary.id)
         .eq('contact_id', contactId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order('updated_at', { ascending: false })
+        .limit(12);
 
-      setSelectedAgreement(data || null);
+      const list = Array.isArray(data) ? data : [];
+      const rank = (a: any) => {
+        const status = String(a?.status || '').toLowerCase();
+        if (status === 'active') return 0;
+        if (status === 'awaiting_contact_signature') return 1;
+        if (status === 'awaiting_beekeeper_signature') return 2;
+        if (status === 'contact_proposed') return 3;
+        if (status === 'awaiting_contact') return 4;
+        if (status === 'draft') return 6;
+        if (status === 'rejected') return 9;
+        return 7;
+      };
+
+      const picked =
+        list.slice().sort((a: any, b: any) => {
+          const ra = rank(a);
+          const rb = rank(b);
+          if (ra !== rb) return ra - rb;
+          const ta = new Date(a?.updated_at || a?.created_at || 0).getTime();
+          const tb = new Date(b?.updated_at || b?.created_at || 0).getTime();
+          if (Number.isFinite(ta) && Number.isFinite(tb) && ta !== tb) return tb - ta;
+          return String(b?.id || '').localeCompare(String(a?.id || ''));
+        })[0] || null;
+
+      setSelectedAgreement(picked);
     } finally {
       setAgreementLoading(false);
     }

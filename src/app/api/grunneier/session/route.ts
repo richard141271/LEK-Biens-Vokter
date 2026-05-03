@@ -69,10 +69,21 @@ export async function GET() {
       .in('contact_id', contactIds)
       .limit(500);
 
+    const toActivateIds = (agreements || [])
+      .filter((a: any) => a?.id && a?.status !== 'active' && a?.status !== 'rejected' && a?.contact_signed_at && a?.beekeeper_signed_at)
+      .map((a: any) => a.id);
+
+    if (toActivateIds.length > 0) {
+      await admin
+        .from('grunneier_agreements')
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .in('id', toActivateIds);
+    }
+
     const activeAgreementApiaryIds = Array.from(
       new Set(
         (agreements || [])
-          .filter((a: any) => a.status === 'active' && a.apiary_id)
+          .filter((a: any) => (a.status === 'active' || (a.contact_signed_at && a.beekeeper_signed_at)) && a.apiary_id)
           .map((a: any) => a.apiary_id)
       )
     );
@@ -162,9 +173,10 @@ export async function GET() {
       (agreements || []).map((a: any) => {
         const contact = contactMap.get(a.contact_id);
         const apiary = a.apiary_id ? apiaryMap.get(a.apiary_id) : null;
+        const effectiveStatus = a?.contact_signed_at && a?.beekeeper_signed_at ? 'active' : a.status;
         return {
           id: a.id,
-          status: a.status,
+          status: effectiveStatus,
           role: a.role,
           base_text: a.base_text,
           final_text: a.final_text,

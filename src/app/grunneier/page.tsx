@@ -292,17 +292,48 @@ export default function GrunneierPage() {
     setAuthFormPassword('');
   };
 
+  const requestPasswordReset = async () => {
+    const targetEmail = authFormEmail.trim().toLowerCase();
+    if (!targetEmail) return;
+    setLoading(true);
+    setStatus(null);
+    try {
+      const configuredBaseUrl =
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.NEXT_PUBLIC_BASE_URL;
+      const origin = window.location.origin;
+      const baseUrl = origin.includes('localhost') && configuredBaseUrl ? configuredBaseUrl : origin;
+      const redirectTo = `${baseUrl}/aksjer/reset-password?back=${encodeURIComponent('/grunneier')}`;
+      const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, { redirectTo });
+      if (error) {
+        setStatus(error.message || 'Kunne ikke sende e-post');
+        return;
+      }
+      setStatus('Sjekk e-posten din for lenke til å tilbakestille passordet.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signUp = async () => {
     setLoading(true);
     setStatus(null);
     try {
+      const emailValue = authFormEmail.trim().toLowerCase();
       const { error } = await supabase.auth.signUp({
-        email: authFormEmail.trim(),
+        email: emailValue,
         password: authFormPassword,
         options: { data: { is_landowner: true, full_name: authFormName.trim() || null } },
       });
       if (error) {
-        setStatus(error.message || 'Kunne ikke opprette konto');
+        const msg = String(error.message || '');
+        if (msg.toLowerCase().includes('already') || msg.toLowerCase().includes('exists')) {
+          setAuthMode('signin');
+          setStatus('Konto finnes allerede. Prøv å logge inn, eller bruk "Glemt passord".');
+          return;
+        }
+        setStatus(msg || 'Kunne ikke opprette konto');
         return;
       }
       setAuthModalOpen(false);
@@ -318,11 +349,20 @@ export default function GrunneierPage() {
     setStatus(null);
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email: authFormEmail.trim(),
+        email: authFormEmail.trim().toLowerCase(),
         password: authFormPassword,
       });
       if (error) {
-        setStatus(error.message || 'Kunne ikke logge inn');
+        const msg = String(error.message || '');
+        if (msg.toLowerCase().includes('invalid login credentials')) {
+          setStatus('Feil e-post eller passord. Bruk "Glemt passord" hvis du er usikker.');
+          return;
+        }
+        if (msg.toLowerCase().includes('email not confirmed')) {
+          setStatus('E-postadressen er ikke bekreftet ennå. Sjekk innboksen din.');
+          return;
+        }
+        setStatus(msg || 'Kunne ikke logge inn');
         return;
       }
       setAuthModalOpen(false);
@@ -593,9 +633,14 @@ export default function GrunneierPage() {
                     Har du konto? Logg inn
                   </button>
                 ) : (
-                  <button type="button" onClick={() => setAuthMode('signup')} className="underline">
-                    Ny her? Opprett konto
-                  </button>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button type="button" onClick={() => setAuthMode('signup')} className="underline">
+                      Ny her? Opprett konto
+                    </button>
+                    <button type="button" onClick={requestPasswordReset} disabled={loading || !authFormEmail.trim()} className="underline disabled:opacity-50">
+                      Glemt passord
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
