@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Mail, MapPin } from 'lucide-react';
+import { createClient } from '@/utils/supabase/client';
 
 const Map = dynamic(() => import('@/components/Map'), {
   ssr: false,
@@ -23,6 +24,7 @@ type LinkedApiary = {
     longitude: number | null;
     location: string | null;
     type: string | null;
+    status?: 'aktiv' | 'inaktiv';
   };
   contact: {
     id: string;
@@ -64,6 +66,7 @@ export default function GrunneierPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
+  const supabase = useMemo(() => createClient(), []);
 
   const toNumber = (v: unknown): number | null => {
     if (typeof v === 'number' && Number.isFinite(v)) return v;
@@ -89,6 +92,12 @@ export default function GrunneierPage() {
   const [specialTerms, setSpecialTerms] = useState('');
   const [specialTermsOriginal, setSpecialTermsOriginal] = useState('');
   const [savingSpecialTerms, setSavingSpecialTerms] = useState(false);
+  const [authEmail, setAuthEmail] = useState<string | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'signup' | 'signin'>('signup');
+  const [authFormName, setAuthFormName] = useState('');
+  const [authFormEmail, setAuthFormEmail] = useState('');
+  const [authFormPassword, setAuthFormPassword] = useState('');
 
   const fetchSession = async () => {
     setSessionLoading(true);
@@ -114,6 +123,21 @@ export default function GrunneierPage() {
   useEffect(() => {
     fetchSession();
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!isMounted) return;
+      setAuthEmail(data.user?.email || null);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthEmail(session?.user?.email || null);
+    });
+    return () => {
+      isMounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   useEffect(() => {
     if (selectedApiaryId && linkedApiaries.some((i) => i.apiary.id === selectedApiaryId)) return;
@@ -214,6 +238,7 @@ export default function GrunneierPage() {
           item.apiary.name ? `Navn: ${item.apiary.name}` : null,
           item.apiary.location ? `Sted: ${item.apiary.location}` : null,
           `Rolle: ${item.role}`,
+          item.apiary.status ? `Status: ${item.apiary.status}` : null,
         ]
           .filter(Boolean)
           .join('\n');
@@ -248,6 +273,70 @@ export default function GrunneierPage() {
   }, [agreements, pendingAgreements, activeAgreementId]);
 
   const canShowPortal = hasSession || agreements.length > 0;
+
+  const openAuth = (mode: 'signup' | 'signin') => {
+    setAuthMode(mode);
+    setAuthModalOpen(true);
+    setStatus(null);
+    if (mode === 'signin') {
+      setAuthFormName('');
+    }
+    const fallbackEmail = authEmail || email || '';
+    setAuthFormEmail(fallbackEmail);
+    setAuthFormPassword('');
+  };
+
+  const signUp = async () => {
+    setLoading(true);
+    setStatus(null);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: authFormEmail.trim(),
+        password: authFormPassword,
+        options: { data: { is_landowner: true, full_name: authFormName.trim() || null } },
+      });
+      if (error) {
+        setStatus(error.message || 'Kunne ikke opprette konto');
+        return;
+      }
+      setAuthModalOpen(false);
+      setStatus('Konto opprettet. Hvis du må bekrefte e-post, sjekk innboksen din.');
+      await fetchSession();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signIn = async () => {
+    setLoading(true);
+    setStatus(null);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: authFormEmail.trim(),
+        password: authFormPassword,
+      });
+      if (error) {
+        setStatus(error.message || 'Kunne ikke logge inn');
+        return;
+      }
+      setAuthModalOpen(false);
+      await fetchSession();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signOut = async () => {
+    setLoading(true);
+    setStatus(null);
+    try {
+      await supabase.auth.signOut();
+      setAuthEmail(null);
+      await fetchSession();
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const submitProposal = async () => {
     if (!currentAgreement) return;
@@ -369,10 +458,115 @@ export default function GrunneierPage() {
               Kart og oversikt over bigårder du er knyttet til
             </p>
           </div>
+          <div className="flex items-center gap-2">
+            {authEmail ? (
+              <>
+                <div className="hidden sm:block text-xs text-gray-600">{authEmail}</div>
+                <button
+                  type="button"
+                  onClick={signOut}
+                  disabled={loading}
+                  className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                >
+                  Logg ut
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => openAuth('signin')}
+                  className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 px-3 py-2 rounded-lg text-sm font-medium"
+                >
+                  Logg inn
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openAuth('signup')}
+                  className="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm font-medium"
+                >
+                  Opprett konto
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto p-4 space-y-4">
+        {authModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-md p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-bold text-gray-900">
+                  {authMode === 'signup' ? 'Opprett grunneierkonto' : 'Logg inn'}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAuthModalOpen(false)}
+                  className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                >
+                  Lukk
+                </button>
+              </div>
+
+              {authMode === 'signup' && (
+                <div className="grid gap-1">
+                  <label className="text-xs font-bold text-gray-700 uppercase">Navn</label>
+                  <input
+                    value={authFormName}
+                    onChange={(e) => setAuthFormName(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="F.eks. Ola Nordmann"
+                  />
+                </div>
+              )}
+
+              <div className="grid gap-1">
+                <label className="text-xs font-bold text-gray-700 uppercase">E-post</label>
+                <input
+                  value={authFormEmail}
+                  onChange={(e) => setAuthFormEmail(e.target.value)}
+                  type="email"
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="navn@epost.no"
+                />
+              </div>
+
+              <div className="grid gap-1">
+                <label className="text-xs font-bold text-gray-700 uppercase">Passord</label>
+                <input
+                  value={authFormPassword}
+                  onChange={(e) => setAuthFormPassword(e.target.value)}
+                  type="password"
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="Minst 8 tegn"
+                />
+              </div>
+
+              <button
+                type="button"
+                disabled={loading || !authFormEmail.trim() || authFormPassword.length < 8}
+                onClick={authMode === 'signup' ? signUp : signIn}
+                className="w-full bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+              >
+                {authMode === 'signup' ? 'Opprett konto' : 'Logg inn'}
+              </button>
+
+              <div className="text-xs text-gray-600">
+                {authMode === 'signup' ? (
+                  <button type="button" onClick={() => setAuthMode('signin')} className="underline">
+                    Har du konto? Logg inn
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => setAuthMode('signup')} className="underline">
+                    Ny her? Opprett konto
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         {status && (
           <div className="bg-white border border-gray-200 rounded-xl p-3 text-sm text-gray-700 flex items-center justify-between gap-3">
             <span>{status}</span>
@@ -543,6 +737,7 @@ export default function GrunneierPage() {
                         </div>
                         <div className="text-xs text-gray-600">
                           {item.apiary.location || 'Ukjent sted'} • Rolle: {item.role}
+                          {item.apiary.status ? ` • Status: ${item.apiary.status}` : ''}
                         </div>
                         {(toNumber(item.apiary.latitude) == null || toNumber(item.apiary.longitude) == null) && (
                           <div className="text-xs text-red-600 mt-1">Mangler posisjon (lat/lon)</div>

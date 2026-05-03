@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { createClient } from '@/utils/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,30 +12,43 @@ export async function GET() {
     const cookieStore = cookies();
     const token = cookieStore.get(COOKIE_NAME)?.value || '';
 
-    if (!token) {
-      return NextResponse.json({ error: 'Ikke logget inn' }, { status: 401 });
-    }
-
     const admin = createAdminClient();
 
-    const { data: magicToken, error: tokenError } = await admin
-      .from('magic_tokens')
-      .select('email, expires_at, purpose, agreement_id, apiary_id, contact_id')
-      .eq('token', token)
-      .single();
+    let email = '';
+    let tokenPurpose: string | null = null;
+    let tokenExpired = false;
 
-    if (tokenError || !magicToken) {
-      return NextResponse.json({ error: 'Ikke logget inn' }, { status: 401 });
+    if (token) {
+      const { data: magicToken, error: tokenError } = await admin
+        .from('magic_tokens')
+        .select('email, expires_at, purpose')
+        .eq('token', token)
+        .single();
+
+      if (!tokenError && magicToken) {
+        const expiresAtMs = new Date(magicToken.expires_at).getTime();
+        tokenExpired = !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now();
+        if (!tokenExpired) {
+          email = String(magicToken.email || '').trim();
+          tokenPurpose = String(magicToken.purpose || 'portal');
+        }
+      }
     }
 
-    const expiresAtMs = new Date(magicToken.expires_at).getTime();
-    if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
-      return NextResponse.json({ error: 'Utløpt', expired: true }, { status: 401 });
-    }
-
-    const email = String(magicToken.email || '').trim();
     if (!email) {
-      return NextResponse.json({ error: 'Ikke logget inn' }, { status: 401 });
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const userEmail = String(user?.email || '').trim();
+      const isLandowner = Boolean((user as any)?.user_metadata?.is_landowner);
+      if (!user || !userEmail || !isLandowner) {
+        return NextResponse.json({ error: 'Ikke logget inn', expired: tokenExpired }, { status: 401 });
+      }
+
+      email = userEmail;
+      tokenPurpose = 'account';
     }
 
     const { data: contacts } = await admin
@@ -90,6 +104,24 @@ export async function GET() {
           .limit(500)
       : { data: [] as any[] };
 
+    const { data: hives } = apiaryIdsForFetch.length
+      ? await admin.from('hives').select('apiary_id, status, active').in('apiary_id', apiaryIdsForFetch).limit(5000)
+      : { data: [] as any[] };
+
+    const activeByApiaryId = new Map<string, boolean>();
+    for (const row of hives || []) {
+      const apiaryId = String((row as any)?.apiary_id || '');
+      if (!apiaryId) continue;
+      if (activeByApiaryId.get(apiaryId) === true) continue;
+
+      const status = String((row as any)?.status || '').trim().toUpperCase();
+      const isActiveFlag = (row as any)?.active !== false;
+      const isInactiveStatus = ['SOLGT', 'AVSLUTTET', 'DØD', 'DESTRUERT'].includes(status);
+      const isActive = isActiveFlag && !isInactiveStatus;
+      if (isActive) activeByApiaryId.set(apiaryId, true);
+      else if (!activeByApiaryId.has(apiaryId)) activeByApiaryId.set(apiaryId, false);
+    }
+
     const apiaryMap = new Map((apiaries || []).map((a: any) => [a.id, a]));
     const contactMap = new Map((contacts || []).map((c: any) => [c.id, c]));
 
@@ -99,6 +131,7 @@ export async function GET() {
           const apiary = apiaryMap.get(ac.apiary_id);
           const contact = contactMap.get(ac.contact_id);
           if (!apiary || !contact) return null;
+          const isActive = activeByApiaryId.get(String(apiary.id)) === true;
           return {
             apiary: {
               id: apiary.id,
@@ -108,6 +141,7 @@ export async function GET() {
               longitude: apiary.longitude,
               location: apiary.location,
               type: apiary.type,
+              status: isActive ? 'aktiv' : 'inaktiv',
             },
             contact: {
               id: contact.id,
@@ -163,7 +197,7 @@ export async function GET() {
       contacts: contacts || [],
       apiaries: linkedApiaries,
       agreements: agreementsWithApiary,
-      tokenPurpose: magicToken.purpose || 'portal',
+      tokenPurpose,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Ukjent feil' }, { status: 500 });

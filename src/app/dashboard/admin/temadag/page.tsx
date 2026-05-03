@@ -134,6 +134,7 @@ export default function AdminTemadagPage() {
   const ACTIVE_OWNER_KEY = 'lek_active_owner_id';
   const SLIDE_KEY = 'lek_temadag_slide_index';
   const PHONE_SCALE_KEY = 'lek_temadag_phone_scale';
+  const COURSE_ACTIVE_KEY = 'lek_demo_course_active';
   const supabase = createClient();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -310,6 +311,7 @@ export default function AdminTemadagPage() {
           window.localStorage.setItem(ACTIVE_OWNER_KEY, demoOwnerId);
         }
         window.localStorage.setItem(SLIDE_KEY, '0');
+        window.localStorage.setItem(COURSE_ACTIVE_KEY, '1');
       }
 
       setDemoSessionId(sessionId || null);
@@ -364,6 +366,8 @@ export default function AdminTemadagPage() {
         window.localStorage.removeItem('lek_demo_session_token');
         window.localStorage.removeItem('lek_demo_owner_id');
         window.localStorage.removeItem(SLIDE_KEY);
+        window.localStorage.removeItem(PHONE_SCALE_KEY);
+        window.localStorage.removeItem(COURSE_ACTIVE_KEY);
         if (userId) window.localStorage.setItem(ACTIVE_OWNER_KEY, userId);
       }
 
@@ -448,6 +452,27 @@ export default function AdminTemadagPage() {
                 className="px-4 py-2 rounded-lg bg-red-700 text-white text-sm font-bold disabled:bg-gray-400"
               >
                 {resettingDemo ? 'Nullstiller…' : 'Nullstill demo'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    window.localStorage.removeItem('lek_demo_session_id');
+                    window.localStorage.removeItem('lek_demo_session_expires_at');
+                    window.localStorage.removeItem('lek_demo_session_token');
+                    window.localStorage.removeItem('lek_demo_owner_id');
+                    window.localStorage.removeItem(SLIDE_KEY);
+                    window.localStorage.removeItem(PHONE_SCALE_KEY);
+                    window.localStorage.removeItem(COURSE_ACTIVE_KEY);
+                  } catch {}
+                  setDemoSessionId(null);
+                  setDemoExpiresAt(null);
+                  setSlideIndex(0);
+                  setPlayerOpen(false);
+                }}
+                className="px-4 py-2 rounded-lg bg-gray-100 text-gray-900 text-sm font-bold hover:bg-gray-200"
+              >
+                Avslutt kurs
               </button>
             </div>
           </div>
