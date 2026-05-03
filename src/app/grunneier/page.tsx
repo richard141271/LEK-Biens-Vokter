@@ -93,6 +93,8 @@ export default function GrunneierPage() {
   const [specialTermsOriginal, setSpecialTermsOriginal] = useState('');
   const [savingSpecialTerms, setSavingSpecialTerms] = useState(false);
   const [authEmail, setAuthEmail] = useState<string | null>(null);
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const [sessionTokenPurpose, setSessionTokenPurpose] = useState<string | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'signup' | 'signin'>('signup');
   const [authFormName, setAuthFormName] = useState('');
@@ -110,11 +112,15 @@ export default function GrunneierPage() {
         }
         setLinkedApiaries([]);
         setAgreements([]);
+        setSessionEmail(null);
+        setSessionTokenPurpose(null);
         return;
       }
       const data = await res.json();
       setLinkedApiaries(data?.apiaries || []);
       setAgreements(data?.agreements || []);
+      setSessionEmail(data?.email || null);
+      setSessionTokenPurpose(data?.tokenPurpose || null);
     } finally {
       setSessionLoading(false);
     }
@@ -338,6 +344,21 @@ export default function GrunneierPage() {
     }
   };
 
+  const logoutMagicSession = async () => {
+    setLoading(true);
+    setStatus(null);
+    try {
+      await fetch('/api/grunneier/logout', { method: 'POST' });
+      setLinkedApiaries([]);
+      setAgreements([]);
+      setSessionEmail(null);
+      setSessionTokenPurpose(null);
+      setStatus('Du er logget ut.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const submitProposal = async () => {
     if (!currentAgreement) return;
     setLoading(true);
@@ -473,6 +494,19 @@ export default function GrunneierPage() {
               </>
             ) : (
               <>
+                {sessionTokenPurpose && sessionTokenPurpose !== 'account' ? (
+                  <>
+                    <div className="hidden sm:block text-xs text-gray-600">{sessionEmail || 'Innlogget med lenke'}</div>
+                    <button
+                      type="button"
+                      onClick={logoutMagicSession}
+                      disabled={loading}
+                      className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 px-3 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                    >
+                      Logg ut
+                    </button>
+                  </>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => openAuth('signin')}
@@ -495,7 +529,7 @@ export default function GrunneierPage() {
 
       <main className="max-w-5xl mx-auto p-4 space-y-4">
         {authModalOpen && (
-          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[10000] bg-black/50 flex items-center justify-center p-4">
             <div className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-md p-4 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="font-bold text-gray-900">

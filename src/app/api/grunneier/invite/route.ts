@@ -270,11 +270,12 @@ export async function POST(request: Request) {
         agreementId = existingAgreement.id;
         if (existingAgreement.status === 'active') {
           agreementAlreadyActive = true;
-        } else if (sendInvite) {
+        } else if (existingAgreement.status !== 'rejected') {
+          const nextStatus = sendInvite ? 'awaiting_contact' : existingAgreement.status;
           await supabase
             .from('grunneier_agreements')
             .update({
-              status: 'awaiting_contact',
+              status: nextStatus,
               base_text: baseText,
               updated_at: new Date().toISOString(),
             })
