@@ -100,6 +100,7 @@ export default function GrunneierPage() {
   const [authFormName, setAuthFormName] = useState('');
   const [authFormEmail, setAuthFormEmail] = useState('');
   const [authFormPassword, setAuthFormPassword] = useState('');
+  const [magicPassword, setMagicPassword] = useState('');
 
   const fetchSession = async () => {
     setSessionLoading(true);
@@ -319,6 +320,42 @@ export default function GrunneierPage() {
     const fallbackEmail = authEmail || email || '';
     setAuthFormEmail(fallbackEmail);
     setAuthFormPassword('');
+  };
+
+  const setPasswordFromLink = async () => {
+    const targetEmail = String(sessionEmail || '').trim().toLowerCase();
+    if (!targetEmail) return;
+    if (!magicPassword || magicPassword.length < 8) {
+      setStatus('Passord må være minst 8 tegn');
+      return;
+    }
+    setLoading(true);
+    setStatus(null);
+    try {
+      const res = await fetch('/api/grunneier/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: magicPassword, fullName: '' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(data?.error || 'Kunne ikke sette passord');
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({ email: targetEmail, password: magicPassword });
+      if (error) {
+        setMagicPassword('');
+        setStatus('Passord er satt, men innlogging feilet. Prøv å logge inn manuelt.');
+        return;
+      }
+
+      setMagicPassword('');
+      setStatus('Passord er satt. Du er nå logget inn med konto.');
+      await fetchSession();
+    } finally {
+      setLoading(false);
+    }
   };
 
   const requestPasswordReset = async () => {
@@ -611,6 +648,31 @@ export default function GrunneierPage() {
       </header>
 
       <main className="max-w-5xl mx-auto p-4 space-y-4">
+        {!authEmail && sessionTokenPurpose && sessionTokenPurpose !== 'account' && sessionEmail ? (
+          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
+            <div className="text-sm font-bold text-gray-900">Sett passord (valgfritt)</div>
+            <div className="text-xs text-gray-600">
+              Du er innlogget med engangslenke som {sessionEmail}. Sett et passord for å kunne logge inn uten lenke.
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                value={magicPassword}
+                onChange={(e) => setMagicPassword(e.target.value)}
+                type="password"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                placeholder="Nytt passord (minst 8 tegn)"
+              />
+              <button
+                type="button"
+                disabled={loading || magicPassword.length < 8}
+                onClick={setPasswordFromLink}
+                className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+              >
+                Sett passord
+              </button>
+            </div>
+          </div>
+        ) : null}
         {authModalOpen && (
           <div className="fixed inset-0 z-[10000] bg-black/50 flex items-center justify-center p-4">
             <div className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-md p-4 space-y-3">
