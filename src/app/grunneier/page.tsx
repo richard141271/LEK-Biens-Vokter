@@ -273,10 +273,39 @@ export default function GrunneierPage() {
         }),
     [agreements]
   );
+
+  const sortedAgreements = useMemo(() => {
+    const list = Array.isArray(agreements) ? agreements.slice() : [];
+    const rank = (a: Agreement) => {
+      const status = String(a?.status || '').toLowerCase();
+      if (status === 'active') return 0;
+      if (status === 'awaiting_contact_signature') return 1;
+      if (status === 'awaiting_beekeeper_signature') return 2;
+      if (status === 'contact_proposed') return 3;
+      if (status === 'awaiting_contact') return 4;
+      if (status === 'draft') return 6;
+      if (status === 'rejected') return 9;
+      return 7;
+    };
+    return list.sort((a, b) => {
+      const ra = rank(a);
+      const rb = rank(b);
+      if (ra !== rb) return ra - rb;
+      const aTime = new Date(a.updated_at || a.created_at).getTime();
+      const bTime = new Date(b.updated_at || b.created_at).getTime();
+      if (Number.isFinite(aTime) && Number.isFinite(bTime) && aTime !== bTime) return bTime - aTime;
+      return b.id.localeCompare(a.id);
+    });
+  }, [agreements]);
+
   const currentAgreement = useMemo(() => {
-    const id = activeAgreementId || pendingAgreements[0]?.id;
-    return (agreements || []).find((a) => a.id === id) || null;
-  }, [agreements, pendingAgreements, activeAgreementId]);
+    if (activeAgreementId) return sortedAgreements.find((a) => a.id === activeAgreementId) || null;
+    if (selectedApiaryId) {
+      const byApiary = sortedAgreements.filter((a) => a.apiary?.id === selectedApiaryId);
+      if (byApiary.length > 0) return byApiary[0];
+    }
+    return sortedAgreements[0] || null;
+  }, [activeAgreementId, sortedAgreements, selectedApiaryId]);
 
   const canShowPortal = hasSession || agreements.length > 0;
 
@@ -321,32 +350,32 @@ export default function GrunneierPage() {
     setStatus(null);
     try {
       const emailValue = authFormEmail.trim().toLowerCase();
-      const configuredBaseUrl =
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        process.env.NEXT_PUBLIC_APP_URL ||
-        process.env.NEXT_PUBLIC_BASE_URL;
-      const origin = window.location.origin;
-      const baseUrl = origin.includes('localhost') && configuredBaseUrl ? configuredBaseUrl : origin;
-      const { error } = await supabase.auth.signUp({
-        email: emailValue,
-        password: authFormPassword,
-        options: {
-          emailRedirectTo: `${baseUrl}/grunneier`,
-          data: { is_landowner: true, full_name: authFormName.trim() || null },
-        },
+      const res = await fetch('/api/grunneier/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: emailValue,
+          password: authFormPassword,
+          fullName: authFormName.trim() || null,
+        }),
       });
-      if (error) {
-        const msg = String(error.message || '');
-        if (msg.toLowerCase().includes('already') || msg.toLowerCase().includes('exists')) {
-          setAuthMode('signin');
-          setStatus('Konto finnes allerede. Prøv å logge inn, eller bruk "Glemt passord".');
-          return;
-        }
-        setStatus(msg || 'Kunne ikke opprette konto');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(data?.error || 'Kunne ikke opprette konto');
         return;
       }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: emailValue,
+        password: authFormPassword,
+      });
+      if (signInError) {
+        setAuthMode('signin');
+        setStatus('Konto er opprettet, men innlogging feilet. Prøv å logge inn, eller bruk "Glemt passord".');
+        return;
+      }
+
       setAuthModalOpen(false);
-      setStatus('Konto opprettet. Hvis du må bekrefte e-post, sjekk innboksen din.');
       await fetchSession();
     } finally {
       setLoading(false);
@@ -365,12 +394,8 @@ export default function GrunneierPage() {
         const msg = String(error.message || '');
         if (msg.toLowerCase().includes('invalid login credentials')) {
           setStatus(
-            'Feil e-post eller passord. Hvis du nettopp opprettet konto, må du kanskje bekrefte e-post først. Bruk "Glemt passord" hvis du er usikker.'
+            'Feil e-post eller passord. Bruk "Glemt passord" hvis du er usikker.'
           );
-          return;
-        }
-        if (msg.toLowerCase().includes('email not confirmed')) {
-          setStatus('E-postadressen er ikke bekreftet ennå. Sjekk innboksen din.');
           return;
         }
         setStatus(msg || 'Kunne ikke logge inn');
@@ -677,13 +702,13 @@ export default function GrunneierPage() {
           </div>
         ) : canShowPortal ? (
           <>
-            {pendingAgreements.length > 0 && (
+            {agreements.length > 0 && (
               <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div>
-                    <h2 className="text-sm font-bold text-gray-900">Avtale</h2>
+                    <h2 className="text-sm font-bold text-gray-900">Min side</h2>
                     <p className="text-xs text-gray-500">
-                      Tilgang til kart og oversikt aktiveres etter at begge parter har signert.
+                      Her kan du se avtalen(e) dine og eventuelt signere eller foreslå tillegg.
                     </p>
                   </div>
                   <button
@@ -693,15 +718,16 @@ export default function GrunneierPage() {
                   >
                     {isAgreementCollapsed ? 'Åpne' : 'Lukk'}
                   </button>
-                  {pendingAgreements.length > 1 && (
+                  {sortedAgreements.length > 1 && (
                     <select
                       value={currentAgreement?.id || ''}
                       onChange={(e) => setActiveAgreementId(e.target.value)}
                       className="border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white"
                     >
-                      {pendingAgreements.map((a) => (
+                      {sortedAgreements.map((a) => (
                         <option key={a.id} value={a.id}>
-                          {a.apiary?.apiary_number || 'Bigård'} {a.apiary?.name ? `– ${a.apiary?.name}` : ''}
+                          {a.apiary?.apiary_number || 'Bigård'} {a.apiary?.name ? `– ${a.apiary?.name}` : ''} (
+                          {a.status === 'active' ? 'aktiv' : 'ikke aktiv'})
                         </option>
                       ))}
                     </select>
@@ -719,6 +745,10 @@ export default function GrunneierPage() {
                       >
                         Avtalen er avvist. Trykk her for å opprette en ny standardavtale.
                       </button>
+                    ) : currentAgreement.status === 'active' ? (
+                      <div className="border border-green-200 bg-green-50 text-green-900 rounded-lg p-3 text-sm">
+                        Avtalen er aktiv. Begge parter har signert.
+                      </div>
                     ) : currentAgreement.status === 'contact_proposed' ||
                       (currentAgreement.contact_proposal && currentAgreement.beekeeper_decision === 'pending') ? (
                       <div className="border border-yellow-200 bg-yellow-50 text-yellow-900 rounded-lg p-3 text-sm">
@@ -736,7 +766,9 @@ export default function GrunneierPage() {
                         </div>
 
                         <div className="grid gap-2">
-                          <label className="text-xs font-bold text-gray-700 uppercase">Unntak/tillegg (valgfritt)</label>
+                          <label className="text-xs font-bold text-gray-700 uppercase">
+                            Unntak/tillegg (valgfritt)
+                          </label>
                           <textarea
                             value={proposal}
                             onChange={(e) => setProposal(e.target.value)}
