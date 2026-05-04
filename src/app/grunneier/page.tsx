@@ -364,6 +364,13 @@ export default function GrunneierPage() {
         setStatus(data?.error || 'Kunne ikke opprette konto');
         return;
       }
+      if (data?.exists && !data?.passwordUpdated) {
+        setAuthMode('signin');
+        setStatus(
+          'Konto finnes allerede. Hvis du er logget inn med engangslenke på samme e-post, kan du sette nytt passord ved å skrive ønsket passord og trykke "Opprett konto" igjen.'
+        );
+        return;
+      }
 
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: emailValue,
@@ -745,10 +752,6 @@ export default function GrunneierPage() {
                       >
                         Avtalen er avvist. Trykk her for å opprette en ny standardavtale.
                       </button>
-                    ) : currentAgreement.status === 'active' ? (
-                      <div className="border border-green-200 bg-green-50 text-green-900 rounded-lg p-3 text-sm">
-                        Avtalen er aktiv. Begge parter har signert.
-                      </div>
                     ) : currentAgreement.status === 'contact_proposed' ||
                       (currentAgreement.contact_proposal && currentAgreement.beekeeper_decision === 'pending') ? (
                       <div className="border border-yellow-200 bg-yellow-50 text-yellow-900 rounded-lg p-3 text-sm">
@@ -756,6 +759,11 @@ export default function GrunneierPage() {
                       </div>
                     ) : (
                       <>
+                        {currentAgreement.status === 'active' && (
+                          <div className="border border-green-200 bg-green-50 text-green-900 rounded-lg p-3 text-sm">
+                            Avtalen er aktiv. Begge parter har signert.
+                          </div>
+                        )}
                         {currentAgreement.beekeeper_decision === 'rejected' && currentAgreement.contact_proposal && (
                           <div className="border border-gray-200 bg-gray-50 text-gray-800 rounded-lg p-3 text-sm">
                             Tilleggsforslaget ditt er avvist. Standard avtale gjelder, og du kan signere under.
@@ -765,41 +773,45 @@ export default function GrunneierPage() {
                           {currentAgreement.final_text || currentAgreement.base_text}
                         </div>
 
-                        <div className="grid gap-2">
-                          <label className="text-xs font-bold text-gray-700 uppercase">
-                            Unntak/tillegg (valgfritt)
-                          </label>
-                          <textarea
-                            value={proposal}
-                            onChange={(e) => setProposal(e.target.value)}
-                            className="border border-gray-300 rounded-lg px-3 py-2 text-sm min-h-[90px]"
-                            placeholder="Skriv inn forslag til endringer/tillegg..."
-                          />
-                          <button
-                            disabled={loading || !proposal.trim()}
-                            onClick={submitProposal}
-                            className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-                          >
-                            Send forslag
-                          </button>
-                        </div>
+                        {currentAgreement.status !== 'active' && (
+                          <>
+                            <div className="grid gap-2">
+                              <label className="text-xs font-bold text-gray-700 uppercase">
+                                Unntak/tillegg (valgfritt)
+                              </label>
+                              <textarea
+                                value={proposal}
+                                onChange={(e) => setProposal(e.target.value)}
+                                className="border border-gray-300 rounded-lg px-3 py-2 text-sm min-h-[90px]"
+                                placeholder="Skriv inn forslag til endringer/tillegg..."
+                              />
+                              <button
+                                disabled={loading || !proposal.trim()}
+                                onClick={submitProposal}
+                                className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                              >
+                                Send forslag
+                              </button>
+                            </div>
 
-                        <div className="grid gap-2">
-                          <label className="text-xs font-bold text-gray-700 uppercase">Signatur</label>
-                          <input
-                            value={signatureName}
-                            onChange={(e) => setSignatureName(e.target.value)}
-                            className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                            placeholder="Skriv navnet ditt"
-                          />
-                          <button
-                            disabled={loading || !signatureName.trim()}
-                            onClick={signAgreement}
-                            className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-                          >
-                            Signer avtale
-                          </button>
-                        </div>
+                            <div className="grid gap-2">
+                              <label className="text-xs font-bold text-gray-700 uppercase">Signatur</label>
+                              <input
+                                value={signatureName}
+                                onChange={(e) => setSignatureName(e.target.value)}
+                                className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                                placeholder="Skriv navnet ditt"
+                              />
+                              <button
+                                disabled={loading || !signatureName.trim()}
+                                onClick={signAgreement}
+                                className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                              >
+                                Signer avtale
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </>
                     )}
                   </>
