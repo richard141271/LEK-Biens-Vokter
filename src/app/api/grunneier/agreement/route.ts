@@ -117,12 +117,13 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
 
     let email = '';
+    let tokenContactId = '';
     let tokenExpired = false;
 
     if (token) {
       const { data: magicToken } = await admin
         .from('magic_tokens')
-        .select('email, expires_at')
+        .select('email, expires_at, contact_id')
         .eq('token', token)
         .single();
 
@@ -131,6 +132,7 @@ export async function POST(request: Request) {
         tokenExpired = !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now();
         if (!tokenExpired) {
           email = String(magicToken.email || '').trim();
+          tokenContactId = String((magicToken as any)?.contact_id || '').trim();
         }
       }
     }
@@ -162,7 +164,10 @@ export async function POST(request: Request) {
         .single();
 
       const contactEmail = String(contact?.email || '').trim().toLowerCase();
-      if (!contact || contactEmail !== email.toLowerCase()) {
+      if (
+        !contact ||
+        (tokenContactId ? String(contact.id) !== tokenContactId : contactEmail !== email.toLowerCase())
+      ) {
         return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
       }
 
@@ -210,7 +215,10 @@ export async function POST(request: Request) {
       .single();
 
     const contactEmail = String(contact?.email || '').trim().toLowerCase();
-    if (!contact || contactEmail !== email.toLowerCase()) {
+    if (
+      !contact ||
+      (tokenContactId ? String(contact.id) !== tokenContactId : contactEmail !== email.toLowerCase())
+    ) {
       return NextResponse.json({ error: 'Ingen tilgang til avtale' }, { status: 403 });
     }
 

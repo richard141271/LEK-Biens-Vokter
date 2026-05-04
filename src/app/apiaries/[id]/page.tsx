@@ -10,6 +10,7 @@ import QRCode from 'qrcode';
 import { generateHiveLabelsPDF } from '@/utils/hive-labels-pdf';
 
 export default function ApiaryDetailsPage({ params }: { params: { id: string } }) {
+  const selectedContactStorageKey = `lek_apiary_selected_contact_${params.id}`;
   const [apiary, setApiary] = useState<any>(null);
   const [hives, setHives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +31,14 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [isMoving, setIsMoving] = useState(false);
 
   const [apiaryContacts, setApiaryContacts] = useState<any[]>([]);
-  const [selectedContactId, setSelectedContactId] = useState<string>('');
+  const [selectedContactId, setSelectedContactId] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    try {
+      return window.localStorage.getItem(selectedContactStorageKey) || '';
+    } catch {
+      return '';
+    }
+  });
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteTab, setInviteTab] = useState<'existing' | 'new'>('existing');
   const [contactsList, setContactsList] = useState<any[]>([]);
@@ -124,7 +132,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
   const supabase = createClient();
   const router = useRouter();
-  const selectedContactStorageKey = `lek_apiary_selected_contact_${params.id}`;
 
   const formatApiaryNumber = (raw: any, type?: any) => {
     const s = String(raw || '');
@@ -132,14 +139,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     if (t === 'bil' || s.toUpperCase().startsWith('BIL-')) return s.split('.')[0];
     return s;
   };
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const stored = window.localStorage.getItem(selectedContactStorageKey);
-      if (stored) setSelectedContactId(stored);
-    } catch {}
-  }, [selectedContactStorageKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

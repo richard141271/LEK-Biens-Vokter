@@ -16,12 +16,13 @@ export async function GET() {
 
     let email = '';
     let tokenPurpose: string | null = null;
+    let tokenContactId = '';
     let tokenExpired = false;
 
     if (token) {
       const { data: magicToken, error: tokenError } = await admin
         .from('magic_tokens')
-        .select('email, expires_at, purpose')
+        .select('email, expires_at, purpose, contact_id')
         .eq('token', token)
         .single();
 
@@ -31,6 +32,7 @@ export async function GET() {
         if (!tokenExpired) {
           email = String(magicToken.email || '').trim();
           tokenPurpose = String(magicToken.purpose || 'portal');
+          tokenContactId = String((magicToken as any)?.contact_id || '').trim();
         }
       }
     }
@@ -51,10 +53,20 @@ export async function GET() {
       tokenPurpose = 'account';
     }
 
-    const { data: contacts } = await admin
+    const { data: contactsByEmail } = await admin
       .from('contacts')
       .select('id, name, email, address, postal_code, city, phone')
       .ilike('email', email);
+
+    const contacts: any[] = Array.isArray(contactsByEmail) ? contactsByEmail.slice() : [];
+    if (tokenContactId && !contacts.some((c) => String(c?.id || '') === tokenContactId)) {
+      const { data: tokenContact } = await admin
+        .from('contacts')
+        .select('id, name, email, address, postal_code, city, phone')
+        .eq('id', tokenContactId)
+        .maybeSingle();
+      if (tokenContact) contacts.push(tokenContact as any);
+    }
 
     const contactIds = (contacts || []).map((c: any) => c.id);
     if (contactIds.length === 0) {

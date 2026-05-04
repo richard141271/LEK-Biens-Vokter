@@ -321,10 +321,19 @@ export default function GrunneierPage() {
     setStatus(null);
     try {
       const emailValue = authFormEmail.trim().toLowerCase();
+      const configuredBaseUrl =
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.NEXT_PUBLIC_BASE_URL;
+      const origin = window.location.origin;
+      const baseUrl = origin.includes('localhost') && configuredBaseUrl ? configuredBaseUrl : origin;
       const { error } = await supabase.auth.signUp({
         email: emailValue,
         password: authFormPassword,
-        options: { data: { is_landowner: true, full_name: authFormName.trim() || null } },
+        options: {
+          emailRedirectTo: `${baseUrl}/grunneier`,
+          data: { is_landowner: true, full_name: authFormName.trim() || null },
+        },
       });
       if (error) {
         const msg = String(error.message || '');
@@ -355,7 +364,9 @@ export default function GrunneierPage() {
       if (error) {
         const msg = String(error.message || '');
         if (msg.toLowerCase().includes('invalid login credentials')) {
-          setStatus('Feil e-post eller passord. Bruk "Glemt passord" hvis du er usikker.');
+          setStatus(
+            'Feil e-post eller passord. Hvis du nettopp opprettet konto, må du kanskje bekrefte e-post først. Bruk "Glemt passord" hvis du er usikker.'
+          );
           return;
         }
         if (msg.toLowerCase().includes('email not confirmed')) {
