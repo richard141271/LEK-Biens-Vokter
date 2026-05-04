@@ -825,16 +825,18 @@ export default function GrunneierPage() {
                     <textarea
                       value={specialTerms}
                       onChange={(e) => setSpecialTerms(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm min-h-[90px]"
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm min-h-[150px] resize-y"
                       placeholder="Skriv inn eventuelle spesielle vilkår/tillegg/endringer for denne bigården..."
                     />
-                    <button
-                      disabled={savingSpecialTerms || specialTerms.trim() === specialTermsOriginal.trim()}
-                      onClick={saveSpecialTerms}
-                      className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
-                    >
-                      Lagre
-                    </button>
+                    <div className="flex items-center justify-end">
+                      <button
+                        disabled={savingSpecialTerms || specialTerms.trim() === specialTermsOriginal.trim()}
+                        onClick={saveSpecialTerms}
+                        className="inline-flex items-center justify-center bg-gray-900 text-white px-5 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50"
+                      >
+                        Lagre vilkår
+                      </button>
+                    </div>
                   </div>
                 )}
 
