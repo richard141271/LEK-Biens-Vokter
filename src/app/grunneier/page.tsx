@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Mail, MapPin } from 'lucide-react';
@@ -103,10 +103,21 @@ export default function GrunneierPage() {
   const [authFormPassword, setAuthFormPassword] = useState('');
   const [magicPassword, setMagicPassword] = useState('');
 
+  const authedFetch = useCallback(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data?.session?.access_token || '';
+      const headers = new Headers(init?.headers || undefined);
+      if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
+      return fetch(input, { ...(init || {}), headers });
+    },
+    [supabase]
+  );
+
   const fetchSession = async () => {
     setSessionLoading(true);
     try {
-      const res = await fetch('/api/grunneier/session', { cache: 'no-store' });
+      const res = await authedFetch('/api/grunneier/session', { cache: 'no-store' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         if (data?.expired) {
@@ -490,7 +501,7 @@ export default function GrunneierPage() {
     setLoading(true);
     setStatus(null);
     try {
-      const res = await fetch('/api/grunneier/agreement', {
+      const res = await authedFetch('/api/grunneier/agreement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -517,7 +528,7 @@ export default function GrunneierPage() {
     setLoading(true);
     setStatus(null);
     try {
-      const res = await fetch('/api/grunneier/agreement', {
+      const res = await authedFetch('/api/grunneier/agreement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -543,7 +554,7 @@ export default function GrunneierPage() {
     setSavingSpecialTerms(true);
     setStatus(null);
     try {
-      const res = await fetch('/api/grunneier/agreement', {
+      const res = await authedFetch('/api/grunneier/agreement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -571,7 +582,7 @@ export default function GrunneierPage() {
     setRecreatingAgreement(true);
     setStatus(null);
     try {
-      const res = await fetch('/api/grunneier/agreement', {
+      const res = await authedFetch('/api/grunneier/agreement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

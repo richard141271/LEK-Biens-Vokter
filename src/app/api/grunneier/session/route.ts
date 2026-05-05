@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 const COOKIE_NAME = 'grunneier_token';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const cookieStore = cookies();
     const token = cookieStore.get(COOKIE_NAME)?.value || '';
@@ -23,17 +23,45 @@ export async function GET() {
     let tokenAgreementId = '';
     let tokenExpired = false;
     let accountContactId = '';
+    let accountUserId = '';
+    let accountAppMetadata: any = null;
 
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const authHeader = request.headers.get('authorization') || '';
+    const bearerToken = authHeader.toLowerCase().startsWith('bearer ')
+      ? authHeader.slice('bearer '.length).trim()
+      : '';
 
-    const userEmail = String(user?.email || '').trim();
-    if (user && userEmail) {
-      email = userEmail;
+    if (bearerToken) {
+      const { data: tokenUserData, error: tokenUserError } = await admin.auth.getUser(bearerToken);
+      const tokenUser = !tokenUserError ? (tokenUserData as any)?.user : null;
+      const tokenEmail = String(tokenUser?.email || '').trim();
+      if (tokenUser && tokenEmail) {
+        email = tokenEmail;
+        tokenPurpose = 'account';
+        accountUserId = String(tokenUser.id);
+        accountContactId = String((tokenUser as any)?.app_metadata?.landowner_contact_id || '').trim();
+        accountAppMetadata = (tokenUser as any)?.app_metadata || null;
+      }
+    }
+
+    if (!email) {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const userEmail = String(user?.email || '').trim();
+      if (user && userEmail) {
+        email = userEmail;
+        tokenPurpose = 'account';
+        accountUserId = String(user.id);
+        accountContactId = String((user as any)?.app_metadata?.landowner_contact_id || '').trim();
+        accountAppMetadata = (user as any)?.app_metadata || null;
+      }
+    }
+
+    if (email && tokenPurpose === 'account') {
       tokenPurpose = 'account';
-      accountContactId = String((user as any)?.app_metadata?.landowner_contact_id || '').trim();
 
       if (!accountContactId) {
         const emailLower = normalizeEmail(email);
@@ -63,12 +91,16 @@ export async function GET() {
 
         if (fallbackContactId) {
           accountContactId = fallbackContactId;
-          await admin.auth.admin.updateUserById(String(user.id), {
-            app_metadata: { ...((user as any)?.app_metadata || {}), landowner_contact_id: fallbackContactId },
-          });
+          if (accountUserId) {
+            await admin.auth.admin.updateUserById(accountUserId, {
+              app_metadata: { ...(accountAppMetadata || {}), landowner_contact_id: fallbackContactId },
+            });
+          }
         }
       }
-    } else if (token) {
+    }
+
+    if (!email && token) {
       const { data: magicToken, error: tokenError } = await admin
         .from('magic_tokens')
         .select('email, expires_at, purpose, contact_id, apiary_id, agreement_id')
