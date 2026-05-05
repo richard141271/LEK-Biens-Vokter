@@ -108,7 +108,15 @@ export async function GET() {
     const { data: agreements } = await agreementsQuery;
 
     const toActivateIds = (agreements || [])
-      .filter((a: any) => a?.id && a?.status !== 'active' && a?.status !== 'rejected' && a?.contact_signed_at && a?.beekeeper_signed_at)
+      .filter(
+        (a: any) =>
+          a?.id &&
+          a?.status !== 'active' &&
+          a?.status !== 'rejected' &&
+          a?.status !== 'terminated' &&
+          a?.contact_signed_at &&
+          a?.beekeeper_signed_at
+      )
       .map((a: any) => a.id);
 
     if (toActivateIds.length > 0) {
@@ -121,7 +129,13 @@ export async function GET() {
     const activeAgreementApiaryIds = Array.from(
       new Set(
         (agreements || [])
-          .filter((a: any) => (a.status === 'active' || (a.contact_signed_at && a.beekeeper_signed_at)) && a.apiary_id)
+          .filter((a: any) => {
+            const status = String(a?.status || '').toLowerCase();
+            if (!a?.apiary_id) return false;
+            if (status === 'active') return true;
+            if (status === 'rejected' || status === 'terminated') return false;
+            return Boolean(a?.contact_signed_at && a?.beekeeper_signed_at);
+          })
           .map((a: any) => a.apiary_id)
       )
     );
@@ -211,7 +225,9 @@ export async function GET() {
       (agreements || []).map((a: any) => {
         const contact = contactMap.get(a.contact_id);
         const apiary = a.apiary_id ? apiaryMap.get(a.apiary_id) : null;
-        const effectiveStatus = a?.contact_signed_at && a?.beekeeper_signed_at ? 'active' : a.status;
+        const status = String(a?.status || '').toLowerCase();
+        const bothSigned = Boolean(a?.contact_signed_at && a?.beekeeper_signed_at);
+        const effectiveStatus = bothSigned && status !== 'rejected' && status !== 'terminated' ? 'active' : a.status;
         return {
           id: a.id,
           status: effectiveStatus,

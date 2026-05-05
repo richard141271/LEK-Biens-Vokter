@@ -471,6 +471,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         if (status === 'awaiting_contact') return 4;
         if (status === 'draft') return 6;
         if (status === 'rejected') return 9;
+        if (status === 'terminated') return 10;
         return 7;
       };
 
@@ -643,6 +644,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     if (!selectedAgreement?.id) return;
     if (!beekeeperSignatureName.trim()) return;
     if (selectedAgreement.status === 'rejected') return;
+    if (selectedAgreement.status === 'terminated') return;
 
     const hasPendingProposal =
       Boolean(selectedAgreement.contact_proposal) && selectedAgreement.beekeeper_decision === 'pending';
@@ -671,6 +673,41 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       }
 
       setAgreementStatus(nextStatus === 'active' ? 'Avtalen er nå aktiv.' : 'Signert. Venter på grunneier.');
+      await fetchSelectedAgreement(selectedContactId);
+    } finally {
+      setIsAgreementUpdating(false);
+    }
+  };
+
+  const terminateAgreement = async () => {
+    if (!selectedAgreement?.id) return;
+    const status = String(selectedAgreement.status || '').toLowerCase();
+    if (status === 'terminated' || status === 'rejected') return;
+
+    const ok = window.confirm(
+      'Avslutte avtalen? Grunneier mister tilgang til denne bigården.'
+    );
+    if (!ok) return;
+
+    setIsAgreementUpdating(true);
+    setAgreementStatus(null);
+    try {
+      const { error } = await supabase
+        .from('grunneier_agreements')
+        .update({
+          status: 'terminated',
+          terminated_at: new Date().toISOString(),
+          terminated_by: currentUser?.id || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedAgreement.id);
+
+      if (error) {
+        setAgreementStatus(error.message);
+        return;
+      }
+
+      setAgreementStatus('Avtalen er avsluttet. Grunneier har ikke lenger tilgang.');
       await fetchSelectedAgreement(selectedContactId);
     } finally {
       setIsAgreementUpdating(false);
@@ -1596,6 +1633,18 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                   >
                     Kopier portal-lenke
                   </button>
+
+                  {String(selectedAgreement.status || '').toLowerCase() !== 'terminated' &&
+                  String(selectedAgreement.status || '').toLowerCase() !== 'rejected' ? (
+                    <button
+                      onClick={terminateAgreement}
+                      disabled={isAgreementUpdating}
+                      className="w-full bg-white border border-red-200 hover:bg-red-50 text-red-700 font-bold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
+                      type="button"
+                    >
+                      Avslutt avtale
+                    </button>
+                  ) : null}
 
                   {selectedAgreement.contact_proposal &&
                     selectedAgreement.beekeeper_decision === 'pending' &&

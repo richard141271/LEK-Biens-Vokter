@@ -266,11 +266,16 @@ export async function POST(request: Request) {
         .limit(1)
         .maybeSingle();
 
-      if (existingAgreement?.id) {
+      const existingStatus = String(existingAgreement?.status || '').toLowerCase();
+      const canReuseExisting = Boolean(
+        existingAgreement?.id && existingStatus !== 'rejected' && existingStatus !== 'terminated'
+      );
+
+      if (canReuseExisting && existingAgreement?.id) {
         agreementId = existingAgreement.id;
-        if (existingAgreement.status === 'active') {
+        if (existingStatus === 'active') {
           agreementAlreadyActive = true;
-        } else if (existingAgreement.status !== 'rejected') {
+        } else {
           const nextStatus = sendInvite ? 'awaiting_contact' : existingAgreement.status;
           await supabase
             .from('grunneier_agreements')

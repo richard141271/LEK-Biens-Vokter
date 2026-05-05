@@ -48,7 +48,8 @@ type Agreement = {
     | 'awaiting_contact_signature'
     | 'awaiting_beekeeper_signature'
     | 'active'
-    | 'rejected';
+    | 'rejected'
+    | 'terminated';
   role: 'grunneier' | 'kontaktperson' | 'samarbeidspartner';
   base_text: string;
   final_text: string | null;
@@ -286,6 +287,7 @@ export default function GrunneierPage() {
       if (status === 'awaiting_contact') return 4;
       if (status === 'draft') return 6;
       if (status === 'rejected') return 9;
+      if (status === 'terminated') return 10;
       return 7;
     };
     return list.sort((a, b) => {
@@ -814,6 +816,10 @@ export default function GrunneierPage() {
                       >
                         Avtalen er avvist. Trykk her for å opprette en ny standardavtale.
                       </button>
+                    ) : currentAgreement.status === 'terminated' ? (
+                      <div className="border border-red-200 bg-red-50 text-red-900 rounded-lg p-3 text-sm">
+                        Avtalen er avsluttet. Du har ikke tilgang til denne bigården.
+                      </div>
                     ) : currentAgreement.status === 'contact_proposed' ||
                       (currentAgreement.contact_proposal && currentAgreement.beekeeper_decision === 'pending') ? (
                       <div className="border border-yellow-200 bg-yellow-50 text-yellow-900 rounded-lg p-3 text-sm">

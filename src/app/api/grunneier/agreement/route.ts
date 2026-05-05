@@ -183,6 +183,38 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
       }
 
+      let agreementRes;
+      if (isScopedAgreementToken && tokenAgreementId) {
+        agreementRes = await admin
+          .from('grunneier_agreements')
+          .select('id, status, apiary_id, contact_id, contact_signed_at, beekeeper_signed_at')
+          .eq('id', tokenAgreementId)
+          .maybeSingle();
+      } else {
+        agreementRes = await admin
+          .from('grunneier_agreements')
+          .select('id, status, apiary_id, contact_id, contact_signed_at, beekeeper_signed_at')
+          .eq('apiary_id', apiaryId)
+          .eq('contact_id', contactId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+      }
+
+      const agreementForTerms = (agreementRes as any)?.data || null;
+      const statusValue = String(agreementForTerms?.status || '').toLowerCase();
+      const bothSigned = Boolean(agreementForTerms?.contact_signed_at && agreementForTerms?.beekeeper_signed_at);
+      const hasActiveAgreement = statusValue === 'active' || (bothSigned && statusValue !== 'rejected' && statusValue !== 'terminated');
+
+      if (
+        !agreementForTerms ||
+        String(agreementForTerms.apiary_id || '') !== apiaryId ||
+        String(agreementForTerms.contact_id || '') !== contactId ||
+        !hasActiveAgreement
+      ) {
+        return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
+      }
+
       const specialTerms = asString(body?.specialTerms);
 
       const { data: link } = await admin
@@ -317,6 +349,9 @@ export async function POST(request: Request) {
       if (agreement.status === 'active') {
         return NextResponse.json({ error: 'Avtalen er allerede aktiv' }, { status: 400 });
       }
+      if (agreement.status === 'terminated') {
+        return NextResponse.json({ error: 'Avtalen er avsluttet' }, { status: 400 });
+      }
 
       const { error } = await admin
         .from('grunneier_agreements')
@@ -349,6 +384,9 @@ export async function POST(request: Request) {
 
       if (agreement.status === 'rejected') {
         return NextResponse.json({ error: 'Avtalen er avvist' }, { status: 400 });
+      }
+      if (agreement.status === 'terminated') {
+        return NextResponse.json({ error: 'Avtalen er avsluttet' }, { status: 400 });
       }
 
       if (agreement.contact_signed_at) {
