@@ -462,6 +462,43 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         .limit(12);
 
       const list = Array.isArray(data) ? data : [];
+      const toTime = (a: any) => new Date(a?.updated_at || a?.created_at || 0).getTime();
+      const descByTime = (a: any, b: any) => {
+        const ta = toTime(a);
+        const tb = toTime(b);
+        if (Number.isFinite(ta) && Number.isFinite(tb) && ta !== tb) return tb - ta;
+        return String(b?.id || '').localeCompare(String(a?.id || ''));
+      };
+
+      const actionableProposal = list
+        .filter((a: any) => {
+          const status = String(a?.status || '').toLowerCase();
+          const hasProposal = Boolean(String(a?.contact_proposal || '').trim());
+          const pending = String(a?.beekeeper_decision || '') === 'pending';
+          if (!hasProposal || !pending) return false;
+          if (status === 'rejected' || status === 'terminated') return false;
+          return true;
+        })
+        .sort(descByTime)[0] || null;
+
+      if (actionableProposal) {
+        setSelectedAgreement(actionableProposal);
+        return;
+      }
+
+      const needsBeekeeperSignature = list
+        .filter((a: any) => {
+          const status = String(a?.status || '').toLowerCase();
+          if (status === 'rejected' || status === 'terminated') return false;
+          return !a?.beekeeper_signed_at;
+        })
+        .sort(descByTime)[0] || null;
+
+      if (needsBeekeeperSignature) {
+        setSelectedAgreement(needsBeekeeperSignature);
+        return;
+      }
+
       const rank = (a: any) => {
         const status = String(a?.status || '').toLowerCase();
         if (status === 'active') return 0;

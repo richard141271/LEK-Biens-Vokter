@@ -192,6 +192,7 @@ export default function ApiariesPage() {
       const wantsStart =
         t.includes('start inspeksjon') ||
         t.includes('start inspek') ||
+        (t.includes('start') && t.includes('inspeks')) ||
         (t.includes('start') && t.includes('inspeksjon'));
       if (!wantsStart) return;
 
@@ -326,6 +327,9 @@ export default function ApiariesPage() {
       }
       return;
     }
+    if (isSupported && !isListeningRef.current) {
+      try { startListening(); } catch {}
+    }
     if (!navigator?.geolocation) {
       setVoiceInfo('GPS er ikke tilgjengelig på denne enheten.');
       return;
@@ -375,11 +379,8 @@ export default function ApiariesPage() {
         } else if (outside) {
           if (nearApiaryRef.current?.id) {
             setNearApiary(null);
-            setVoiceStep('idle');
+            if (voiceStepRef.current === 'awaiting_hive') setVoiceStep('armed');
             setVoiceInfo('Gå nær en bigård for å starte inspeksjon med tale.');
-            if (isListeningRef.current) {
-              try { stopListening(); } catch {}
-            }
           }
         } else {
           if (voiceStepRef.current === 'idle') {
