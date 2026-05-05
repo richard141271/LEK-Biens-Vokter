@@ -32,15 +32,33 @@ export async function POST(_request: Request, { params }: { params: { id: string
     }
 
     const admin = createAdminClient();
-    const { error } = await admin
+    const { data: agreement, error: agreementError } = await admin
+      .from('grunneier_agreements')
+      .select('apiary_id, contact_id')
+      .eq('id', agreementId)
+      .maybeSingle();
+
+    if (agreementError) {
+      return NextResponse.json({ error: agreementError.message }, { status: 500 });
+    }
+    if (!agreement) {
+      return NextResponse.json({ error: 'Fant ikke avtale' }, { status: 404 });
+    }
+
+    const apiaryId = String((agreement as any)?.apiary_id || '').trim();
+    const contactId = String((agreement as any)?.contact_id || '').trim();
+
+    const update = admin
       .from('grunneier_agreements')
       .update({
         status: 'active',
         terminated_at: null,
         terminated_by: null,
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', agreementId);
+      });
+
+    const { error } =
+      apiaryId && contactId ? await update.eq('apiary_id', apiaryId).eq('contact_id', contactId) : await update.eq('id', agreementId);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

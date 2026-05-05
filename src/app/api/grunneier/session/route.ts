@@ -100,7 +100,7 @@ export async function GET(request: Request) {
       }
     }
 
-    if (!email && token) {
+    if (token) {
       const { data: magicToken, error: tokenError } = await admin
         .from('magic_tokens')
         .select('email, expires_at, purpose, contact_id, apiary_id, agreement_id')
@@ -111,11 +111,23 @@ export async function GET(request: Request) {
         const expiresAtMs = new Date(magicToken.expires_at).getTime();
         tokenExpired = !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now();
         if (!tokenExpired) {
-          email = String(magicToken.email || '').trim();
-          tokenPurpose = String(magicToken.purpose || 'portal');
-          tokenContactId = String((magicToken as any)?.contact_id || '').trim();
-          tokenApiaryId = String((magicToken as any)?.apiary_id || '').trim();
-          tokenAgreementId = String((magicToken as any)?.agreement_id || '').trim();
+          const magicEmail = String(magicToken.email || '').trim();
+          const magicPurpose = String(magicToken.purpose || 'portal');
+          const magicContactId = String((magicToken as any)?.contact_id || '').trim();
+          const magicApiaryId = String((magicToken as any)?.apiary_id || '').trim();
+          const magicAgreementId = String((magicToken as any)?.agreement_id || '').trim();
+
+          if (!email && magicEmail) {
+            email = magicEmail;
+            tokenPurpose = magicPurpose;
+            tokenContactId = magicContactId;
+            tokenApiaryId = magicApiaryId;
+            tokenAgreementId = magicAgreementId;
+          } else if (email && magicEmail && normalizeEmail(magicEmail) === normalizeEmail(email)) {
+            if (!tokenContactId && magicContactId) tokenContactId = magicContactId;
+            if (!tokenApiaryId && magicApiaryId) tokenApiaryId = magicApiaryId;
+            if (!tokenAgreementId && magicAgreementId) tokenAgreementId = magicAgreementId;
+          }
         }
       }
     }
@@ -152,6 +164,17 @@ export async function GET(request: Request) {
 
         const prefixList = Array.isArray(contactsByEmailPrefix) ? contactsByEmailPrefix.slice() : [];
         contacts = prefixList.filter((c: any) => normalizeEmail(c?.email) === emailLower);
+      }
+
+      if (contacts.length === 0) {
+        const { data: contactsByEmailContains } = await admin
+          .from('contacts')
+          .select('id, name, email, address, postal_code, city, phone')
+          .ilike('email', `%${emailLower}%`)
+          .limit(50);
+
+        const containsList = Array.isArray(contactsByEmailContains) ? contactsByEmailContains.slice() : [];
+        contacts = containsList.filter((c: any) => normalizeEmail(c?.email) === emailLower);
       }
 
       const extraContactId = tokenContactId || accountContactId;
