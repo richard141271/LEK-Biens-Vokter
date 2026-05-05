@@ -268,7 +268,9 @@ export async function POST(request: Request) {
           }
         }
       }
-    } else if (token) {
+    }
+
+    if (token) {
       const { data: magicToken } = await admin
         .from('magic_tokens')
         .select('email, expires_at, contact_id, purpose, agreement_id, apiary_id')
@@ -279,11 +281,23 @@ export async function POST(request: Request) {
         const expiresAtMs = new Date(magicToken.expires_at).getTime();
         tokenExpired = !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now();
         if (!tokenExpired) {
-          email = String(magicToken.email || '').trim();
-          tokenContactId = String((magicToken as any)?.contact_id || '').trim();
-          tokenPurpose = String((magicToken as any)?.purpose || 'portal');
-          tokenAgreementId = String((magicToken as any)?.agreement_id || '').trim();
-          tokenApiaryId = String((magicToken as any)?.apiary_id || '').trim();
+          const magicEmail = String(magicToken.email || '').trim();
+          const magicContactId = String((magicToken as any)?.contact_id || '').trim();
+          const magicPurpose = String((magicToken as any)?.purpose || 'portal');
+          const magicAgreementId = String((magicToken as any)?.agreement_id || '').trim();
+          const magicApiaryId = String((magicToken as any)?.apiary_id || '').trim();
+
+          if (!email && magicEmail) {
+            email = magicEmail;
+            tokenContactId = magicContactId;
+            tokenPurpose = magicPurpose;
+            tokenAgreementId = magicAgreementId;
+            tokenApiaryId = magicApiaryId;
+          } else if (email && magicEmail && normalizeEmail(magicEmail) === normalizeEmail(email)) {
+            if (!tokenContactId && magicContactId) tokenContactId = magicContactId;
+            if (!tokenAgreementId && magicAgreementId) tokenAgreementId = magicAgreementId;
+            if (!tokenApiaryId && magicApiaryId) tokenApiaryId = magicApiaryId;
+          }
         }
       }
     }
@@ -291,6 +305,8 @@ export async function POST(request: Request) {
     if (!email) {
       return NextResponse.json({ error: 'Ikke logget inn', expired: tokenExpired }, { status: 401 });
     }
+
+    const emailLower = normalizeEmail(email);
 
     const isScopedAgreementToken =
       tokenPurpose === 'agreement' && Boolean(tokenAgreementId || tokenApiaryId || tokenContactId);
@@ -309,12 +325,14 @@ export async function POST(request: Request) {
         .eq('id', contactId)
         .single();
 
-      const contactEmail = String(contact?.email || '').trim().toLowerCase();
-      const expectedContactId = tokenContactId || accountContactId;
-      if (
-        !contact ||
-        (expectedContactId ? String(contact.id) !== expectedContactId : contactEmail !== email.toLowerCase())
-      ) {
+      const contactEmail = normalizeEmail((contact as any)?.email);
+      if (!contact) {
+        return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
+      }
+      if (isScopedAgreementToken && tokenContactId && String(contact.id) !== tokenContactId) {
+        return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
+      }
+      if (!isScopedAgreementToken && contactEmail !== emailLower) {
         return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
       }
 
@@ -402,12 +420,14 @@ export async function POST(request: Request) {
       .eq('id', agreement.contact_id)
       .single();
 
-    const contactEmail = String(contact?.email || '').trim().toLowerCase();
-    const expectedContactId = tokenContactId || accountContactId;
-    if (
-      !contact ||
-      (expectedContactId ? String(contact.id) !== expectedContactId : contactEmail !== email.toLowerCase())
-    ) {
+    const contactEmail = normalizeEmail((contact as any)?.email);
+    if (!contact) {
+      return NextResponse.json({ error: 'Ingen tilgang til avtale' }, { status: 403 });
+    }
+    if (isScopedAgreementToken && tokenContactId && String(contact.id) !== tokenContactId) {
+      return NextResponse.json({ error: 'Ingen tilgang til avtale' }, { status: 403 });
+    }
+    if (!isScopedAgreementToken && contactEmail !== emailLower) {
       return NextResponse.json({ error: 'Ingen tilgang til avtale' }, { status: 403 });
     }
 
@@ -556,7 +576,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Kunne ikke signere', detail: error.message }, { status: 500 });
       }
 
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true, status: nextStatus });
     }
 
     return NextResponse.json({ error: 'Ugyldig handling' }, { status: 400 });

@@ -544,7 +544,8 @@ export default function GrunneierPage() {
         setStatus(data?.error || 'Kunne ikke signere');
         return;
       }
-      setStatus('Signert. Venter på birøkter.');
+      const nextStatus = String(data?.status || '').toLowerCase();
+      setStatus(nextStatus === 'active' ? 'Signert. Avtalen er nå aktiv.' : 'Signert. Venter på birøkter.');
       await fetchSession();
     } finally {
       setLoading(false);
