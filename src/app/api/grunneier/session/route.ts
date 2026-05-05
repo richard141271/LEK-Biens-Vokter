@@ -192,7 +192,39 @@ export async function GET(request: Request) {
       }
     }
 
-    const { data: agreements } = await agreementsQuery;
+    const { data: agreementsRaw } = await agreementsQuery;
+
+    const agreementsList = Array.isArray(agreementsRaw) ? agreementsRaw : [];
+    const agreementKey = (a: any) => {
+      const apiaryId = String(a?.apiary_id || '').trim();
+      const contactId = String(a?.contact_id || '').trim();
+      if (apiaryId && contactId) return `${apiaryId}:${contactId}`;
+      const id = String(a?.id || '').trim();
+      return id ? `id:${id}` : 'id:unknown';
+    };
+
+    const agreementTime = (a: any) =>
+      new Date(a?.updated_at || a?.created_at || 0).getTime() || 0;
+
+    const byPair = new Map<string, any>();
+    const idsToDelete: string[] = [];
+
+    for (const a of agreementsList.slice().sort((a: any, b: any) => agreementTime(b) - agreementTime(a))) {
+      const id = String(a?.id || '').trim();
+      if (!id) continue;
+      const key = agreementKey(a);
+      if (!byPair.has(key)) {
+        byPair.set(key, a);
+      } else {
+        idsToDelete.push(id);
+      }
+    }
+
+    const agreements = Array.from(byPair.values());
+
+    if (idsToDelete.length > 0) {
+      await admin.from('grunneier_agreements').delete().in('id', idsToDelete);
+    }
 
     const toActivateIds = (agreements || [])
       .filter(
@@ -211,6 +243,15 @@ export async function GET(request: Request) {
         .from('grunneier_agreements')
         .update({ status: 'active', updated_at: new Date().toISOString() })
         .in('id', toActivateIds);
+    }
+
+    if (toActivateIds.length > 0) {
+      const set = new Set(toActivateIds);
+      for (const a of agreements) {
+        if (set.has(String((a as any)?.id || ''))) {
+          (a as any).status = 'active';
+        }
+      }
     }
 
     const accessPairs = new Set<string>();

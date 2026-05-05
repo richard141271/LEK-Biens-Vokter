@@ -445,13 +445,9 @@ export async function POST(request: Request) {
         role: (agreement.role || 'grunneier') as Role,
       });
 
-      const { data: inserted, error: insertError } = await admin
+      await admin
         .from('grunneier_agreements')
-        .insert({
-          created_by: createdBy,
-          contact_id: agreement.contact_id,
-          apiary_id: agreement.apiary_id,
-          role: agreement.role,
+        .update({
           status: 'awaiting_contact_signature',
           base_text: baseText,
           contact_proposal: null,
@@ -461,19 +457,22 @@ export async function POST(request: Request) {
           contact_signed_at: null,
           beekeeper_signature_name: null,
           beekeeper_signed_at: null,
+          terminated_at: null,
+          terminated_by: null,
           updated_at: new Date().toISOString(),
         })
-        .select('id')
-        .single();
+        .eq('id', agreementId);
 
-      if (insertError || !inserted?.id) {
-        return NextResponse.json(
-          { error: 'Kunne ikke opprette ny avtale', detail: insertError?.message || '' },
-          { status: 500 }
-        );
+      if (agreement.apiary_id && agreement.contact_id) {
+        await admin
+          .from('grunneier_agreements')
+          .delete()
+          .eq('apiary_id', agreement.apiary_id)
+          .eq('contact_id', agreement.contact_id)
+          .neq('id', agreementId);
       }
 
-      return NextResponse.json({ success: true, agreementId: inserted.id });
+      return NextResponse.json({ success: true, agreementId });
     }
 
     if (action === 'propose') {

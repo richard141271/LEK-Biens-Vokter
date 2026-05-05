@@ -262,26 +262,33 @@ export async function POST(request: Request) {
         .select('id, status')
         .eq('apiary_id', apiaryId)
         .eq('contact_id', finalContactId)
-        .order('created_at', { ascending: false })
+        .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
       const existingStatus = String(existingAgreement?.status || '').toLowerCase();
-      const canReuseExisting = Boolean(
-        existingAgreement?.id && existingStatus !== 'rejected' && existingStatus !== 'terminated'
-      );
+      const canReuseExisting = Boolean(existingAgreement?.id);
 
       if (canReuseExisting && existingAgreement?.id) {
         agreementId = existingAgreement.id;
         if (existingStatus === 'active') {
           agreementAlreadyActive = true;
         } else {
-          const nextStatus = sendInvite ? 'awaiting_contact' : existingAgreement.status;
+          const nextStatus = sendInvite ? 'awaiting_contact' : 'draft';
           await supabase
             .from('grunneier_agreements')
             .update({
               status: nextStatus,
               base_text: baseText,
+              contact_proposal: null,
+              beekeeper_decision: 'pending',
+              final_text: null,
+              contact_signature_name: null,
+              contact_signed_at: null,
+              beekeeper_signature_name: null,
+              beekeeper_signed_at: null,
+              terminated_at: null,
+              terminated_by: null,
               updated_at: new Date().toISOString(),
             })
             .eq('id', agreementId);
@@ -309,6 +316,13 @@ export async function POST(request: Request) {
       if (!agreementId) {
         return NextResponse.json({ error: 'Kunne ikke opprette avtale' }, { status: 500 });
       }
+
+      await admin
+        .from('grunneier_agreements')
+        .delete()
+        .eq('apiary_id', apiaryId)
+        .eq('contact_id', finalContactId)
+        .neq('id', agreementId);
     }
 
     if (!sendInvite) {

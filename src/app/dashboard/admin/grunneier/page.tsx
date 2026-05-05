@@ -95,6 +95,26 @@ export default function AdminGrunneierAgreementsPage() {
     }
   };
 
+  const activateAgreement = async (id: string) => {
+    const ok = window.confirm('Aktivere avtalen? Grunneier får tilgang til denne bigården.');
+    if (!ok) return;
+    setActionId(id);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/admin/grunneier/agreements/${encodeURIComponent(id)}/activate`, {
+        method: 'POST',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMessage(data?.error || 'Kunne ikke aktivere avtale');
+        return;
+      }
+      await fetchAgreements();
+    } finally {
+      setActionId(null);
+    }
+  };
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return agreements;
@@ -183,6 +203,7 @@ export default function AdminGrunneierAgreementsPage() {
                   {filtered.map((a) => {
                     const status = String(a.status || '').toLowerCase();
                     const canTerminate = status !== 'terminated' && status !== 'rejected';
+                    const canActivate = status !== 'active';
                     const signed = Boolean(a.contact_signed_at) && Boolean(a.beekeeper_signed_at);
                     const updated = new Date(a.updated_at || a.created_at).toLocaleString();
                     return (
@@ -219,19 +240,33 @@ export default function AdminGrunneierAgreementsPage() {
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-700">{updated}</td>
                         <td className="px-4 py-3 text-right">
-                          {canTerminate ? (
-                            <button
-                              type="button"
-                              disabled={actionId === a.id}
-                              onClick={() => terminateAgreement(a.id)}
-                              className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-red-200 hover:bg-red-50 text-red-700 rounded-lg text-xs font-bold disabled:opacity-50"
-                            >
-                              <Ban className="w-4 h-4" />
-                              Avslutt
-                            </button>
-                          ) : (
-                            <span className="text-xs text-gray-400">—</span>
-                          )}
+                          <div className="inline-flex items-center justify-end gap-2">
+                            {canActivate ? (
+                              <button
+                                type="button"
+                                disabled={actionId === a.id}
+                                onClick={() => activateAgreement(a.id)}
+                                className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-green-200 hover:bg-green-50 text-green-700 rounded-lg text-xs font-bold disabled:opacity-50"
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                                Aktiver
+                              </button>
+                            ) : null}
+                            {canTerminate ? (
+                              <button
+                                type="button"
+                                disabled={actionId === a.id}
+                                onClick={() => terminateAgreement(a.id)}
+                                className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-red-200 hover:bg-red-50 text-red-700 rounded-lg text-xs font-bold disabled:opacity-50"
+                              >
+                                <Ban className="w-4 h-4" />
+                                Avslutt
+                              </button>
+                            ) : null}
+                            {!canActivate && !canTerminate ? (
+                              <span className="text-xs text-gray-400">—</span>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -245,4 +280,3 @@ export default function AdminGrunneierAgreementsPage() {
     </div>
   );
 }
-

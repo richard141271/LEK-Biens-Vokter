@@ -1763,7 +1763,9 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                       {selectedAgreement.beekeeper_signed_at ? 'Ja' : 'Nei'}
                     </div>
 
-                    {!selectedAgreement.beekeeper_signed_at && selectedAgreement.status !== 'rejected' && (
+                    {selectedAgreement.status !== 'rejected' &&
+                      selectedAgreement.status !== 'terminated' &&
+                      selectedAgreement.status !== 'active' && (
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <input
                           value={beekeeperSignatureName}
@@ -1776,7 +1778,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                           disabled={isAgreementUpdating || !beekeeperSignatureName.trim()}
                           className="w-full bg-honey-500 hover:bg-honey-600 text-white font-bold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
                         >
-                          Signer
+                          {selectedAgreement.beekeeper_signed_at ? 'Signer på nytt' : 'Signer'}
                         </button>
                       </div>
                     )}
