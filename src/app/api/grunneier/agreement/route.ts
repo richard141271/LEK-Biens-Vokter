@@ -139,16 +139,30 @@ export async function POST(request: Request) {
 
       if (!accountContactId) {
         const emailLower = normalizeEmail(email);
-        const { data: tokenMatch } = await admin
+        const { data: tokenMatchExact } = await admin
           .from('magic_tokens')
-          .select('contact_id')
+          .select('contact_id, email')
           .ilike('email', emailLower)
           .not('contact_id', 'is', null)
           .order('expires_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        const fallbackContactId = String((tokenMatch as any)?.contact_id || '').trim();
+        let fallbackContactId = String((tokenMatchExact as any)?.contact_id || '').trim();
+        if (!fallbackContactId) {
+          const { data: tokenMatchPrefix } = await admin
+            .from('magic_tokens')
+            .select('contact_id, email')
+            .ilike('email', `${emailLower}%`)
+            .not('contact_id', 'is', null)
+            .order('expires_at', { ascending: false })
+            .limit(10);
+
+          const list = Array.isArray(tokenMatchPrefix) ? tokenMatchPrefix : [];
+          const matched = list.find((t: any) => normalizeEmail(t?.email) === emailLower);
+          fallbackContactId = String((matched as any)?.contact_id || '').trim();
+        }
+
         if (fallbackContactId) {
           accountContactId = fallbackContactId;
           await admin.auth.admin.updateUserById(String(user.id), {

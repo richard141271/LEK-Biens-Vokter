@@ -37,16 +37,30 @@ export async function GET() {
 
       if (!accountContactId) {
         const emailLower = normalizeEmail(email);
-        const { data: tokenMatch } = await admin
+        const { data: tokenMatchExact } = await admin
           .from('magic_tokens')
-          .select('contact_id')
+          .select('contact_id, email')
           .ilike('email', emailLower)
           .not('contact_id', 'is', null)
           .order('expires_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        const fallbackContactId = String((tokenMatch as any)?.contact_id || '').trim();
+        let fallbackContactId = String((tokenMatchExact as any)?.contact_id || '').trim();
+        if (!fallbackContactId) {
+          const { data: tokenMatchPrefix } = await admin
+            .from('magic_tokens')
+            .select('contact_id, email')
+            .ilike('email', `${emailLower}%`)
+            .not('contact_id', 'is', null)
+            .order('expires_at', { ascending: false })
+            .limit(10);
+
+          const list = Array.isArray(tokenMatchPrefix) ? tokenMatchPrefix : [];
+          const matched = list.find((t: any) => normalizeEmail(t?.email) === emailLower);
+          fallbackContactId = String((matched as any)?.contact_id || '').trim();
+        }
+
         if (fallbackContactId) {
           accountContactId = fallbackContactId;
           await admin.auth.admin.updateUserById(String(user.id), {
@@ -167,21 +181,29 @@ export async function GET() {
         .in('id', toActivateIds);
     }
 
+    const accessPairs = new Set<string>();
     const activeAgreementApiaryIds = Array.from(
       new Set(
         (agreements || [])
           .filter((a: any) => {
             const status = String(a?.status || '').toLowerCase();
-            if (!a?.apiary_id) return false;
-            if (status === 'active') return true;
-            if (status === 'rejected' || status === 'terminated') return false;
-            return Boolean(a?.contact_signed_at && a?.beekeeper_signed_at);
+            const bothSigned = Boolean(a?.contact_signed_at && a?.beekeeper_signed_at);
+            const hasAccess =
+              status === 'active' || (bothSigned && status !== 'rejected' && status !== 'terminated');
+            const apiaryId = String(a?.apiary_id || '').trim();
+            const contactId = String(a?.contact_id || '').trim();
+            if (hasAccess && apiaryId && contactId) {
+              accessPairs.add(`${apiaryId}:${contactId}`);
+              return true;
+            }
+            return false;
           })
-          .map((a: any) => a.apiary_id)
+          .map((a: any) => String(a?.apiary_id || '').trim())
+          .filter(Boolean)
       )
     );
 
-    const { data: apiaryContacts } = activeAgreementApiaryIds.length
+    const { data: apiaryContactsRaw } = activeAgreementApiaryIds.length
       ? await admin
           .from('apiary_contacts')
           .select('apiary_id, contact_id, role, special_terms')
@@ -189,6 +211,13 @@ export async function GET() {
           .in('apiary_id', activeAgreementApiaryIds)
           .limit(500)
       : { data: [] as any[] };
+
+    const apiaryContacts = (apiaryContactsRaw || []).filter((ac: any) => {
+      const apiaryId = String(ac?.apiary_id || '').trim();
+      const contactId = String(ac?.contact_id || '').trim();
+      if (!apiaryId || !contactId) return false;
+      return accessPairs.has(`${apiaryId}:${contactId}`);
+    });
 
     const apiaryIds = Array.from(
       new Set((apiaryContacts || []).map((ac: any) => ac.apiary_id))
