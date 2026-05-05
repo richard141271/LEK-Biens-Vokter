@@ -114,7 +114,7 @@ export default function GrunneierPage() {
     [supabase]
   );
 
-  const fetchSession = async () => {
+  const fetchSession = useCallback(async () => {
     setSessionLoading(true);
     try {
       const res = await authedFetch('/api/grunneier/session', { cache: 'no-store' });
@@ -137,26 +137,28 @@ export default function GrunneierPage() {
     } finally {
       setSessionLoading(false);
     }
-  };
+  }, [authedFetch]);
 
   useEffect(() => {
-    fetchSession();
-  }, []);
+    void fetchSession();
+  }, [fetchSession]);
 
   useEffect(() => {
     let isMounted = true;
     void supabase.auth.getUser().then(({ data }) => {
       if (!isMounted) return;
       setAuthEmail(data.user?.email || null);
+      void fetchSession();
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setAuthEmail(session?.user?.email || null);
+      void fetchSession();
     });
     return () => {
       isMounted = false;
       sub.subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, fetchSession]);
 
   useEffect(() => {
     if (selectedApiaryId && linkedApiaries.some((i) => i.apiary.id === selectedApiaryId)) return;
