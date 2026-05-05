@@ -32,6 +32,101 @@ export default function AdminNav() {
     });
   }, []);
 
+  useEffect(() => {
+    const LAST_KEY = 'lek_admin_last_activity';
+    const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+    const MIN_UPDATE_MS = 10 * 1000;
+    const CHECK_INTERVAL_MS = 15 * 1000;
+    const REFRESH_INTERVAL_MS = 4 * 60 * 1000;
+
+    let lastActivity = Date.now();
+    let lastWrite = 0;
+
+    try {
+      const raw = window.localStorage.getItem(LAST_KEY);
+      const parsed = raw ? Number(raw) : NaN;
+      if (Number.isFinite(parsed) && parsed > 0) lastActivity = parsed;
+    } catch {}
+
+    const markActivity = () => {
+      const now = Date.now();
+      lastActivity = now;
+      if (now - lastWrite < MIN_UPDATE_MS) return;
+      lastWrite = now;
+      try {
+        window.localStorage.setItem(LAST_KEY, String(now));
+      } catch {}
+    };
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== LAST_KEY) return;
+      const parsed = e.newValue ? Number(e.newValue) : NaN;
+      if (Number.isFinite(parsed) && parsed > lastActivity) lastActivity = parsed;
+    };
+
+    const signOutDueToIdle = async () => {
+      try {
+        await supabase.auth.signOut();
+      } catch {}
+      router.push('/admin');
+    };
+
+    const checkIdle = () => {
+      const idleFor = Date.now() - lastActivity;
+      if (idleFor >= IDLE_TIMEOUT_MS) {
+        void signOutDueToIdle();
+      }
+    };
+
+    const maybeRefreshSession = async () => {
+      try {
+        const idleFor = Date.now() - lastActivity;
+        if (idleFor >= IDLE_TIMEOUT_MS) return;
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+
+        const { data } = await supabase.auth.getSession();
+        const session = data?.session || null;
+        if (!session) return;
+
+        const expiresAtMs = typeof session.expires_at === 'number' ? session.expires_at * 1000 : 0;
+        const shouldRefresh = expiresAtMs > 0 && expiresAtMs - Date.now() < 10 * 60 * 1000;
+        if (shouldRefresh && typeof (supabase.auth as any).refreshSession === 'function') {
+          await (supabase.auth as any).refreshSession();
+        }
+      } catch {}
+    };
+
+    const activityEvents: Array<keyof DocumentEventMap> = [
+      'mousemove',
+      'mousedown',
+      'keydown',
+      'scroll',
+      'touchstart',
+      'click',
+      'focus',
+    ];
+
+    for (const evt of activityEvents) {
+      document.addEventListener(evt, markActivity, { passive: true } as any);
+    }
+    window.addEventListener('storage', onStorage);
+
+    markActivity();
+    const checkTimer = window.setInterval(checkIdle, CHECK_INTERVAL_MS);
+    const refreshTimer = window.setInterval(() => {
+      void maybeRefreshSession();
+    }, REFRESH_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(checkTimer);
+      window.clearInterval(refreshTimer);
+      window.removeEventListener('storage', onStorage);
+      for (const evt of activityEvents) {
+        document.removeEventListener(evt, markActivity as any);
+      }
+    };
+  }, [router, supabase]);
+
   const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
 
   const handleSignOut = async () => {
