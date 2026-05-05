@@ -19,9 +19,12 @@ async function getVerifiedEmailFromMagicToken() {
   const admin = createAdminClient();
   const { data: magicToken } = await admin
     .from('magic_tokens')
-    .select('email, expires_at')
+    .select('email, expires_at, purpose')
     .eq('token', token)
     .maybeSingle();
+
+  const purpose = String((magicToken as any)?.purpose || 'portal').trim();
+  if (purpose !== 'portal' && purpose !== 'agreement') return '';
 
   const email = String(magicToken?.email || '').trim().toLowerCase();
   const expiresAtMs = magicToken?.expires_at ? new Date(magicToken.expires_at).getTime() : 0;
@@ -100,4 +103,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: e?.message || 'Ukjent feil' }, { status: 500 });
   }
 }
-

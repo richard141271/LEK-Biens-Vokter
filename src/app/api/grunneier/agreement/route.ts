@@ -118,12 +118,15 @@ export async function POST(request: Request) {
 
     let email = '';
     let tokenContactId = '';
+    let tokenPurpose: string | null = null;
+    let tokenAgreementId = '';
+    let tokenApiaryId = '';
     let tokenExpired = false;
 
     if (token) {
       const { data: magicToken } = await admin
         .from('magic_tokens')
-        .select('email, expires_at, contact_id')
+        .select('email, expires_at, contact_id, purpose, agreement_id, apiary_id')
         .eq('token', token)
         .single();
 
@@ -133,6 +136,9 @@ export async function POST(request: Request) {
         if (!tokenExpired) {
           email = String(magicToken.email || '').trim();
           tokenContactId = String((magicToken as any)?.contact_id || '').trim();
+          tokenPurpose = String((magicToken as any)?.purpose || 'portal');
+          tokenAgreementId = String((magicToken as any)?.agreement_id || '').trim();
+          tokenApiaryId = String((magicToken as any)?.apiary_id || '').trim();
         }
       }
     }
@@ -152,9 +158,15 @@ export async function POST(request: Request) {
       email = userEmail;
     }
 
+    const isScopedAgreementToken =
+      tokenPurpose === 'agreement' && Boolean(tokenAgreementId || tokenApiaryId || tokenContactId);
+
     if (action === 'update_special_terms') {
       if (!apiaryId || !contactId) {
         return NextResponse.json({ error: 'Mangler data' }, { status: 400 });
+      }
+      if (isScopedAgreementToken && tokenApiaryId && apiaryId !== tokenApiaryId) {
+        return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
       }
 
       const { data: contact } = await admin
@@ -206,6 +218,15 @@ export async function POST(request: Request) {
 
     if (!agreement) {
       return NextResponse.json({ error: 'Fant ikke avtale' }, { status: 404 });
+    }
+
+    if (isScopedAgreementToken) {
+      if (tokenAgreementId && String(agreement.id) !== tokenAgreementId) {
+        return NextResponse.json({ error: 'Ingen tilgang til avtale' }, { status: 403 });
+      }
+      if (tokenApiaryId && String(agreement.apiary_id || '') !== tokenApiaryId) {
+        return NextResponse.json({ error: 'Ingen tilgang til avtale' }, { status: 403 });
+      }
     }
 
     const { data: contact } = await admin
