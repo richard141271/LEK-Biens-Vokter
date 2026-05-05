@@ -199,6 +199,21 @@ export async function POST(request: Request) {
 
   await admin.from('demo_sessions').update({ ended_at: new Date().toISOString() }).eq('id', sessionId);
 
+  let deletedDemoUser = 0;
+  const demoOwnerId = String((session as any)?.demo_owner_id || '').trim();
+  if (demoOwnerId) {
+    try {
+      await admin.from('lek_core_beekeepers').delete().eq('auth_user_id', demoOwnerId);
+    } catch {}
+    try {
+      await admin.from('profiles').delete().eq('id', demoOwnerId);
+    } catch {}
+    try {
+      const { error: deleteAuthError } = await admin.auth.admin.deleteUser(demoOwnerId);
+      if (!deleteAuthError) deletedDemoUser = 1;
+    } catch {}
+  }
+
   const response = NextResponse.json({
     success: true,
     deleted: {
@@ -207,6 +222,7 @@ export async function POST(request: Request) {
       inspections: inspectionsCount || 0,
       logs: logsCount || 0,
       images: deletedImages,
+      demo_users: deletedDemoUser,
     },
   });
 

@@ -142,10 +142,12 @@ export default function AdminTemadagPage() {
   const [isDemoAllowed, setIsDemoAllowed] = useState(false);
   const [startingDemo, setStartingDemo] = useState(false);
   const [resettingDemo, setResettingDemo] = useState(false);
+  const [cleaningTemadag, setCleaningTemadag] = useState(false);
   const [demoError, setDemoError] = useState<string | null>(null);
   const [demoSessionId, setDemoSessionId] = useState<string | null>(null);
   const [demoExpiresAt, setDemoExpiresAt] = useState<string | null>(null);
   const [demoResetResult, setDemoResetResult] = useState<string | null>(null);
+  const [temadagCleanupResult, setTemadagCleanupResult] = useState<string | null>(null);
   const [playerOpen, setPlayerOpen] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
   const [phoneScale, setPhoneScale] = useState(1);
@@ -329,6 +331,7 @@ export default function AdminTemadagPage() {
   const resetDemo = async () => {
     setDemoError(null);
     setDemoResetResult(null);
+    setTemadagCleanupResult(null);
 
     if (!demoSessionId) {
       setDemoError('Ingen aktiv demo-session');
@@ -385,6 +388,37 @@ export default function AdminTemadagPage() {
       setDemoError('Kunne ikke nullstille demo');
     } finally {
       setResettingDemo(false);
+    }
+  };
+
+  const cleanupTemadag = async () => {
+    setDemoError(null);
+    setDemoResetResult(null);
+    setTemadagCleanupResult(null);
+
+    const ok =
+      typeof window !== 'undefined'
+        ? window.confirm('Slette demo-/kurskontoer og all kursdata?\n\nDette fjerner testbrukere (typisk @demo.no og demo-session-*@example.com).')
+        : false;
+    if (!ok) return;
+
+    setCleaningTemadag(true);
+    try {
+      const res = await fetch('/api/admin/temadag/cleanup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        setDemoError(data?.error || 'Kunne ikke rydde temadag');
+        return;
+      }
+      setTemadagCleanupResult(`Slettet brukere: ${Number(data?.deleted || 0)}. Feilet: ${Number(data?.failed || 0)}.`);
+    } catch {
+      setDemoError('Kunne ikke rydde temadag');
+    } finally {
+      setCleaningTemadag(false);
     }
   };
 
@@ -455,6 +489,14 @@ export default function AdminTemadagPage() {
               </button>
               <button
                 type="button"
+                onClick={cleanupTemadag}
+                disabled={!isInstructor || cleaningTemadag}
+                className="px-4 py-2 rounded-lg bg-red-100 text-red-900 text-sm font-bold hover:bg-red-200 disabled:bg-gray-200 disabled:text-gray-500"
+              >
+                {cleaningTemadag ? 'Rydder…' : 'Rydd demo-/kurskontoer'}
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   try {
                     window.localStorage.removeItem('lek_demo_session_id');
@@ -488,6 +530,7 @@ export default function AdminTemadagPage() {
           )}
           {demoError ? <div className="mt-3 text-sm text-red-700">{demoError}</div> : null}
           {demoResetResult ? <div className="mt-3 text-sm text-emerald-700">{demoResetResult}</div> : null}
+          {temadagCleanupResult ? <div className="mt-3 text-sm text-emerald-700">{temadagCleanupResult}</div> : null}
         </section>
 
         {!isDemoAllowed ? (
