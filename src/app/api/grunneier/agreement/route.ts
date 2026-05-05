@@ -116,6 +116,8 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient();
 
+    const normalizeEmail = (v: unknown) => String(v || '').trim().toLowerCase();
+
     let email = '';
     let tokenContactId = '';
     let tokenPurpose: string | null = null;
@@ -134,6 +136,26 @@ export async function POST(request: Request) {
       email = userEmail;
       tokenPurpose = 'account';
       accountContactId = String((user as any)?.app_metadata?.landowner_contact_id || '').trim();
+
+      if (!accountContactId) {
+        const emailLower = normalizeEmail(email);
+        const { data: tokenMatch } = await admin
+          .from('magic_tokens')
+          .select('contact_id')
+          .ilike('email', emailLower)
+          .not('contact_id', 'is', null)
+          .order('expires_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const fallbackContactId = String((tokenMatch as any)?.contact_id || '').trim();
+        if (fallbackContactId) {
+          accountContactId = fallbackContactId;
+          await admin.auth.admin.updateUserById(String(user.id), {
+            app_metadata: { ...((user as any)?.app_metadata || {}), landowner_contact_id: fallbackContactId },
+          });
+        }
+      }
     } else if (token) {
       const { data: magicToken } = await admin
         .from('magic_tokens')

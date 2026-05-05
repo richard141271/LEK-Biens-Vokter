@@ -14,6 +14,8 @@ export async function GET() {
 
     const admin = createAdminClient();
 
+    const normalizeEmail = (v: unknown) => String(v || '').trim().toLowerCase();
+
     let email = '';
     let tokenPurpose: string | null = null;
     let tokenContactId = '';
@@ -32,6 +34,26 @@ export async function GET() {
       email = userEmail;
       tokenPurpose = 'account';
       accountContactId = String((user as any)?.app_metadata?.landowner_contact_id || '').trim();
+
+      if (!accountContactId) {
+        const emailLower = normalizeEmail(email);
+        const { data: tokenMatch } = await admin
+          .from('magic_tokens')
+          .select('contact_id')
+          .ilike('email', emailLower)
+          .not('contact_id', 'is', null)
+          .order('expires_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const fallbackContactId = String((tokenMatch as any)?.contact_id || '').trim();
+        if (fallbackContactId) {
+          accountContactId = fallbackContactId;
+          await admin.auth.admin.updateUserById(String(user.id), {
+            app_metadata: { ...((user as any)?.app_metadata || {}), landowner_contact_id: fallbackContactId },
+          });
+        }
+      }
     } else if (token) {
       const { data: magicToken, error: tokenError } = await admin
         .from('magic_tokens')
@@ -67,12 +89,25 @@ export async function GET() {
         .maybeSingle();
       contacts = tokenContact ? [tokenContact as any] : [];
     } else {
-      const { data: contactsByEmail } = await admin
+      const emailLower = normalizeEmail(email);
+      const { data: contactsByEmailExact } = await admin
         .from('contacts')
         .select('id, name, email, address, postal_code, city, phone')
-        .ilike('email', email);
+        .ilike('email', emailLower);
 
-      contacts = Array.isArray(contactsByEmail) ? contactsByEmail.slice() : [];
+      const baseList = Array.isArray(contactsByEmailExact) ? contactsByEmailExact.slice() : [];
+      if (baseList.length > 0) {
+        contacts = baseList;
+      } else {
+        const { data: contactsByEmailPrefix } = await admin
+          .from('contacts')
+          .select('id, name, email, address, postal_code, city, phone')
+          .ilike('email', `${emailLower}%`);
+
+        const prefixList = Array.isArray(contactsByEmailPrefix) ? contactsByEmailPrefix.slice() : [];
+        contacts = prefixList.filter((c: any) => normalizeEmail(c?.email) === emailLower);
+      }
+
       const extraContactId = tokenContactId || accountContactId;
       if (extraContactId && !contacts.some((c) => String(c?.id || '') === extraContactId)) {
         const { data: extraContact } = await admin
