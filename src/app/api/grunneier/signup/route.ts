@@ -58,6 +58,11 @@ export async function POST(request: Request) {
     }
 
     const contactId = verification.contactId || '';
+    let derivedFullName = fullName;
+    if (!derivedFullName && contactId) {
+      const { data: contact } = await admin.from('contacts').select('name').eq('id', contactId).maybeSingle();
+      derivedFullName = String((contact as any)?.name || '').trim();
+    }
 
     const createRes = await admin.auth.admin.createUser({
       email,
@@ -66,7 +71,7 @@ export async function POST(request: Request) {
       app_metadata: contactId ? { landowner_contact_id: contactId } : undefined,
       user_metadata: {
         is_landowner: true,
-        full_name: fullName || null,
+        full_name: derivedFullName || null,
       },
     });
 

@@ -23,16 +23,23 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient();
 
+    const emailLower = email.toLowerCase();
     const { data: contacts } = await admin
       .from('contacts')
-      .select('id, email')
-      .ilike('email', email);
+      .select('id, email, name, created_at')
+      .ilike('email', emailLower)
+      .order('created_at', { ascending: false })
+      .limit(50);
 
     if (!contacts || contacts.length === 0) {
       return NextResponse.json({ success: true });
     }
 
-    const contactIds = contacts.map((c: any) => c.id);
+    const list = Array.isArray(contacts) ? contacts : [];
+    const exact = list.find((c: any) => String(c?.email || '').trim().toLowerCase() === emailLower) || null;
+    const primaryContact = exact || list[0] || null;
+    const contactId = String((primaryContact as any)?.id || '').trim();
+    const contactIds = list.map((c: any) => c.id);
 
     const { data: links } = await admin
       .from('apiary_contacts')
@@ -67,6 +74,7 @@ export async function POST(request: Request) {
       expires_at: expiresAt,
       used: false,
       purpose: 'portal',
+      contact_id: contactId || null,
     });
 
     if (insertError) {
@@ -83,6 +91,7 @@ export async function POST(request: Request) {
       'Invitasjon til Grunneierportal',
       [
         'Du er invitert til å se din bigård.',
+        'Du kan også opprette konto for enklere tilgang: Åpne lenken og trykk "Opprett konto".',
         '',
         `Åpne portal: ${url}`,
         '',

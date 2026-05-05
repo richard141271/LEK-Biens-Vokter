@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 
     const body = await request.json().catch(() => ({}));
     const password = asString(body?.password);
-    const fullName = asString(body?.fullName).trim();
+    let fullName = asString(body?.fullName).trim();
     const contactId = verified.contactId || '';
 
     if (!password || password.length < 8) {
@@ -69,6 +69,11 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminClient();
+
+    if (!fullName && contactId) {
+      const { data: contact } = await admin.from('contacts').select('name').eq('id', contactId).maybeSingle();
+      fullName = String((contact as any)?.name || '').trim();
+    }
 
     const existingUser = await findUserByEmail(admin, verified.email);
     if (existingUser?.id) {

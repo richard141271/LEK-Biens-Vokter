@@ -63,6 +63,16 @@ type Agreement = {
   contact: { id: string; name: string; email: string | null } | null;
 };
 
+type Contact = {
+  id: string;
+  name: string;
+  email: string | null;
+  address: string | null;
+  postal_code: string | null;
+  city: string | null;
+  phone: string | null;
+};
+
 export default function GrunneierPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -83,6 +93,7 @@ export default function GrunneierPage() {
   const [loading, setLoading] = useState(false);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [linkedApiaries, setLinkedApiaries] = useState<LinkedApiary[]>([]);
+  const [sessionContacts, setSessionContacts] = useState<Contact[]>([]);
   const [agreements, setAgreements] = useState<Agreement[]>([]);
   const [proposal, setProposal] = useState('');
   const [signatureName, setSignatureName] = useState('');
@@ -124,6 +135,7 @@ export default function GrunneierPage() {
           setStatus('Lenken er utløpt');
         }
         setLinkedApiaries([]);
+        setSessionContacts([]);
         setAgreements([]);
         setSessionEmail(null);
         setSessionTokenPurpose(null);
@@ -131,6 +143,7 @@ export default function GrunneierPage() {
       }
       const data = await res.json();
       setLinkedApiaries(data?.apiaries || []);
+      setSessionContacts(data?.contacts || []);
       setAgreements(data?.agreements || []);
       setSessionEmail(data?.email || null);
       setSessionTokenPurpose(data?.tokenPurpose || null);
@@ -172,6 +185,22 @@ export default function GrunneierPage() {
     if (!selectedApiaryId) return null;
     return linkedApiaries.find((i) => i.apiary.id === selectedApiaryId) || null;
   }, [linkedApiaries, selectedApiaryId]);
+
+  const normalizeEmail = (v: unknown) => String(v || '').trim().toLowerCase();
+
+  const prefillContact = useMemo(() => {
+    const se = normalizeEmail(sessionEmail);
+    if (!se) return null;
+    if (sessionTokenPurpose === 'account') return null;
+
+    const fromSelected = selectedLink?.contact || null;
+    if (fromSelected && normalizeEmail(fromSelected.email) === se) return fromSelected;
+
+    const fromContacts = sessionContacts.find((c) => normalizeEmail(c.email) === se) || null;
+    if (fromContacts) return fromContacts;
+
+    return fromSelected;
+  }, [selectedLink, sessionContacts, sessionEmail, sessionTokenPurpose]);
 
   useEffect(() => {
     const next = selectedLink?.special_terms || '';
@@ -333,10 +362,15 @@ export default function GrunneierPage() {
     setAuthMode(mode);
     setAuthModalOpen(true);
     setStatus(null);
+    const shouldUseSessionPrefill = mode === 'signup' && !authEmail && Boolean(sessionEmailLower) && sessionTokenPurpose !== 'account';
+
     if (mode === 'signin') {
       setAuthFormName('');
+    } else {
+      setAuthFormName(shouldUseSessionPrefill ? String(prefillContact?.name || '').trim() : '');
     }
-    const fallbackEmail = authEmail || sessionEmail || email || '';
+
+    const fallbackEmail = shouldUseSessionPrefill ? (sessionEmail || '') : authEmail || sessionEmail || email || '';
     setAuthFormEmail(fallbackEmail);
     setAuthFormPassword('');
   };
@@ -670,10 +704,22 @@ export default function GrunneierPage() {
       <main className="max-w-5xl mx-auto p-4 space-y-4">
         {!authEmail && sessionTokenPurpose && sessionTokenPurpose !== 'account' && sessionEmail ? (
           <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
-            <div className="text-sm font-bold text-gray-900">Sett passord (valgfritt)</div>
+            <div className="text-sm font-bold text-gray-900">Opprett konto (valgfritt)</div>
             <div className="text-xs text-gray-600">
-              Du er innlogget med engangslenke som {sessionEmail}. Sett et passord for å kunne logge inn uten lenke.
+              Du er inne med engangslenke som {sessionEmail}. Hvis opplysningene stemmer kan du velge et passord og få enklere innlogging.
             </div>
+            {prefillContact ? (
+              <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 text-sm text-gray-900">
+                <div className="font-semibold">{prefillContact.name || 'Ukjent navn'}</div>
+                <div className="text-gray-700">{prefillContact.email || sessionEmail}</div>
+                {prefillContact.phone ? <div className="text-gray-700">{prefillContact.phone}</div> : null}
+                {prefillContact.address || prefillContact.postal_code || prefillContact.city ? (
+                  <div className="text-gray-700">
+                    {[prefillContact.address, prefillContact.postal_code, prefillContact.city].filter(Boolean).join(', ')}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             <div className="flex flex-col sm:flex-row gap-2">
               <input
                 value={magicPassword}
@@ -688,7 +734,7 @@ export default function GrunneierPage() {
                 onClick={setPasswordFromLink}
                 className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
               >
-                Sett passord
+                Opprett konto
               </button>
             </div>
           </div>
@@ -709,28 +755,47 @@ export default function GrunneierPage() {
                 </button>
               </div>
 
-              {authMode === 'signup' && (
-                <div className="grid gap-1">
-                  <label className="text-xs font-bold text-gray-700 uppercase">Navn</label>
-                  <input
-                    value={authFormName}
-                    onChange={(e) => setAuthFormName(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                    placeholder="F.eks. Ola Nordmann"
-                  />
+              {authMode === 'signup' && canCreateAccountHere && prefillContact ? (
+                <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-2">
+                  <div className="text-xs font-bold text-gray-700 uppercase">Stemmer dette?</div>
+                  <div className="text-sm text-gray-900">
+                    <div className="font-semibold">{prefillContact.name || 'Ukjent navn'}</div>
+                    <div className="text-gray-700">{prefillContact.email || authFormEmail}</div>
+                    {prefillContact.phone ? <div className="text-gray-700">{prefillContact.phone}</div> : null}
+                    {prefillContact.address || prefillContact.postal_code || prefillContact.city ? (
+                      <div className="text-gray-700">
+                        {[prefillContact.address, prefillContact.postal_code, prefillContact.city].filter(Boolean).join(', ')}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="text-xs text-gray-600">Alt er forhåndsutfylt. Velg bare passord og trykk Opprett konto.</div>
                 </div>
-              )}
+              ) : (
+                <>
+                  {authMode === 'signup' ? (
+                    <div className="grid gap-1">
+                      <label className="text-xs font-bold text-gray-700 uppercase">Navn</label>
+                      <input
+                        value={authFormName}
+                        onChange={(e) => setAuthFormName(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        placeholder="F.eks. Ola Nordmann"
+                      />
+                    </div>
+                  ) : null}
 
-              <div className="grid gap-1">
-                <label className="text-xs font-bold text-gray-700 uppercase">E-post</label>
-                <input
-                  value={authFormEmail}
-                  onChange={(e) => setAuthFormEmail(e.target.value)}
-                  type="email"
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="navn@epost.no"
-                />
-              </div>
+                  <div className="grid gap-1">
+                    <label className="text-xs font-bold text-gray-700 uppercase">E-post</label>
+                    <input
+                      value={authFormEmail}
+                      onChange={(e) => setAuthFormEmail(e.target.value)}
+                      type="email"
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="navn@epost.no"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="grid gap-1">
                 <label className="text-xs font-bold text-gray-700 uppercase">Passord</label>

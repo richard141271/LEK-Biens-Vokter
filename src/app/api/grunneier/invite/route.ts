@@ -380,6 +380,7 @@ export async function POST(request: Request) {
         `Hei${finalName ? ` ${finalName}` : ''}!`,
         '',
         'Du er invitert til å signere avtale for tilgang til bigård-oversikt.',
+        'Etterpå kan du (valgfritt) opprette konto for enklere tilgang: Åpne lenken og trykk "Opprett konto".',
         '',
         `Signer avtalen her: ${url}`,
         '',
