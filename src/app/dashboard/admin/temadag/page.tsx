@@ -185,7 +185,16 @@ export default function AdminTemadagPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const host = window.location.hostname.toLowerCase();
-    const staging = host === 'staging.lekbie.no' || host.startsWith('staging.') || host === 'localhost' || host === '127.0.0.1';
+    const staging =
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === 'staging.lekbie.no' ||
+      host.endsWith('.staging.lekbie.no') ||
+      host.startsWith('staging.') ||
+      host === 'lek-biens-vokter-staging.vercel.app' ||
+      host.endsWith('-staging.vercel.app') ||
+      host.includes('lek-biens-vokter-staging') ||
+      host.includes('-staging.');
     const override =
       process.env.NEXT_PUBLIC_LEK_DEMO_ENABLED === '1' || process.env.NEXT_PUBLIC_LEK_DEMO_ENABLED === 'true';
     setIsDemoAllowed(staging || override);

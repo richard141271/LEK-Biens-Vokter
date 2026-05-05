@@ -12,7 +12,17 @@ function getHost(request: Request) {
 }
 
 function isStagingHost(host: string) {
-  return host === 'localhost' || host === '127.0.0.1' || host === 'staging.lekbie.no' || host.startsWith('staging.');
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === 'staging.lekbie.no' ||
+    host.endsWith('.staging.lekbie.no') ||
+    host.startsWith('staging.') ||
+    host === 'lek-biens-vokter-staging.vercel.app' ||
+    host.endsWith('-staging.vercel.app') ||
+    host.includes('lek-biens-vokter-staging') ||
+    host.includes('-staging.')
+  );
 }
 
 function isDemoEnabled() {
@@ -98,4 +108,3 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ success: true, deleted, failed, results });
 }
-

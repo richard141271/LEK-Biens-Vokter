@@ -19,7 +19,12 @@ function isStagingHost(host: string) {
     host === 'localhost' ||
     host === '127.0.0.1' ||
     host === 'staging.lekbie.no' ||
-    host.startsWith('staging.')
+    host.endsWith('.staging.lekbie.no') ||
+    host.startsWith('staging.') ||
+    host === 'lek-biens-vokter-staging.vercel.app' ||
+    host.endsWith('-staging.vercel.app') ||
+    host.includes('lek-biens-vokter-staging') ||
+    host.includes('-staging.')
   );
 }
 
