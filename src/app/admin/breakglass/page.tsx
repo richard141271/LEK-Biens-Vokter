@@ -15,8 +15,8 @@ export default function AdminBreakglassPage() {
     e.preventDefault();
     setMessage(null);
     if (!email.trim()) return;
-    if (password.length < 12) {
-      setMessage('Passord må være minst 12 tegn.');
+    if (password.length < 8) {
+      setMessage('Passord må være minst 8 tegn.');
       return;
     }
     if (password !== confirm) {
@@ -92,7 +92,7 @@ export default function AdminBreakglassPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               className="w-full px-4 py-3 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all placeholder-gray-500"
-              placeholder="Minst 12 tegn"
+              placeholder="Minst 8 tegn"
             />
           </div>
 
@@ -126,4 +126,3 @@ export default function AdminBreakglassPage() {
     </div>
   );
 }
-

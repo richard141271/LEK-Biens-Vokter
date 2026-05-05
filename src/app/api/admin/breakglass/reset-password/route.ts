@@ -38,13 +38,13 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const email = normalizeEmail(asString(body?.email));
     const newPassword = asString(body?.newPassword);
-    const secret = asString(body?.secret);
+    const secret = asString(body?.secret).trim();
 
     if (!email || !newPassword || !secret) {
       return NextResponse.json({ error: 'Mangler data' }, { status: 400 });
     }
-    if (newPassword.length < 12) {
-      return NextResponse.json({ error: 'Passord må være minst 12 tegn' }, { status: 400 });
+    if (newPassword.length < 8) {
+      return NextResponse.json({ error: 'Passord må være minst 8 tegn' }, { status: 400 });
     }
 
     const envSecret = String(process.env.ADMIN_BREAKGLASS_SECRET || '');
@@ -52,7 +52,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Breakglass er ikke konfigurert' }, { status: 503 });
     }
     if (!safeEqual(secret, envSecret)) {
-      return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Ingen tilgang (feil nøkkelkode, eller appen har ikke fått nye env-variabler enda)' },
+        { status: 403 }
+      );
     }
 
     const allowlistRaw = String(process.env.ADMIN_BREAKGLASS_EMAIL_ALLOWLIST || '').trim();
@@ -96,4 +99,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: e?.message || 'Ukjent feil' }, { status: 500 });
   }
 }
-
