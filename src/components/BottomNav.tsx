@@ -27,6 +27,8 @@ export default function BottomNav() {
     pathname === '/' ||
     pathname === '/about' ||
     pathname === '/signin' ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/dashboard/admin') ||
     pathname.startsWith('/grunneier') ||
     pathname === '/lei-en-kube' ||
     pathname.startsWith('/info/') ||
