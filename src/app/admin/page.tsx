@@ -133,6 +133,12 @@ export default function AdminLoginPage() {
           >
             Glemt passord
           </Link>
+          <Link
+            href="/admin/breakglass"
+            className="block text-center text-sm text-gray-500 hover:text-gray-300 hover:underline"
+          >
+            Breakglass
+          </Link>
         </form>
       </div>
     </div>
