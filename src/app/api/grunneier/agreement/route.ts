@@ -150,12 +150,12 @@ export async function POST(request: Request) {
       } = await supabase.auth.getUser();
 
       const userEmail = String(user?.email || '').trim();
-      const isLandowner = Boolean((user as any)?.user_metadata?.is_landowner);
-      if (!user || !userEmail || !isLandowner) {
+      if (!user || !userEmail) {
         return NextResponse.json({ error: 'Ikke logget inn', expired: tokenExpired }, { status: 401 });
       }
 
       email = userEmail;
+      tokenPurpose = 'account';
     }
 
     const isScopedAgreementToken =

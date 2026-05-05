@@ -48,8 +48,7 @@ export async function GET() {
       } = await supabase.auth.getUser();
 
       const userEmail = String(user?.email || '').trim();
-      const isLandowner = Boolean((user as any)?.user_metadata?.is_landowner);
-      if (!user || !userEmail || !isLandowner) {
+      if (!user || !userEmail) {
         return NextResponse.json({ error: 'Ikke logget inn', expired: tokenExpired }, { status: 401 });
       }
 
@@ -86,7 +85,13 @@ export async function GET() {
 
     const contactIds = (contacts || []).map((c: any) => c.id);
     if (contactIds.length === 0) {
-      return NextResponse.json({ apiaries: [], contacts: [] });
+      return NextResponse.json({
+        email,
+        contacts: [],
+        apiaries: [],
+        agreements: [],
+        tokenPurpose,
+      });
     }
 
     let agreementsQuery = admin
