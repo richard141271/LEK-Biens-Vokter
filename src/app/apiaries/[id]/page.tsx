@@ -499,6 +499,19 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         return;
       }
 
+      const needsActivation = list
+        .filter((a: any) => {
+          const status = String(a?.status || '').toLowerCase();
+          if (status === 'active' || status === 'rejected') return false;
+          return Boolean(a?.contact_signed_at && a?.beekeeper_signed_at);
+        })
+        .sort(descByTime)[0] || null;
+
+      if (needsActivation) {
+        setSelectedAgreement(needsActivation);
+        return;
+      }
+
       const rank = (a: any) => {
         const status = String(a?.status || '').toLowerCase();
         if (status === 'active') return 0;
@@ -723,6 +736,49 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     }
   };
 
+  const activateAgreement = async () => {
+    if (!selectedAgreement?.id) return;
+    const status = String(selectedAgreement.status || '').toLowerCase();
+    if (status === 'active' || status === 'rejected') return;
+    if (!selectedAgreement.contact_signed_at || !selectedAgreement.beekeeper_signed_at) {
+      setAgreementStatus('Begge parter må ha signert før avtalen kan aktiveres.');
+      return;
+    }
+
+    const ok = window.confirm('Aktivere avtalen? Grunneier får tilgang til denne bigården.');
+    if (!ok) return;
+
+    setIsAgreementUpdating(true);
+    setAgreementStatus(null);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data?.session?.access_token || '';
+
+      const res = await fetch('/api/grunneier/agreement', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          action: 'beekeeper_activate',
+          agreementId: selectedAgreement.id,
+        }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAgreementStatus(payload?.error || 'Kunne ikke aktivere');
+        return;
+      }
+
+      setAgreementStatus('Avtalen er nå aktiv.');
+      await fetchSelectedAgreement(selectedContactId);
+    } finally {
+      setIsAgreementUpdating(false);
+    }
+  };
+
   const terminateAgreement = async () => {
     if (!selectedAgreement?.id) return;
     const status = String(selectedAgreement.status || '').toLowerCase();
@@ -736,15 +792,19 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     setIsAgreementUpdating(true);
     setAgreementStatus(null);
     try {
-      const { error } = await supabase
+      const update = supabase
         .from('grunneier_agreements')
         .update({
           status: 'terminated',
           terminated_at: new Date().toISOString(),
           terminated_by: currentUser?.id || null,
           updated_at: new Date().toISOString(),
-        })
-        .eq('id', selectedAgreement.id);
+        });
+
+      const { error } =
+        apiary?.id && selectedContactId
+          ? await update.eq('apiary_id', apiary.id).eq('contact_id', selectedContactId)
+          : await update.eq('id', selectedAgreement.id);
 
       if (error) {
         setAgreementStatus(error.message);
@@ -1678,6 +1738,20 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                     Kopier portal-lenke
                   </button>
 
+                  {String(selectedAgreement.status || '').toLowerCase() !== 'active' &&
+                  String(selectedAgreement.status || '').toLowerCase() !== 'rejected' &&
+                  selectedAgreement.contact_signed_at &&
+                  selectedAgreement.beekeeper_signed_at ? (
+                    <button
+                      onClick={activateAgreement}
+                      disabled={isAgreementUpdating}
+                      className="w-full bg-white border border-green-200 hover:bg-green-50 text-green-700 font-bold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
+                      type="button"
+                    >
+                      Aktiver avtale
+                    </button>
+                  ) : null}
+
                   {String(selectedAgreement.status || '').toLowerCase() !== 'terminated' &&
                   String(selectedAgreement.status || '').toLowerCase() !== 'rejected' ? (
                     <button
@@ -1788,6 +1862,15 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                         Avtalen er aktiv. Grunneier får tilgang til portal.
                       </div>
                     )}
+
+                    {String(selectedAgreement.status || '').toLowerCase() !== 'active' &&
+                      String(selectedAgreement.status || '').toLowerCase() !== 'rejected' &&
+                      selectedAgreement.contact_signed_at &&
+                      selectedAgreement.beekeeper_signed_at && (
+                        <div className="border border-yellow-200 bg-yellow-50 text-yellow-900 rounded-lg p-3 text-sm">
+                          Begge parter har signert. Du kan aktivere avtalen når du ønsker.
+                        </div>
+                      )}
                   </div>
                 </>
               ) : (

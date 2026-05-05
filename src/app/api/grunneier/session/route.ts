@@ -249,43 +249,13 @@ export async function GET(request: Request) {
       await admin.from('grunneier_agreements').delete().in('id', idsToDelete);
     }
 
-    const toActivateIds = (agreements || [])
-      .filter(
-        (a: any) =>
-          a?.id &&
-          a?.status !== 'active' &&
-          a?.status !== 'rejected' &&
-          a?.status !== 'terminated' &&
-          a?.contact_signed_at &&
-          a?.beekeeper_signed_at
-      )
-      .map((a: any) => a.id);
-
-    if (toActivateIds.length > 0) {
-      await admin
-        .from('grunneier_agreements')
-        .update({ status: 'active', updated_at: new Date().toISOString() })
-        .in('id', toActivateIds);
-    }
-
-    if (toActivateIds.length > 0) {
-      const set = new Set(toActivateIds);
-      for (const a of agreements) {
-        if (set.has(String((a as any)?.id || ''))) {
-          (a as any).status = 'active';
-        }
-      }
-    }
-
     const accessPairs = new Set<string>();
     const activeAgreementApiaryIds = Array.from(
       new Set(
         (agreements || [])
           .filter((a: any) => {
             const status = String(a?.status || '').toLowerCase();
-            const bothSigned = Boolean(a?.contact_signed_at && a?.beekeeper_signed_at);
-            const hasAccess =
-              status === 'active' || (bothSigned && status !== 'rejected' && status !== 'terminated');
+            const hasAccess = status === 'active';
             const apiaryId = String(a?.apiary_id || '').trim();
             const contactId = String(a?.contact_id || '').trim();
             if (hasAccess && apiaryId && contactId) {
@@ -391,12 +361,9 @@ export async function GET(request: Request) {
       (agreements || []).map((a: any) => {
         const contact = contactMap.get(a.contact_id);
         const apiary = a.apiary_id ? apiaryMap.get(a.apiary_id) : null;
-        const status = String(a?.status || '').toLowerCase();
-        const bothSigned = Boolean(a?.contact_signed_at && a?.beekeeper_signed_at);
-        const effectiveStatus = bothSigned && status !== 'rejected' && status !== 'terminated' ? 'active' : a.status;
         return {
           id: a.id,
-          status: effectiveStatus,
+          status: a.status,
           role: a.role,
           base_text: a.base_text,
           final_text: a.final_text,

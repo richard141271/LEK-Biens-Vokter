@@ -230,6 +230,78 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, status: nextStatus });
     }
 
+    if (action === 'beekeeper_activate') {
+      if (!agreementId) {
+        return NextResponse.json({ error: 'Mangler data' }, { status: 400 });
+      }
+      if (!accountUserId) {
+        return NextResponse.json({ error: 'Ikke logget inn' }, { status: 401 });
+      }
+
+      const { data: agreement } = await admin
+        .from('grunneier_agreements')
+        .select(
+          'id, created_by, status, apiary_id, contact_id, contact_signed_at, beekeeper_signed_at, contact_proposal, beekeeper_decision'
+        )
+        .eq('id', agreementId)
+        .maybeSingle();
+
+      if (!agreement?.id) {
+        return NextResponse.json({ error: 'Fant ikke avtale' }, { status: 404 });
+      }
+
+      const { data: profile } = await admin
+        .from('profiles')
+        .select('role')
+        .eq('id', accountUserId)
+        .maybeSingle();
+
+      const isAdmin = String((profile as any)?.role || '') === 'admin';
+      const createdBy = String((agreement as any)?.created_by || '').trim();
+      if (!isAdmin && createdBy !== accountUserId) {
+        return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
+      }
+
+      const currentStatus = String((agreement as any)?.status || '').toLowerCase();
+      if (currentStatus === 'rejected') {
+        return NextResponse.json({ error: 'Avtalen er avvist' }, { status: 400 });
+      }
+
+      const hasPendingProposal =
+        Boolean((agreement as any)?.contact_proposal) && String((agreement as any)?.beekeeper_decision || '') === 'pending';
+      if (hasPendingProposal) {
+        return NextResponse.json({ error: 'Du må først godta/avvise forslaget fra grunneier.' }, { status: 400 });
+      }
+
+      if (!(agreement as any)?.contact_signed_at || !(agreement as any)?.beekeeper_signed_at) {
+        return NextResponse.json(
+          { error: 'Begge parter må ha signert før avtalen kan aktiveres.' },
+          { status: 400 }
+        );
+      }
+
+      const apiaryId = String((agreement as any)?.apiary_id || '').trim();
+      const contactId = String((agreement as any)?.contact_id || '').trim();
+
+      const update = admin
+        .from('grunneier_agreements')
+        .update({
+          status: 'active',
+          terminated_at: null,
+          terminated_by: null,
+          updated_at: new Date().toISOString(),
+        });
+
+      const { error } =
+        apiaryId && contactId ? await update.eq('apiary_id', apiaryId).eq('contact_id', contactId) : await update.eq('id', agreementId);
+
+      if (error) {
+        return NextResponse.json({ error: 'Kunne ikke aktivere', detail: error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true, status: 'active' });
+    }
+
     if (email && tokenPurpose === 'account') {
       tokenPurpose = 'account';
 
@@ -560,7 +632,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Avtale-tekst mangler' }, { status: 500 });
       }
 
-      const nextStatus = agreement.beekeeper_signed_at ? 'active' : 'awaiting_beekeeper_signature';
+      const nextStatus = 'awaiting_beekeeper_signature';
 
       const { error } = await admin
         .from('grunneier_agreements')

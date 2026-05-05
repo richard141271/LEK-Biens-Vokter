@@ -545,7 +545,7 @@ export default function GrunneierPage() {
         return;
       }
       const nextStatus = String(data?.status || '').toLowerCase();
-      setStatus(nextStatus === 'active' ? 'Signert. Avtalen er nå aktiv.' : 'Signert. Venter på birøkter.');
+      setStatus(nextStatus === 'active' ? 'Avtalen er nå aktiv.' : 'Signert. Venter på at birøkter aktiverer avtalen.');
       await fetchSession();
     } finally {
       setLoading(false);
@@ -861,6 +861,13 @@ export default function GrunneierPage() {
                             Avtalen er aktiv. Begge parter har signert.
                           </div>
                         )}
+                        {currentAgreement.status !== 'active' &&
+                          currentAgreement.contact_signed_at &&
+                          currentAgreement.beekeeper_signed_at && (
+                            <div className="border border-yellow-200 bg-yellow-50 text-yellow-900 rounded-lg p-3 text-sm">
+                              Begge parter har signert. Venter på at birøkter aktiverer avtalen.
+                            </div>
+                          )}
                         {currentAgreement.beekeeper_decision === 'rejected' && currentAgreement.contact_proposal && (
                           <div className="border border-gray-200 bg-gray-50 text-gray-800 rounded-lg p-3 text-sm">
                             Tilleggsforslaget ditt er avvist. Standard avtale gjelder, og du kan signere under.
