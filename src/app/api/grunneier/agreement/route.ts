@@ -162,6 +162,74 @@ export async function POST(request: Request) {
       }
     }
 
+    if (action === 'beekeeper_sign') {
+      if (!agreementId) {
+        return NextResponse.json({ error: 'Mangler data' }, { status: 400 });
+      }
+      if (!accountUserId) {
+        return NextResponse.json({ error: 'Ikke logget inn' }, { status: 401 });
+      }
+
+      const signatureName = asString(body?.signatureName).trim();
+      if (!signatureName) {
+        return NextResponse.json({ error: 'Mangler signatur' }, { status: 400 });
+      }
+
+      const { data: agreement } = await admin
+        .from('grunneier_agreements')
+        .select('id, created_by, status, contact_proposal, beekeeper_decision, contact_signed_at, beekeeper_signed_at')
+        .eq('id', agreementId)
+        .maybeSingle();
+
+      if (!agreement?.id) {
+        return NextResponse.json({ error: 'Fant ikke avtale' }, { status: 404 });
+      }
+
+      const { data: profile } = await admin
+        .from('profiles')
+        .select('role')
+        .eq('id', accountUserId)
+        .maybeSingle();
+
+      const isAdmin = String((profile as any)?.role || '') === 'admin';
+      const createdBy = String((agreement as any)?.created_by || '').trim();
+      if (!isAdmin && createdBy !== accountUserId) {
+        return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
+      }
+
+      const currentStatus = String((agreement as any)?.status || '').toLowerCase();
+      if (currentStatus === 'rejected') {
+        return NextResponse.json({ error: 'Avtalen er avvist' }, { status: 400 });
+      }
+      if (currentStatus === 'terminated') {
+        return NextResponse.json({ error: 'Avtalen er avsluttet' }, { status: 400 });
+      }
+
+      const hasPendingProposal =
+        Boolean((agreement as any)?.contact_proposal) && String((agreement as any)?.beekeeper_decision || '') === 'pending';
+      if (hasPendingProposal) {
+        return NextResponse.json({ error: 'Du må først godta/avvise forslaget fra grunneier.' }, { status: 400 });
+      }
+
+      const nextStatus = (agreement as any)?.contact_signed_at ? 'active' : 'awaiting_contact_signature';
+
+      const { error } = await admin
+        .from('grunneier_agreements')
+        .update({
+          beekeeper_signature_name: signatureName,
+          beekeeper_signed_at: new Date().toISOString(),
+          status: nextStatus,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', agreementId);
+
+      if (error) {
+        return NextResponse.json({ error: 'Kunne ikke signere', detail: error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true, status: nextStatus });
+    }
+
     if (email && tokenPurpose === 'account') {
       tokenPurpose = 'account';
 

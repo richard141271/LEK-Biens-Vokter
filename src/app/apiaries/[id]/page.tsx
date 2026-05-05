@@ -656,22 +656,29 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     setIsAgreementUpdating(true);
     setAgreementStatus(null);
     try {
-      const nextStatus = selectedAgreement.contact_signed_at ? 'active' : 'awaiting_contact_signature';
-      const { error } = await supabase
-        .from('grunneier_agreements')
-        .update({
-          beekeeper_signature_name: beekeeperSignatureName.trim(),
-          beekeeper_signed_at: new Date().toISOString(),
-          status: nextStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', selectedAgreement.id);
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data?.session?.access_token || '';
 
-      if (error) {
-        setAgreementStatus(error.message);
+      const res = await fetch('/api/grunneier/agreement', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          action: 'beekeeper_sign',
+          agreementId: selectedAgreement.id,
+          signatureName: beekeeperSignatureName.trim(),
+        }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setAgreementStatus(payload?.error || 'Kunne ikke signere');
         return;
       }
 
+      const nextStatus = String(payload?.status || '');
       setAgreementStatus(nextStatus === 'active' ? 'Avtalen er nå aktiv.' : 'Signert. Venter på grunneier.');
       await fetchSelectedAgreement(selectedContactId);
     } finally {
