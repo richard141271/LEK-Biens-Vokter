@@ -46,6 +46,13 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminClient();
+    const verified = await isVerifiedForEmail(email);
+    if (!verified) {
+      return NextResponse.json(
+        { error: 'Åpne engangslenken på e-posten din først, og opprett konto derfra.' },
+        { status: 401 }
+      );
+    }
 
     const createRes = await admin.auth.admin.createUser({
       email,
@@ -93,27 +100,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Konto finnes allerede. Prøv å logge inn.' }, { status: 409 });
     }
 
-    const canUpdatePassword = await isVerifiedForEmail(email);
-    if (canUpdatePassword) {
-      const updateRes = await admin.auth.admin.updateUserById(foundUserId, {
-        email_confirm: true,
-        password,
-        user_metadata: {
-          is_landowner: true,
-          full_name: fullName || null,
-        },
-      });
-      if (updateRes.error) {
-        return NextResponse.json(
-          { error: updateRes.error.message || 'Kunne ikke oppdatere passord' },
-          { status: 500 }
-        );
-      }
-      return NextResponse.json({ success: true, created: false, passwordUpdated: true });
-    }
-
     const updateRes = await admin.auth.admin.updateUserById(foundUserId, {
       email_confirm: true,
+      password,
       user_metadata: {
         is_landowner: true,
         full_name: fullName || null,
@@ -129,8 +118,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       created: false,
-      passwordUpdated: false,
-      exists: true,
+      passwordUpdated: true,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Ukjent feil' }, { status: 500 });

@@ -311,6 +311,10 @@ export default function GrunneierPage() {
   }, [activeAgreementId, sortedAgreements, selectedApiaryId]);
 
   const canShowPortal = hasSession || agreements.length > 0;
+  const authEmailLower = authFormEmail.trim().toLowerCase();
+  const sessionEmailLower = String(sessionEmail || '').trim().toLowerCase();
+  const canCreateAccountHere =
+    Boolean(sessionEmailLower) && sessionTokenPurpose !== 'account' && authEmailLower === sessionEmailLower;
 
   const openAuth = (mode: 'signup' | 'signin') => {
     setAuthMode(mode);
@@ -319,7 +323,7 @@ export default function GrunneierPage() {
     if (mode === 'signin') {
       setAuthFormName('');
     }
-    const fallbackEmail = authEmail || email || '';
+    const fallbackEmail = authEmail || sessionEmail || email || '';
     setAuthFormEmail(fallbackEmail);
     setAuthFormPassword('');
   };
@@ -725,9 +729,20 @@ export default function GrunneierPage() {
                 />
               </div>
 
+              {authMode === 'signup' && !canCreateAccountHere ? (
+                <div className="border border-amber-200 bg-amber-50 text-amber-900 rounded-lg p-3 text-xs">
+                  For å opprette grunneierkonto uten e-postbekreftelse må du først åpne engangslenken du har fått på e-post.
+                </div>
+              ) : null}
+
               <button
                 type="button"
-                disabled={loading || !authFormEmail.trim() || authFormPassword.length < 8}
+                disabled={
+                  loading ||
+                  !authFormEmail.trim() ||
+                  authFormPassword.length < 8 ||
+                  (authMode === 'signup' && !canCreateAccountHere)
+                }
                 onClick={authMode === 'signup' ? signUp : signIn}
                 className="w-full bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
               >
