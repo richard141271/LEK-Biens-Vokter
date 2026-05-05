@@ -20,8 +20,19 @@ export async function GET() {
     let tokenApiaryId = '';
     let tokenAgreementId = '';
     let tokenExpired = false;
+    let accountContactId = '';
 
-    if (token) {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const userEmail = String(user?.email || '').trim();
+    if (user && userEmail) {
+      email = userEmail;
+      tokenPurpose = 'account';
+      accountContactId = String((user as any)?.app_metadata?.landowner_contact_id || '').trim();
+    } else if (token) {
       const { data: magicToken, error: tokenError } = await admin
         .from('magic_tokens')
         .select('email, expires_at, purpose, contact_id, apiary_id, agreement_id')
@@ -42,18 +53,7 @@ export async function GET() {
     }
 
     if (!email) {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      const userEmail = String(user?.email || '').trim();
-      if (!user || !userEmail) {
-        return NextResponse.json({ error: 'Ikke logget inn', expired: tokenExpired }, { status: 401 });
-      }
-
-      email = userEmail;
-      tokenPurpose = 'account';
+      return NextResponse.json({ error: 'Ikke logget inn', expired: tokenExpired }, { status: 401 });
     }
 
     const isScopedAgreementToken = tokenPurpose === 'agreement' && (tokenContactId || tokenAgreementId || tokenApiaryId);
@@ -73,13 +73,14 @@ export async function GET() {
         .ilike('email', email);
 
       contacts = Array.isArray(contactsByEmail) ? contactsByEmail.slice() : [];
-      if (tokenContactId && !contacts.some((c) => String(c?.id || '') === tokenContactId)) {
-        const { data: tokenContact } = await admin
+      const extraContactId = tokenContactId || accountContactId;
+      if (extraContactId && !contacts.some((c) => String(c?.id || '') === extraContactId)) {
+        const { data: extraContact } = await admin
           .from('contacts')
           .select('id, name, email, address, postal_code, city, phone')
-          .eq('id', tokenContactId)
+          .eq('id', extraContactId)
           .maybeSingle();
-        if (tokenContact) contacts.push(tokenContact as any);
+        if (extraContact) contacts.push(extraContact as any);
       }
     }
 

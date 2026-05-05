@@ -122,8 +122,19 @@ export async function POST(request: Request) {
     let tokenAgreementId = '';
     let tokenApiaryId = '';
     let tokenExpired = false;
+    let accountContactId = '';
 
-    if (token) {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const userEmail = String(user?.email || '').trim();
+    if (user && userEmail) {
+      email = userEmail;
+      tokenPurpose = 'account';
+      accountContactId = String((user as any)?.app_metadata?.landowner_contact_id || '').trim();
+    } else if (token) {
       const { data: magicToken } = await admin
         .from('magic_tokens')
         .select('email, expires_at, contact_id, purpose, agreement_id, apiary_id')
@@ -144,18 +155,7 @@ export async function POST(request: Request) {
     }
 
     if (!email) {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      const userEmail = String(user?.email || '').trim();
-      if (!user || !userEmail) {
-        return NextResponse.json({ error: 'Ikke logget inn', expired: tokenExpired }, { status: 401 });
-      }
-
-      email = userEmail;
-      tokenPurpose = 'account';
+      return NextResponse.json({ error: 'Ikke logget inn', expired: tokenExpired }, { status: 401 });
     }
 
     const isScopedAgreementToken =
@@ -176,9 +176,10 @@ export async function POST(request: Request) {
         .single();
 
       const contactEmail = String(contact?.email || '').trim().toLowerCase();
+      const expectedContactId = tokenContactId || accountContactId;
       if (
         !contact ||
-        (tokenContactId ? String(contact.id) !== tokenContactId : contactEmail !== email.toLowerCase())
+        (expectedContactId ? String(contact.id) !== expectedContactId : contactEmail !== email.toLowerCase())
       ) {
         return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
       }
@@ -268,9 +269,10 @@ export async function POST(request: Request) {
       .single();
 
     const contactEmail = String(contact?.email || '').trim().toLowerCase();
+    const expectedContactId = tokenContactId || accountContactId;
     if (
       !contact ||
-      (tokenContactId ? String(contact.id) !== tokenContactId : contactEmail !== email.toLowerCase())
+      (expectedContactId ? String(contact.id) !== expectedContactId : contactEmail !== email.toLowerCase())
     ) {
       return NextResponse.json({ error: 'Ingen tilgang til avtale' }, { status: 403 });
     }

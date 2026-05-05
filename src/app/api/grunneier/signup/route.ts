@@ -11,27 +11,30 @@ function asString(v: any) {
   return typeof v === 'string' ? v : '';
 }
 
-async function isVerifiedForEmail(email: string) {
+async function getVerifiedContextForEmail(email: string) {
   const cookieStore = cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value || '';
-  if (!token) return false;
+  if (!token) return { ok: false, contactId: '' };
 
   const admin = createAdminClient();
   const { data: magicToken } = await admin
     .from('magic_tokens')
-    .select('email, expires_at, purpose')
+    .select('email, expires_at, purpose, contact_id')
     .eq('token', token)
     .maybeSingle();
 
   const purpose = String((magicToken as any)?.purpose || 'portal').trim();
-  if (purpose !== 'portal' && purpose !== 'agreement') return false;
+  if (purpose !== 'portal' && purpose !== 'agreement') return { ok: false, contactId: '' };
 
   const tokenEmail = String(magicToken?.email || '').trim().toLowerCase();
   const expiresAtMs = magicToken?.expires_at ? new Date(magicToken.expires_at).getTime() : 0;
   const isExpired = !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now();
-  if (isExpired) return false;
+  if (isExpired) return { ok: false, contactId: '' };
 
-  return tokenEmail === email.toLowerCase();
+  return {
+    ok: tokenEmail === email.toLowerCase(),
+    contactId: String((magicToken as any)?.contact_id || '').trim(),
+  };
 }
 
 export async function POST(request: Request) {
@@ -46,18 +49,21 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminClient();
-    const verified = await isVerifiedForEmail(email);
-    if (!verified) {
+    const verification = await getVerifiedContextForEmail(email);
+    if (!verification.ok) {
       return NextResponse.json(
         { error: 'Åpne engangslenken på e-posten din først, og opprett konto derfra.' },
         { status: 401 }
       );
     }
 
+    const contactId = verification.contactId || '';
+
     const createRes = await admin.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
+      app_metadata: contactId ? { landowner_contact_id: contactId } : undefined,
       user_metadata: {
         is_landowner: true,
         full_name: fullName || null,
@@ -79,6 +85,7 @@ export async function POST(request: Request) {
     }
 
     let foundUserId = '';
+    let foundUser: any | null = null;
     for (let page = 1; page <= 10; page++) {
       const listRes = await admin.auth.admin.listUsers({ page, perPage: 1000 });
       if (listRes.error) {
@@ -91,6 +98,7 @@ export async function POST(request: Request) {
       const found = users.find((u) => String(u?.email || '').trim().toLowerCase() === email);
       if (found?.id) {
         foundUserId = String(found.id);
+        foundUser = found;
         break;
       }
       if (users.length < 1000) break;
@@ -103,6 +111,9 @@ export async function POST(request: Request) {
     const updateRes = await admin.auth.admin.updateUserById(foundUserId, {
       email_confirm: true,
       password,
+      app_metadata: contactId
+        ? { ...(foundUser?.app_metadata || {}), landowner_contact_id: contactId }
+        : foundUser?.app_metadata || undefined,
       user_metadata: {
         is_landowner: true,
         full_name: fullName || null,
