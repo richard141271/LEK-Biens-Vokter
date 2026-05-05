@@ -17,12 +17,14 @@ export async function GET() {
     let email = '';
     let tokenPurpose: string | null = null;
     let tokenContactId = '';
+    let tokenApiaryId = '';
+    let tokenAgreementId = '';
     let tokenExpired = false;
 
     if (token) {
       const { data: magicToken, error: tokenError } = await admin
         .from('magic_tokens')
-        .select('email, expires_at, purpose, contact_id')
+        .select('email, expires_at, purpose, contact_id, apiary_id, agreement_id')
         .eq('token', token)
         .single();
 
@@ -33,6 +35,8 @@ export async function GET() {
           email = String(magicToken.email || '').trim();
           tokenPurpose = String(magicToken.purpose || 'portal');
           tokenContactId = String((magicToken as any)?.contact_id || '').trim();
+          tokenApiaryId = String((magicToken as any)?.apiary_id || '').trim();
+          tokenAgreementId = String((magicToken as any)?.agreement_id || '').trim();
         }
       }
     }
@@ -53,19 +57,31 @@ export async function GET() {
       tokenPurpose = 'account';
     }
 
-    const { data: contactsByEmail } = await admin
-      .from('contacts')
-      .select('id, name, email, address, postal_code, city, phone')
-      .ilike('email', email);
+    const isScopedAgreementToken = tokenPurpose === 'agreement' && (tokenContactId || tokenAgreementId || tokenApiaryId);
 
-    const contacts: any[] = Array.isArray(contactsByEmail) ? contactsByEmail.slice() : [];
-    if (tokenContactId && !contacts.some((c) => String(c?.id || '') === tokenContactId)) {
+    let contacts: any[] = [];
+    if (isScopedAgreementToken && tokenContactId) {
       const { data: tokenContact } = await admin
         .from('contacts')
         .select('id, name, email, address, postal_code, city, phone')
         .eq('id', tokenContactId)
         .maybeSingle();
-      if (tokenContact) contacts.push(tokenContact as any);
+      contacts = tokenContact ? [tokenContact as any] : [];
+    } else {
+      const { data: contactsByEmail } = await admin
+        .from('contacts')
+        .select('id, name, email, address, postal_code, city, phone')
+        .ilike('email', email);
+
+      contacts = Array.isArray(contactsByEmail) ? contactsByEmail.slice() : [];
+      if (tokenContactId && !contacts.some((c) => String(c?.id || '') === tokenContactId)) {
+        const { data: tokenContact } = await admin
+          .from('contacts')
+          .select('id, name, email, address, postal_code, city, phone')
+          .eq('id', tokenContactId)
+          .maybeSingle();
+        if (tokenContact) contacts.push(tokenContact as any);
+      }
     }
 
     const contactIds = (contacts || []).map((c: any) => c.id);
@@ -73,13 +89,23 @@ export async function GET() {
       return NextResponse.json({ apiaries: [], contacts: [] });
     }
 
-    const { data: agreements } = await admin
+    let agreementsQuery = admin
       .from('grunneier_agreements')
       .select(
         'id, status, base_text, final_text, contact_proposal, beekeeper_decision, apiary_id, contact_id, role, contact_signed_at, beekeeper_signed_at, created_at, updated_at'
       )
       .in('contact_id', contactIds)
       .limit(500);
+
+    if (isScopedAgreementToken) {
+      if (tokenAgreementId) {
+        agreementsQuery = agreementsQuery.eq('id', tokenAgreementId);
+      } else if (tokenApiaryId) {
+        agreementsQuery = agreementsQuery.eq('apiary_id', tokenApiaryId);
+      }
+    }
+
+    const { data: agreements } = await agreementsQuery;
 
     const toActivateIds = (agreements || [])
       .filter((a: any) => a?.id && a?.status !== 'active' && a?.status !== 'rejected' && a?.contact_signed_at && a?.beekeeper_signed_at)
