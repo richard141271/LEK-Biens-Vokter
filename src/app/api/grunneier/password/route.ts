@@ -72,24 +72,13 @@ export async function POST(request: Request) {
 
     const existingUser = await findUserByEmail(admin, verified.email);
     if (existingUser?.id) {
-      const updateRes = await admin.auth.admin.updateUserById(String(existingUser.id), {
-        email_confirm: true,
-        password,
-        app_metadata: contactId
-          ? { ...(existingUser?.app_metadata || {}), landowner_contact_id: contactId }
-          : existingUser?.app_metadata || undefined,
-        user_metadata: {
-          is_landowner: true,
-          full_name: fullName || null,
+      return NextResponse.json(
+        {
+          error:
+            'Konto finnes allerede for denne e-posten. Av sikkerhetshensyn kan vi ikke endre passord her. Bruk "Glemt passord" i innloggingen for å sette nytt passord.',
         },
-      });
-      if (updateRes.error) {
-        return NextResponse.json(
-          { error: updateRes.error.message || 'Kunne ikke sette passord' },
-          { status: 500 }
-        );
-      }
-      return NextResponse.json({ success: true, created: false });
+        { status: 409 }
+      );
     }
 
     const createRes = await admin.auth.admin.createUser({

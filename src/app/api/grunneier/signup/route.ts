@@ -83,53 +83,11 @@ export async function POST(request: Request) {
     if (!alreadyExists) {
       return NextResponse.json({ error: msg || 'Kunne ikke opprette konto' }, { status: 500 });
     }
-
-    let foundUserId = '';
-    let foundUser: any | null = null;
-    for (let page = 1; page <= 10; page++) {
-      const listRes = await admin.auth.admin.listUsers({ page, perPage: 1000 });
-      if (listRes.error) {
-        return NextResponse.json(
-          { error: listRes.error.message || 'Kunne ikke slå opp eksisterende konto' },
-          { status: 500 }
-        );
-      }
-      const users = (listRes.data?.users || []) as any[];
-      const found = users.find((u) => String(u?.email || '').trim().toLowerCase() === email);
-      if (found?.id) {
-        foundUserId = String(found.id);
-        foundUser = found;
-        break;
-      }
-      if (users.length < 1000) break;
-    }
-
-    if (!foundUserId) {
-      return NextResponse.json({ error: 'Konto finnes allerede. Prøv å logge inn.' }, { status: 409 });
-    }
-
-    const updateRes = await admin.auth.admin.updateUserById(foundUserId, {
-      email_confirm: true,
-      password,
-      app_metadata: contactId
-        ? { ...(foundUser?.app_metadata || {}), landowner_contact_id: contactId }
-        : foundUser?.app_metadata || undefined,
-      user_metadata: {
-        is_landowner: true,
-        full_name: fullName || null,
-      },
-    });
-    if (updateRes.error) {
-      return NextResponse.json(
-        { error: updateRes.error.message || 'Kunne ikke oppdatere konto' },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({
       success: true,
       created: false,
-      passwordUpdated: true,
+      exists: true,
+      passwordUpdated: false,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || 'Ukjent feil' }, { status: 500 });

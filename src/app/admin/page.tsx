@@ -126,6 +126,13 @@ export default function AdminLoginPage() {
           >
             {loading ? 'Verifiserer...' : 'Logg inn som Admin'}
           </button>
+
+          <Link
+            href={`/aksjer/forgot-password?back=${encodeURIComponent('/admin')}`}
+            className="block text-center text-sm text-gray-300 hover:text-white hover:underline"
+          >
+            Glemt passord
+          </Link>
         </form>
       </div>
     </div>

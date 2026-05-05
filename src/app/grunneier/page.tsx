@@ -423,7 +423,7 @@ export default function GrunneierPage() {
       if (data?.exists && !data?.passwordUpdated) {
         setAuthMode('signin');
         setStatus(
-          'Konto finnes allerede. Hvis du er logget inn med engangslenke på samme e-post, kan du sette nytt passord ved å skrive ønsket passord og trykke "Opprett konto" igjen.'
+          'Konto finnes allerede. Av sikkerhetshensyn kan vi ikke endre passord her. Logg inn med eksisterende passord eller bruk "Glemt passord".'
         );
         return;
       }
