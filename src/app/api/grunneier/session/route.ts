@@ -124,6 +124,7 @@ export async function GET(request: Request) {
             tokenApiaryId = magicApiaryId;
             tokenAgreementId = magicAgreementId;
           } else if (email && magicEmail && normalizeEmail(magicEmail) === normalizeEmail(email)) {
+            if (magicPurpose === 'agreement') tokenPurpose = 'agreement';
             if (!tokenContactId && magicContactId) tokenContactId = magicContactId;
             if (!tokenApiaryId && magicApiaryId) tokenApiaryId = magicApiaryId;
             if (!tokenAgreementId && magicAgreementId) tokenAgreementId = magicAgreementId;

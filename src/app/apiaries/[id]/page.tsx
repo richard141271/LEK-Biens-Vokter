@@ -871,6 +871,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         await fetchSelectedAgreement(nextContactId);
       }
       const inviteUrl = String(data?.inviteUrl || '');
+      const mailProvider = String(data?.mailProvider || '');
       const agreementAlreadyActive = Boolean(data?.agreementAlreadyActive);
       if (agreementAlreadyActive) {
         alert('Kontakt er knyttet. Avtalen er allerede aktiv, så det trengs ingen ny signering for denne bigården.');
@@ -879,9 +880,21 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       if (sendInvite && inviteUrl) {
         try {
           await navigator.clipboard.writeText(inviteUrl);
-          alert(`Avtale sendt til grunneier!\n\nLenke er kopiert:\n${inviteUrl}`);
+          const providerNote =
+            mailProvider && mailProvider.toLowerCase().includes('mock')
+              ? `\n\nNB: Staging sender ikke ekte e-post uten SMTP. Mail-provider: ${mailProvider}`
+              : mailProvider
+                ? `\n\nMail-provider: ${mailProvider}`
+                : '';
+          alert(`Avtale sendt til grunneier!\n\nLenke er kopiert:\n${inviteUrl}${providerNote}`);
         } catch {
-          alert(`Avtale sendt til grunneier!\n\nLenke:\n${inviteUrl}`);
+          const providerNote =
+            mailProvider && mailProvider.toLowerCase().includes('mock')
+              ? `\n\nNB: Staging sender ikke ekte e-post uten SMTP. Mail-provider: ${mailProvider}`
+              : mailProvider
+                ? `\n\nMail-provider: ${mailProvider}`
+                : '';
+          alert(`Avtale sendt til grunneier!\n\nLenke:\n${inviteUrl}${providerNote}`);
         }
       } else {
         alert(sendInvite ? 'Avtale sendt til grunneier!' : 'Kontakt lagret!');

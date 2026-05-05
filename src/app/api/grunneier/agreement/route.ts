@@ -366,6 +366,7 @@ export async function POST(request: Request) {
             tokenAgreementId = magicAgreementId;
             tokenApiaryId = magicApiaryId;
           } else if (email && magicEmail && normalizeEmail(magicEmail) === normalizeEmail(email)) {
+            if (magicPurpose === 'agreement') tokenPurpose = 'agreement';
             if (!tokenContactId && magicContactId) tokenContactId = magicContactId;
             if (!tokenAgreementId && magicAgreementId) tokenAgreementId = magicAgreementId;
             if (!tokenApiaryId && magicApiaryId) tokenApiaryId = magicApiaryId;
