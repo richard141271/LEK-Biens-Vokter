@@ -8,6 +8,7 @@ import { useSearchParams } from 'next/navigation';
 export default function StockResetPasswordPage() {
   const supabase = createClient();
   const searchParams = useSearchParams();
+  const code = searchParams.get('code');
   const backRaw = String(searchParams.get('back') || '').trim();
   const back = backRaw.startsWith('/') ? backRaw : '/aksjer/signin';
   const [loading, setLoading] = useState(true);
@@ -19,6 +20,10 @@ export default function StockResetPasswordPage() {
   useEffect(() => {
     const run = async () => {
       try {
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) setMessage(error.message);
+        }
         if (window.location.hash) {
           const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
           const accessToken = params.get('access_token');
@@ -35,6 +40,15 @@ export default function StockResetPasswordPage() {
         if (window.location.hash) {
           window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
         }
+        if (code) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('code');
+          url.searchParams.delete('type');
+          url.searchParams.delete('error');
+          url.searchParams.delete('error_description');
+          const nextPath = url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : '');
+          window.history.replaceState({}, document.title, nextPath);
+        }
 
         const { data } = await supabase.auth.getUser();
         setUserEmail(data.user?.email || null);
@@ -42,7 +56,7 @@ export default function StockResetPasswordPage() {
       setLoading(false);
     };
     run();
-  }, [supabase]);
+  }, [supabase, code]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
