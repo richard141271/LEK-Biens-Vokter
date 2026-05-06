@@ -343,14 +343,24 @@ export default function GrunneierPage() {
     });
   }, [agreements]);
 
+  const activeAgreements = useMemo(
+    () => sortedAgreements.filter((a) => String(a.status || '').toLowerCase() === 'active'),
+    [sortedAgreements]
+  );
+
+  const displayAgreements = useMemo(() => {
+    if (hasSession && activeAgreements.length > 0) return activeAgreements;
+    return sortedAgreements;
+  }, [activeAgreements, hasSession, sortedAgreements]);
+
   const currentAgreement = useMemo(() => {
-    if (activeAgreementId) return sortedAgreements.find((a) => a.id === activeAgreementId) || null;
+    if (activeAgreementId) return displayAgreements.find((a) => a.id === activeAgreementId) || null;
     if (selectedApiaryId) {
-      const byApiary = sortedAgreements.filter((a) => a.apiary?.id === selectedApiaryId);
+      const byApiary = displayAgreements.filter((a) => a.apiary?.id === selectedApiaryId);
       if (byApiary.length > 0) return byApiary[0];
     }
-    return sortedAgreements[0] || null;
-  }, [activeAgreementId, sortedAgreements, selectedApiaryId]);
+    return displayAgreements[0] || null;
+  }, [activeAgreementId, displayAgreements, selectedApiaryId]);
 
   const canShowPortal = hasSession || agreements.length > 0;
   const authEmailLower = authFormEmail.trim().toLowerCase();
@@ -646,14 +656,14 @@ export default function GrunneierPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-4 py-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-xl font-black text-gray-900">Grunneierportal</h1>
             <p className="text-xs text-gray-500">
               Kart og oversikt over bigårder du er knyttet til
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-start sm:justify-end">
             {authEmail ? (
               <>
                 <div className="hidden sm:block text-xs text-gray-600">{authEmail}</div>
@@ -688,13 +698,15 @@ export default function GrunneierPage() {
                 >
                   Logg inn
                 </button>
-                <button
-                  type="button"
-                  onClick={() => openAuth('signup')}
-                  className="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm font-medium"
-                >
-                  Opprett konto
-                </button>
+                {!(sessionTokenPurpose && sessionTokenPurpose !== 'account') ? (
+                  <button
+                    type="button"
+                    onClick={() => openAuth('signup')}
+                    className="bg-gray-900 text-white px-3 py-2 rounded-lg text-sm font-medium"
+                  >
+                    Opprett konto
+                  </button>
+                ) : null}
               </>
             )}
           </div>
@@ -868,8 +880,8 @@ export default function GrunneierPage() {
         ) : canShowPortal ? (
           <>
             {agreements.length > 0 && (
-              <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 overflow-hidden">
+                <div className="flex items-center justify-between gap-3 flex-wrap min-w-0">
                   <div>
                     <h2 className="text-sm font-bold text-gray-900">Min side</h2>
                     <p className="text-xs text-gray-500">
@@ -883,19 +895,21 @@ export default function GrunneierPage() {
                   >
                     {isAgreementCollapsed ? 'Åpne' : 'Lukk'}
                   </button>
-                  {sortedAgreements.length > 1 && (
-                    <select
-                      value={currentAgreement?.id || ''}
-                      onChange={(e) => setActiveAgreementId(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white"
-                    >
-                      {sortedAgreements.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.apiary?.apiary_number || 'Bigård'} {a.apiary?.name ? `– ${a.apiary?.name}` : ''} (
-                          {a.status === 'active' ? 'aktiv' : 'ikke aktiv'})
-                        </option>
-                      ))}
-                    </select>
+                  {displayAgreements.length > 1 && (
+                    <div className="w-full sm:w-auto">
+                      <select
+                        value={currentAgreement?.id || ''}
+                        onChange={(e) => setActiveAgreementId(e.target.value)}
+                        className="w-full sm:w-auto max-w-full border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white"
+                      >
+                        {displayAgreements.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.apiary?.apiary_number || 'Bigård'} {a.apiary?.name ? `– ${a.apiary?.name}` : ''} (
+                            {String(a.status || '').toLowerCase() === 'active' ? 'avtale aktiv' : 'avtale ikke aktiv'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   )}
                 </div>
 
