@@ -348,6 +348,17 @@ export default function GrunneierPage() {
     [sortedAgreements]
   );
 
+  const apiaryStatusById = useMemo(() => {
+    const map = new globalThis.Map<string, string>();
+    for (const item of linkedApiaries || []) {
+      const id = String(item?.apiary?.id || '').trim();
+      const status = String(item?.apiary?.status || '').trim();
+      if (!id) continue;
+      if (status) map.set(id, status);
+    }
+    return map;
+  }, [linkedApiaries]);
+
   const displayAgreements = useMemo(() => {
     if (hasSession && activeAgreements.length > 0) return activeAgreements;
     return sortedAgreements;
@@ -905,7 +916,7 @@ export default function GrunneierPage() {
                         {displayAgreements.map((a) => (
                           <option key={a.id} value={a.id}>
                             {a.apiary?.apiary_number || 'Bigård'} {a.apiary?.name ? `– ${a.apiary?.name}` : ''} (
-                            {String(a.status || '').toLowerCase() === 'active' ? 'avtale aktiv' : 'avtale ikke aktiv'})
+                            {apiaryStatusById.get(String(a.apiary?.id || '')) || 'ukjent'})
                           </option>
                         ))}
                       </select>

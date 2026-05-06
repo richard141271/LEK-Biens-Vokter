@@ -121,6 +121,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [isCertificationModalOpen, setIsCertificationModalOpen] = useState(false);
   const [isCertificationOverviewOpen, setIsCertificationOverviewOpen] = useState(false);
   const [isSubmittingCertification, setIsSubmittingCertification] = useState(false);
+  const [isDeactivatingCertification, setIsDeactivatingCertification] = useState(false);
   const [certChecklist, setCertChecklist] = useState({
     noDisease: false,
     normalBrood: false,
@@ -1451,6 +1452,59 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     setIsCertificationOverviewOpen(true);
   };
 
+  const deactivateCertification = async () => {
+    if (!latestCertification) return;
+    if (!confirm('Deaktivere sertifisering? Dette vil sette bigården som ikke sertifisert.')) return;
+    setIsDeactivatingCertification(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      const certId = crypto.randomUUID();
+      const ownerId = apiary?.user_id || user.id;
+      const yesterdayIso = (() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        return d.toISOString().split('T')[0];
+      })();
+
+      const checklist = (latestCertification as any)?.checklist || {
+        no_disease: false,
+        normal_brood: false,
+        queen_ok: false,
+        normal_activity: false,
+        equipment_ok: false,
+        physical_check: false,
+      };
+
+      const hivePhotos = (latestCertification as any)?.hive_photos || {};
+
+      const { data: inserted, error } = await supabase
+        .from('apiary_certifications')
+        .insert({
+          id: certId,
+          apiary_id: apiary.id,
+          owner_id: ownerId,
+          certified_from: yesterdayIso,
+          certified_to: yesterdayIso,
+          checklist,
+          hive_photos: hivePhotos,
+        })
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      setLatestCertification(inserted);
+    } catch (e: any) {
+      alert('Kunne ikke deaktivere sertifisering: ' + String(e?.message || 'Ukjent feil'));
+    } finally {
+      setIsDeactivatingCertification(false);
+    }
+  };
+
   const canCompleteCertification =
     Object.values(certChecklist).every(Boolean) &&
     (hives || []).length > 0 &&
@@ -1640,63 +1694,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       </div>
 
       <main className="p-4 space-y-4 print:hidden">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3 bg-gray-50">
-            <div className="flex items-center gap-2">
-              <ClipboardList className="w-5 h-5 text-gray-600" />
-              <h2 className="font-bold text-gray-900">Egensertifisering</h2>
-            </div>
-            <button
-              onClick={openCertificationModal}
-              disabled={(hives || []).length === 0}
-              className="px-3 py-2 rounded-lg bg-honey-500 hover:bg-honey-600 text-white font-bold text-sm disabled:opacity-50"
-            >
-              Ny sertifisering
-            </button>
-          </div>
-          <div className="p-4 space-y-3">
-            {latestCertification ? (
-              <div className="text-sm text-gray-800">
-                <div className="font-bold">
-                  {isCertificationActive ? 'Sertifisert' : 'Utløpt'}
-                  {certificationTo ? ` til ${certificationTo.toLocaleDateString()}` : ''}
-                </div>
-                <div className="text-xs text-gray-600">
-                  {certificationFrom ? `Sertifisert fra ${certificationFrom.toLocaleDateString()}. ` : ''}
-                  {daysToExpiry != null ? `Gjenstår ${daysToExpiry} dager.` : ''}
-                </div>
-              </div>
-            ) : (
-              <div className="text-sm text-gray-700">
-                Ingen egensertifisering registrert på denne bigården enda.
-              </div>
-            )}
-
-            {reminderDays != null && (
-              <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-900">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-5 h-5 mt-0.5" />
-                  <div className="flex-1">
-                    <div className="font-bold text-sm">
-                      {reminderDays} dager før utløp
-                    </div>
-                    <div className="text-xs mt-1">
-                      Husk å oppdatere hos Mattilsynet.
-                    </div>
-                    <button
-                      onClick={() => window.open(mattilsynetUrl, '_blank')}
-                      className="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-amber-200 hover:bg-amber-100 text-amber-900 font-bold text-xs"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      Åpne Mattilsynet
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
         {selectedContactId && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div
@@ -2754,12 +2751,34 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             </div>
 
             <div className="p-4 border-t border-gray-100 flex gap-3 pb-[calc(env(safe-area-inset-bottom)+16px)]">
-              <button
-                onClick={() => setIsCertificationOverviewOpen(false)}
-                className="flex-1 py-3 border border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-50"
-              >
-                Lukk
-              </button>
+              <div className="w-full flex flex-col sm:flex-row gap-3">
+                {isCertificationActive ? (
+                  <button
+                    onClick={deactivateCertification}
+                    disabled={isDeactivatingCertification}
+                    className="w-full sm:w-auto sm:flex-1 py-3 border border-red-200 rounded-lg font-bold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {isDeactivatingCertification ? 'Deaktiverer...' : 'Deaktiver'}
+                  </button>
+                ) : null}
+                <button
+                  onClick={() => {
+                    setIsCertificationOverviewOpen(false);
+                    openCertificationModal();
+                  }}
+                  disabled={(hives || []).length === 0 || isSubmittingCertification || isDeactivatingCertification}
+                  className="w-full sm:w-auto sm:flex-1 py-3 bg-honey-500 hover:bg-honey-600 text-white rounded-lg font-bold disabled:opacity-50"
+                >
+                  Ny sertifisering
+                </button>
+                <button
+                  onClick={() => setIsCertificationOverviewOpen(false)}
+                  disabled={isSubmittingCertification || isDeactivatingCertification}
+                  className="w-full sm:w-auto sm:flex-1 py-3 border border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Lukk
+                </button>
+              </div>
             </div>
           </div>
         </div>
