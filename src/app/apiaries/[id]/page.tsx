@@ -119,6 +119,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
   const [latestCertification, setLatestCertification] = useState<any>(null);
   const [isCertificationModalOpen, setIsCertificationModalOpen] = useState(false);
+  const [isCertificationOverviewOpen, setIsCertificationOverviewOpen] = useState(false);
   const [isSubmittingCertification, setIsSubmittingCertification] = useState(false);
   const [certChecklist, setCertChecklist] = useState({
     noDisease: false,
@@ -1446,6 +1447,10 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     setIsCertificationModalOpen(true);
   };
 
+  const openCertificationOverview = () => {
+    setIsCertificationOverviewOpen(true);
+  };
+
   const canCompleteCertification =
     Object.values(certChecklist).every(Boolean) &&
     (hives || []).length > 0 &&
@@ -1590,6 +1595,23 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                   </option>
                 ))}
               </select>
+              <button
+                type="button"
+                onClick={() => (isCertificationActive ? openCertificationOverview() : openCertificationModal())}
+                disabled={!isCertificationActive && (hives || []).length === 0}
+                className={`px-3 py-2 rounded-lg transition-colors text-sm font-bold whitespace-nowrap disabled:opacity-50 ${
+                  isCertificationActive
+                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                    : 'bg-red-600 hover:bg-red-700 text-white'
+                }`}
+              >
+                <div className="leading-tight">
+                  <div>{isCertificationActive ? 'Sertifisert' : latestCertification ? 'Utløpt' : 'Ikke sertifisert'}</div>
+                  {isCertificationActive && daysToExpiry != null ? (
+                    <div className="text-[11px] font-semibold opacity-90">Ny om {daysToExpiry} dager</div>
+                  ) : null}
+                </div>
+              </button>
               <button
                 onClick={() => setIsInviteModalOpen(true)}
                 className="flex items-center gap-2 px-3 py-2 bg-honey-500 hover:bg-honey-600 text-white rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
@@ -2648,6 +2670,96 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CERTIFICATION OVERVIEW MODAL */}
+      {isCertificationOverviewOpen && latestCertification && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[190]">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden max-h-[90vh]">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-900 text-white">
+              <h3 className="font-bold text-lg">Sertifisering</h3>
+              <button onClick={() => setIsCertificationOverviewOpen(false)}>
+                <X className="w-6 h-6 text-gray-400 hover:text-white" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5 overflow-y-auto max-h-[calc(90vh-136px)] pb-10">
+              <div className="text-sm text-gray-800">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="font-bold text-gray-900">
+                    {isCertificationActive ? 'Sertifisert' : 'Utløpt'}
+                    {certificationTo ? ` til ${certificationTo.toLocaleDateString()}` : ''}
+                  </div>
+                  <span
+                    className={`text-xs font-bold uppercase px-2 py-1 rounded border ${
+                      isCertificationActive
+                        ? 'bg-green-50 text-green-700 border-green-200'
+                        : 'bg-red-50 text-red-700 border-red-200'
+                    }`}
+                  >
+                    {isCertificationActive ? 'OK' : 'UTLØPT'}
+                  </span>
+                </div>
+                <div className="text-xs text-gray-600 mt-1">
+                  {certificationFrom ? `Fra ${certificationFrom.toLocaleDateString()}. ` : ''}
+                  {daysToExpiry != null ? `Ny om ${daysToExpiry} dager.` : ''}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="font-bold text-gray-900 text-sm">Sjekkliste</div>
+                {[
+                  { key: 'no_disease', label: 'Ingen tegn til sykdom' },
+                  { key: 'normal_brood', label: 'Normal yngel' },
+                  { key: 'queen_ok', label: 'Dronning ok' },
+                  { key: 'normal_activity', label: 'Normal aktivitet' },
+                  { key: 'equipment_ok', label: 'Utstyr og kube i orden' },
+                  { key: 'physical_check', label: 'Kontroll gjennomført fysisk' },
+                ].map((item) => {
+                  const ok = Boolean((latestCertification as any)?.checklist?.[item.key]);
+                  return (
+                    <div key={item.key} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
+                      <div className="text-sm font-medium text-gray-900">{item.label}</div>
+                      <span
+                        className={`text-xs font-bold uppercase px-2 py-1 rounded border ${
+                          ok ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+                        }`}
+                      >
+                        {ok ? 'OK' : 'Mangler'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-2">
+                <div className="font-bold text-gray-900 text-sm">Bilder</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries((latestCertification as any)?.hive_photos || {}).map(([hiveId, url]) => (
+                    <a
+                      key={hiveId}
+                      href={String(url)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block border border-gray-200 rounded-lg overflow-hidden hover:opacity-90"
+                    >
+                      <img src={String(url)} alt="Bilde" className="w-full h-24 object-cover" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-100 flex gap-3 pb-[calc(env(safe-area-inset-bottom)+16px)]">
+              <button
+                onClick={() => setIsCertificationOverviewOpen(false)}
+                className="flex-1 py-3 border border-gray-300 rounded-lg font-bold text-gray-700 hover:bg-gray-50"
+              >
+                Lukk
+              </button>
             </div>
           </div>
         </div>
