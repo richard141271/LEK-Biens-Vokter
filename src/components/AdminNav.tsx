@@ -6,6 +6,7 @@ import {
   Shield, 
   Users, 
   Activity, 
+  Box,
   ShoppingBag, 
   Mail, 
   LogOut, 
@@ -203,6 +204,13 @@ export default function AdminNav() {
       </nav>
 
       <div className="p-4 border-t border-gray-800">
+        <Link
+          href="/lei-en-kube"
+          className="flex items-center gap-3 px-4 py-3 w-full text-left text-gray-400 hover:bg-gray-800 hover:text-white rounded-xl transition-colors"
+        >
+          <Box className="w-5 h-5 text-gray-500" />
+          Lei en kube
+        </Link>
         <button
           onClick={handleSignOut}
           className="flex items-center gap-3 px-4 py-3 w-full text-left text-gray-400 hover:bg-red-900/20 hover:text-red-400 rounded-xl transition-colors"

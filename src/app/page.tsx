@@ -165,14 +165,6 @@ export default function Home() {
             <div className="text-gray-400">
               © {new Date().getFullYear()} AI Innovate AS. Alle rettigheter reservert.
             </div>
-            <div className="flex gap-4 text-xs">
-              <Link 
-                href="/lei-en-kube" 
-                className="text-gray-400 hover:text-white hover:underline"
-              >
-                Lei en kube
-              </Link>
-            </div>
           </div>
         </div>
       </footer>
