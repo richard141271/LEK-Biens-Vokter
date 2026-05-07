@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Mail, MapPin } from 'lucide-react';
+import { ArrowLeft, Mail, MapPin } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 const Map = dynamic(() => import('@/components/Map'), {
@@ -78,6 +78,15 @@ export default function GrunneierPage() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
   const supabase = useMemo(() => createClient(), []);
+  const goBackToMinSide = useCallback(() => {
+    try {
+      if (typeof window !== 'undefined' && window.history.length > 1) {
+        router.back();
+        return;
+      }
+    } catch {}
+    router.push('/dashboard');
+  }, [router]);
 
   const toNumber = (v: unknown): number | null => {
     if (typeof v === 'number' && Number.isFinite(v)) return v;
@@ -669,6 +678,14 @@ export default function GrunneierPage() {
       <header className="bg-white border-b border-gray-200 px-4 py-4">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
+            <button
+              type="button"
+              onClick={goBackToMinSide}
+              className="inline-flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 mb-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Tilbake til Min Side
+            </button>
             <h1 className="text-xl font-black text-gray-900">Grunneierportal</h1>
             <p className="text-xs text-gray-500">
               Kart og oversikt over bigårder du er knyttet til
