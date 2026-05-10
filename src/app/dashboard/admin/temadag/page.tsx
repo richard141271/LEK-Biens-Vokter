@@ -25,7 +25,7 @@ type Slide = {
 const POSTER_BASE_PATH = '/Temadag%20plakater/';
 
 const POSTERS: PosterDef[] = [
-  { key: 'forside', title: 'Forside', filenames: ['lek1.png', '/lek1.png', 'lek1.jpg', '/lek1.jpg', 'lek1.jpeg', '/lek1.jpeg'] },
+  { key: 'forside', title: 'Forside', filenames: ['lek1.png'] },
   { key: '0', title: 'Plakat 0', filenames: ['nr0.png', 'nr0.jpg', 'nr0.jpeg'] },
   { key: '1', title: 'Registrer deg', filenames: ['nr1.png', 'nr1.jpg', 'nr1.jpeg'] },
   { key: '2', title: 'Logg inn', filenames: ['nr2.png', 'nr2.jpg', 'nr2.jpeg'] },
@@ -50,7 +50,7 @@ const buildPosterSrc = (filename: string) => {
 const posterFilesFor = (posterKey: string, prefer: 'nr' | 'sta') => {
   const def = POSTERS.find((p) => p.key === posterKey) || null;
   if (!def) return [];
-  if (posterKey === 'forside') return Array.from(new Set(def.filenames));
+  if (posterKey === 'forside') return def.filenames;
   const nr = def?.filenames || [];
   const isNumericPosterKey = /^[0-9]+(\.[0-9]+)?$/.test(posterKey);
   const sta = !isNumericPosterKey
@@ -450,10 +450,6 @@ export default function AdminTemadagPage() {
     }
   };
 
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">Laster temadag…</div>;
-  }
-
   const visParam = String(searchParams.get('vis') || '');
   const slideshowMode = visParam === 'storskjerm' || visParam === 'telefon' ? (visParam as 'storskjerm' | 'telefon') : null;
   const slideshowIdxRaw = Number(searchParams.get('i') || '0');
@@ -478,11 +474,41 @@ export default function AdminTemadagPage() {
     router.push(qs ? `/dashboard/admin/temadag?${qs}` : '/dashboard/admin/temadag');
   };
 
+  useEffect(() => {
+    if (!slideshowMode) return;
+    void requestFullscreen();
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSlideshow(null, 0);
+        return;
+      }
+      if (e.key === 'ArrowLeft') setSlideshow(slideshowMode, Math.max(0, slideshowClampedIndex - 1));
+      if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') setSlideshow(slideshowMode, Math.min(slideshowMaxIndex, slideshowClampedIndex + 1));
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [requestFullscreen, setSlideshow, slideshowClampedIndex, slideshowMaxIndex, slideshowMode]);
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">Laster temadag…</div>;
+  }
+
   if (slideshowMode) {
+    const maxHClass =
+      slideshowMode === 'telefon'
+        ? 'max-h-[calc(100vh-140px)]'
+        : 'max-h-[calc(100vh-120px)]';
     return (
       <div className="fixed inset-0 z-50 bg-black">
-        <div className="absolute inset-0 flex items-center justify-center px-4">
-          <PosterImage title={slideshowTitle} filenames={slideshowFiles} className="max-h-full max-w-full object-contain" />
+        <div className="absolute inset-x-0 top-0 px-4 py-3 flex items-center justify-between gap-2 bg-black/50 backdrop-blur">
+          <button type="button" onClick={() => setSlideshow(null, 0)} className="px-3 py-2 rounded-lg bg-white/10 text-white text-sm font-bold">
+            Tilbake til Temadag (Esc)
+          </button>
+        </div>
+        <div className="absolute inset-0 pt-14 pb-24 flex items-center justify-center px-4">
+          <PosterImage title={slideshowTitle} filenames={slideshowFiles} className={`${maxHClass} max-w-full object-contain`} />
         </div>
         <div className="absolute inset-x-0 bottom-0 px-4 py-4 flex items-center justify-between gap-3 bg-black/60 backdrop-blur">
           <button
@@ -626,14 +652,20 @@ export default function AdminTemadagPage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => setSlideshow('storskjerm', 0)}
+              onClick={() => {
+                void requestFullscreen();
+                setSlideshow('storskjerm', 0);
+              }}
               className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold hover:bg-gray-800"
             >
               Storskjerm
             </button>
             <button
               type="button"
-              onClick={() => setSlideshow('telefon', 0)}
+              onClick={() => {
+                void requestFullscreen();
+                setSlideshow('telefon', 0);
+              }}
               className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold hover:bg-gray-800"
             >
               Telefon
