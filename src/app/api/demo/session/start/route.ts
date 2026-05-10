@@ -66,8 +66,7 @@ async function requireAdmin() {
     };
   }
 
-  const adminVerifier = createAdminClient();
-  const { data: profile, error } = await adminVerifier
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', user.id)
@@ -76,7 +75,7 @@ async function requireAdmin() {
   if (error) {
     return {
       ok: false as const,
-      response: NextResponse.json({ success: false, error: 'Kunne ikke verifisere tilgang' }, { status: 500 }),
+      response: NextResponse.json({ success: false, error: error.message || 'Kunne ikke verifisere tilgang' }, { status: 500 }),
       user: null,
     };
   }

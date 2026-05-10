@@ -44,15 +44,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: 'Ikke logget inn' }, { status: 401 });
   }
 
-  const admin = createAdminClient();
-  const { data: profile, error: profileError } = await admin.from('profiles').select('role').eq('id', user.id).single();
+  const { data: profile, error: profileError } = await supabase.from('profiles').select('role').eq('id', user.id).single();
   if (profileError) {
-    return NextResponse.json({ success: false, error: 'Kunne ikke verifisere tilgang' }, { status: 500 });
+    return NextResponse.json({ success: false, error: profileError.message || 'Kunne ikke verifisere tilgang' }, { status: 500 });
   }
   if (profile?.role !== 'admin') {
     return NextResponse.json({ success: false, error: 'Ingen tilgang' }, { status: 403 });
   }
 
+  const admin = createAdminClient();
   const body = await request.json().catch(() => ({}));
   const dryRun = Boolean(body?.dryRun);
 

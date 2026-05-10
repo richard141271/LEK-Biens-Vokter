@@ -25,7 +25,7 @@ type Slide = {
 const POSTER_BASE_PATH = '/Temadag%20plakater/';
 
 const POSTERS: PosterDef[] = [
-  { key: '0', title: 'Forside', filenames: ['nr0.png', 'nr0.jpg', 'nr0.jpeg'] },
+  { key: '0', title: 'Forside', filenames: ['lek1.png', 'nr0.png', 'nr0.jpg', 'nr0.jpeg'] },
   { key: '1', title: 'Registrer deg', filenames: ['nr1.png', 'nr1.jpg', 'nr1.jpeg'] },
   { key: '2', title: 'Logg inn', filenames: ['nr2.png', 'nr2.jpg', 'nr2.jpeg'] },
   { key: '3', title: 'Min side', filenames: ['nr3.png', 'nr3.jpg', 'nr3.jpeg'] },
