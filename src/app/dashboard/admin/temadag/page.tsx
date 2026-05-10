@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 type PosterDef = {
   key: string;
@@ -25,7 +25,8 @@ type Slide = {
 const POSTER_BASE_PATH = '/Temadag%20plakater/';
 
 const POSTERS: PosterDef[] = [
-  { key: '0', title: 'Forside', filenames: ['lek1.png', 'nr0.png', 'nr0.jpg', 'nr0.jpeg'] },
+  { key: 'forside', title: 'Forside', filenames: ['lek1.png', '/lek1.png', 'lek1.jpg', '/lek1.jpg', 'lek1.jpeg', '/lek1.jpeg'] },
+  { key: '0', title: 'Plakat 0', filenames: ['nr0.png', 'nr0.jpg', 'nr0.jpeg'] },
   { key: '1', title: 'Registrer deg', filenames: ['nr1.png', 'nr1.jpg', 'nr1.jpeg'] },
   { key: '2', title: 'Logg inn', filenames: ['nr2.png', 'nr2.jpg', 'nr2.jpeg'] },
   { key: '3', title: 'Min side', filenames: ['nr3.png', 'nr3.jpg', 'nr3.jpeg'] },
@@ -39,17 +40,33 @@ const POSTERS: PosterDef[] = [
   { key: '10', title: 'Plakat 10', filenames: ['nr10.png', 'nr10.jpg', 'nr10.jpeg'] },
 ];
 
-const buildPosterSrc = (filename: string) => `${POSTER_BASE_PATH}${encodeURIComponent(filename)}`;
+const buildPosterSrc = (filename: string) => {
+  const f = String(filename || '').trim();
+  if (!f) return '';
+  if (f.startsWith('/')) return f;
+  return `${POSTER_BASE_PATH}${encodeURIComponent(f)}`;
+};
 
 const posterFilesFor = (posterKey: string, prefer: 'nr' | 'sta') => {
   const def = POSTERS.find((p) => p.key === posterKey) || null;
+  if (!def) return [];
+  if (posterKey === 'forside') return Array.from(new Set(def.filenames));
   const nr = def?.filenames || [];
-  const sta =
-    posterKey === '9.5'
+  const isNumericPosterKey = /^[0-9]+(\.[0-9]+)?$/.test(posterKey);
+  const sta = !isNumericPosterKey
+    ? []
+    : posterKey === '9.5'
       ? ['sta9,5.png', 'sta9.5.png', 'sta9_5.png', 'sta9,5.jpg', 'sta9.5.jpg', 'sta9_5.jpg']
       : [`sta${posterKey}.png`, `sta${posterKey}.jpg`, `sta${posterKey}.jpeg`];
   const ordered = prefer === 'sta' ? [...sta, ...nr] : [...nr, ...sta];
   return Array.from(new Set(ordered));
+};
+
+const staFilesOnlyFor = (posterKey: string) => {
+  const isNumericPosterKey = /^[0-9]+(\.[0-9]+)?$/.test(posterKey);
+  if (!isNumericPosterKey) return [];
+  if (posterKey === '9.5') return ['sta9,5.png', 'sta9.5.png', 'sta9_5.png', 'sta9,5.jpg', 'sta9.5.jpg', 'sta9_5.jpg'];
+  return [`sta${posterKey}.png`, `sta${posterKey}.jpg`, `sta${posterKey}.jpeg`];
 };
 
 const withDemoQuery = (href: string) => {
@@ -137,6 +154,7 @@ export default function AdminTemadagPage() {
   const COURSE_ACTIVE_KEY = 'lek_demo_course_active';
   const supabase = createClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [isInstructor, setIsInstructor] = useState(false);
   const [isDemoAllowed, setIsDemoAllowed] = useState(false);
@@ -237,7 +255,8 @@ export default function AdminTemadagPage() {
 
   const slides: Slide[] = useMemo(
     () => [
-      { id: 'poster-0', title: 'Forside', kind: 'poster', posterKey: '0', posterPrefer: 'nr' },
+      { id: 'poster-forside', title: 'Forside', kind: 'poster', posterKey: 'forside', posterPrefer: 'nr' },
+      { id: 'poster-0', title: 'Plakat 0', kind: 'poster', posterKey: '0', posterPrefer: 'nr' },
       { id: 'split-1', title: 'Registrering', kind: 'split', posterKey: '1', posterPrefer: 'sta', appHref: '/register', body: ['Vis registrering på høyre side.', 'Tips: bruk en test-epost.'] },
       { id: 'poster-2', title: 'Logg inn', kind: 'poster', posterKey: '2', posterPrefer: 'nr' },
       { id: 'split-3', title: 'Min side', kind: 'split', posterKey: '3', posterPrefer: 'sta', appHref: '/dashboard', body: ['Vis Min side og snarveier.', 'Når demo er aktiv: demo-banner skal vises.'] },
@@ -435,6 +454,58 @@ export default function AdminTemadagPage() {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-500">Laster temadag…</div>;
   }
 
+  const visParam = String(searchParams.get('vis') || '');
+  const slideshowMode = visParam === 'storskjerm' || visParam === 'telefon' ? (visParam as 'storskjerm' | 'telefon') : null;
+  const slideshowIdxRaw = Number(searchParams.get('i') || '0');
+  const slideshowIndex = Number.isFinite(slideshowIdxRaw) ? Math.max(0, slideshowIdxRaw) : 0;
+  const slideshowKeys = slideshowMode === 'telefon' ? ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '9.5', '10'] : ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '9.5', '10'];
+  const slideshowMaxIndex = Math.max(0, slideshowKeys.length - 1);
+  const slideshowClampedIndex = Math.min(slideshowIndex, slideshowMaxIndex);
+  const slideshowKey = slideshowKeys[slideshowClampedIndex] || slideshowKeys[0];
+  const slideshowTitle = POSTERS.find((p) => p.key === slideshowKey)?.title || `Plakat ${slideshowKey}`;
+  const slideshowFiles = slideshowMode === 'telefon' ? staFilesOnlyFor(slideshowKey) : (POSTERS.find((p) => p.key === slideshowKey)?.filenames || []);
+
+  const setSlideshow = (mode: 'storskjerm' | 'telefon' | null, idx: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (!mode) {
+      params.delete('vis');
+      params.delete('i');
+    } else {
+      params.set('vis', mode);
+      params.set('i', String(Math.max(0, Math.min(idx, slideshowMaxIndex))));
+    }
+    const qs = params.toString();
+    router.push(qs ? `/dashboard/admin/temadag?${qs}` : '/dashboard/admin/temadag');
+  };
+
+  if (slideshowMode) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black">
+        <div className="absolute inset-0 flex items-center justify-center px-4">
+          <PosterImage title={slideshowTitle} filenames={slideshowFiles} className="max-h-full max-w-full object-contain" />
+        </div>
+        <div className="absolute inset-x-0 bottom-0 px-4 py-4 flex items-center justify-between gap-3 bg-black/60 backdrop-blur">
+          <button
+            type="button"
+            onClick={() => setSlideshow(slideshowMode, Math.max(0, slideshowClampedIndex - 1))}
+            disabled={slideshowClampedIndex <= 0}
+            className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-bold disabled:opacity-40"
+          >
+            Tilbake
+          </button>
+          <button
+            type="button"
+            onClick={() => setSlideshow(slideshowMode, Math.min(slideshowMaxIndex, slideshowClampedIndex + 1))}
+            disabled={slideshowClampedIndex >= slideshowMaxIndex}
+            className="px-4 py-2 rounded-lg bg-white/10 text-white text-sm font-bold disabled:opacity-40"
+          >
+            Neste
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const currentSlide = slides[Math.max(0, Math.min(slides.length - 1, slideIndex))] || slides[0];
   const posterTitle = currentSlide.posterKey ? POSTERS.find((p) => p.key === currentSlide.posterKey)?.title || currentSlide.title : currentSlide.title;
   const posterFiles =
@@ -553,7 +624,32 @@ export default function AdminTemadagPage() {
           <h2 className="text-lg font-bold text-gray-900">Direktelenker (feilsøk plakater)</h2>
           <div className="mt-2 text-sm text-gray-700">Hvis disse åpner, blir plakatene også synlige i kurs-playeren.</div>
           <div className="mt-4 flex flex-wrap gap-2">
-            {POSTERS.map((p) => (
+            <button
+              type="button"
+              onClick={() => setSlideshow('storskjerm', 0)}
+              className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold hover:bg-gray-800"
+            >
+              Storskjerm
+            </button>
+            <button
+              type="button"
+              onClick={() => setSlideshow('telefon', 0)}
+              className="px-3 py-2 rounded-lg bg-gray-900 text-white text-sm font-bold hover:bg-gray-800"
+            >
+              Telefon
+            </button>
+            {POSTERS.filter((p) => p.key === 'forside').map((p) => (
+              <a
+                key={`poster-link-${p.key}`}
+                href={buildPosterSrc(p.filenames[0])}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-2 rounded-lg bg-gray-100 text-gray-900 text-sm font-bold hover:bg-gray-200"
+              >
+                Forside
+              </a>
+            ))}
+            {POSTERS.filter((p) => p.key !== 'forside').map((p) => (
               <a
                 key={`poster-link-${p.key}`}
                 href={buildPosterSrc(p.filenames[0])}
