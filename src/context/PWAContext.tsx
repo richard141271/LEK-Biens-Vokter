@@ -1,6 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { createClient, getUserWithSessionFallback } from '@/utils/supabase/client';
 
 interface PWAContextType {
   installApp: () => Promise<void>;
@@ -12,10 +14,49 @@ interface PWAContextType {
 const PWAContext = createContext<PWAContextType | undefined>(undefined);
 
 export function PWAProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop' | 'unknown'>('unknown');
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        if (typeof window === 'undefined') return;
+        const supabase = createClient();
+        const user = await getUserWithSessionFallback(supabase);
+        if (!mounted) return;
+        const userId = String(user?.id || '').trim();
+        if (userId) window.localStorage.setItem('lek_current_user_id', userId);
+      } catch {}
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const prev = window.localStorage.getItem('lek_prev_pathname') || '';
+      window.localStorage.setItem('lek_prev_pathname', pathname || '');
+
+      const isManaged = (p: string) =>
+        p.startsWith('/apiaries') || p.startsWith('/hives') || p.startsWith('/scan');
+
+      const demoOwnerId = window.localStorage.getItem('lek_demo_owner_id') || '';
+      const demoSessionId = window.localStorage.getItem('lek_demo_session_id') || '';
+      const isDemoActive = Boolean(demoOwnerId && demoSessionId);
+      if (isDemoActive) return;
+
+      if (prev && isManaged(prev) && !isManaged(pathname || '')) {
+        const userId = window.localStorage.getItem('lek_current_user_id') || '';
+        if (userId) window.localStorage.setItem('lek_active_owner_id', userId);
+      }
+    } catch {}
+  }, [pathname]);
 
   useEffect(() => {
     // Check if running in browser

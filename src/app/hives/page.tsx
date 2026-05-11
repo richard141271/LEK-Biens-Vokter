@@ -8,6 +8,8 @@ import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
 import { generateHiveLabelsPDF } from '@/utils/hive-labels-pdf';
 
+const ACTIVE_OWNER_KEY = 'lek_active_owner_id';
+
 export default function AllHivesPage() {
   const [hives, setHives] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);

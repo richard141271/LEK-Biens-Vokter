@@ -445,7 +445,7 @@ export async function POST(request: Request) {
 
       const { data: link } = await admin
         .from('apiary_contacts')
-        .select('id')
+        .select('id, special_terms_updated_at')
         .eq('apiary_id', apiaryId)
         .eq('contact_id', contactId)
         .maybeSingle();
@@ -454,9 +454,30 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Fant ikke kobling til bigård' }, { status: 404 });
       }
 
+      const contactSignedAtMs = agreementForTerms?.contact_signed_at
+        ? new Date(agreementForTerms.contact_signed_at).getTime()
+        : 0;
+      const beekeeperSignedAtMs = agreementForTerms?.beekeeper_signed_at
+        ? new Date(agreementForTerms.beekeeper_signed_at).getTime()
+        : 0;
+      const signedAtMs = Math.max(contactSignedAtMs, beekeeperSignedAtMs);
+      const isSigned = Number.isFinite(signedAtMs) && signedAtMs > 0;
+
+      const lastChangedMs = (link as any)?.special_terms_updated_at
+        ? new Date((link as any).special_terms_updated_at).getTime()
+        : NaN;
+      const oneYearMs = 365 * 24 * 60 * 60 * 1000;
+
+      if (isSigned && Number.isFinite(lastChangedMs) && lastChangedMs >= signedAtMs && Date.now() - lastChangedMs < oneYearMs) {
+        return NextResponse.json(
+          { error: 'Spesielle vilkår kan kun endres én gang per år etter signering.' },
+          { status: 429 }
+        );
+      }
+
       const { error } = await admin
         .from('apiary_contacts')
-        .update({ special_terms: specialTerms })
+        .update({ special_terms: specialTerms, special_terms_updated_at: new Date().toISOString() })
         .eq('id', link.id);
 
       if (error) {

@@ -26,12 +26,32 @@ export async function GET(request: Request) {
     let accountUserId = '';
     let accountAppMetadata: any = null;
 
+    if (token) {
+      const { data: magicToken, error: tokenError } = await admin
+        .from('magic_tokens')
+        .select('email, expires_at, purpose, contact_id, apiary_id, agreement_id')
+        .eq('token', token)
+        .maybeSingle();
+
+      if (!tokenError && magicToken) {
+        const expiresAtMs = new Date((magicToken as any).expires_at).getTime();
+        tokenExpired = !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now();
+        if (!tokenExpired) {
+          email = String((magicToken as any).email || '').trim();
+          tokenPurpose = String((magicToken as any).purpose || 'portal');
+          tokenContactId = String((magicToken as any).contact_id || '').trim();
+          tokenApiaryId = String((magicToken as any).apiary_id || '').trim();
+          tokenAgreementId = String((magicToken as any).agreement_id || '').trim();
+        }
+      }
+    }
+
     const authHeader = request.headers.get('authorization') || '';
     const bearerToken = authHeader.toLowerCase().startsWith('bearer ')
       ? authHeader.slice('bearer '.length).trim()
       : '';
 
-    if (bearerToken) {
+    if (!email && bearerToken) {
       const { data: tokenUserData, error: tokenUserError } = await admin.auth.getUser(bearerToken);
       const tokenUser = !tokenUserError ? (tokenUserData as any)?.user : null;
       const tokenEmail = String(tokenUser?.email || '').trim();
@@ -95,39 +115,6 @@ export async function GET(request: Request) {
             await admin.auth.admin.updateUserById(accountUserId, {
               app_metadata: { ...(accountAppMetadata || {}), landowner_contact_id: fallbackContactId },
             });
-          }
-        }
-      }
-    }
-
-    if (token) {
-      const { data: magicToken, error: tokenError } = await admin
-        .from('magic_tokens')
-        .select('email, expires_at, purpose, contact_id, apiary_id, agreement_id')
-        .eq('token', token)
-        .single();
-
-      if (!tokenError && magicToken) {
-        const expiresAtMs = new Date(magicToken.expires_at).getTime();
-        tokenExpired = !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now();
-        if (!tokenExpired) {
-          const magicEmail = String(magicToken.email || '').trim();
-          const magicPurpose = String(magicToken.purpose || 'portal');
-          const magicContactId = String((magicToken as any)?.contact_id || '').trim();
-          const magicApiaryId = String((magicToken as any)?.apiary_id || '').trim();
-          const magicAgreementId = String((magicToken as any)?.agreement_id || '').trim();
-
-          if (!email && magicEmail) {
-            email = magicEmail;
-            tokenPurpose = magicPurpose;
-            tokenContactId = magicContactId;
-            tokenApiaryId = magicApiaryId;
-            tokenAgreementId = magicAgreementId;
-          } else if (email && magicEmail && normalizeEmail(magicEmail) === normalizeEmail(email)) {
-            if (magicPurpose === 'agreement') tokenPurpose = 'agreement';
-            if (!tokenContactId && magicContactId) tokenContactId = magicContactId;
-            if (!tokenApiaryId && magicApiaryId) tokenApiaryId = magicApiaryId;
-            if (!tokenAgreementId && magicAgreementId) tokenAgreementId = magicAgreementId;
           }
         }
       }

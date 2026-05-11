@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -15,10 +16,6 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user?.id) {
-    return NextResponse.json({ error: 'Ikke logget inn' }, { status: 401 });
-  }
-
   const body = await request.json().catch(() => ({}));
   const contactId = String(body?.contactId || '').trim();
   if (!contactId) {
@@ -30,12 +27,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Navn mangler' }, { status: 400 });
   }
 
-  const emailLower = normalizeEmail(user.email);
+  const admin = createAdminClient();
+
+  let emailLower = normalizeEmail(user?.email);
   if (!emailLower) {
-    return NextResponse.json({ error: 'Mangler e-post på bruker' }, { status: 400 });
+    try {
+      const cookieStore = cookies();
+      const token = cookieStore.get('grunneier_token')?.value || '';
+      if (!token) {
+        return NextResponse.json({ error: 'Ikke logget inn' }, { status: 401 });
+      }
+
+      const { data: magicToken } = await admin
+        .from('magic_tokens')
+        .select('email, expires_at')
+        .eq('token', token)
+        .maybeSingle();
+
+      const expiresAtMs = new Date((magicToken as any)?.expires_at || 0).getTime();
+      const isExpired = !Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now();
+      if (!magicToken || isExpired) {
+        return NextResponse.json({ error: 'Lenken er utløpt' }, { status: 401 });
+      }
+
+      emailLower = normalizeEmail((magicToken as any)?.email);
+      if (!emailLower) {
+        return NextResponse.json({ error: 'Mangler e-post på lenke' }, { status: 400 });
+      }
+    } catch {
+      return NextResponse.json({ error: 'Ikke logget inn' }, { status: 401 });
+    }
   }
 
-  const admin = createAdminClient();
   const { data: contact, error: contactError } = await admin
     .from('contacts')
     .select('id, email')

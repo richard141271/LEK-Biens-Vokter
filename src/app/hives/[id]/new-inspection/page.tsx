@@ -9,6 +9,7 @@ import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, Image as ImageIcon, X, Mic, MicOff, Camera } from 'lucide-react';
 import { useOffline } from '@/context/OfflineContext';
+import { getDistanceFromLatLonInM } from '@/utils/geo';
 
 export default function NewInspectionPage({ params }: { params: { id: string } }) {
   const [hive, setHive] = useState<any>(null);
@@ -822,7 +823,122 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     return msg.includes('bucket not found') || msg.includes('bucket') && msg.includes('not found');
   };
 
+  const confirmGpsMismatchIfNeeded = async () => {
+    try {
+      if (typeof window === 'undefined') return true;
+      if (!navigator.geolocation) return true;
+
+      const apiaryId = String((hive as any)?.apiary_id || '').trim();
+      if (!apiaryId) return true;
+
+      const getApiaryCoords = async () => {
+        const { data } = await supabase
+          .from('apiaries')
+          .select('id, name, location, latitude, longitude, coordinates')
+          .eq('id', apiaryId)
+          .maybeSingle();
+
+        const lat = typeof (data as any)?.latitude === 'number' ? (data as any).latitude : null;
+        const lon = typeof (data as any)?.longitude === 'number' ? (data as any).longitude : null;
+        if (lat != null && lon != null && Number.isFinite(lat) && Number.isFinite(lon)) {
+          return { lat, lon, name: String((data as any)?.name || '').trim(), location: String((data as any)?.location || '').trim() };
+        }
+
+        const raw = String((data as any)?.coordinates || '').trim();
+        if (raw) {
+          const matches = raw.match(/-?\d+(?:\.\d+)?/g);
+          if (matches && matches.length >= 2) {
+            const pLat = Number(matches[0]);
+            const pLon = Number(matches[1]);
+            if (Number.isFinite(pLat) && Number.isFinite(pLon)) {
+              return { lat: pLat, lon: pLon, name: String((data as any)?.name || '').trim(), location: String((data as any)?.location || '').trim() };
+            }
+          }
+        }
+
+        return null;
+      };
+
+      const apiary = await getApiaryCoords();
+      if (!apiary) return true;
+
+      const getCachedCoords = () => {
+        if (coordinates && Number.isFinite(coordinates.lat) && Number.isFinite(coordinates.lng)) {
+          return { lat: coordinates.lat, lon: coordinates.lng };
+        }
+        try {
+          const w = window.localStorage.getItem('lek_last_weather_coords');
+          if (w) {
+            const parsed = JSON.parse(w);
+            const lat = Number(parsed?.lat);
+            const lon = Number(parsed?.lon);
+            if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon };
+          }
+        } catch {}
+        try {
+          const m = window.localStorage.getItem('lek_last_map_coords');
+          if (m) {
+            const parsed = JSON.parse(m);
+            const lat = Number(parsed?.lat);
+            const lon = Number(parsed?.lng);
+            if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon };
+          }
+        } catch {}
+        return null;
+      };
+
+      const cached = getCachedCoords();
+      const current = cached
+        ? cached
+        : await new Promise<{ lat: number; lon: number } | null>((resolve) => {
+            let done = false;
+            const timeout = setTimeout(() => {
+              if (done) return;
+              done = true;
+              resolve(null);
+            }, 7000);
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                if (done) return;
+                done = true;
+                clearTimeout(timeout);
+                const lat = Number(pos.coords.latitude);
+                const lon = Number(pos.coords.longitude);
+                if (!Number.isFinite(lat) || !Number.isFinite(lon)) resolve(null);
+                else resolve({ lat, lon });
+              },
+              () => {
+                if (done) return;
+                done = true;
+                clearTimeout(timeout);
+                resolve(null);
+              },
+              { enableHighAccuracy: true, maximumAge: 2000, timeout: 6500 }
+            );
+          });
+
+      if (!current) return true;
+
+      const distanceM = getDistanceFromLatLonInM(current.lat, current.lon, apiary.lat, apiary.lon);
+      if (!Number.isFinite(distanceM)) return true;
+
+      const thresholdM = 200;
+      if (distanceM <= thresholdM) return true;
+
+      const title = apiary.name || apiary.location || 'bigård';
+      const rounded = Math.round(distanceM / 10) * 10;
+      const ok = window.confirm(
+        `Du inspiserer nå en bikube som tilhører ${title}, men GPS viser at du er ca. ${rounded} meter unna.\n\nStemmer dette?`
+      );
+      return ok;
+    } catch {
+      return true;
+    }
+  };
+
   const submitInspection = async () => {
+    const okLocation = await confirmGpsMismatchIfNeeded();
+    if (!okLocation) return;
     const opId = crypto.randomUUID();
     setSubmitting(true);
 

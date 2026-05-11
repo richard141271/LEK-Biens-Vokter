@@ -98,6 +98,11 @@ export default function GrunneierPage() {
     return null;
   };
 
+  const formatApiaryNumber = (v: unknown) => {
+    const s = String(v || '').trim();
+    return s ? s.split('.')[0] : '';
+  };
+
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -132,22 +137,12 @@ export default function GrunneierPage() {
     city: '',
   });
   const [savingContact, setSavingContact] = useState(false);
-
-  const authedFetch = useCallback(
-    async (input: RequestInfo | URL, init?: RequestInit) => {
-      const { data } = await supabase.auth.getSession();
-      const accessToken = data?.session?.access_token || '';
-      const headers = new Headers(init?.headers || undefined);
-      if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
-      return fetch(input, { ...(init || {}), headers });
-    },
-    [supabase]
-  );
+  const [contactOpen, setContactOpen] = useState(false);
 
   const fetchSession = useCallback(async () => {
     setSessionLoading(true);
     try {
-      const res = await authedFetch('/api/grunneier/session', { cache: 'no-store' });
+      const res = await fetch('/api/grunneier/session', { cache: 'no-store' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         if (data?.expired) {
@@ -169,7 +164,7 @@ export default function GrunneierPage() {
     } finally {
       setSessionLoading(false);
     }
-  }, [authedFetch]);
+  }, []);
 
   useEffect(() => {
     void fetchSession();
@@ -271,7 +266,7 @@ export default function GrunneierPage() {
         postal_code: contactForm.postal_code,
         city: contactForm.city,
       };
-      const res = await authedFetch('/api/grunneier/contact', {
+      const res = await fetch('/api/grunneier/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -369,12 +364,15 @@ export default function GrunneierPage() {
         const lat = toNumber(item.apiary.latitude);
         const lng = toNumber(item.apiary.longitude);
         if (lat == null || lng == null) return null;
-        const title = item.apiary.apiary_number || item.apiary.name || 'Bigård';
+        const title = formatApiaryNumber(item.apiary.apiary_number) || item.apiary.name || 'Bigård';
         const description = [
           item.apiary.name ? `Navn: ${item.apiary.name}` : null,
           item.apiary.location ? `Sted: ${item.apiary.location}` : null,
           `Rolle: ${item.role}`,
           item.apiary.status ? `Status: ${item.apiary.status}` : null,
+          typeof item.apiary.active_production_hive_count === 'number'
+            ? `Aktive produksjonskuber: ${item.apiary.active_production_hive_count}`
+            : null,
         ]
           .filter(Boolean)
           .join('\n');
@@ -458,6 +456,13 @@ export default function GrunneierPage() {
     }
     return displayAgreements[0] || null;
   }, [activeAgreementId, displayAgreements, selectedApiaryId]);
+
+  useEffect(() => {
+    const nextApiaryId = String(currentAgreement?.apiary?.id || '').trim();
+    if (!nextApiaryId) return;
+    if (selectedApiaryId === nextApiaryId) return;
+    setSelectedApiaryId(nextApiaryId);
+  }, [currentAgreement?.id, selectedApiaryId]);
 
   const canShowPortal = hasSession || agreements.length > 0;
   const authEmailLower = authFormEmail.trim().toLowerCase();
@@ -644,7 +649,7 @@ export default function GrunneierPage() {
     setLoading(true);
     setStatus(null);
     try {
-      const res = await authedFetch('/api/grunneier/agreement', {
+      const res = await fetch('/api/grunneier/agreement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -671,7 +676,7 @@ export default function GrunneierPage() {
     setLoading(true);
     setStatus(null);
     try {
-      const res = await authedFetch('/api/grunneier/agreement', {
+      const res = await fetch('/api/grunneier/agreement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -698,7 +703,7 @@ export default function GrunneierPage() {
     setSavingSpecialTerms(true);
     setStatus(null);
     try {
-      const res = await authedFetch('/api/grunneier/agreement', {
+      const res = await fetch('/api/grunneier/agreement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -726,7 +731,7 @@ export default function GrunneierPage() {
     setRecreatingAgreement(true);
     setStatus(null);
     try {
-      const res = await authedFetch('/api/grunneier/agreement', {
+      const res = await fetch('/api/grunneier/agreement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -980,75 +985,88 @@ export default function GrunneierPage() {
 
         {hasSession && contactIdForEdit ? (
           <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-            <div>
-              <h2 className="text-sm font-bold text-gray-900">Min kontaktinfo</h2>
-              <p className="text-xs text-gray-500">Denne informasjonen brukes i grunneieravtaler og kontaktpunkter.</p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="grid gap-1 sm:col-span-2">
-                <label className="text-xs font-bold text-gray-700 uppercase">Navn</label>
-                <input
-                  value={contactForm.name}
-                  onChange={(e) => setContactForm((p) => ({ ...p, name: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="F.eks. Ola Nordmann"
-                />
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-gray-900">Min kontaktinfo</h2>
+                <p className="text-xs text-gray-500">Denne informasjonen brukes i grunneieravtaler og kontaktpunkter.</p>
               </div>
-              <div className="grid gap-1">
-                <label className="text-xs font-bold text-gray-700 uppercase">Telefon</label>
-                <input
-                  value={contactForm.phone}
-                  onChange={(e) => setContactForm((p) => ({ ...p, phone: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="F.eks. 999 99 999"
-                />
-              </div>
-              <div className="grid gap-1">
-                <label className="text-xs font-bold text-gray-700 uppercase">E-post</label>
-                <input
-                  value={contactForm.email}
-                  readOnly
-                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-700"
-                />
-              </div>
-              <div className="grid gap-1 sm:col-span-2">
-                <label className="text-xs font-bold text-gray-700 uppercase">Adresse</label>
-                <input
-                  value={contactForm.address}
-                  onChange={(e) => setContactForm((p) => ({ ...p, address: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="Gateadresse"
-                />
-              </div>
-              <div className="grid gap-1">
-                <label className="text-xs font-bold text-gray-700 uppercase">Postnr</label>
-                <input
-                  value={contactForm.postal_code}
-                  onChange={(e) => setContactForm((p) => ({ ...p, postal_code: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="0000"
-                />
-              </div>
-              <div className="grid gap-1">
-                <label className="text-xs font-bold text-gray-700 uppercase">Poststed</label>
-                <input
-                  value={contactForm.city}
-                  onChange={(e) => setContactForm((p) => ({ ...p, city: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                  placeholder="Sted"
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-end">
               <button
                 type="button"
-                disabled={savingContact}
-                onClick={saveContact}
-                className="bg-gray-900 text-white px-5 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50"
+                onClick={() => setContactOpen((v) => !v)}
+                className="shrink-0 bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 px-3 py-2 rounded-lg text-sm font-medium"
               >
-                {savingContact ? 'Lagrer…' : 'Lagre'}
+                {contactOpen ? 'Skjul' : 'Vis'}
               </button>
             </div>
+            {contactOpen ? (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-1 sm:col-span-2">
+                    <label className="text-xs font-bold text-gray-700 uppercase">Navn</label>
+                    <input
+                      value={contactForm.name}
+                      onChange={(e) => setContactForm((p) => ({ ...p, name: e.target.value }))}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="F.eks. Ola Nordmann"
+                    />
+                  </div>
+                  <div className="grid gap-1">
+                    <label className="text-xs font-bold text-gray-700 uppercase">Telefon</label>
+                    <input
+                      value={contactForm.phone}
+                      onChange={(e) => setContactForm((p) => ({ ...p, phone: e.target.value }))}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="F.eks. 999 99 999"
+                    />
+                  </div>
+                  <div className="grid gap-1">
+                    <label className="text-xs font-bold text-gray-700 uppercase">E-post</label>
+                    <input
+                      value={contactForm.email}
+                      readOnly
+                      className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-700"
+                    />
+                  </div>
+                  <div className="grid gap-1 sm:col-span-2">
+                    <label className="text-xs font-bold text-gray-700 uppercase">Adresse</label>
+                    <input
+                      value={contactForm.address}
+                      onChange={(e) => setContactForm((p) => ({ ...p, address: e.target.value }))}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="Gateadresse"
+                    />
+                  </div>
+                  <div className="grid gap-1">
+                    <label className="text-xs font-bold text-gray-700 uppercase">Postnr</label>
+                    <input
+                      value={contactForm.postal_code}
+                      onChange={(e) => setContactForm((p) => ({ ...p, postal_code: e.target.value }))}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="0000"
+                    />
+                  </div>
+                  <div className="grid gap-1">
+                    <label className="text-xs font-bold text-gray-700 uppercase">Poststed</label>
+                    <input
+                      value={contactForm.city}
+                      onChange={(e) => setContactForm((p) => ({ ...p, city: e.target.value }))}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="Sted"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-end">
+                  <button
+                    type="button"
+                    disabled={savingContact}
+                    onClick={saveContact}
+                    className="bg-gray-900 text-white px-5 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50"
+                  >
+                    {savingContact ? 'Lagrer…' : 'Lagre'}
+                  </button>
+                </div>
+              </>
+            ) : null}
           </div>
         ) : null}
 
@@ -1083,7 +1101,7 @@ export default function GrunneierPage() {
                       >
                         {displayAgreements.map((a) => (
                           <option key={a.id} value={a.id}>
-                            {a.apiary?.apiary_number || 'Bigård'} {a.apiary?.name ? `– ${a.apiary?.name}` : ''} (
+                            {formatApiaryNumber(a.apiary?.apiary_number) || 'Bigård'} {a.apiary?.name ? `– ${a.apiary?.name}` : ''} (
                             {apiaryStatusById.get(String(a.apiary?.id || '')) || 'ukjent'})
                           </option>
                         ))}
@@ -1193,7 +1211,10 @@ export default function GrunneierPage() {
                   <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
                     <div className="text-sm font-bold text-gray-900">Spesielle vilkår for denne bigården</div>
                     <div className="text-xs text-gray-500">
-                      {selectedLink.apiary.apiary_number || 'Bigård'}
+                      Etter signering kan dette endres én gang per år.
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {formatApiaryNumber(selectedLink.apiary.apiary_number) || 'Bigård'}
                       {selectedLink.apiary.name ? ` – ${selectedLink.apiary.name}` : ''}
                     </div>
                     <textarea
@@ -1219,6 +1240,9 @@ export default function GrunneierPage() {
                     <MapPin className="w-4 h-4 text-gray-600" />
                     Bigårder
                   </h2>
+                  <p className="text-xs text-gray-500 mb-3">
+                    I appen telles kun aktive produksjonskuber (ikke avleggere, døde/syke kuber, løse kasser eller utstyr).
+                  </p>
                   <div className="grid gap-2">
                     {linkedApiaries.map((item) => (
                       <button
@@ -1230,7 +1254,7 @@ export default function GrunneierPage() {
                         }`}
                       >
                         <div className="font-semibold text-gray-900">
-                          {item.apiary.apiary_number || 'Bigård'}{' '}
+                          {formatApiaryNumber(item.apiary.apiary_number) || 'Bigård'}{' '}
                           {item.apiary.name ? `– ${item.apiary.name}` : ''}
                         </div>
                         <div className="text-xs text-gray-600">
