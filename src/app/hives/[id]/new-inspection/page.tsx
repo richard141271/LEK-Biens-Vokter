@@ -605,7 +605,29 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           9000
         );
 
-        if (hiveRes?.data) setHive(hiveRes.data);
+        if (hiveRes?.data) {
+          const hiveData = hiveRes.data;
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user?.id) {
+            router.push('/login');
+            return;
+          }
+          const ownerId = String(hiveData?.user_id || '').trim();
+          if (ownerId && ownerId !== user.id) {
+            const { data: access } = await supabase
+              .from('account_access')
+              .select('owner_id, member_id')
+              .eq('owner_id', ownerId)
+              .eq('member_id', user.id)
+              .maybeSingle();
+
+            if (!access) {
+              setLoadError('Ingen tilgang til denne kuben');
+              return;
+            }
+          }
+          setHive(hiveData);
+        }
       }
 
       if (handsfreeReady && navigator.geolocation && !isOffline) {

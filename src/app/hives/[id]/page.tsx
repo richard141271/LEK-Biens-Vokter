@@ -13,6 +13,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   const [logs, setLogs] = useState<any[]>([]);
   const [inspections, setInspections] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState<string | null>(null);
   const [expandedInspectionId, setExpandedInspectionId] = useState<string | null>(null);
   const [accountContextLabel, setAccountContextLabel] = useState<string>('');
 
@@ -138,6 +139,35 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
 
     if (hiveError) {
       console.error('Error fetching hive:', hiveError);
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) {
+        router.push('/login');
+        return;
+      }
+
+      const ownerId = String(hiveData?.user_id || '').trim();
+      if (ownerId && ownerId !== user.id) {
+        const { data: access } = await supabase
+          .from('account_access')
+          .select('owner_id, member_id')
+          .eq('owner_id', ownerId)
+          .eq('member_id', user.id)
+          .maybeSingle();
+
+        if (!access) {
+          setAccessDenied('Ingen tilgang til denne kuben');
+          setLoading(false);
+          return;
+        }
+      }
+      setAccessDenied(null);
+    } catch {
+      setAccessDenied('Kunne ikke verifisere tilgang');
+      setLoading(false);
       return;
     }
 
@@ -691,6 +721,17 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   };
 
   if (loading) return <div className="p-8 text-center">Laster bikube...</div>;
+  if (accessDenied) {
+    return (
+      <div className="p-8 text-center">
+        <div className="text-lg font-bold text-gray-900">Ingen tilgang</div>
+        <div className="mt-2 text-sm text-gray-600">{accessDenied}</div>
+        <div className="mt-4">
+          <Link href="/hives" className="text-honey-600 font-bold hover:underline">Tilbake til bikuber</Link>
+        </div>
+      </div>
+    );
+  }
   if (!hive) return <div className="p-8 text-center">Fant ikke bikube</div>;
 
   return (

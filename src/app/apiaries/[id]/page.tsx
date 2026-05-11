@@ -270,6 +270,26 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       return;
     }
 
+    if (!user?.id) {
+      router.push('/login');
+      return;
+    }
+
+    const ownerId = String(apiaryData?.user_id || '').trim();
+    if (ownerId && ownerId !== user.id) {
+      const { data: access } = await supabase
+        .from('account_access')
+        .select('owner_id, member_id')
+        .eq('owner_id', ownerId)
+        .eq('member_id', user.id)
+        .maybeSingle();
+
+      if (!access) {
+        router.push('/apiaries');
+        return;
+      }
+    }
+
     let coreApiaryNumber: string | null = null;
 
     if (apiaryData.core_apiary_id) {

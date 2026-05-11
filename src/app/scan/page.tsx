@@ -1,19 +1,24 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ScanPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isMassMode = (searchParams.get('mode') || '').toLowerCase() === 'mass';
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const [massHiveIds, setMassHiveIds] = useState<string[]>([]);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const hasScannedRef = useRef(false);
+  const massProcessingRef = useRef(false);
+  const lastMassScanRef = useRef<{ text: string; at: number }>({ text: '', at: 0 });
 
   useEffect(() => {
     return () => {
@@ -40,6 +45,8 @@ export default function ScanPage() {
     setError(null);
     setScanResult(null);
     hasScannedRef.current = false;
+    massProcessingRef.current = false;
+    lastMassScanRef.current = { text: '', at: 0 };
     setIsStarting(true);
 
     let scanner = scannerRef.current;
@@ -106,34 +113,74 @@ export default function ScanPage() {
       }, 300);
     };
 
-    const onScanSuccess = (decodedText: string, decodedResult: any) => {
-      if (hasScannedRef.current) return;
+    const onScanSuccess = async (decodedText: string) => {
+      const now = Date.now();
 
-      console.log(`Scan result: ${decodedText}`, decodedResult);
+      if (isMassMode) {
+        const recent = lastMassScanRef.current;
+        if (recent.text === decodedText && now - recent.at < 1200) return;
+        if (massProcessingRef.current) return;
+        lastMassScanRef.current = { text: decodedText, at: now };
+        massProcessingRef.current = true;
+
+        try {
+          const res = await fetch('/api/scan/resolve', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ decodedText }),
+          });
+          const data = await res.json().catch(() => null);
+          if (!res.ok || !data?.success) {
+            setError(String(data?.error || 'Ugyldig QR-kode'));
+            return;
+          }
+
+          if (data?.kind !== 'hive' || !data?.id) {
+            setError('Denne QR-koden er ikke en kube');
+            return;
+          }
+
+          const hiveId = String(data.id);
+          setMassHiveIds((prev) => (prev.includes(hiveId) ? prev : [...prev, hiveId]));
+          setError(null);
+          return;
+        } finally {
+          setTimeout(() => {
+            massProcessingRef.current = false;
+          }, 400);
+        }
+      }
+
+      if (hasScannedRef.current) return;
 
       if (decodedText.includes('/apiaries/') || decodedText.includes('/hives/')) {
         hasScannedRef.current = true;
         setScanResult(decodedText);
         setIsRunning(false);
         if (scanner && scanner.isScanning) {
-          scanner.stop().catch(console.error);
+          scanner.stop().catch(() => {});
         }
-        try {
-          if (decodedText.startsWith('http')) {
-            const url = new URL(decodedText);
-            router.push(url.pathname);
-          } else {
-            router.push(decodedText);
-          }
-        } catch {
-          router.push(decodedText);
+
+        const res = await fetch('/api/scan/resolve', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ decodedText }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.success || !data?.redirectTo) {
+          setError(String(data?.error || 'Ingen tilgang'));
+          return;
         }
-      } else if (decodedText.startsWith('BG-') || decodedText.startsWith('KUBE-')) {
+        router.push(String(data.redirectTo));
+        return;
+      }
+
+      if (decodedText.startsWith('BG-') || decodedText.startsWith('KUBE-')) {
         hasScannedRef.current = true;
         setScanResult(decodedText);
         setIsRunning(false);
         if (scanner && scanner.isScanning) {
-          scanner.stop().catch(console.error);
+          scanner.stop().catch(() => {});
         }
         setError('Fant ID: ' + decodedText + '. Søk etter denne ID-en i oversikten.');
       }
@@ -150,6 +197,7 @@ export default function ScanPage() {
         await scanner.start(cameraId, config, onScanSuccess, onScanFailure);
         applyPreferredZoom();
         setIsRunning(true);
+        setIsStarting(false);
         return;
       }
     } catch (err: any) {
@@ -168,6 +216,7 @@ export default function ScanPage() {
       );
       applyPreferredZoom();
       setIsRunning(true);
+      setIsStarting(false);
       return;
     } catch {}
 
@@ -197,7 +246,7 @@ export default function ScanPage() {
         <Link href="/dashboard" className="p-2 -ml-2 hover:bg-white/10 rounded-full">
           <ArrowLeft className="w-6 h-6" />
         </Link>
-        <h1 className="text-xl font-bold">Skann QR-kode</h1>
+        <h1 className="text-xl font-bold">{isMassMode ? 'Masse skann' : 'Skann QR-kode'}</h1>
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center p-4 mt-16">
@@ -234,6 +283,35 @@ export default function ScanPage() {
             </button>
           </div>
         )}
+
+        {isMassMode ? (
+          <div className="mt-6 w-full max-w-sm">
+            <div className="text-sm text-gray-300">Valgte kuber: <span className="font-bold text-white">{massHiveIds.length}</span></div>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    window.localStorage.setItem('lek_mass_scan_hive_ids', JSON.stringify(massHiveIds));
+                  } catch {}
+                  router.push('/hives?mass=1');
+                }}
+                disabled={massHiveIds.length === 0}
+                className="flex-1 bg-honey-500 hover:bg-honey-600 disabled:bg-honey-700 text-black font-bold py-3 rounded-xl transition-colors"
+              >
+                Ferdig
+              </button>
+              <button
+                type="button"
+                onClick={() => setMassHiveIds([])}
+                disabled={massHiveIds.length === 0}
+                className="px-4 py-3 rounded-xl bg-white/10 text-white font-bold disabled:opacity-50"
+              >
+                Nullstill
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-8 text-center text-gray-400 text-sm max-w-xs">
           <p>Pek kameraet mot en QR-kode på en bikube eller bigård.</p>

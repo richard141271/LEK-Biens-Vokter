@@ -1105,13 +1105,17 @@ export default function DashboardPage() {
               </button>
               )}
 
-              <Link
-                href="/scan"
-                className="bg-white border-2 border-honey-100 hover:border-honey-500 text-honey-600 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20"
-              >
-                <QrCode className="w-5 h-5" />
-                <span className="font-bold text-[10px] text-center leading-tight">SKANN</span>
-              </Link>
+              <div className="bg-white border-2 border-honey-100 hover:border-honey-500 text-honey-600 rounded-xl shadow-sm flex overflow-hidden transition-transform active:scale-95 h-20">
+                <Link href="/scan" className="flex-1 p-2 flex flex-col items-center justify-center gap-1">
+                  <QrCode className="w-5 h-5" />
+                  <span className="font-bold text-[10px] text-center leading-tight">SKANN</span>
+                </Link>
+                <div className="w-px bg-honey-100" />
+                <Link href="/scan?mode=mass" className="flex-1 p-2 flex flex-col items-center justify-center gap-1">
+                  <QrCode className="w-5 h-5" />
+                  <span className="font-bold text-[10px] text-center leading-tight">MASSE SKANN</span>
+                </Link>
+              </div>
 
 
               <Link

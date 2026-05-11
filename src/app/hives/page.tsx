@@ -19,6 +19,7 @@ export default function AllHivesPage() {
   const [rentalsMap, setRentalsMap] = useState<Map<string, any>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [pendingMassScanIds, setPendingMassScanIds] = useState<string[] | null>(null);
   
   // Print State
   const [selectedHives, setSelectedHives] = useState<string[]>([]);
@@ -66,6 +67,32 @@ export default function AllHivesPage() {
   const router = useRouter();
 
   useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const isMass = params.get('mass') === '1';
+      if (!isMass) return;
+      const raw = localStorage.getItem('lek_mass_scan_hive_ids');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const ids = Array.isArray(parsed) ? parsed.map((x) => String(x || '').trim()).filter(Boolean) : [];
+      if (ids.length > 0) setPendingMassScanIds(Array.from(new Set(ids)));
+      localStorage.removeItem('lek_mass_scan_hive_ids');
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!pendingMassScanIds) return;
+    if (loading) return;
+    const allowed = new Set((hives || []).map((h: any) => String(h?.id || '').trim()).filter(Boolean));
+    const selected = pendingMassScanIds.filter((id) => allowed.has(id));
+    setSelectedHives(selected);
+    setIsSelectionMode(true);
+    setMassActionType(null);
+    setIsMassActionModalOpen(true);
+    setPendingMassScanIds(null);
+  }, [hives, loading, pendingMassScanIds]);
+
+  useEffect(() => {
     fetchHives();
   }, []);
 
@@ -106,9 +133,11 @@ export default function AllHivesPage() {
     let isDemoView = false;
     let demoOwnerId: string | null = null;
     let demoSessionId: string | null = null;
+    let isMassMode = false;
     try {
       const params = new URLSearchParams(window.location.search);
       isDemoView = params.get('demo') === '1';
+      isMassMode = params.get('mass') === '1';
     } catch {}
     if (isDemoView) {
       try {
@@ -138,11 +167,13 @@ export default function AllHivesPage() {
     }
     let targetUserId: string = (isDemoView && demoOwnerId) ? demoOwnerId : (targetUserIdRaw || user.id);
     setActiveOwnerId(targetUserId);
+    let allowedOwnerIds = new Set<string>([user.id]);
 
     if (isDemoView && demoOwnerId && demoSessionId) {
       setAccounts([{ id: demoOwnerId, label: 'Demo konto' }]);
       targetUserId = demoOwnerId;
       setActiveOwnerId(demoOwnerId);
+      allowedOwnerIds = new Set<string>([demoOwnerId]);
       try {
         localStorage.setItem(ACTIVE_OWNER_KEY, demoOwnerId);
       } catch {}
@@ -161,6 +192,7 @@ export default function AllHivesPage() {
           owners.set(ownerId, name);
         }
         setAccounts(Array.from(owners.entries()).map(([id, label]) => ({ id, label })));
+        allowedOwnerIds = new Set<string>(Array.from(owners.keys()));
         const stored = (() => {
           try {
             return localStorage.getItem(ACTIVE_OWNER_KEY);
@@ -183,6 +215,11 @@ export default function AllHivesPage() {
       } catch {}
     }
 
+    if (isMassMode) {
+      targetUserId = '';
+      setActiveOwnerId('');
+    }
+
     // Fetch all hives with apiary info (valgfritt filtrert på spesifikk bruker)
     let hiveQuery = supabase
       .from('hives')
@@ -197,7 +234,11 @@ export default function AllHivesPage() {
 
     const { data, error } = await hiveQuery;
 
-    if (data) setHives(data);
+    if (data) {
+      const list = Array.isArray(data) ? data : [];
+      const filtered = list.filter((h: any) => allowedOwnerIds.has(String(h?.user_id || '').trim()));
+      setHives(filtered);
+    }
 
     try {
       const existingRaw = localStorage.getItem('offline_data');
