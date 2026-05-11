@@ -1247,19 +1247,18 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         if (!user) return;
 
         const ids = Array.from(selectedHiveIds);
+        const ownerIdByHiveId = new Map<string, string>();
+        for (const h of hives) {
+          const hiveId = String(h?.id || '').trim();
+          if (!hiveId) continue;
+          const ownerId = String(h?.user_id || '').trim();
+          if (ownerId) ownerIdByHiveId.set(hiveId, ownerId);
+        }
 
         if (massActionType === 'inspeksjon') {
             const now = new Date();
             const today = now.toISOString().split('T')[0];
             const hhmm = now.toTimeString().slice(0, 5);
-
-            const ownerIdByHiveId = new Map<string, string>();
-            for (const h of hives) {
-              const hiveId = String(h?.id || '').trim();
-              if (!hiveId) continue;
-              const ownerId = String(h?.user_id || '').trim();
-              if (ownerId) ownerIdByHiveId.set(hiveId, ownerId);
-            }
 
             const hasNonOwned = ids.some((id) => {
               const ownerId = ownerIdByHiveId.get(String(id)) || '';
@@ -1340,15 +1339,53 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
               if (logError) throw logError;
             }
         } else {
-            const logs = ids.map(id => ({
-                hive_id: id,
-                user_id: user.id,
-                action: massLogData.action,
-                details: massLogData.details
-            }));
+            const hasNonOwned = ids.some((id) => {
+              const ownerId = ownerIdByHiveId.get(String(id)) || '';
+              return ownerId && String(ownerId) !== String(user.id);
+            });
 
-            const { error } = await supabase.from('hive_logs').insert(logs);
-            if (error) throw error;
+            const rawDetails = String(massLogData.details || '').trim();
+            if (hasNonOwned) {
+              let isPrivileged = false;
+              let performerName = '';
+              try {
+                const { data: me } = await supabase.from('profiles').select('full_name, role').eq('id', user.id).maybeSingle();
+                const role = String((me as any)?.role || '').trim().toLowerCase();
+                isPrivileged = role === 'admin' || role === 'mattilsynet';
+                performerName = String((me as any)?.full_name || user.email || '').trim();
+              } catch {}
+
+              if (!isPrivileged && rawDetails.length === 0) {
+                alert('Tilgang/Familie/Avløser må skrive notat i detaljer ved massehandling (Logghendelse).');
+                return;
+              }
+
+              const tag = performerName ? `[[LEK_UTFORT_AV:${performerName}]]` : '';
+              const logs = ids.map((id) => {
+                const ownerId = ownerIdByHiveId.get(String(id)) || user.id;
+                const isNonOwned = ownerId && String(ownerId) !== String(user.id);
+                const details = isNonOwned && tag ? `${tag}\n${rawDetails}` : rawDetails;
+                return {
+                  hive_id: id,
+                  user_id: ownerId,
+                  action: massLogData.action,
+                  details,
+                };
+              });
+
+              const { error } = await supabase.from('hive_logs').insert(logs);
+              if (error) throw error;
+            } else {
+              const logs = ids.map((id) => ({
+                hive_id: id,
+                user_id: ownerIdByHiveId.get(String(id)) || user.id,
+                action: massLogData.action,
+                details: rawDetails,
+              }));
+
+              const { error } = await supabase.from('hive_logs').insert(logs);
+              if (error) throw error;
+            }
         }
 
         alert(`${massActionType === 'inspeksjon' ? 'Inspeksjoner' : 'Logger'} registrert på ${ids.length} kuber!`);
@@ -1495,6 +1532,24 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     const d = new Date();
     d.setFullYear(d.getFullYear() + 2);
     return d.toISOString().split('T')[0];
+  })();
+
+  const massLogNeedsDetails = (() => {
+    if (massActionType !== 'logg') return false;
+    const me = String(currentUser?.id || '').trim();
+    if (!me) return false;
+    const ownerIdByHiveId = new Map<string, string>();
+    for (const h of hives) {
+      const hiveId = String(h?.id || '').trim();
+      if (!hiveId) continue;
+      const ownerId = String(h?.user_id || '').trim();
+      if (ownerId) ownerIdByHiveId.set(hiveId, ownerId);
+    }
+    const ids = Array.from(selectedHiveIds);
+    return ids.some((id) => {
+      const ownerId = ownerIdByHiveId.get(String(id)) || '';
+      return ownerId && String(ownerId) !== me;
+    });
   })();
 
   const certificationTo = latestCertification?.certified_to ? new Date(latestCertification.certified_to) : null;
@@ -2737,7 +2792,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 {massActionType && (
                   <button
                     onClick={handleMassActionSubmit}
-                    disabled={isSubmittingMassAction}
+                    disabled={isSubmittingMassAction || (massActionType === 'logg' && massLogNeedsDetails && !String(massLogData.details || '').trim())}
                     className="flex-1 py-3 px-4 bg-honey-500 hover:bg-honey-600 text-white font-bold rounded-lg disabled:opacity-50"
                   >
                     {isSubmittingMassAction ? 'Lagrer...' : 'Bekreft'}

@@ -23,12 +23,12 @@ export function withTimeout<T>(promise: PromiseLike<T>, ms: number, message = 'T
 
 export async function getUserWithSessionFallback(supabase: any) {
   try {
-    const { data, error } = await withTimeout<any>(supabase.auth.getUser() as any, 2500, 'getUser timeout');
+    const { data, error } = await withTimeout<any>(supabase.auth.getUser() as any, 8000, 'getUser timeout');
     if (!error && data?.user) return data.user;
   } catch {}
 
   try {
-    const { data } = await withTimeout<any>(supabase.auth.getSession() as any, 800, 'getSession timeout');
+    const { data } = await withTimeout<any>(supabase.auth.getSession() as any, 4000, 'getSession timeout');
     return data?.session?.user ?? null;
   } catch {
     return null;

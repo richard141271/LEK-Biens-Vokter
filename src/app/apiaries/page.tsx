@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, MapPin, Warehouse, Store, Truck, LogOut, Box, Printer, CheckSquare, Square, X, Download, Mic, MicOff } from 'lucide-react';
+import { Plus, MapPin, Warehouse, Store, Truck, LogOut, Box, Printer, CheckSquare, Square, X, Mic, MicOff } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
@@ -898,32 +898,6 @@ export default function ApiariesPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {profile?.role !== 'tenant' && (
-            <button
-              onClick={handleOfflineDownload}
-              disabled={isDownloading}
-              className={`p-2 rounded-full transition-all ${
-                isDownloading
-                  ? 'bg-blue-500 text-white ring-4 ring-blue-200'
-                  : 'bg-white text-gray-600 border border-gray-200 shadow-sm hover:text-blue-600 hover:bg-blue-50'
-              }`}
-              title="Last ned for offline bruk (v1.5)"
-            >
-              {isDownloading ? (
-                <span className="text-[10px] font-bold">{downloadProgress}%</span>
-              ) : (
-                <div className="relative">
-                  <Download className="w-5 h-5" />
-                  <span
-                    className={`absolute -top-1 -right-1 w-2 h-2 rounded-full ${
-                      offlineReady || isServiceWorkerControlling ? 'bg-green-500' : 'bg-yellow-500'
-                    }`}
-                  ></span>
-                </div>
-              )}
-            </button>
-          )}
-
           <button
             onClick={() => {
               setIsSelectionMode(!isSelectionMode);

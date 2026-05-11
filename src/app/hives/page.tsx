@@ -210,9 +210,6 @@ export default function AllHivesPage() {
     let hiveQuery = supabase
       .from('hives')
       .select('*, apiaries(name, location)')
-      .neq('status', 'SOLGT')
-      .neq('status', 'DESTRUERT')
-      .neq('status', 'SYKDOM')
       .order('hive_number', { ascending: true });
 
     if (isDemoView && demoSessionId) hiveQuery = hiveQuery.eq('demo_session_id', demoSessionId);
@@ -247,7 +244,7 @@ export default function AllHivesPage() {
     const hiveNum = hive.hive_number?.toLowerCase() || '';
     const apiaryName = hive.apiaries?.name?.toLowerCase() || '';
     const apiaryLoc = hive.apiaries?.location?.toLowerCase() || '';
-    const status = (hive?.active === false ? 'inaktiv' : (hive?.status || 'aktiv')).toLowerCase();
+    const status = String(hive?.status || (hive?.active === false ? 'inaktiv' : 'aktiv')).toLowerCase();
     const type = (hive.type || 'produksjon').toLowerCase();
     const name = hive.name?.toLowerCase() || ''; // Added name search
     
@@ -354,18 +351,18 @@ export default function AllHivesPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        const ownerIdByHiveId = new Map<string, string>();
+        for (const h of hives) {
+          const hiveId = String(h?.id || '').trim();
+          if (!hiveId) continue;
+          const ownerId = String(h?.user_id || '').trim();
+          if (ownerId) ownerIdByHiveId.set(hiveId, ownerId);
+        }
+
         if (massActionType === 'inspeksjon') {
             const now = new Date();
             const today = now.toISOString().split('T')[0];
             const hhmm = now.toTimeString().slice(0, 5);
-
-            const ownerIdByHiveId = new Map<string, string>();
-            for (const h of hives) {
-              const hiveId = String(h?.id || '').trim();
-              if (!hiveId) continue;
-              const ownerId = String(h?.user_id || '').trim();
-              if (ownerId) ownerIdByHiveId.set(hiveId, ownerId);
-            }
 
             const hasNonOwned = selectedHives.some((id) => {
               const ownerId = ownerIdByHiveId.get(String(id)) || activeOwnerId || '';
@@ -445,15 +442,53 @@ export default function AllHivesPage() {
               if (logError) throw logError;
             }
         } else {
-            const logs = selectedHives.map(id => ({
-                hive_id: id,
-                user_id: user.id,
-                action: massLogData.action,
-                details: massLogData.details
-            }));
+            const hasNonOwned = selectedHives.some((id) => {
+              const ownerId = ownerIdByHiveId.get(String(id)) || activeOwnerId || '';
+              return ownerId && String(ownerId) !== String(user.id);
+            });
 
-            const { error } = await supabase.from('hive_logs').insert(logs);
-            if (error) throw error;
+            const rawDetails = String(massLogData.details || '').trim();
+            if (hasNonOwned) {
+              let isPrivileged = false;
+              let performerName = '';
+              try {
+                const { data: me } = await supabase.from('profiles').select('full_name, role').eq('id', user.id).maybeSingle();
+                const role = String((me as any)?.role || '').trim().toLowerCase();
+                isPrivileged = role === 'admin' || role === 'mattilsynet';
+                performerName = String((me as any)?.full_name || user.email || '').trim();
+              } catch {}
+
+              if (!isPrivileged && rawDetails.length === 0) {
+                alert('Tilgang/Familie/Avløser må skrive notat i detaljer ved massehandling (Logghendelse).');
+                return;
+              }
+
+              const tag = performerName ? `[[LEK_UTFORT_AV:${performerName}]]` : '';
+              const logs = selectedHives.map((id) => {
+                const ownerId = ownerIdByHiveId.get(String(id)) || activeOwnerId || user.id;
+                const isNonOwned = ownerId && String(ownerId) !== String(user.id);
+                const details = isNonOwned && tag ? `${tag}\n${rawDetails}` : rawDetails;
+                return {
+                  hive_id: id,
+                  user_id: ownerId,
+                  action: massLogData.action,
+                  details,
+                };
+              });
+
+              const { error } = await supabase.from('hive_logs').insert(logs);
+              if (error) throw error;
+            } else {
+              const logs = selectedHives.map((id) => ({
+                hive_id: id,
+                user_id: ownerIdByHiveId.get(String(id)) || activeOwnerId || user.id,
+                action: massLogData.action,
+                details: rawDetails,
+              }));
+
+              const { error } = await supabase.from('hive_logs').insert(logs);
+              if (error) throw error;
+            }
         }
 
         alert(`${massActionType === 'inspeksjon' ? 'Inspeksjoner' : 'Logger'} registrert på ${selectedHives.length} kuber!`);
@@ -487,9 +522,12 @@ export default function AllHivesPage() {
 
   const getStatusColor = (hive: any) => {
     if (!hive) return 'bg-gray-100 text-gray-500 border-gray-200';
-    // Check specific statuses first, even if inactive
-    if (hive?.status === 'SOLGT') return 'bg-blue-100 text-blue-800 border-blue-200';
-    if (hive?.status === 'AVSLUTTET') return 'bg-gray-100 text-gray-800 border-gray-200';
+    const status = String(hive?.status || '').trim().toUpperCase();
+    if (status === 'SOLGT') return 'bg-blue-100 text-blue-800 border-blue-200';
+    if (status === 'DESTRUERT' || status === 'SYKDOM') return 'bg-red-100 text-red-800 border-red-200';
+    if (status === 'DØD') return 'bg-red-100 text-red-800 border-red-200';
+    if (status === 'SVAK') return 'bg-orange-100 text-orange-800 border-orange-200';
+    if (status === 'AVSLUTTET') return 'bg-gray-100 text-gray-800 border-gray-200';
     
     if (hive?.active === false) return 'bg-gray-100 text-gray-500 border-gray-200';
     
@@ -503,11 +541,28 @@ export default function AllHivesPage() {
 
   const getStatusText = (hive: any) => {
     if (!hive) return '-';
-    if (hive?.status === 'SOLGT') return 'SOLGT';
-    if (hive?.status === 'AVSLUTTET') return 'AVSLUTTET';
-    if (hive?.active === false) return 'AVSLUTTET'; // Display inactive as Avsluttet per user request
-    return hive?.status || 'AKTIV';
+    const status = String(hive?.status || '').trim().toUpperCase();
+    if (status) return status;
+    if (hive?.active === false) return 'INAKTIV';
+    return 'AKTIV';
   };
+
+  const massLogNeedsDetails = (() => {
+    if (massActionType !== 'logg') return false;
+    const me = String(currentUserId || '').trim();
+    if (!me) return false;
+    const ownerIdByHiveId = new Map<string, string>();
+    for (const h of hives) {
+      const hiveId = String(h?.id || '').trim();
+      if (!hiveId) continue;
+      const ownerId = String(h?.user_id || '').trim();
+      if (ownerId) ownerIdByHiveId.set(hiveId, ownerId);
+    }
+    return selectedHives.some((id) => {
+      const ownerId = ownerIdByHiveId.get(String(id)) || activeOwnerId || '';
+      return ownerId && String(ownerId) !== me;
+    });
+  })();
 
   if (loading) return <div className="p-8 text-center">Laster bikuber...</div>;
 
@@ -1329,7 +1384,7 @@ export default function AllHivesPage() {
                 {massActionType && (
                     <button
                         onClick={handleMassActionSubmit}
-                        disabled={isSubmittingMassAction}
+                        disabled={isSubmittingMassAction || (massActionType === 'logg' && massLogNeedsDetails && !String(massLogData.details || '').trim())}
                         className="flex-1 py-3 px-4 bg-honey-500 hover:bg-honey-600 text-white font-bold rounded-lg disabled:opacity-50"
                     >
                         {isSubmittingMassAction ? 'Lagrer...' : 'Bekreft'}
