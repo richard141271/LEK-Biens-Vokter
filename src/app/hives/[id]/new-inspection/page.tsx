@@ -293,12 +293,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       if (parsed.queenColor) {
           setHistory(prev => [...prev, { type: 'queenColor', prev: queenColor }]);
+          prefillTouchedRef.current = true;
           setQueenColor(parsed.queenColor);
           feedback.push(`Dronningfarge: ${parsed.queenColor}`);
       }
 
       if (parsed.queenYear) {
           setHistory(prev => [...prev, { type: 'queenYear', prev: queenYear }]);
+          prefillTouchedRef.current = true;
           setQueenYear(parsed.queenYear);
           feedback.push(`Årgang: ${parsed.queenYear}`);
       }
@@ -311,24 +313,28 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       if (parsed.honeyStores) {
           setHistory(prev => [...prev, { type: 'honeyStores', prev: honeyStores }]);
+          prefillTouchedRef.current = true;
           setHoneyStores(parsed.honeyStores);
           feedback.push(`Honning: ${parsed.honeyStores}`);
       }
 
       if (parsed.temperament) {
           setHistory(prev => [...prev, { type: 'temperament', prev: temperament }]);
+          prefillTouchedRef.current = true;
           setTemperament(parsed.temperament);
           feedback.push(`Gemytt: ${parsed.temperament}`);
       }
 
       if (parsed.broodCondition) {
           setHistory(prev => [...prev, { type: 'broodCondition', prev: broodCondition }]);
+          prefillTouchedRef.current = true;
           setBroodCondition(parsed.broodCondition);
           feedback.push(`Yngel: ${parsed.broodCondition}`);
       }
 
       if (parsed.status) {
           setHistory(prev => [...prev, { type: 'status', prev: status }]);
+          prefillTouchedRef.current = true;
           setStatus(parsed.status);
           feedback.push(`Status: ${parsed.status}`);
       }
@@ -372,6 +378,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [temperament, setTemperament] = useState('rolig');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('OK');
+  const prefillDoneRef = useRef(false);
+  const prefillTouchedRef = useRef(false);
   
   // Weather State
   const [weather, setWeather] = useState('');
@@ -399,6 +407,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   useEffect(() => {
     fetchHiveAndWeather();
+  }, [params.id]);
+
+  useEffect(() => {
+    prefillDoneRef.current = false;
+    prefillTouchedRef.current = false;
   }, [params.id]);
 
   useEffect(() => {
@@ -585,6 +598,35 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           const parsed = JSON.parse(offlineData);
           const foundHive = parsed.hives?.find((h: any) => h.id === params.id);
           if (foundHive) setHive(foundHive);
+          if (!prefillDoneRef.current && !prefillTouchedRef.current) {
+            const list = Array.isArray(parsed?.inspections) ? parsed.inspections : [];
+            const mine = list.filter((i: any) => String(i?.hive_id || '') === params.id);
+            mine.sort((a: any, b: any) => {
+              const ad = String(a?.inspection_date || '');
+              const bd = String(b?.inspection_date || '');
+              if (ad !== bd) return bd.localeCompare(ad);
+              const at = String(a?.time || '');
+              const bt = String(b?.time || '');
+              return bt.localeCompare(at);
+            });
+            const last = mine[0] || null;
+            if (last) {
+              const qc = last?.queen_color ? String(last.queen_color) : '';
+              const qy = last?.queen_year != null && String(last.queen_year).trim() ? String(last.queen_year) : '';
+              const bc = String(last?.brood_condition || '');
+              const hs = String(last?.honey_stores || '');
+              const tp = String(last?.temperament || '');
+              const st = String(last?.status || '');
+
+              if (qc && queenColor === '') setQueenColor(qc);
+              if (qy && queenYear === '') setQueenYear(qy);
+              if (bc && ['darlig', 'normal', 'bra'].includes(bc) && broodCondition === 'normal') setBroodCondition(bc);
+              if (hs && ['lite', 'middels', 'mye'].includes(hs) && honeyStores === 'middels') setHoneyStores(hs);
+              if (tp && ['rolig', 'urolig', 'aggressiv'].includes(tp) && temperament === 'rolig') setTemperament(tp);
+              if (st && status === 'OK') setStatus(st);
+              prefillDoneRef.current = true;
+            }
+          }
           if (isOffline && !foundHive) {
             setLoadError('Kuben finnes ikke i offline-cache. Koble til nett eller last ned data for offline først.');
             return;
@@ -627,6 +669,34 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             }
           }
           setHive(hiveData);
+
+          if (!prefillDoneRef.current && !prefillTouchedRef.current) {
+            const { data: last, error: lastError } = await supabase
+              .from('inspections')
+              .select('queen_color, queen_year, brood_condition, honey_stores, temperament, status, inspection_date, time')
+              .eq('hive_id', params.id)
+              .order('inspection_date', { ascending: false })
+              .order('time', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (!lastError && last) {
+              const qc = last?.queen_color ? String(last.queen_color) : '';
+              const qy = last?.queen_year != null && String(last.queen_year).trim() ? String(last.queen_year) : '';
+              const bc = String(last?.brood_condition || '');
+              const hs = String(last?.honey_stores || '');
+              const tp = String(last?.temperament || '');
+              const st = String(last?.status || '');
+
+              if (qc && queenColor === '') setQueenColor(qc);
+              if (qy && queenYear === '') setQueenYear(qy);
+              if (bc && ['darlig', 'normal', 'bra'].includes(bc) && broodCondition === 'normal') setBroodCondition(bc);
+              if (hs && ['lite', 'middels', 'mye'].includes(hs) && honeyStores === 'middels') setHoneyStores(hs);
+              if (tp && ['rolig', 'urolig', 'aggressiv'].includes(tp) && temperament === 'rolig') setTemperament(tp);
+              if (st && status === 'OK') setStatus(st);
+              prefillDoneRef.current = true;
+            }
+          }
         }
       }
 
@@ -1283,7 +1353,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Dronningfarge</label>
                 <select
                   value={queenColor}
-                  onChange={(e) => setQueenColor(e.target.value)}
+                  onChange={(e) => {
+                    prefillTouchedRef.current = true;
+                    setQueenColor(e.target.value);
+                  }}
                   className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
                 >
                   <option value="">Ukjent</option>
@@ -1300,7 +1373,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                   type="number"
                   inputMode="numeric"
                   value={queenYear}
-                  onChange={(e) => setQueenYear(e.target.value)}
+                  onChange={(e) => {
+                    prefillTouchedRef.current = true;
+                    setQueenYear(e.target.value);
+                  }}
                   placeholder="f.eks. 2025"
                   className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
                 />
@@ -1316,7 +1392,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               <label className="block text-sm font-medium text-gray-700 mb-2">Kubestatus</label>
               <select 
                 value={status} 
-                onChange={e => setStatus(e.target.value)}
+                onChange={(e) => {
+                  prefillTouchedRef.current = true;
+                  setStatus(e.target.value);
+                }}
                 className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg font-medium text-gray-900"
               >
                 <option value="OK">OK</option>
@@ -1337,7 +1416,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Yngelleie</label>
                 <select 
                     value={broodCondition} 
-                    onChange={e => setBroodCondition(e.target.value)}
+                    onChange={(e) => {
+                      prefillTouchedRef.current = true;
+                      setBroodCondition(e.target.value);
+                    }}
                     className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
                 >
                     <option value="darlig">Dårlig / Lite</option>
@@ -1350,7 +1432,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fôr</label>
                 <select 
                     value={honeyStores} 
-                    onChange={e => setHoneyStores(e.target.value)}
+                    onChange={(e) => {
+                      prefillTouchedRef.current = true;
+                      setHoneyStores(e.target.value);
+                    }}
                     className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
                 >
                     <option value="lite">Lite</option>
@@ -1364,7 +1449,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Gemytt</label>
               <select 
                 value={temperament} 
-                onChange={e => setTemperament(e.target.value)}
+                onChange={(e) => {
+                  prefillTouchedRef.current = true;
+                  setTemperament(e.target.value);
+                }}
                 className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
               >
                 <option value="rolig">Rolig</option>
