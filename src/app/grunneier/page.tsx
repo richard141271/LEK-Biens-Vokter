@@ -25,6 +25,7 @@ type LinkedApiary = {
     location: string | null;
     type: string | null;
     status?: 'aktiv' | 'inaktiv';
+    active_production_hive_count?: number;
   };
   contact: {
     id: string;
@@ -122,6 +123,15 @@ export default function GrunneierPage() {
   const [authFormEmail, setAuthFormEmail] = useState('');
   const [authFormPassword, setAuthFormPassword] = useState('');
   const [magicPassword, setMagicPassword] = useState('');
+  const [contactForm, setContactForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    postal_code: '',
+    city: '',
+  });
+  const [savingContact, setSavingContact] = useState(false);
 
   const authedFetch = useCallback(
     async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -210,6 +220,73 @@ export default function GrunneierPage() {
 
     return fromSelected;
   }, [selectedLink, sessionContacts, sessionEmail, sessionTokenPurpose]);
+
+  const contactIdForEdit = useMemo(() => {
+    if (prefillContact?.id) return prefillContact.id;
+    const se = normalizeEmail(sessionEmail);
+    if (!se) return null;
+    const fromContacts = sessionContacts.find((c) => normalizeEmail(c.email) === se) || null;
+    return fromContacts?.id || null;
+  }, [prefillContact?.id, sessionContacts, sessionEmail]);
+
+  useEffect(() => {
+    const se = normalizeEmail(sessionEmail);
+    const fromContacts =
+      (contactIdForEdit ? sessionContacts.find((c) => c.id === contactIdForEdit) : null) ||
+      (se ? sessionContacts.find((c) => normalizeEmail(c.email) === se) : null) ||
+      null;
+
+    setContactForm({
+      name: String(fromContacts?.name || prefillContact?.name || ''),
+      email: String(fromContacts?.email || prefillContact?.email || sessionEmail || authEmail || ''),
+      phone: String(fromContacts?.phone || prefillContact?.phone || ''),
+      address: String(fromContacts?.address || prefillContact?.address || ''),
+      postal_code: String(fromContacts?.postal_code || prefillContact?.postal_code || ''),
+      city: String(fromContacts?.city || prefillContact?.city || ''),
+    });
+  }, [
+    authEmail,
+    contactIdForEdit,
+    prefillContact?.address,
+    prefillContact?.city,
+    prefillContact?.email,
+    prefillContact?.name,
+    prefillContact?.phone,
+    prefillContact?.postal_code,
+    sessionContacts,
+    sessionEmail,
+  ]);
+
+  const saveContact = async () => {
+    const contactId = String(contactIdForEdit || '').trim();
+    if (!contactId) return;
+    setSavingContact(true);
+    setStatus(null);
+    try {
+      const payload = {
+        contactId,
+        name: contactForm.name,
+        phone: contactForm.phone,
+        address: contactForm.address,
+        postal_code: contactForm.postal_code,
+        city: contactForm.city,
+      };
+      const res = await authedFetch('/api/grunneier/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(data?.error || 'Kunne ikke lagre kontaktinfo');
+        return;
+      }
+      await fetchSession();
+      setStatus('Kontaktinfo lagret.');
+    } finally {
+      setSavingContact(false);
+    }
+  };
 
   useEffect(() => {
     const next = selectedLink?.special_terms || '';
@@ -901,6 +978,80 @@ export default function GrunneierPage() {
           </div>
         )}
 
+        {hasSession && contactIdForEdit ? (
+          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+            <div>
+              <h2 className="text-sm font-bold text-gray-900">Min kontaktinfo</h2>
+              <p className="text-xs text-gray-500">Denne informasjonen brukes i grunneieravtaler og kontaktpunkter.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-1 sm:col-span-2">
+                <label className="text-xs font-bold text-gray-700 uppercase">Navn</label>
+                <input
+                  value={contactForm.name}
+                  onChange={(e) => setContactForm((p) => ({ ...p, name: e.target.value }))}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="F.eks. Ola Nordmann"
+                />
+              </div>
+              <div className="grid gap-1">
+                <label className="text-xs font-bold text-gray-700 uppercase">Telefon</label>
+                <input
+                  value={contactForm.phone}
+                  onChange={(e) => setContactForm((p) => ({ ...p, phone: e.target.value }))}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="F.eks. 999 99 999"
+                />
+              </div>
+              <div className="grid gap-1">
+                <label className="text-xs font-bold text-gray-700 uppercase">E-post</label>
+                <input
+                  value={contactForm.email}
+                  readOnly
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-700"
+                />
+              </div>
+              <div className="grid gap-1 sm:col-span-2">
+                <label className="text-xs font-bold text-gray-700 uppercase">Adresse</label>
+                <input
+                  value={contactForm.address}
+                  onChange={(e) => setContactForm((p) => ({ ...p, address: e.target.value }))}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="Gateadresse"
+                />
+              </div>
+              <div className="grid gap-1">
+                <label className="text-xs font-bold text-gray-700 uppercase">Postnr</label>
+                <input
+                  value={contactForm.postal_code}
+                  onChange={(e) => setContactForm((p) => ({ ...p, postal_code: e.target.value }))}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="0000"
+                />
+              </div>
+              <div className="grid gap-1">
+                <label className="text-xs font-bold text-gray-700 uppercase">Poststed</label>
+                <input
+                  value={contactForm.city}
+                  onChange={(e) => setContactForm((p) => ({ ...p, city: e.target.value }))}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  placeholder="Sted"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                disabled={savingContact}
+                onClick={saveContact}
+                className="bg-gray-900 text-white px-5 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50"
+              >
+                {savingContact ? 'Lagrer…' : 'Lagre'}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {sessionLoading ? (
           <div className="bg-white border border-gray-200 rounded-xl p-6 text-gray-500">
             Laster...
@@ -1085,6 +1236,9 @@ export default function GrunneierPage() {
                         <div className="text-xs text-gray-600">
                           {item.apiary.location || 'Ukjent sted'} • Rolle: {item.role}
                           {item.apiary.status ? ` • Status: ${item.apiary.status}` : ''}
+                          {typeof item.apiary.active_production_hive_count === 'number'
+                            ? ` • Aktive produksjonskuber: ${item.apiary.active_production_hive_count}`
+                            : ''}
                         </div>
                         {(toNumber(item.apiary.latitude) == null || toNumber(item.apiary.longitude) == null) && (
                           <div className="text-xs text-red-600 mt-1">Mangler posisjon (lat/lon)</div>

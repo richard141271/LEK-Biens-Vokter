@@ -704,6 +704,19 @@ export default function DashboardPage() {
 
     try {
       try {
+        if (typeof window !== 'undefined') {
+          const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
+          if (s) {
+            s.cancel();
+            const u = new SpeechSynthesisUtterance('Handsfree aktivert.');
+            u.lang = 'nb-NO';
+            u.rate = 0.95;
+            s.speak(u);
+          }
+        }
+      } catch {}
+
+      try {
         setHandsfreeStatus('Mikrofon…');
         if (navigator.mediaDevices?.getUserMedia) {
           const s = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -743,6 +756,7 @@ export default function DashboardPage() {
 
       try {
         localStorage.setItem('handsfree_setup_done', '1');
+        localStorage.setItem('lek_voice_enabled', '1');
       } catch {}
 
       setShowHandsfreeModal(false);
@@ -786,6 +800,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={() => {
                     try { localStorage.setItem('handsfree_setup_done', '1'); } catch {}
+                    try { localStorage.setItem('lek_voice_enabled', '1'); } catch {}
                     setShowHandsfreeModal(false);
                   }}
                   className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-3 rounded-xl"
@@ -1129,11 +1144,6 @@ export default function DashboardPage() {
               <Link href="/apiaries?offline=1" className="bg-white border border-blue-100 hover:border-blue-500 text-blue-700 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20">
                   <Download className="w-5 h-5 text-blue-500" />
                   <span className="font-bold text-[10px] text-center leading-tight">OFFLINE</span>
-              </Link>
-
-              <Link href="/grunneier" className="col-span-2 bg-green-50 border border-green-100 hover:bg-green-100 text-green-700 p-2 rounded-xl shadow-sm flex items-center justify-center gap-2 transition-transform active:scale-95 h-12 mt-1">
-                  <HeartHandshake className="w-5 h-5" />
-                  <span className="font-bold text-xs text-center leading-tight">GRUNNEIERPORTAL</span>
               </Link>
           </div>
 

@@ -305,21 +305,26 @@ export async function GET(request: Request) {
       : { data: [] as any[] };
 
     const { data: hives } = apiaryIdsForFetch.length
-      ? await admin.from('hives').select('apiary_id, status, active').in('apiary_id', apiaryIdsForFetch).limit(5000)
+      ? await admin.from('hives').select('apiary_id, status, active, type').in('apiary_id', apiaryIdsForFetch).limit(5000)
       : { data: [] as any[] };
 
-    const activeByApiaryId = new Map<string, boolean>();
+    const countByApiaryId = new Map<string, number>();
+    const excludedStatuses = new Set(['SVAK', 'DØD', 'SYKDOM', 'SVERMING', 'SOLGT', 'AVSLUTTET', 'DESTRUERT']);
+
     for (const row of hives || []) {
-      const apiaryId = String((row as any)?.apiary_id || '');
+      const apiaryId = String((row as any)?.apiary_id || '').trim();
       if (!apiaryId) continue;
-      if (activeByApiaryId.get(apiaryId) === true) continue;
+
+      const isActiveFlag = (row as any)?.active !== false;
+      if (!isActiveFlag) continue;
 
       const status = String((row as any)?.status || '').trim().toUpperCase();
-      const isActiveFlag = (row as any)?.active !== false;
-      const isInactiveStatus = ['SOLGT', 'AVSLUTTET', 'DØD', 'DESTRUERT'].includes(status);
-      const isActive = isActiveFlag && !isInactiveStatus;
-      if (isActive) activeByApiaryId.set(apiaryId, true);
-      else if (!activeByApiaryId.has(apiaryId)) activeByApiaryId.set(apiaryId, false);
+      if (excludedStatuses.has(status)) continue;
+
+      const type = String((row as any)?.type || '').trim().toUpperCase();
+      if (type === 'AVLEGGER') continue;
+
+      countByApiaryId.set(apiaryId, (countByApiaryId.get(apiaryId) || 0) + 1);
     }
 
     const apiaryMap = new Map((apiaries || []).map((a: any) => [a.id, a]));
@@ -331,7 +336,8 @@ export async function GET(request: Request) {
           const apiary = apiaryMap.get(ac.apiary_id);
           const contact = contactMap.get(ac.contact_id);
           if (!apiary || !contact) return null;
-          const isActive = activeByApiaryId.get(String(apiary.id)) === true;
+          const activeProductionHiveCount = countByApiaryId.get(String(apiary.id)) || 0;
+          const isActive = activeProductionHiveCount > 0;
           return {
             apiary: {
               id: apiary.id,
@@ -342,6 +348,7 @@ export async function GET(request: Request) {
               location: apiary.location,
               type: apiary.type,
               status: isActive ? 'aktiv' : 'inaktiv',
+              active_production_hive_count: activeProductionHiveCount,
             },
             contact: {
               id: contact.id,
