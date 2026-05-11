@@ -110,16 +110,16 @@ export default function DashboardPage() {
     }
     window.setTimeout(() => {
       suppressCreateCountClickRef.current = false;
-    }, 200);
+    }, 1200);
   };
 
   const startCreateCountRepeat = (delta: number) => {
     stopCreateCountRepeat();
     suppressCreateCountClickRef.current = true;
-    setCreateCount((c) => Math.max(1, c + delta));
+    setCreateCount((c) => Math.max(0, c + delta));
     createCountRepeatTimeoutRef.current = window.setTimeout(() => {
       createCountRepeatIntervalRef.current = window.setInterval(() => {
-        setCreateCount((c) => Math.max(1, c + delta));
+        setCreateCount((c) => Math.max(0, c + delta));
       }, 60);
     }, 250);
   };
@@ -574,6 +574,10 @@ export default function DashboardPage() {
     if (!selectedApiaryId) {
         alert('Du må velge en bigård/lokasjon først.');
         return;
+    }
+    if (createCount < 1) {
+      alert('Velg antall kuber (minst 1).');
+      return;
     }
     
     setIsCreating(true);
@@ -1304,7 +1308,7 @@ export default function DashboardPage() {
                                 e.stopPropagation();
                                 return;
                               }
-                              setCreateCount((c) => Math.max(1, c - 1));
+                              setCreateCount((c) => Math.max(0, c - 1));
                             }}
                             className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl font-bold hover:bg-gray-200"
                         >
@@ -1312,13 +1316,13 @@ export default function DashboardPage() {
                         </button>
                         <input
                           type="number"
-                          min={1}
+                          min={0}
                           inputMode="numeric"
                           value={createCount}
                           onChange={(e) => {
                             const raw = e.target.value;
-                            const next = raw === '' ? 1 : parseInt(raw, 10);
-                            setCreateCount(Number.isFinite(next) ? Math.max(1, next) : 1);
+                            const next = raw === '' ? 0 : parseInt(raw, 10);
+                            setCreateCount(Number.isFinite(next) ? Math.max(0, next) : 0);
                           }}
                           className="w-28 text-center text-3xl font-bold text-honey-600 bg-transparent outline-none"
                         />
@@ -1350,7 +1354,7 @@ export default function DashboardPage() {
 
                 <button
                 onClick={handleCreateSubmit}
-                disabled={isCreating || !selectedApiaryId}
+                disabled={isCreating || !selectedApiaryId || createCount < 1}
                 className="w-full bg-honey-500 text-white font-bold py-3 rounded-xl hover:bg-honey-600 disabled:opacity-50 mt-4"
                 >
                 {isCreating ? 'Oppretter...' : `Opprett ${createCount} kuber`}

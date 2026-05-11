@@ -34,6 +34,7 @@ function RegisterForm() {
     address: '',
     postalCode: '',
     city: '',
+    region: '',
     phoneNumber: '',
     referralCode: '',
     isNorgesBirokterlagMember: false,
@@ -73,25 +74,45 @@ function RegisterForm() {
     checkUser();
   }, []);
 
-  // Auto-fetch City based on Postal Code
+  // Auto-fetch City/Region based on Postal Code
   useEffect(() => {
-    const fetchCity = async () => {
+    const fetchCityAndRegion = async () => {
       if (formData.postalCode.length === 4) {
         try {
-          const response = await fetch(`https://api.bring.com/shippingguide/api/postalCode.json?clientUrl=lek-biensvokter&pnr=${formData.postalCode}`);
-          if (response.ok) {
-            const data = await response.json();
-            if (data.valid) {
-              setFormData(prev => ({ ...prev, city: data.result }));
+          const geoRes = await fetch(`https://ws.geonorge.no/kommuneinfo/v1/postnummer/${formData.postalCode}`);
+          if (geoRes.ok) {
+            const data = await geoRes.json().catch(() => null);
+            const city = String(data?.poststed || '').trim();
+            const region = String(data?.fylkesnavn || '').trim();
+            if (city || region) {
+              setFormData((prev) => ({
+                ...prev,
+                city: city || prev.city,
+                region: region || prev.region,
+              }));
+              return;
             }
           }
-        } catch (err) {
-          console.error('Failed to fetch city', err);
-        }
+        } catch {}
+
+        try {
+          const response = await fetch(
+            `https://api.bring.com/shippingguide/api/postalCode.json?clientUrl=lek-biensvokter&pnr=${formData.postalCode}`
+          );
+          if (response.ok) {
+            const data = await response.json().catch(() => null);
+            if (data?.valid) {
+              const city = String(data?.result || '').trim();
+              if (city) setFormData((prev) => ({ ...prev, city }));
+            }
+          }
+        } catch {}
+      } else {
+        if (formData.region) setFormData((prev) => ({ ...prev, region: '' }));
       }
     };
 
-    const timeoutId = setTimeout(fetchCity, 500); // Debounce
+    const timeoutId = setTimeout(fetchCityAndRegion, 500);
     return () => clearTimeout(timeoutId);
   }, [formData.postalCode]);
 
@@ -305,6 +326,16 @@ function RegisterForm() {
                     onChange={handleChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
                     placeholder="Oslo"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Fylke</label>
+                  <input
+                    name="region"
+                    value={formData.region}
+                    readOnly
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 outline-none"
+                    placeholder="Fylles automatisk basert på postnummer"
                   />
                 </div>
               </div>
