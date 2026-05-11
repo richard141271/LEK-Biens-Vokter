@@ -29,13 +29,8 @@ function extractEntity(pathname: string) {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
+  const hiveIdsRaw = Array.isArray(body?.hiveIds) ? body.hiveIds : null;
   const decodedText = String(body?.decodedText || '');
-
-  const pathname = toPath(decodedText);
-  const entity = extractEntity(pathname);
-  if (!entity) {
-    return NextResponse.json({ success: false, error: 'Ugyldig QR-kode' }, { status: 400 });
-  }
 
   const supabase = createClient();
   const {
@@ -53,6 +48,63 @@ export async function POST(request: Request) {
   }
 
   const db = admin ?? supabase;
+
+  if (hiveIdsRaw) {
+    const hiveIds = Array.from(
+      new Set(
+        hiveIdsRaw
+          .map((x: any) => String(x || '').trim())
+          .filter(Boolean)
+          .slice(0, 100)
+      )
+    );
+
+    if (hiveIds.length === 0) {
+      return NextResponse.json({ success: false, error: 'Ingen kuber valgt' }, { status: 400 });
+    }
+
+    const { data: hives, error: hivesError } = await db
+      .from('hives')
+      .select('id, user_id, hive_number, name, apiary_id, apiaries(name, location)')
+      .in('id', hiveIds);
+
+    if (hivesError) {
+      return NextResponse.json({ success: false, error: hivesError.message }, { status: 500 });
+    }
+
+    const list = Array.isArray(hives) ? (hives as any[]) : [];
+    const owners = Array.from(
+      new Set(
+        list
+          .map((h) => String(h?.user_id || '').trim())
+          .filter(Boolean)
+          .filter((id) => id !== user.id)
+      )
+    );
+
+    let allowedOwners = new Set<string>([user.id]);
+    if (owners.length > 0) {
+      const { data: accessRows } = await db
+        .from('account_access')
+        .select('owner_id')
+        .in('owner_id', owners)
+        .eq('member_id', user.id);
+
+      const allowed = Array.isArray(accessRows)
+        ? accessRows.map((r: any) => String(r?.owner_id || '').trim()).filter(Boolean)
+        : [];
+      allowedOwners = new Set<string>([user.id, ...allowed]);
+    }
+
+    const allowedHives = list.filter((h) => allowedOwners.has(String(h?.user_id || '').trim()));
+    return NextResponse.json({ success: true, kind: 'hives', hives: allowedHives });
+  }
+
+  const pathname = toPath(decodedText);
+  const entity = extractEntity(pathname);
+  if (!entity) {
+    return NextResponse.json({ success: false, error: 'Ugyldig QR-kode' }, { status: 400 });
+  }
 
   if (entity.kind === 'hive') {
     const { data: hive, error: hiveError } = await db
@@ -83,7 +135,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, kind: 'hive', id: hive.id, redirectTo: `/hives/${hive.id}` });
+    return NextResponse.json({ success: true, kind: 'hive', id: hive.id, ownerId, redirectTo: `/hives/${hive.id}` });
   }
 
   const { data: apiary, error: apiaryError } = await db
@@ -114,6 +166,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ success: true, kind: 'apiary', id: apiary.id, redirectTo: `/apiaries/${apiary.id}` });
+  return NextResponse.json({ success: true, kind: 'apiary', id: apiary.id, ownerId, redirectTo: `/apiaries/${apiary.id}` });
 }
-

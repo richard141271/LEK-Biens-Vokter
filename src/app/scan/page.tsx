@@ -14,6 +14,7 @@ export default function ScanPage() {
   const [error, setError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
   const [massHiveIds, setMassHiveIds] = useState<string[]>([]);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const hasScannedRef = useRef(false);
@@ -290,13 +291,30 @@ export default function ScanPage() {
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
+                  if (massHiveIds.length === 0 || isFinishing) return;
+                  setIsFinishing(true);
                   try {
-                    window.localStorage.setItem('lek_mass_scan_hive_ids', JSON.stringify(massHiveIds));
-                  } catch {}
-                  router.push('/hives?mass=1');
+                    const res = await fetch('/api/scan/resolve', {
+                      method: 'POST',
+                      headers: { 'content-type': 'application/json' },
+                      body: JSON.stringify({ hiveIds: massHiveIds }),
+                    });
+                    const data = await res.json().catch(() => null);
+                    if (!res.ok || !data?.success || !Array.isArray(data?.hives)) {
+                      setError(String(data?.error || 'Kunne ikke starte massehandling'));
+                      return;
+                    }
+                    const ids = data.hives.map((h: any) => String(h?.id || '').trim()).filter(Boolean);
+                    try {
+                      window.localStorage.setItem('lek_mass_scan_hive_ids', JSON.stringify(ids));
+                    } catch {}
+                    router.push('/hives?mass=1');
+                  } finally {
+                    setIsFinishing(false);
+                  }
                 }}
-                disabled={massHiveIds.length === 0}
+                disabled={massHiveIds.length === 0 || isFinishing}
                 className="flex-1 bg-honey-500 hover:bg-honey-600 disabled:bg-honey-700 text-black font-bold py-3 rounded-xl transition-colors"
               >
                 Ferdig
@@ -304,7 +322,7 @@ export default function ScanPage() {
               <button
                 type="button"
                 onClick={() => setMassHiveIds([])}
-                disabled={massHiveIds.length === 0}
+                disabled={massHiveIds.length === 0 || isFinishing}
                 className="px-4 py-3 rounded-xl bg-white/10 text-white font-bold disabled:opacity-50"
               >
                 Nullstill

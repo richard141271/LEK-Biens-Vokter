@@ -8,8 +8,6 @@ import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
 import { generateHiveLabelsPDF } from '@/utils/hive-labels-pdf';
 
-const ACTIVE_OWNER_KEY = 'lek_active_owner_id';
-
 export default function AllHivesPage() {
   const [hives, setHives] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
@@ -19,6 +17,7 @@ export default function AllHivesPage() {
   const [rentalsMap, setRentalsMap] = useState<Map<string, any>>(new Map());
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isMassModePage, setIsMassModePage] = useState(false);
   const [pendingMassScanIds, setPendingMassScanIds] = useState<string[] | null>(null);
   
   // Print State
@@ -70,7 +69,9 @@ export default function AllHivesPage() {
     try {
       const params = new URLSearchParams(window.location.search);
       const isMass = params.get('mass') === '1';
+      setIsMassModePage(isMass);
       if (!isMass) return;
+      setLoading(true);
       const raw = localStorage.getItem('lek_mass_scan_hive_ids');
       if (!raw) return;
       const parsed = JSON.parse(raw);
@@ -82,21 +83,41 @@ export default function AllHivesPage() {
 
   useEffect(() => {
     if (!pendingMassScanIds) return;
-    if (loading) return;
-    const allowed = new Set((hives || []).map((h: any) => String(h?.id || '').trim()).filter(Boolean));
-    const selected = pendingMassScanIds.filter((id) => allowed.has(id));
-    setSelectedHives(selected);
-    setIsSelectionMode(true);
-    setMassActionType(null);
-    setIsMassActionModalOpen(true);
-    setPendingMassScanIds(null);
-  }, [hives, loading, pendingMassScanIds]);
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/scan/resolve', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ hiveIds: pendingMassScanIds }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.success || !Array.isArray(data?.hives)) {
+          setHives([]);
+          setSelectedHives([]);
+          setIsSelectionMode(false);
+          setIsMassActionModalOpen(false);
+          return;
+        }
+        const resolvedHives = data.hives as any[];
+        setHives(resolvedHives);
+        setSelectedHives(resolvedHives.map((h) => String(h?.id || '').trim()).filter(Boolean));
+        setIsSelectionMode(true);
+        setMassActionType(null);
+        setIsMassActionModalOpen(true);
+      } finally {
+        setPendingMassScanIds(null);
+        setLoading(false);
+      }
+    })();
+  }, [pendingMassScanIds]);
 
   useEffect(() => {
+    if (isMassModePage) return;
     fetchHives();
-  }, []);
+  }, [isMassModePage]);
 
-  const fetchHives = async () => {
+  const fetchHives = async (forcedOwnerId?: string) => {
     if (!navigator.onLine) {
       try {
         const offlineData = localStorage.getItem('offline_data');
@@ -108,11 +129,7 @@ export default function AllHivesPage() {
             const params = new URLSearchParams(window.location.search);
             targetUserId = params.get('user_id');
           } catch {}
-          if (!targetUserId) {
-            try {
-              targetUserId = localStorage.getItem(ACTIVE_OWNER_KEY);
-            } catch {}
-          }
+          if (!targetUserId) targetUserId = forcedOwnerId || null;
           if (parsed.hives) {
             const list = Array.isArray(parsed.hives) ? parsed.hives : [];
             setHives(targetUserId ? list.filter((h: any) => String(h?.user_id || '') === String(targetUserId)) : list);
@@ -133,11 +150,9 @@ export default function AllHivesPage() {
     let isDemoView = false;
     let demoOwnerId: string | null = null;
     let demoSessionId: string | null = null;
-    let isMassMode = false;
     try {
       const params = new URLSearchParams(window.location.search);
       isDemoView = params.get('demo') === '1';
-      isMassMode = params.get('mass') === '1';
     } catch {}
     if (isDemoView) {
       try {
@@ -155,28 +170,18 @@ export default function AllHivesPage() {
     
     setProfile(profileData);
 
-    let targetUserIdRaw: string | null = null;
+    let urlUserId: string | null = null;
     try {
       const params = new URLSearchParams(window.location.search);
-      targetUserIdRaw = params.get('user_id');
+      urlUserId = params.get('user_id');
     } catch {}
-    if (!targetUserIdRaw) {
-      try {
-        targetUserIdRaw = localStorage.getItem(ACTIVE_OWNER_KEY);
-      } catch {}
-    }
-    let targetUserId: string = (isDemoView && demoOwnerId) ? demoOwnerId : (targetUserIdRaw || user.id);
+    let targetUserId: string = (isDemoView && demoOwnerId) ? demoOwnerId : (forcedOwnerId || urlUserId || user.id);
     setActiveOwnerId(targetUserId);
-    let allowedOwnerIds = new Set<string>([user.id]);
 
     if (isDemoView && demoOwnerId && demoSessionId) {
       setAccounts([{ id: demoOwnerId, label: 'Demo konto' }]);
       targetUserId = demoOwnerId;
       setActiveOwnerId(demoOwnerId);
-      allowedOwnerIds = new Set<string>([demoOwnerId]);
-      try {
-        localStorage.setItem(ACTIVE_OWNER_KEY, demoOwnerId);
-      } catch {}
     } else {
       try {
         const res = await fetch('/api/access/list', { method: 'GET' });
@@ -192,32 +197,11 @@ export default function AllHivesPage() {
           owners.set(ownerId, name);
         }
         setAccounts(Array.from(owners.entries()).map(([id, label]) => ({ id, label })));
-        allowedOwnerIds = new Set<string>(Array.from(owners.keys()));
-        const stored = (() => {
-          try {
-            return localStorage.getItem(ACTIVE_OWNER_KEY);
-          } catch {
-            return null;
-          }
-        })();
-        const storedId = stored || user.id;
-        const ok = owners.has(storedId);
-        const finalId = ok ? storedId : user.id;
-        if (finalId !== storedId) {
-          try {
-            localStorage.setItem(ACTIVE_OWNER_KEY, finalId);
-          } catch {}
-        }
         if (!targetUserId || !owners.has(targetUserId)) {
-          targetUserId = finalId;
-          setActiveOwnerId(finalId);
+          targetUserId = user.id;
+          setActiveOwnerId(user.id);
         }
       } catch {}
-    }
-
-    if (isMassMode) {
-      targetUserId = '';
-      setActiveOwnerId('');
     }
 
     // Fetch all hives with apiary info (valgfritt filtrert på spesifikk bruker)
@@ -235,9 +219,7 @@ export default function AllHivesPage() {
     const { data, error } = await hiveQuery;
 
     if (data) {
-      const list = Array.isArray(data) ? data : [];
-      const filtered = list.filter((h: any) => allowedOwnerIds.has(String(h?.user_id || '').trim()));
-      setHives(filtered);
+      setHives(Array.isArray(data) ? data : []);
     }
 
     try {
@@ -756,13 +738,10 @@ export default function AllHivesPage() {
                     onChange={(e) => {
                       const next = e.target.value;
                       setActiveOwnerId(next);
-                      try {
-                        localStorage.setItem(ACTIVE_OWNER_KEY, next);
-                      } catch {}
                       setIsSelectionMode(false);
                       setSelectedHives([]);
                       setLoading(true);
-                      fetchHives();
+                      fetchHives(next);
                     }}
                     className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white max-w-[260px]"
                   >
