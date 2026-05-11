@@ -1071,6 +1071,50 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       if (logError) throw logError;
 
+      try {
+        const existingRaw = localStorage.getItem('offline_data');
+        const existing = existingRaw ? JSON.parse(existingRaw) : {};
+        const prevInspections = Array.isArray(existing?.inspections) ? existing.inspections : [];
+        const prevHives = Array.isArray(existing?.hives) ? existing.hives : [];
+        const nextInspection = {
+          id: opId,
+          hive_id: params.id,
+          inspection_date: date,
+          time: time,
+          queen_seen: queenSeen,
+          queen_color: queenColor || null,
+          queen_year: queenYear ? parseInt(queenYear, 10) : null,
+          eggs_seen: eggsSeen,
+          brood_condition: broodCondition,
+          honey_stores: honeyStores,
+          temperament: temperament,
+          notes: allPhotos.length > 1 ? `${notes}\n${allPhotos.slice(1).map((u, i) => `Bilde ${i + 2}: ${u}`).join('\n')}` : notes,
+          status: status,
+          temperature: temperature ? parseFloat(temperature) : null,
+          weather: weather,
+          weather_place: weatherPlace || null,
+          image_url: imageUrl,
+        };
+        const mergedInspections = [nextInspection, ...prevInspections.filter((i: any) => String(i?.id || '') !== opId)];
+        const mergedHives = prevHives.map((h: any) => {
+          if (String(h?.id || '') !== String(params.id)) return h;
+          return {
+            ...h,
+            status: status === 'DØD' ? 'DØD' : 'AKTIV',
+            last_inspection_date: date,
+          };
+        });
+        localStorage.setItem(
+          'offline_data',
+          JSON.stringify({
+            ...existing,
+            inspections: mergedInspections,
+            hives: mergedHives,
+            timestamp: Date.now(),
+          })
+        );
+      } catch {}
+
       router.push('/hives');
     } catch (error: any) {
       try {

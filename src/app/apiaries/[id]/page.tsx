@@ -1251,18 +1251,34 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         const ids = Array.from(selectedHiveIds);
 
         if (massActionType === 'inspeksjon') {
+            const now = new Date();
+            const today = now.toISOString().split('T')[0];
+            const hhmm = now.toTimeString().slice(0, 5);
+
+            const ownerIdByHiveId = new Map<string, string>();
+            for (const h of hives) {
+              const hiveId = String(h?.id || '').trim();
+              if (!hiveId) continue;
+              const ownerId = String(h?.user_id || '').trim();
+              if (ownerId) ownerIdByHiveId.set(hiveId, ownerId);
+            }
+
             const actionList = [
               ...(massInspectionData.actions || []),
               ...(massInspectionData.other_action?.trim() ? [`Annet: ${massInspectionData.other_action.trim()}`] : []),
             ];
             const inspections = ids.map(id => ({
+                id: crypto.randomUUID(),
                 hive_id: id,
-                user_id: user.id,
-                inspection_date: new Date().toISOString().split('T')[0],
+                user_id: ownerIdByHiveId.get(String(id)) || user.id,
+                inspection_date: today,
+                time: hhmm,
                 queen_seen: massInspectionData.queen_seen,
                 queen_color: massInspectionData.queen_color || null,
                 queen_year: massInspectionData.queen_year ? parseInt(massInspectionData.queen_year, 10) : null,
                 eggs_seen: massInspectionData.eggs_seen,
+                status: 'OK',
+                brood_condition: 'normal',
                 honey_stores: massInspectionData.honey_stores,
                 temperament: massInspectionData.temperament,
                 notes: massInspectionData.notes,
@@ -1271,6 +1287,40 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
             const { error } = await supabase.from('inspections').insert(inspections);
             if (error) throw error;
+
+            const { error: hiveUpdateError } = await supabase
+              .from('hives')
+              .update({ last_inspection_date: today })
+              .in('id', ids);
+            if (hiveUpdateError) throw hiveUpdateError;
+
+            try {
+              const existingRaw = localStorage.getItem('offline_data');
+              const existing = existingRaw ? JSON.parse(existingRaw) : {};
+              const prevInspections = Array.isArray(existing?.inspections) ? existing.inspections : [];
+              const nextIds = new Set(inspections.map((i: any) => String(i?.id || '')));
+              const mergedInspections = [
+                ...inspections,
+                ...prevInspections.filter((i: any) => !nextIds.has(String(i?.id || ''))),
+              ];
+
+              const prevHives = Array.isArray(existing?.hives) ? existing.hives : [];
+              const selectedSet = new Set(ids.map((x) => String(x || '').trim()).filter(Boolean));
+              const mergedHives = prevHives.map((h: any) => {
+                if (!selectedSet.has(String(h?.id || '').trim())) return h;
+                return { ...h, last_inspection_date: today };
+              });
+
+              localStorage.setItem(
+                'offline_data',
+                JSON.stringify({
+                  ...existing,
+                  inspections: mergedInspections,
+                  hives: mergedHives,
+                  timestamp: Date.now(),
+                })
+              );
+            } catch {}
 
             if (actionList.length > 0) {
               const logs = ids.map(id => ({
