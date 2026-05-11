@@ -76,10 +76,8 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   const router = useRouter();
 
   const formatApiaryNumber = (raw: any, type?: any) => {
-    const s = String(raw || '');
-    const t = String(type || '').toLowerCase();
-    if (t === 'bil' || s.toUpperCase().startsWith('BIL-')) return s.split('.')[0];
-    return s;
+    const s = String(raw || '').trim();
+    return s ? s.split('.')[0] : '';
   };
 
   useEffect(() => {
@@ -881,7 +879,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
             </button>
           ) : (
             <Link 
-              href={`/hives/${hive.id}/new-inspection`}
+              href={`/hives/${hive.id}/new-inspection?returnTo=${encodeURIComponent(hive?.apiary_id ? `/apiaries/${hive.apiary_id}` : `/hives/${hive.id}`)}`}
               className="p-4 bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
             >
               <Calendar className="w-8 h-8 text-honey-500" />

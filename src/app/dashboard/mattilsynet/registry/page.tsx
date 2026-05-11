@@ -17,10 +17,8 @@ export default function RegistryPage() {
   const supabase = createClient();
 
   const formatApiaryNumber = (raw: any, type?: any) => {
-    const s = String(raw || '');
-    const t = String(type || '').toLowerCase();
-    if (t === 'bil' || s.toUpperCase().startsWith('BIL-')) return s.split('.')[0];
-    return s;
+    const s = String(raw || '').trim();
+    return s ? s.split('.')[0] : '';
   };
 
   useEffect(() => {

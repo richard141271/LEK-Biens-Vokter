@@ -131,10 +131,8 @@ export default function ApiariesPage() {
       .trim();
 
   const formatApiaryNumber = (raw: string, type?: string) => {
-    const s = String(raw || '');
-    const t = String(type || '').toLowerCase();
-    if (t === 'bil' || s.toUpperCase().startsWith('BIL-')) return s.split('.')[0];
-    return s;
+    const s = String(raw || '').trim();
+    return s ? s.split('.')[0] : '';
   };
 
   const extractHiveDigits = (t: string): string | null => {
@@ -250,7 +248,7 @@ export default function ApiariesPage() {
         return;
       }
 
-      router.push(`/hives/${match.id}/new-inspection?autoVoice=1`);
+      router.push(`/hives/${match.id}/new-inspection?autoVoice=1&returnTo=${encodeURIComponent(`/apiaries/${apiary.id}`)}`);
     }
   }, [router]);
 

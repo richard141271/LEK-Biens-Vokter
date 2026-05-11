@@ -136,10 +136,8 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const router = useRouter();
 
   const formatApiaryNumber = (raw: any, type?: any) => {
-    const s = String(raw || '');
-    const t = String(type || '').toLowerCase();
-    if (t === 'bil' || s.toUpperCase().startsWith('BIL-')) return s.split('.')[0];
-    return s;
+    const s = String(raw || '').trim();
+    return s ? s.split('.')[0] : '';
   };
 
   useEffect(() => {
@@ -2328,7 +2326,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                     {/* Action Button (only when not selecting) */}
                     {!isSelectionMode && (
                         <Link 
-                            href={`/hives/${hive.id}/new-inspection`}
+                            href={`/hives/${hive.id}/new-inspection?returnTo=${encodeURIComponent(`/apiaries/${params.id}`)}`}
                             onClick={(e) => e.stopPropagation()}
                             className="p-2 -mr-2 -mt-2 text-gray-400 hover:text-honey-600 hover:bg-honey-50 rounded-full transition-colors"
                             title="Ny inspeksjon"

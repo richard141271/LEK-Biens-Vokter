@@ -55,14 +55,6 @@ export default function BeekeeperRentalsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: profileRow } = await supabase
-        .from('profiles')
-        .select('member_number')
-        .eq('id', user.id)
-        .single();
-      const memberNumber = String(profileRow?.member_number || '').trim();
-      const suffix = memberNumber ? `.${memberNumber}` : '';
-
       // 1. Calculate Next BG Number for THIS Beekeeper
       const { data: existingApiaries } = await supabase
         .from('apiaries')
@@ -83,7 +75,7 @@ export default function BeekeeperRentalsPage() {
           nextNum = Math.max(...numbers) + 1;
         }
       }
-      const newApiaryNumber = `BG-${nextNum.toString().padStart(3, '0')}${suffix}`;
+      const newApiaryNumber = `BG-${nextNum.toString().padStart(3, '0')}`;
 
       // 2. Create Apiary
       const { data: newApiary, error: apiaryError } = await supabase

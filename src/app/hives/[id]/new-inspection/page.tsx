@@ -826,6 +826,16 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     const opId = crypto.randomUUID();
     setSubmitting(true);
 
+    const safeReturnTo = (value: string | null) => {
+      const v = String(value || '').trim();
+      if (!v) return null;
+      if (!v.startsWith('/') || v.startsWith('//') || v.includes('://')) return null;
+      return v;
+    };
+    const returnTo = safeReturnTo(searchParams?.get('returnTo') || null);
+    const apiaryId = String((hive as any)?.apiary_id || '').trim();
+    const afterSavePath = isDemoActive ? '/hives?demo=1' : (returnTo || (apiaryId ? `/apiaries/${apiaryId}` : '/hives'));
+
     try {
       const allFiles: File[] = [
         ...(selectedImage ? [selectedImage] : []),
@@ -872,7 +882,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         });
         
         alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
-        router.push(isDemoActive ? '/hives?demo=1' : '/hives');
+        router.push(afterSavePath);
         return;
       }
 
@@ -916,7 +926,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         });
 
         alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
-        router.push(isDemoActive ? '/hives?demo=1' : '/hives');
+        router.push(afterSavePath);
         return;
       }
 
@@ -1115,7 +1125,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         );
       } catch {}
 
-      router.push('/hives');
+      router.push(afterSavePath);
     } catch (error: any) {
       try {
         const msg = String(error?.message || '');
@@ -1164,7 +1174,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             },
           });
           alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
-          router.push('/hives');
+          router.push(afterSavePath);
           return;
         }
       } catch {}

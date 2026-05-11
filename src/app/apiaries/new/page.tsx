@@ -206,7 +206,7 @@ export default function NewApiaryPage() {
         }
 
         const suffix = currentMemberNumber ? `.${currentMemberNumber}` : '';
-        const apiaryNumber = `BG-${nextNum.toString().padStart(3, '0')}${suffix}`;
+        const apiaryNumber = `BG-${nextNum.toString().padStart(3, '0')}`;
 
         // 2. Extract Last Name for Name
         const lastName = rental.contact_name.split(' ').pop() || 'Utleie';
@@ -356,8 +356,7 @@ export default function NewApiaryPage() {
       const nextNum = await getNextSequenceNo(owner.id, prefixes);
       const prefix = prefixes[0];
 
-      const suffix = type === 'bil' ? '' : (memberNumber ? `.${memberNumber}` : '');
-      const apiaryNumber = `${prefix}-${nextNum.toString().padStart(3, '0')}${suffix}`;
+      const apiaryNumber = `${prefix}-${nextNum.toString().padStart(3, '0')}`;
 
       const parsed = parseLatLng(coordinates);
       const latitude = parsed ? parsed[0] : null;
@@ -516,9 +515,7 @@ export default function NewApiaryPage() {
             <div className="space-y-4">
               {pendingRentals.map((rental, index) => {
                 const lastName = rental.contact_name.split(' ').pop() || rental.contact_name;
-                const predictedNumber = `BG-${(nextApiaryNumber + index).toString().padStart(3, '0')}${
-                  memberNumber ? `.${memberNumber}` : ''
-                }`;
+                const predictedNumber = `BG-${(nextApiaryNumber + index).toString().padStart(3, '0')}`;
                 const displayName = `${predictedNumber} - ${lastName}`;
 
                 return (

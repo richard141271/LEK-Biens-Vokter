@@ -114,29 +114,37 @@ async function requireValidDemoSession(request: Request) {
   return { ok: true as const, demoSessionId: sessionId, demoOwnerId };
 }
 
-function getPrefixForType(type: string) {
-  if (type === 'bigård') return 'BG';
-  if (type === 'lager') return 'LG';
-  if (type === 'bil') return 'BIL';
-  if (type === 'oppstart') return 'OPP';
-  return 'BG';
+function getPrefixesForType(type: string) {
+  if (type === 'bigård') return ['BG'];
+  if (type === 'lager') return ['LG'];
+  if (type === 'bil') return ['BIL'];
+  if (type === 'oppstart') return ['OS', 'START', 'OPP'];
+  return ['BG'];
 }
 
-async function getNextApiaryNumber(admin: ReturnType<typeof createAdminClient>, ownerId: string, prefix: string) {
-  const { data } = await admin.from('apiaries').select('apiary_number').eq('user_id', ownerId).ilike('apiary_number', `${prefix}-%`);
+async function getNextApiaryNumber(admin: ReturnType<typeof createAdminClient>, ownerId: string, prefixes: string[]) {
+  const { data } = await admin.from('apiaries').select('apiary_number').eq('user_id', ownerId);
   const list = Array.isArray(data) ? data : [];
 
   let maxNum = 0;
   for (const row of list) {
-    const value = String((row as any)?.apiary_number || '');
-    const match = value.match(/-(\d{1,})/);
+    const valueRaw = String((row as any)?.apiary_number || '').trim();
+    if (!valueRaw) continue;
+    const value = valueRaw.replace(/^START-/i, 'OS-').replace(/^OPP-/i, 'OS-');
+    const dashIdx = value.indexOf('-');
+    if (dashIdx <= 0) continue;
+    const prefix = value.slice(0, dashIdx).toUpperCase();
+    if (!prefixes.map((p) => String(p || '').toUpperCase()).includes(prefix)) continue;
+    const rest = value.slice(dashIdx + 1).split('.')[0];
+    const match = rest.match(/^(\d{1,})$/);
     if (!match) continue;
     const num = parseInt(match[1], 10);
     if (!Number.isNaN(num) && num > maxNum) maxNum = num;
   }
 
   const next = maxNum + 1;
-  return `${prefix}-${next.toString().padStart(3, '0')}`;
+  const primary = String(prefixes?.[0] || 'BG').toUpperCase();
+  return `${primary}-${next.toString().padStart(3, '0')}`;
 }
 
 export async function POST(request: Request) {
@@ -170,8 +178,8 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
-  const prefix = getPrefixForType(type);
-  const apiaryNumber = await getNextApiaryNumber(admin, demo.demoOwnerId, prefix);
+  const prefixes = getPrefixesForType(type);
+  const apiaryNumber = await getNextApiaryNumber(admin, demo.demoOwnerId, prefixes);
 
   const { data: created, error } = await admin
     .from('apiaries')

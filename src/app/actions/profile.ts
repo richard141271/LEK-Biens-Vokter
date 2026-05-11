@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 
 export async function ensureMemberNumber() {
     const supabase = createClient();
@@ -18,36 +19,46 @@ export async function ensureMemberNumber() {
         return profile.member_number;
     }
 
-    // Generate new member number (Random between 10000 and 99999)
-    // This is a simple client-side generation strategy to ensure uniqueness without complex DB locking
-    // Ideally this should be a DB sequence, but this works for now.
-    let attempts = 0;
-    let newMemberNumber = '';
-    let unique = false;
+    try {
+        const admin = createAdminClient();
+        const { data: beekeeper } = await admin
+            .from('lek_core_beekeepers')
+            .select('beekeeper_id')
+            .eq('auth_user_id', user.id)
+            .maybeSingle();
 
-    while (!unique && attempts < 10) {
-        newMemberNumber = Math.floor(10000 + Math.random() * 90000).toString();
-        
-        const { data: existing } = await supabase
+        const raw = String((beekeeper as any)?.beekeeper_id || '').trim();
+        const numeric = raw.replace(/^BR-/i, '').trim();
+        if (numeric && /^\d+$/.test(numeric)) {
+            await admin
+                .from('profiles')
+                .update({ member_number: numeric })
+                .eq('id', user.id);
+            return numeric;
+        }
+    } catch {}
+
+    try {
+        const admin = createAdminClient();
+        const { data: maxRow } = await admin
             .from('profiles')
             .select('member_number')
-            .eq('member_number', newMemberNumber)
-            .single();
-            
-        if (!existing) {
-            unique = true;
-        }
-        attempts++;
-    }
+            .gte('member_number', '100001')
+            .order('member_number', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-    if (unique) {
-        await supabase
+        const maxRaw = String((maxRow as any)?.member_number || '').trim();
+        const maxNum = maxRaw && /^\d+$/.test(maxRaw) ? parseInt(maxRaw, 10) : 0;
+        const next = Number.isFinite(maxNum) && maxNum >= 100001 ? maxNum + 1 : 100001;
+        const nextStr = String(next);
+
+        await admin
             .from('profiles')
-            .update({ member_number: newMemberNumber })
+            .update({ member_number: nextStr })
             .eq('id', user.id);
-            
-        return newMemberNumber;
-    }
+        return nextStr;
+    } catch {}
 
-    return null; // Failed to generate unique number
+    return null;
 }
