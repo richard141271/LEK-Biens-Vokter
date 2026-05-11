@@ -65,7 +65,7 @@ export async function POST(request: Request) {
 
     const { data: hives, error: hivesError } = await db
       .from('hives')
-      .select('id, user_id, hive_number, name, apiary_id, apiaries(name, location)')
+      .select('id, user_id, hive_number, apiary_id, apiaries(name, location)')
       .in('id', hiveIds);
 
     if (hivesError) {
