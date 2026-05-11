@@ -842,6 +842,24 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         ...(extraImages && extraImages.length > 0 ? extraImages : []),
       ];
 
+      const hiveOwnerId = String((hive as any)?.user_id || '').trim();
+      const user = await getUserWithSessionFallback(supabase);
+      let performedByTag = '';
+      if (user?.id && hiveOwnerId && user.id !== hiveOwnerId) {
+        const { data: me } = await supabase.from('profiles').select('full_name, role').eq('id', user.id).maybeSingle();
+        const role = String((me as any)?.role || '').trim().toLowerCase();
+        const isPrivileged = role === 'admin' || role === 'mattilsynet';
+        if (!isPrivileged && allFiles.length === 0) {
+          alert('Tilgang/Familie/Avløser må ta minst ett bilde per inspeksjon.');
+          return;
+        }
+        const performerName = String((me as any)?.full_name || user.email || '').trim();
+        if (performerName) performedByTag = `[[LEK_UTFORT_AV:${performerName}]]`;
+      }
+
+      const baseNotes =
+        performedByTag ? `${performedByTag}${notes ? `\n${notes}` : ''}` : notes;
+
       // 1. Check Offline Mode
       if (isOffline) {
         if (isDemoActive) {
@@ -868,7 +886,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               brood_condition: broodCondition,
               honey_stores: honeyStores,
               temperament: temperament,
-              notes: notes,
+              notes: baseNotes,
               status: status, 
               temperature: temperature ? parseFloat(temperature) : null,
               weather: weather,
@@ -886,7 +904,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         return;
       }
 
-      const user = await getUserWithSessionFallback(supabase);
       if (!user) {
         if (isDemoActive) {
           alert('Demo-modus krever at du er logget inn.');
@@ -912,7 +929,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               brood_condition: broodCondition,
               honey_stores: honeyStores,
               temperament: temperament,
-              notes: notes,
+              notes: baseNotes,
               status: status,
               temperature: temperature ? parseFloat(temperature) : null,
               weather: weather,
@@ -956,7 +973,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         }
 
         const notesWithImages =
-          allPhotos.length > 1 ? `${notes}\n${allPhotos.slice(1).map((u, i) => `Bilde ${i + 2}: ${u}`).join('\n')}` : notes;
+          allPhotos.length > 1
+            ? `${baseNotes}${baseNotes ? '\n' : ''}${allPhotos.slice(1).map((u, i) => `Bilde ${i + 2}: ${u}`).join('\n')}`
+            : baseNotes;
         const details = `Inspeksjon utført. Status: ${status}. Temp: ${temperature}°C. ${notes ? 'Notater lagt til.' : ''}`;
         const res = await fetch('/api/demo/write/inspection', {
           method: 'POST',
@@ -1049,7 +1068,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           brood_condition: broodCondition,
           honey_stores: honeyStores,
           temperament: temperament,
-          notes: allPhotos.length > 1 ? `${notes}\n${allPhotos.slice(1).map((u, i) => `Bilde ${i + 2}: ${u}`).join('\n')}` : notes,
+          notes:
+            allPhotos.length > 1
+              ? `${baseNotes}${baseNotes ? '\n' : ''}${allPhotos.slice(1).map((u, i) => `Bilde ${i + 2}: ${u}`).join('\n')}`
+              : baseNotes,
           status: status, 
           temperature: temperature ? parseFloat(temperature) : null,
           weather: weather,
@@ -1141,6 +1163,26 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             ...(extraImages && extraImages.length > 0 ? extraImages : []),
           ];
 
+          let fallbackNotes = notes;
+          try {
+            const hiveOwnerId = String((hive as any)?.user_id || '').trim();
+            const u = await getUserWithSessionFallback(supabase);
+            if (u?.id && hiveOwnerId && u.id !== hiveOwnerId) {
+              const { data: me } = await supabase.from('profiles').select('full_name, role').eq('id', u.id).maybeSingle();
+              const role = String((me as any)?.role || '').trim().toLowerCase();
+              const isPrivileged = role === 'admin' || role === 'mattilsynet';
+              if (!isPrivileged && allFiles.length === 0) {
+                alert('Tilgang/Familie/Avløser må ta minst ett bilde per inspeksjon.');
+                return;
+              }
+              const performerName = String((me as any)?.full_name || u.email || '').trim();
+              if (performerName) {
+                const tag = `[[LEK_UTFORT_AV:${performerName}]]`;
+                fallbackNotes = `${tag}${notes ? `\n${notes}` : ''}`;
+              }
+            }
+          } catch {}
+
           await saveInspection({
             id: opId,
             hiveId: params.id,
@@ -1161,7 +1203,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 brood_condition: broodCondition,
                 honey_stores: honeyStores,
                 temperament: temperament,
-                notes: notes,
+                notes: fallbackNotes,
                 status: status,
                 temperature: temperature ? parseFloat(temperature) : null,
                 weather: weather,

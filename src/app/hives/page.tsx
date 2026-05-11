@@ -365,6 +365,15 @@ export default function AllHivesPage() {
               if (ownerId) ownerIdByHiveId.set(hiveId, ownerId);
             }
 
+            const hasNonOwned = selectedHives.some((id) => {
+              const ownerId = ownerIdByHiveId.get(String(id)) || activeOwnerId || '';
+              return ownerId && String(ownerId) !== String(user.id);
+            });
+            if (hasNonOwned) {
+              alert('Tilgang/Familie/Avløser må ta minst ett bilde per inspeksjon. Massehandling for inspeksjon støtter ikke bilder.');
+              return;
+            }
+
             const actionList = [
               ...(massInspectionData.actions || []),
               ...(massInspectionData.other_action?.trim() ? [`Annet: ${massInspectionData.other_action.trim()}`] : []),
@@ -696,7 +705,7 @@ export default function AllHivesPage() {
                                                             <tr key={insp.id} className="border-b border-gray-200">
                                                                 <td className="py-1 align-top">{new Date(insp.inspection_date).toLocaleDateString()}</td>
                                                                 <td className="py-1 align-top">{insp.status}</td>
-                                                                <td className="py-1 align-top italic text-gray-600 line-clamp-1">{insp.notes || '-'}</td>
+                                                                <td className="py-1 align-top italic text-gray-600 line-clamp-1">{String(insp.notes || '').replace(/\[\[LEK_UTFORT_AV:[^\]]+\]\](?:\r?\n)?/, '') || '-'}</td>
                                                                 <td className="py-1 align-top text-[10px]">
                                                                     {insp.queen_seen && <span className="mr-1">👑</span>}
                                                                     {insp.eggs_seen && <span className="mr-1">🥚</span>}

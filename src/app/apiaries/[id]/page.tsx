@@ -1261,6 +1261,15 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
               if (ownerId) ownerIdByHiveId.set(hiveId, ownerId);
             }
 
+            const hasNonOwned = ids.some((id) => {
+              const ownerId = ownerIdByHiveId.get(String(id)) || '';
+              return ownerId && String(ownerId) !== String(user.id);
+            });
+            if (hasNonOwned) {
+              alert('Tilgang/Familie/Avløser må ta minst ett bilde per inspeksjon. Massehandling for inspeksjon støtter ikke bilder.');
+              return;
+            }
+
             const actionList = [
               ...(massInspectionData.actions || []),
               ...(massInspectionData.other_action?.trim() ? [`Annet: ${massInspectionData.other_action.trim()}`] : []),

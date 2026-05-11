@@ -46,6 +46,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   const [editTemperature, setEditTemperature] = useState<string>('');
   const [editWeather, setEditWeather] = useState<string>('');
   const [editNotes, setEditNotes] = useState('');
+  const [editPerformedByTag, setEditPerformedByTag] = useState<string>('');
   const [editNewImages, setEditNewImages] = useState<File[] | null>(null);
   const [editRemovedUrls, setEditRemovedUrls] = useState<string[]>([]);
 
@@ -78,6 +79,16 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   const formatApiaryNumber = (raw: any, type?: any) => {
     const s = String(raw || '').trim();
     return s ? s.split('.')[0] : '';
+  };
+
+  const parseInspectionNotes = (raw: any) => {
+    const s = String(raw || '');
+    const m = s.match(/\[\[LEK_UTFORT_AV:([^\]]+)\]\](?:\r?\n)?/);
+    if (!m) return { performedBy: '', tag: '', cleanNotes: s };
+    const performedBy = String(m[1] || '').trim();
+    const tag = `[[LEK_UTFORT_AV:${performedBy}]]`;
+    const cleanNotes = s.replace(m[0], '');
+    return { performedBy, tag, cleanNotes };
   };
 
   useEffect(() => {
@@ -261,6 +272,26 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
     const opId = crypto.randomUUID();
     setOfflineSubmitting(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const hiveOwnerId = String(hive?.user_id || '').trim();
+      let computedNotes = offlineNotes;
+      if (user?.id && hiveOwnerId && String(user.id) !== String(hiveOwnerId)) {
+        if (!offlineImages || offlineImages.length === 0) {
+          alert('Tilgang/Familie/Avløser må ta minst ett bilde per inspeksjon.');
+          return;
+        }
+        const { data: me } = await supabase.from('profiles').select('full_name, role').eq('id', user.id).maybeSingle();
+        const role = String((me as any)?.role || '').trim().toLowerCase();
+        const isPrivileged = role === 'admin' || role === 'mattilsynet';
+        if (!isPrivileged) {
+          const performerName = String((me as any)?.full_name || user.email || '').trim();
+          if (performerName) {
+            const tag = `[[LEK_UTFORT_AV:${performerName}]]`;
+            computedNotes = `${tag}${offlineNotes ? `\n${offlineNotes}` : ''}`;
+          }
+        }
+      }
+
       await saveInspection({
         id: opId,
         hiveId: hive.id,
@@ -282,7 +313,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
             brood_condition: offlineBroodCondition,
             honey_stores: offlineHoneyStores,
             temperament: offlineTemperament,
-            notes: offlineNotes,
+            notes: computedNotes,
             status: offlineStatus,
             temperature: null,
             weather: null,
@@ -487,6 +518,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   };
 
   const openEditInspection = (inspection: any) => {
+    const parsed = parseInspectionNotes(inspection?.notes);
     setEditInspection(inspection);
     setEditDate(String(inspection?.inspection_date || '').slice(0, 10));
     setEditTime(String(inspection?.time || '').slice(0, 5));
@@ -498,7 +530,8 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
     setEditStatus(String(inspection?.status || 'OK'));
     setEditTemperature(inspection?.temperature != null ? String(inspection.temperature) : '');
     setEditWeather(inspection?.weather != null ? String(inspection.weather) : '');
-    setEditNotes(String(inspection?.notes || ''));
+    setEditNotes(String(parsed?.cleanNotes || ''));
+    setEditPerformedByTag(String(parsed?.tag || ''));
     setEditNewImages(null);
     setEditRemovedUrls([]);
     setEditInspectionOpen(true);
@@ -568,6 +601,11 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
         const startIndex = 2;
         const lines = missingExtras.map((u, idx) => `Bilde ${startIndex + idx}: ${u}`);
         nextNotes = `${nextNotes}${nextNotes ? '\n' : ''}${lines.join('\n')}`;
+      }
+
+      if (editPerformedByTag) {
+        const prefix = `${editPerformedByTag}${nextNotes ? '\n' : ''}`;
+        nextNotes = `${prefix}${nextNotes}`;
       }
 
       const payload: any = {
@@ -1343,150 +1381,166 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
             {inspections.length === 0 ? (
               <p className="text-gray-500 text-center py-4">Ingen inspeksjoner enda.</p>
             ) : (
-              inspections.map((inspection) => (
-                <div 
-                  key={inspection.id} 
-                  className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden transition-all ${
-                    expandedInspectionId === inspection.id ? 'ring-2 ring-honey-500' : ''
-                  }`}
-                >
-                  <button 
-                    type="button"
-                    onClick={() => toggleInspection(inspection.id)}
-                    className="w-full text-left p-4 flex items-center justify-between hover:bg-gray-50 focus:outline-none focus:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="bg-gray-100 p-2 rounded-lg text-center min-w-[3rem]">
-                        <div className="text-xs text-gray-500 uppercase font-bold">{new Date(inspection.inspection_date).toLocaleString('default', { month: 'short' })}</div>
-                        <div className="text-lg font-bold text-gray-900">{new Date(inspection.inspection_date).getDate()}</div>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                           <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getStatusColor(inspection.status)}`}>
-                             {inspection.status}
-                           </span>
-                           {inspection.weather && (
-                             <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
-                               {inspection.weather_place ? `${inspection.weather} (${inspection.weather_place})` : inspection.weather}
-                             </span>
-                           )}
-                           {(inspection.image_url || (inspection.notes && String(inspection.notes).includes('/inspection-images/'))) && (
-                             <ImageIcon className="w-4 h-4 text-gray-400" />
-                           )}
-                        </div>
-                        <p className="text-sm text-gray-500 truncate max-w-[200px] mt-1">
-                          {inspection.notes || 'Ingen notater'}
-                        </p>
-                      </div>
-                    </div>
-                    {expandedInspectionId === inspection.id ? (
-                      <ChevronUp className="w-5 h-5 text-gray-400" />
-                    ) : (
-                      <ChevronDown className="w-5 h-5 text-gray-400" />
-                    )}
-                  </button>
+              inspections.map((inspection) => {
+                const parsed = parseInspectionNotes(inspection?.notes);
+                const performedBy = String(parsed?.performedBy || '').trim();
+                const cleanNotes = String(parsed?.cleanNotes || '').trim();
+                const rawNotes = String(inspection?.notes || '');
 
-                  {/* Expanded Details */}
-                  <div className={`${expandedInspectionId === inspection.id ? 'block' : 'hidden'} px-4 pb-4 pt-0 bg-gray-50 border-t border-gray-100`}>
-                    <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
-                      <div>
-                        <span className="block text-xs font-bold text-gray-500 uppercase">Dronning</span>
-                        <span className={inspection.queen_seen ? 'text-green-600 font-bold' : 'text-gray-400'}>
-                          {inspection.queen_seen ? 'Observert' : 'Ikke sett'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="block text-xs font-bold text-gray-500 uppercase">Dronningfarge</span>
-                        <span className="text-gray-800">{inspection.queen_color || '-'}</span>
-                      </div>
-                      <div>
-                        <span className="block text-xs font-bold text-gray-500 uppercase">Egg</span>
-                        <span className={inspection.eggs_seen ? 'text-green-600 font-bold' : 'text-gray-400'}>
-                          {inspection.eggs_seen ? 'Observert' : 'Ikke sett'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="block text-xs font-bold text-gray-500 uppercase">Årgang</span>
-                        <span className="text-gray-800">{inspection.queen_year || '-'}</span>
-                      </div>
-                      <div>
-                        <span className="block text-xs font-bold text-gray-500 uppercase">Gemytt</span>
-                        <span className="capitalize">{inspection.temperament}</span>
-                      </div>
-                       <div>
-                        <span className="block text-xs font-bold text-gray-500 uppercase">Yngel</span>
-                        <span className="capitalize">{inspection.brood_condition}</span>
-                      </div>
-                       <div>
-                        <span className="block text-xs font-bold text-gray-500 uppercase">Fôr</span>
-                        <span className="capitalize">{inspection.honey_stores}</span>
-                      </div>
-                      <div>
-                        <span className="block text-xs font-bold text-gray-500 uppercase">Temperatur</span>
-                        <span>{inspection.temperature ? `${inspection.temperature}°C` : '-'}</span>
-                      </div>
-                    </div>
-                    {Array.isArray(inspection.actions) && inspection.actions.length > 0 && (
-                      <div className="mt-4 bg-white p-3 rounded border border-gray-200">
-                        <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Handlinger</span>
-                        <p className="text-gray-800">{inspection.actions.join(', ')}</p>
-                      </div>
-                    )}
-                    {inspection.notes && (
-                      <div className="mt-4 bg-white p-3 rounded border border-gray-200">
-                        <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Notater</span>
-                        <p className="text-gray-800 whitespace-pre-wrap">{inspection.notes}</p>
-                      </div>
-                    )}
-                    {(() => {
-                      // Collect images: primary + any URLs inside notes
-                      const images: string[] = [];
-                      if (inspection.image_url) images.push(inspection.image_url);
-                      if (inspection.notes) {
-                        const iter = inspection.notes.matchAll(/https?:\/\/[^\s)'"`]+/g) as Iterable<RegExpMatchArray>;
-                        const urls = Array.from(iter).map(m => m[0]);
-                        // Keep only inspection-images bucket URLs to avoid noise
-                        urls.forEach(u => {
-                          if (u.includes('/inspection-images/')) images.push(u);
-                        });
-                      }
-                      const uniq = Array.from(new Set(images));
-                      return uniq.length > 0 ? (
-                        <div className="mt-4">
-                          <span className="block text-xs font-bold text-gray-500 uppercase mb-2">Bilder</span>
-                          <div className="grid grid-cols-2 gap-3">
-                            {uniq.map((src) => (
-                              <div key={src} className="rounded-lg overflow-hidden border border-gray-200">
-                                <img src={src} alt="Inspeksjon" className="w-full h-auto object-cover" />
-                              </div>
-                            ))}
-                          </div>
+                return (
+                  <div 
+                    key={inspection.id} 
+                    className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden transition-all ${
+                      expandedInspectionId === inspection.id ? 'ring-2 ring-honey-500' : ''
+                    }`}
+                  >
+                    <button 
+                      type="button"
+                      onClick={() => toggleInspection(inspection.id)}
+                      className="w-full text-left p-4 flex items-center justify-between hover:bg-gray-50 focus:outline-none focus:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="bg-gray-100 p-2 rounded-lg text-center min-w-[3rem]">
+                          <div className="text-xs text-gray-500 uppercase font-bold">{new Date(inspection.inspection_date).toLocaleString('default', { month: 'short' })}</div>
+                          <div className="text-lg font-bold text-gray-900">{new Date(inspection.inspection_date).getDate()}</div>
                         </div>
-                      ) : null;
-                    })()}
-                    
-                    <div className="mt-4 flex justify-end gap-2">
-                        <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditInspection(inspection);
-                            }}
-                            className="flex items-center gap-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                        >
-                            <Pencil className="w-4 h-4" />
-                            Rediger
-                        </button>
-                        <button 
-                            onClick={(e) => handleDeleteInspection(inspection.id, e)}
-                            className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                            Slett inspeksjon
-                        </button>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                             <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getStatusColor(inspection.status)}`}>
+                               {inspection.status}
+                             </span>
+                             {inspection.weather && (
+                               <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
+                                 {inspection.weather_place ? `${inspection.weather} (${inspection.weather_place})` : inspection.weather}
+                               </span>
+                             )}
+                             {performedBy ? (
+                               <span className="text-xs text-gray-500">
+                                 Denne inspeksjon er utført av: {performedBy}
+                               </span>
+                             ) : null}
+                             {(inspection.image_url || (rawNotes && rawNotes.includes('/inspection-images/'))) && (
+                               <ImageIcon className="w-4 h-4 text-gray-400" />
+                             )}
+                          </div>
+                          <p className="text-sm text-gray-500 truncate max-w-[200px] mt-1">
+                            {cleanNotes || 'Ingen notater'}
+                          </p>
+                        </div>
+                      </div>
+                      {expandedInspectionId === inspection.id ? (
+                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      )}
+                    </button>
+
+                    {/* Expanded Details */}
+                    <div className={`${expandedInspectionId === inspection.id ? 'block' : 'hidden'} px-4 pb-4 pt-0 bg-gray-50 border-t border-gray-100`}>
+                      <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
+                        <div>
+                          <span className="block text-xs font-bold text-gray-500 uppercase">Dronning</span>
+                          <span className={inspection.queen_seen ? 'text-green-600 font-bold' : 'text-gray-400'}>
+                            {inspection.queen_seen ? 'Observert' : 'Ikke sett'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="block text-xs font-bold text-gray-500 uppercase">Dronningfarge</span>
+                          <span className="text-gray-800">{inspection.queen_color || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="block text-xs font-bold text-gray-500 uppercase">Egg</span>
+                          <span className={inspection.eggs_seen ? 'text-green-600 font-bold' : 'text-gray-400'}>
+                            {inspection.eggs_seen ? 'Observert' : 'Ikke sett'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="block text-xs font-bold text-gray-500 uppercase">Årgang</span>
+                          <span className="text-gray-800">{inspection.queen_year || '-'}</span>
+                        </div>
+                        <div>
+                          <span className="block text-xs font-bold text-gray-500 uppercase">Gemytt</span>
+                          <span className="capitalize">{inspection.temperament}</span>
+                        </div>
+                         <div>
+                          <span className="block text-xs font-bold text-gray-500 uppercase">Yngel</span>
+                          <span className="capitalize">{inspection.brood_condition}</span>
+                        </div>
+                         <div>
+                          <span className="block text-xs font-bold text-gray-500 uppercase">Fôr</span>
+                          <span className="capitalize">{inspection.honey_stores}</span>
+                        </div>
+                        <div>
+                          <span className="block text-xs font-bold text-gray-500 uppercase">Temperatur</span>
+                          <span>{inspection.temperature ? `${inspection.temperature}°C` : '-'}</span>
+                        </div>
+                      </div>
+                      {Array.isArray(inspection.actions) && inspection.actions.length > 0 && (
+                        <div className="mt-4 bg-white p-3 rounded border border-gray-200">
+                          <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Handlinger</span>
+                          <p className="text-gray-800">{inspection.actions.join(', ')}</p>
+                        </div>
+                      )}
+                      {performedBy ? (
+                        <div className="mt-4 bg-white p-3 rounded border border-gray-200">
+                          <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Utført av</span>
+                          <p className="text-gray-800">{performedBy}</p>
+                        </div>
+                      ) : null}
+                      {cleanNotes ? (
+                        <div className="mt-4 bg-white p-3 rounded border border-gray-200">
+                          <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Notater</span>
+                          <p className="text-gray-800 whitespace-pre-wrap">{cleanNotes}</p>
+                        </div>
+                      ) : null}
+                      {(() => {
+                        const images: string[] = [];
+                        if (inspection.image_url) images.push(inspection.image_url);
+                        if (rawNotes) {
+                          const iter = rawNotes.matchAll(/https?:\/\/[^\s)'"`]+/g) as Iterable<RegExpMatchArray>;
+                          const urls = Array.from(iter).map(m => m[0]);
+                          urls.forEach(u => {
+                            if (u.includes('/inspection-images/')) images.push(u);
+                          });
+                        }
+                        const uniq = Array.from(new Set(images));
+                        return uniq.length > 0 ? (
+                          <div className="mt-4">
+                            <span className="block text-xs font-bold text-gray-500 uppercase mb-2">Bilder</span>
+                            <div className="grid grid-cols-2 gap-3">
+                              {uniq.map((src) => (
+                                <div key={src} className="rounded-lg overflow-hidden border border-gray-200">
+                                  <img src={src} alt="Inspeksjon" className="w-full h-auto object-cover" />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
+                      
+                      <div className="mt-4 flex justify-end gap-2">
+                          <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditInspection(inspection);
+                              }}
+                              className="flex items-center gap-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                          >
+                              <Pencil className="w-4 h-4" />
+                              Rediger
+                          </button>
+                          <button 
+                              onClick={(e) => handleDeleteInspection(inspection.id, e)}
+                              className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                          >
+                              <Trash2 className="w-4 h-4" />
+                              Slett inspeksjon
+                          </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -1518,21 +1572,27 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                             return true;
                         })
                         .slice(0, printFilter.limit === 'last5' ? 5 : undefined)
-                        .map((inspection) => (
-                        <tr key={inspection.id} className="border-b border-gray-300">
-                            <td className="py-2 align-top">{new Date(inspection.inspection_date).toLocaleDateString()}</td>
-                            <td className="py-2 align-top">{inspection.status}</td>
-                            <td className="py-2 align-top max-w-[200px]">{inspection.notes || '-'}</td>
-                            <td className="py-2 align-top text-xs">
+                        .map((inspection) => {
+                          const parsed = parseInspectionNotes(inspection?.notes);
+                          const performedBy = String(parsed?.performedBy || '').trim();
+                          const cleanNotes = String(parsed?.cleanNotes || '').trim();
+                          return (
+                            <tr key={inspection.id} className="border-b border-gray-300">
+                              <td className="py-2 align-top">{new Date(inspection.inspection_date).toLocaleDateString()}</td>
+                              <td className="py-2 align-top">{inspection.status}</td>
+                              <td className="py-2 align-top max-w-[200px]">{cleanNotes || '-'}</td>
+                              <td className="py-2 align-top text-xs">
+                                {performedBy ? <div className="mb-1">Utført av: {performedBy}</div> : null}
                                 <div className="grid grid-cols-2 gap-x-2">
-                                    <span>{inspection.queen_seen ? '👑 Dronning' : '-'}</span>
-                                    <span>{inspection.eggs_seen ? '🥚 Egg' : '-'}</span>
-                                    {inspection.honey_stores && <span>🍯 {inspection.honey_stores}</span>}
-                                    {inspection.temperament && <span>😡 {inspection.temperament}</span>}
+                                  <span>{inspection.queen_seen ? '👑 Dronning' : '-'}</span>
+                                  <span>{inspection.eggs_seen ? '🥚 Egg' : '-'}</span>
+                                  {inspection.honey_stores && <span>🍯 {inspection.honey_stores}</span>}
+                                  {inspection.temperament && <span>😡 {inspection.temperament}</span>}
                                 </div>
-                            </td>
-                        </tr>
-                    ))}
+                              </td>
+                            </tr>
+                          );
+                        })}
                 </tbody>
             </table>
             {inspections.length === 0 && <p className="text-gray-500 italic mt-2">Ingen inspeksjoner.</p>}
