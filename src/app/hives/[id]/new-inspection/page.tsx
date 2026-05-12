@@ -448,6 +448,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const ttsPrimedRef = useRef(false);
+  const ttsUnlockedRef = useRef(false);
   const beep = (freq = 880, ms = 220) => {
     try {
       if (typeof window === 'undefined') return;
@@ -482,6 +483,36 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         if (typeof s.getVoices === 'function') s.getVoices();
       } catch {}
       if (!shouldSpeak) return;
+    } catch {}
+  };
+
+  const unlockTtsFromGesture = (text: string) => {
+    try {
+      if (typeof window === 'undefined') return;
+      const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
+      if (!s) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'nb-NO';
+      u.rate = 0.92;
+      u.pitch = 1.0;
+      u.volume = 1.0;
+      u.onstart = () => {
+        ttsUnlockedRef.current = true;
+      };
+      try {
+        const voices = typeof s.getVoices === 'function' ? s.getVoices() : [];
+        const nb = voices.find((v) => (v.lang || '').toLowerCase().startsWith('nb'));
+        const no = voices.find((v) => (v.lang || '').toLowerCase().startsWith('no'));
+        const nn = voices.find((v) => (v.lang || '').toLowerCase().includes('nor'));
+        const picked = nb || no || nn;
+        if (picked) u.voice = picked;
+      } catch {}
+      try {
+        if (typeof s.resume === 'function') s.resume();
+      } catch {}
+      try {
+        s.speak(u);
+      } catch {}
     } catch {}
   };
 
@@ -1260,7 +1291,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
             <button
                 onClick={() => {
-                  if (!isListening) primeTts(false);
+                  if (!isListening) {
+                    primeTts(false);
+                    if (!ttsUnlockedRef.current) {
+                      unlockTtsFromGesture('Talesvar på');
+                    }
+                  }
                   toggleListening();
                 }}
                 className={`p-3 rounded-full transition-all ${
