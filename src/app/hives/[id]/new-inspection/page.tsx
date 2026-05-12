@@ -348,7 +348,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       // Show feedback if we understood something
       if (feedback.length > 0) {
           setLastCommand(feedback.join(', '));
-          speak(feedback.join('. '));
+          const spoken =
+            feedback.length <= 2
+              ? feedback.join('. ')
+              : `${feedback[0]}. Oppdatert.`;
+          speak(spoken);
           // Clear feedback after 4s
           setTimeout(() => setLastCommand(null), 4000);
       }
@@ -505,6 +509,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     try {
       if (typeof window === 'undefined') return;
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
+      const trimmed = String(text || '').trim();
+      if (!trimmed) return;
+
       const wasListening = isListening;
       if (wasListening) {
         try {
@@ -515,90 +522,94 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 250);
         return;
       }
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'nb-NO';
-      u.rate = 0.92;
-      u.pitch = 1.0;
-      u.volume = 1.0;
-      const pickVoice = () => {
-        try {
-          const voices = s.getVoices ? s.getVoices() : [];
-          const nb = voices.find((v) => (v.lang || '').toLowerCase().startsWith('nb'));
-          const no = voices.find((v) => (v.lang || '').toLowerCase().startsWith('no'));
-          const nn = voices.find((v) => (v.lang || '').toLowerCase().includes('nor'));
-          u.voice = nb || no || nn || u.voice || null;
-        } catch {}
-      };
-      if (!s.getVoices || s.getVoices().length === 0) {
-        (s as any)._voicesChanged = true;
-        s.onvoiceschanged = () => {
-          if (!(s as any)._voicesChanged) return;
-          (s as any)._voicesChanged = false;
-          pickVoice();
-          s.speak(u);
-        };
-        setTimeout(() => {
-          if ((s as any)._voicesChanged) {
-            (s as any)._voicesChanged = false;
-            pickVoice();
-            s.speak(u);
-          }
-        }, 300);
-      } else {
-        pickVoice();
-        s.speak(u);
-      }
-      let started = false;
+
       const ack = () => {
-        beep(880, 90);
-        setTimeout(() => beep(1040, 90), 120);
-        setTimeout(() => beep(1320, 110), 260);
-      };
-      const startWatch = setTimeout(() => {
-        if (!started) ack();
-      }, 1200);
-      const safety = setTimeout(() => {
-        clearTimeout(startWatch);
-        if (wasListening) { try { resumeListening(); } catch {} }
-      }, 3000);
-      u.onstart = () => {
-        started = true;
-        clearTimeout(startWatch);
-      };
-      u.onend = () => {
-        clearTimeout(safety);
-        clearTimeout(startWatch);
-        if (wasListening) {
-          setTimeout(() => { try { resumeListening(); } catch {} }, 120);
-        }
-      };
-      u.onerror = () => {
-        clearTimeout(safety);
-        clearTimeout(startWatch);
-        ack();
-        if (wasListening) {
-          setTimeout(() => { try { resumeListening(); } catch {} }, 120);
-        }
+        beep(880, 110);
+        setTimeout(() => beep(660, 110), 160);
       };
 
-      try {
-        if (typeof s.resume === 'function') s.resume();
-      } catch {}
-      try {
-        s.cancel();
-      } catch {}
-      const delay = wasListening ? 350 : 0;
+      const attempts: Array<{ lang?: string; preferNorwegian: boolean }> = [
+        { lang: 'nb-NO', preferNorwegian: true },
+        { preferNorwegian: false },
+        { lang: 'en-US', preferNorwegian: false },
+      ];
+
+      const delay = wasListening ? 650 : 0;
       setTimeout(() => {
-        try {
-          s.speak(u);
-        } catch {
-          clearTimeout(safety);
-          clearTimeout(startWatch);
-          ack();
-          if (wasListening) {
-            setTimeout(() => { try { resumeListening(); } catch {} }, 120);
+        let idx = 0;
+
+        const tryOne = () => {
+          if (idx >= attempts.length) {
+            ack();
+            if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 180);
+            return;
           }
-        }
+
+          const attempt = attempts[idx];
+          idx += 1;
+
+          let started = false;
+          const u = new SpeechSynthesisUtterance(trimmed);
+          if (attempt.lang) u.lang = attempt.lang;
+          u.rate = 0.92;
+          u.pitch = 1.0;
+          u.volume = 1.0;
+
+          if (attempt.preferNorwegian) {
+            try {
+              const voices = typeof s.getVoices === 'function' ? s.getVoices() : [];
+              const nb = voices.find((v) => (v.lang || '').toLowerCase().startsWith('nb'));
+              const no = voices.find((v) => (v.lang || '').toLowerCase().startsWith('no'));
+              const nn = voices.find((v) => (v.lang || '').toLowerCase().includes('nor'));
+              const picked = nb || no || nn;
+              if (picked) u.voice = picked;
+            } catch {}
+          }
+
+          const startWatch = setTimeout(() => {
+            if (started) return;
+            try {
+              s.cancel();
+            } catch {}
+            tryOne();
+          }, 1300);
+
+          const safety = setTimeout(() => {
+            clearTimeout(startWatch);
+            tryOne();
+          }, 4500);
+
+          u.onstart = () => {
+            started = true;
+            clearTimeout(startWatch);
+          };
+          u.onend = () => {
+            clearTimeout(safety);
+            clearTimeout(startWatch);
+            if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 180);
+          };
+          u.onerror = () => {
+            clearTimeout(safety);
+            clearTimeout(startWatch);
+            tryOne();
+          };
+
+          try {
+            if (typeof s.resume === 'function') s.resume();
+          } catch {}
+          try {
+            s.speak(u);
+          } catch {
+            clearTimeout(safety);
+            clearTimeout(startWatch);
+            tryOne();
+          }
+        };
+
+        try {
+          s.cancel();
+        } catch {}
+        tryOne();
       }, delay);
     } catch {}
   };
