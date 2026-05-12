@@ -449,6 +449,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const audioCtxRef = useRef<AudioContext | null>(null);
   const ttsPrimedRef = useRef(false);
   const ttsUnlockedRef = useRef(false);
+  const audioUnlockedRef = useRef(false);
   const ttsQueueRef = useRef<string[]>([]);
   const ttsBusyRef = useRef(false);
   const ttsCacheRef = useRef<Map<string, string>>(new Map());
@@ -474,6 +475,76 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           ctx.close();
         } catch {}
       }, 120);
+    } catch {}
+  };
+
+  const unlockHtmlAudioFromGesture = () => {
+    try {
+      if (typeof window === 'undefined') return;
+      if (audioUnlockedRef.current) return;
+      const bytes = new Uint8Array(44 + 2);
+      const writeStr = (offset: number, s: string) => {
+        for (let i = 0; i < s.length; i += 1) bytes[offset + i] = s.charCodeAt(i);
+      };
+      const writeU32 = (offset: number, v: number) => {
+        bytes[offset + 0] = v & 0xff;
+        bytes[offset + 1] = (v >> 8) & 0xff;
+        bytes[offset + 2] = (v >> 16) & 0xff;
+        bytes[offset + 3] = (v >> 24) & 0xff;
+      };
+      const writeU16 = (offset: number, v: number) => {
+        bytes[offset + 0] = v & 0xff;
+        bytes[offset + 1] = (v >> 8) & 0xff;
+      };
+
+      writeStr(0, 'RIFF');
+      writeU32(4, 36 + 2);
+      writeStr(8, 'WAVE');
+      writeStr(12, 'fmt ');
+      writeU32(16, 16);
+      writeU16(20, 1);
+      writeU16(22, 1);
+      writeU32(24, 8000);
+      writeU32(28, 8000 * 2);
+      writeU16(32, 2);
+      writeU16(34, 16);
+      writeStr(36, 'data');
+      writeU32(40, 2);
+      bytes[44] = 0;
+      bytes[45] = 0;
+
+      const blob = new Blob([bytes], { type: 'audio/wav' });
+      const url = URL.createObjectURL(blob);
+      const a = new Audio(url);
+      a.volume = 0;
+      (a as any).playsInline = true;
+      try {
+        a.setAttribute?.('playsinline', 'true');
+      } catch {}
+      const done = () => {
+        try {
+          a.pause();
+        } catch {}
+        try {
+          URL.revokeObjectURL(url);
+        } catch {}
+      };
+      a.onended = done;
+      a.onerror = done;
+      const p = a.play();
+      if (p && typeof (p as any).then === 'function') {
+        (p as any)
+          .then(() => {
+            audioUnlockedRef.current = true;
+            done();
+          })
+          .catch(() => {
+            done();
+          });
+      } else {
+        audioUnlockedRef.current = true;
+        done();
+      }
     } catch {}
   };
   const beep = (freq = 880, ms = 220) => {
@@ -585,6 +656,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       const a = new Audio(url);
       a.preload = 'auto';
+      (a as any).playsInline = true;
+      try {
+        a.setAttribute?.('playsinline', 'true');
+      } catch {}
       a.onended = () => {
         ttsBusyRef.current = false;
         onDone();
@@ -1411,6 +1486,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                   if (!isListening) {
                     primeTts(false);
                     unlockAudioSession();
+                    unlockHtmlAudioFromGesture();
                     if (!ttsUnlockedRef.current) {
                       unlockTtsFromGesture('Talesvar på');
                     }
