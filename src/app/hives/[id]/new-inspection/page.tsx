@@ -444,6 +444,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const ttsPrimedRef = useRef(false);
+  const ttsSeqRef = useRef(0);
   const beep = (freq = 880, ms = 220) => {
     try {
       if (typeof window === 'undefined') return;
@@ -503,6 +504,25 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       if (typeof window === 'undefined') return;
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       const wasListening = isListening;
+      const seq = (ttsSeqRef.current += 1);
+      let started = false;
+
+      const ack = () => {
+        beep(880, 90);
+        setTimeout(() => beep(1040, 90), 120);
+        setTimeout(() => beep(1320, 110), 260);
+      };
+
+      const finish = () => {
+        if (wasListening) {
+          setTimeout(() => {
+            try {
+              resumeListening();
+            } catch {}
+          }, 160);
+        }
+      };
+
       // Pause lytte-modus mens vi snakker; bruk midlertidig pause
       if (wasListening) {
         try { pauseListening(); } catch {}
@@ -552,18 +572,23 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       const safety = setTimeout(() => {
         if (wasListening) { try { resumeListening(); } catch {} }
       }, 3000);
+      const startWatch = setTimeout(() => {
+        if (ttsSeqRef.current !== seq) return;
+        if (!started) ack();
+      }, 900);
+      u.onstart = () => {
+        started = true;
+      };
       u.onend = () => {
+        clearTimeout(startWatch);
         clearTimeout(safety);
-        if (wasListening) {
-          // Liten pause før vi gjenopptar lytting
-          setTimeout(() => { try { resumeListening(); } catch {} }, 120);
-        }
+        finish();
       };
       u.onerror = () => {
+        clearTimeout(startWatch);
         clearTimeout(safety);
-        if (wasListening) {
-          setTimeout(() => { try { resumeListening(); } catch {} }, 120);
-        }
+        ack();
+        finish();
       };
     } catch {}
   };
@@ -865,9 +890,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             }
           }
         });
-        
-        alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
-        router.push(isDemoActive ? '/hives?demo=1' : '/hives');
+        setLastCommand('Inspeksjon lagret offline');
+        speak('Inspeksjon lagret offline');
+        if (!handsfreeReady) {
+          alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
+        }
+        setTimeout(() => {
+          router.push(isDemoActive ? '/hives?demo=1' : '/hives');
+        }, 650);
         return;
       }
 
@@ -909,9 +939,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             },
           },
         });
-
-        alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
-        router.push(isDemoActive ? '/hives?demo=1' : '/hives');
+        setLastCommand('Inspeksjon lagret offline');
+        speak('Inspeksjon lagret offline');
+        if (!handsfreeReady) {
+          alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
+        }
+        setTimeout(() => {
+          router.push(isDemoActive ? '/hives?demo=1' : '/hives');
+        }, 650);
         return;
       }
 
@@ -973,8 +1008,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         if (!res.ok || !payload?.success) {
           throw new Error(payload?.error || 'Kunne ikke lagre inspeksjon i demo');
         }
-
-        router.push('/hives?demo=1');
+        setLastCommand('Inspeksjon lagret');
+        speak('Inspeksjon lagret');
+        setTimeout(() => {
+          router.push('/hives?demo=1');
+        }, 650);
         return;
       }
 
@@ -1065,8 +1103,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         });
 
       if (logError) throw logError;
-
-      router.push('/hives');
+      setLastCommand('Inspeksjon lagret');
+      speak('Inspeksjon lagret');
+      setTimeout(() => {
+        router.push('/hives');
+      }, 650);
     } catch (error: any) {
       try {
         const msg = String(error?.message || '');
@@ -1114,13 +1155,22 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               },
             },
           });
-          alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
-          router.push('/hives');
+          setLastCommand('Inspeksjon lagret offline');
+          speak('Inspeksjon lagret offline');
+          if (!handsfreeReady) {
+            alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
+          }
+          setTimeout(() => {
+            router.push('/hives');
+          }, 650);
           return;
         }
       } catch {}
-
-      alert('Feil ved lagring: ' + (error?.message || 'Ukjent feil'));
+      setLastCommand('Feil ved lagring');
+      speak('Feil ved lagring');
+      if (!handsfreeReady) {
+        alert('Feil ved lagring: ' + (error?.message || 'Ukjent feil'));
+      }
     } finally {
       setSubmitting(false);
     }
