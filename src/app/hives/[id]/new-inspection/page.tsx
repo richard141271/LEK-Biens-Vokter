@@ -504,9 +504,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const speak = (text: string) => {
     try {
       if (typeof window === 'undefined') return;
-      beep(1200, 260);
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
-      if (!s) return;
       const wasListening = isListening;
       if (wasListening) {
         try {
@@ -514,11 +512,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         } catch {}
       }
       if (!s) {
-        setTimeout(() => beep(900, 180), 120);
         if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 250);
         return;
       }
-      s.cancel();
       const u = new SpeechSynthesisUtterance(text);
       u.lang = 'nb-NO';
       u.rate = 0.92;
@@ -552,21 +548,58 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         pickVoice();
         s.speak(u);
       }
+      let started = false;
+      const ack = () => {
+        beep(880, 90);
+        setTimeout(() => beep(1040, 90), 120);
+        setTimeout(() => beep(1320, 110), 260);
+      };
+      const startWatch = setTimeout(() => {
+        if (!started) ack();
+      }, 1200);
       const safety = setTimeout(() => {
+        clearTimeout(startWatch);
         if (wasListening) { try { resumeListening(); } catch {} }
       }, 3000);
+      u.onstart = () => {
+        started = true;
+        clearTimeout(startWatch);
+      };
       u.onend = () => {
         clearTimeout(safety);
+        clearTimeout(startWatch);
         if (wasListening) {
           setTimeout(() => { try { resumeListening(); } catch {} }, 120);
         }
       };
       u.onerror = () => {
         clearTimeout(safety);
+        clearTimeout(startWatch);
+        ack();
         if (wasListening) {
           setTimeout(() => { try { resumeListening(); } catch {} }, 120);
         }
       };
+
+      try {
+        if (typeof s.resume === 'function') s.resume();
+      } catch {}
+      try {
+        s.cancel();
+      } catch {}
+      const delay = wasListening ? 350 : 0;
+      setTimeout(() => {
+        try {
+          s.speak(u);
+        } catch {
+          clearTimeout(safety);
+          clearTimeout(startWatch);
+          ack();
+          if (wasListening) {
+            setTimeout(() => { try { resumeListening(); } catch {} }, 120);
+          }
+        }
+      }, delay);
     } catch {}
   };
   useEffect(() => {
