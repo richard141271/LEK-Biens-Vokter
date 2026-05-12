@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, MapPin, Warehouse, Store, Truck, LogOut, Box, Printer, CheckSquare, Square, X, Mic, MicOff } from 'lucide-react';
+import { Plus, MapPin, Warehouse, Store, Truck, LogOut, Box, Printer, CheckSquare, Square, X, Download, Mic, MicOff } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
@@ -11,7 +11,6 @@ import { getDistanceFromLatLonInM } from '@/utils/geo';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 
 const ACTIVE_OWNER_KEY = 'lek_active_owner_id';
-const VOICE_PRIMED_KEY = 'lek_voice_primed';
 
 export default function ApiariesPage() {
   const [apiaries, setApiaries] = useState<any[]>([]);
@@ -27,7 +26,6 @@ export default function ApiariesPage() {
   const [voiceStep, setVoiceStep] = useState<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
   const [selectedVoiceApiary, setSelectedVoiceApiary] = useState<any | null>(null);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(true);
-  const [isVoicePrimed, setIsVoicePrimed] = useState<boolean>(false);
   
   // Offline Download State
   const [isDownloading, setIsDownloading] = useState(false);
@@ -48,11 +46,9 @@ export default function ApiariesPage() {
   const lastPromptAtRef = useRef<number>(0);
   const isListeningRef = useRef<boolean>(false);
   const isVoiceEnabledRef = useRef<boolean>(true);
-  const isVoicePrimedRef = useRef<boolean>(false);
   const prevVoiceStepRef = useRef<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
   const apiariesRef = useRef<any[]>([]);
   const ttsSafetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const voiceInsideRef = useRef(false);
 
   useEffect(() => {
     fetchData();
@@ -63,14 +59,6 @@ export default function ApiariesPage() {
     try {
       const raw = window.localStorage.getItem('lek_voice_enabled');
       if (raw === '0') setIsVoiceEnabled(false);
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const raw = window.localStorage.getItem(VOICE_PRIMED_KEY);
-      if (raw === '1') setIsVoicePrimed(true);
     } catch {}
   }, []);
 
@@ -91,14 +79,6 @@ export default function ApiariesPage() {
       }
     }
   }, [isVoiceEnabled]);
-
-  useEffect(() => {
-    isVoicePrimedRef.current = isVoicePrimed;
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(VOICE_PRIMED_KEY, isVoicePrimed ? '1' : '0');
-    } catch {}
-  }, [isVoicePrimed]);
 
   useEffect(() => {
     voiceStepRef.current = voiceStep;
@@ -151,8 +131,10 @@ export default function ApiariesPage() {
       .trim();
 
   const formatApiaryNumber = (raw: string, type?: string) => {
-    const s = String(raw || '').trim();
-    return s ? s.split('.')[0] : '';
+    const s = String(raw || '');
+    const t = String(type || '').toLowerCase();
+    if (t === 'bil' || s.toUpperCase().startsWith('BIL-')) return s.split('.')[0];
+    return s;
   };
 
   const extractHiveDigits = (t: string): string | null => {
@@ -268,23 +250,11 @@ export default function ApiariesPage() {
         return;
       }
 
-      router.push(`/hives/${match.id}/new-inspection?autoVoice=1&returnTo=${encodeURIComponent(`/apiaries/${apiary.id}`)}`);
+      router.push(`/hives/${match.id}/new-inspection?autoVoice=1`);
     }
   }, [router]);
 
-  const { isListening, startListening, stopListening, pauseListening, resumeListening, isSupported, lastError } = useVoiceRecognition(handleVoice);
-
-  useEffect(() => {
-    const err = String(lastError || '').trim().toLowerCase();
-    if (!err) return;
-    if (err === 'not-allowed' || err === 'service-not-allowed') {
-      setVoiceInfo('Talestyring er blokkert. Gi mikrofon-tilgang i nettleserens innstillinger og prøv igjen.');
-    }
-    if (err === 'interaction-required') {
-      setVoiceInfo('Trykk mikrofon-knappen én gang for å aktivere talestyring (iPhone/Safari krever ofte dette).');
-      try { stopListening(); } catch {}
-    }
-  }, [lastError]);
+  const { isListening, startListening, stopListening, pauseListening, resumeListening, isSupported } = useVoiceRecognition(handleVoice);
 
   useEffect(() => {
     isListeningRef.current = isListening;
@@ -357,6 +327,9 @@ export default function ApiariesPage() {
       }
       return;
     }
+    if (isSupported && !isListeningRef.current) {
+      try { startListening(); } catch {}
+    }
     if (!navigator?.geolocation) {
       setVoiceInfo('GPS er ikke tilgjengelig på denne enheten.');
       return;
@@ -381,20 +354,14 @@ export default function ApiariesPage() {
         if (!best) return;
 
         const dist = Math.round(best.distance);
-        const inside = best.distance <= 5;
-        const outside = best.distance >= 8;
+        const inside = best.distance <= 20;
+        const outside = best.distance >= 35;
 
         if (inside) {
-          const entering = !voiceInsideRef.current;
-          voiceInsideRef.current = true;
           setNearApiary(best.apiary);
-          if (voiceStepRef.current === 'idle' || voiceStepRef.current === 'armed') {
-            setSelectedVoiceApiary(best.apiary);
-            setVoiceStep('awaiting_hive');
-            setVoiceInfo(`Du er i ${best.apiary.name} (${dist} m). Si kube nummer (f.eks. 101).`);
-          } else {
-            setVoiceInfo(`Du er i ${best.apiary.name} (${dist} m). Si kube nummer (f.eks. 101).`);
-          }
+          if (voiceStepRef.current === 'idle') setVoiceStep('armed');
+
+          setVoiceInfo(`Nær ${best.apiary.name} (${dist} m). Si "start inspeksjon".`);
 
           const now = Date.now();
           const shouldPrompt =
@@ -403,32 +370,21 @@ export default function ApiariesPage() {
           if (shouldPrompt) {
             lastPromptApiaryIdRef.current = best.apiary.id;
             lastPromptAtRef.current = now;
-            speak(`Du er i ${best.apiary.name}. Si kube nummer.`);
+            speak(`Du er nær ${best.apiary.name}. Si start inspeksjon.`);
           }
 
-          if (entering) {
-            if (isSupported) {
-              if (!isVoicePrimedRef.current) {
-                setVoiceInfo('Trykk mikrofon-knappen én gang for å aktivere talestyring.');
-              } else {
-                try { startListening(); } catch {}
-              }
-            }
+          if (isSupported && !isListeningRef.current) {
+            try { startListening(); } catch {}
           }
         } else if (outside) {
-          if (voiceInsideRef.current) {
-            voiceInsideRef.current = false;
+          if (nearApiaryRef.current?.id) {
             setNearApiary(null);
-            if (voiceStepRef.current !== 'idle') setVoiceStep('idle');
-            setSelectedVoiceApiary(null);
-            setVoiceInfo('Utenfor bigård. Talestyring er ikke aktiv.');
-            if (isListeningRef.current) {
-              try { stopListening(); } catch {}
-            }
+            if (voiceStepRef.current === 'awaiting_hive') setVoiceStep('armed');
+            setVoiceInfo('Gå nær en bigård for å starte inspeksjon med tale.');
           }
         } else {
           if (voiceStepRef.current === 'idle') {
-            setVoiceInfo(`Nærmeste bigård: ${best.apiary.name} (${dist} m). Gå nærmere (5 m) for talestyrt inspeksjon.`);
+            setVoiceInfo(`Nærmeste bigård: ${best.apiary.name} (${dist} m).`);
           }
         }
       },
@@ -439,7 +395,6 @@ export default function ApiariesPage() {
     );
 
     return () => {
-      voiceInsideRef.current = false;
       try { navigator.geolocation.clearWatch(watchId); } catch {}
     };
   }, [apiariesWithCoords, isSelectionMode, isSupported, isVoiceEnabled, speak, startListening, stopListening]);
@@ -945,6 +900,32 @@ export default function ApiariesPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {profile?.role !== 'tenant' && (
+            <button
+              onClick={handleOfflineDownload}
+              disabled={isDownloading}
+              className={`p-2 rounded-full transition-all ${
+                isDownloading
+                  ? 'bg-blue-500 text-white ring-4 ring-blue-200'
+                  : 'bg-white text-gray-600 border border-gray-200 shadow-sm hover:text-blue-600 hover:bg-blue-50'
+              }`}
+              title="Last ned for offline bruk (v1.5)"
+            >
+              {isDownloading ? (
+                <span className="text-[10px] font-bold">{downloadProgress}%</span>
+              ) : (
+                <div className="relative">
+                  <Download className="w-5 h-5" />
+                  <span
+                    className={`absolute -top-1 -right-1 w-2 h-2 rounded-full ${
+                      offlineReady || isServiceWorkerControlling ? 'bg-green-500' : 'bg-yellow-500'
+                    }`}
+                  ></span>
+                </div>
+              )}
+            </button>
+          )}
+
           <button
             onClick={() => {
               setIsSelectionMode(!isSelectionMode);
@@ -1129,20 +1110,11 @@ export default function ApiariesPage() {
                 setIsVoiceEnabled(false);
               } else {
                 setIsVoiceEnabled(true);
-                setIsVoicePrimed(true);
                 try { startListening(); } catch {}
-                const apiary = nearApiaryRef.current;
-                if (apiary) {
-                  setSelectedVoiceApiary(apiary);
-                  setVoiceStep('awaiting_hive');
-                  setVoiceInfo(`Du er i ${apiary.name}. Si kube nummer (f.eks. 101).`);
-                  speak(`Du er i ${apiary.name}. Si kube nummer.`);
-                } else {
-                  setVoiceStep('armed');
-                  setSelectedVoiceApiary(null);
-                  setVoiceInfo('Gå nær en bigård (5 meter) og si kube nummer.');
-                  speak('Gå nær en bigård og si kube nummer.');
-                }
+                setVoiceStep('armed');
+                setSelectedVoiceApiary(null);
+                setVoiceInfo('Si "start inspeksjon".');
+                speak('Si start inspeksjon.');
               }
             }}
             className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 ${

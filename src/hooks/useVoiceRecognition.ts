@@ -3,7 +3,6 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 export function useVoiceRecognition(onResult: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
-  const [lastError, setLastError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const onResultRef = useRef(onResult);
   const keepAliveRef = useRef(false);
@@ -15,8 +14,6 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
   const lastStopAtRef = useRef<number>(0);
   const backoffMsRef = useRef<number>(220);
   const safeStartRef = useRef<(() => void) | null>(null);
-  const quickEndCountRef = useRef<number>(0);
-  const quickEndWindowStartRef = useRef<number>(0);
 
   useEffect(() => {
     onResultRef.current = onResult;
@@ -176,23 +173,6 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
                 const sinceStart = Date.now() - lastStartAtRef.current;
                 if (keepAliveRef.current && !pausedRef.current) {
                   if (sinceStart > 0 && sinceStart < 900) {
-                    const now = Date.now();
-                    if (!quickEndWindowStartRef.current || now - quickEndWindowStartRef.current > 12_000) {
-                      quickEndWindowStartRef.current = now;
-                      quickEndCountRef.current = 1;
-                    } else {
-                      quickEndCountRef.current += 1;
-                    }
-                    if (quickEndCountRef.current >= 5) {
-                      keepAliveRef.current = false;
-                      setLastError('interaction-required');
-                      return;
-                    }
-                  } else {
-                    quickEndWindowStartRef.current = 0;
-                    quickEndCountRef.current = 0;
-                  }
-                  if (sinceStart > 0 && sinceStart < 900) {
                     backoffMsRef.current = Math.min(Math.max(backoffMsRef.current * 1.6, 400), 2200);
                   } else {
                     backoffMsRef.current = 220;
@@ -203,30 +183,14 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
 
             recognition.onerror = (event: any) => {
                 console.error("Speech recognition error", event.error);
-                setLastError(String(event?.error || 'unknown'));
                 startingRef.current = false;
                 listeningRef.current = false;
                 setIsListening(false);
                 const err = String(event?.error || '').toLowerCase();
-                if (err === 'not-allowed' || err === 'service-not-allowed') {
-                  keepAliveRef.current = false;
-                  return;
-                }
+                if (err === 'not-allowed' || err === 'service-not-allowed') return;
                 if (err === 'aborted') return;
                 if (err === 'no-speech' || err === 'audio-capture') {
                   backoffMsRef.current = Math.min(Math.max(backoffMsRef.current * 1.4, 800), 2600);
-                  const now = Date.now();
-                  if (!quickEndWindowStartRef.current || now - quickEndWindowStartRef.current > 12_000) {
-                    quickEndWindowStartRef.current = now;
-                    quickEndCountRef.current = 1;
-                  } else {
-                    quickEndCountRef.current += 1;
-                  }
-                  if (quickEndCountRef.current >= 5) {
-                    keepAliveRef.current = false;
-                    setLastError('interaction-required');
-                    return;
-                  }
                   scheduleRestart(900);
                   return;
                 }
@@ -247,8 +211,6 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
       pausedRef.current = false;
       listeningRef.current = false;
       startingRef.current = false;
-      quickEndWindowStartRef.current = 0;
-      quickEndCountRef.current = 0;
       if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
       restartTimerRef.current = null;
       try {
@@ -272,9 +234,6 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
       clearTimeout(restartTimerRef.current);
       restartTimerRef.current = null;
     }
-    setLastError(null);
-    quickEndWindowStartRef.current = 0;
-    quickEndCountRef.current = 0;
     keepAliveRef.current = true;
     pausedRef.current = false;
     backoffMsRef.current = 220;
@@ -334,7 +293,6 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
       clearTimeout(restartTimerRef.current);
       restartTimerRef.current = null;
     }
-    setLastError(null);
     keepAliveRef.current = true;
     pausedRef.current = false;
     safeStartRef.current?.();
@@ -350,5 +308,5 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
       }
   }, [isListening, startListening, stopListening]);
 
-  return { isListening, startListening, stopListening, pauseListening, resumeListening, toggleListening, isSupported, lastError };
+  return { isListening, startListening, stopListening, pauseListening, resumeListening, toggleListening, isSupported };
 }

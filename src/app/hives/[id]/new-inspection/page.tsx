@@ -9,7 +9,6 @@ import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, Image as ImageIcon, X, Mic, MicOff, Camera } from 'lucide-react';
 import { useOffline } from '@/context/OfflineContext';
-import { getDistanceFromLatLonInM } from '@/utils/geo';
 
 export default function NewInspectionPage({ params }: { params: { id: string } }) {
   const [hive, setHive] = useState<any>(null);
@@ -18,7 +17,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [submitting, setSubmitting] = useState(false);
   const searchParams = useSearchParams();
   const autoVoice = searchParams.get('autoVoice');
-  const shouldAutoVoice = autoVoice === '1' || autoVoice === 'true';
   const isDemoParam = searchParams.get('demo') === '1';
   const [isDemoActive, setIsDemoActive] = useState(isDemoParam);
   const [handsfreeReady, setHandsfreeReady] = useState(false);
@@ -40,11 +38,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [lastCommand, setLastCommand] = useState<string | null>(null);
   const [notesActive, setNotesActive] = useState(false);
   const [history, setHistory] = useState<Array<{ type: string; prev: any }>>([]);
-  const dirtyRef = useRef(false);
-  const autoExitSavedRef = useRef(false);
-  const insideApiaryRef = useRef<boolean | null>(null);
-  const apiaryCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
-  const submitInspectionRef = useRef<(opts?: { skipGpsConfirm?: boolean }) => Promise<void>>(async () => {});
   useEffect(() => { loadAliases(); }, []);
 
   // Camera State
@@ -294,54 +287,48 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       // Update State based on parsed result
       if (parsed.queenSeen !== undefined) {
           setHistory(prev => [...prev, { type: 'queenSeen', prev: queenSeen }]);
-          setQueenSeen(parsed.queenSeen ? 'ja' : 'nei');
+          setQueenSeen(parsed.queenSeen);
           feedback.push(parsed.queenSeen ? 'Dronning sett' : 'Ingen dronning');
       }
 
       if (parsed.queenColor) {
           setHistory(prev => [...prev, { type: 'queenColor', prev: queenColor }]);
-          markTouched('queenColor');
           setQueenColor(parsed.queenColor);
           feedback.push(`Dronningfarge: ${parsed.queenColor}`);
       }
 
       if (parsed.queenYear) {
           setHistory(prev => [...prev, { type: 'queenYear', prev: queenYear }]);
-          markTouched('queenYear');
           setQueenYear(parsed.queenYear);
           feedback.push(`Årgang: ${parsed.queenYear}`);
       }
 
       if (parsed.eggsSeen !== undefined) {
           setHistory(prev => [...prev, { type: 'eggsSeen', prev: eggsSeen }]);
-          setEggsSeen(parsed.eggsSeen ? 'ja' : 'nei');
+          setEggsSeen(parsed.eggsSeen);
           feedback.push(parsed.eggsSeen ? 'Egg sett' : 'Ingen egg');
       }
 
       if (parsed.honeyStores) {
           setHistory(prev => [...prev, { type: 'honeyStores', prev: honeyStores }]);
-          markTouched('honeyStores');
           setHoneyStores(parsed.honeyStores);
           feedback.push(`Honning: ${parsed.honeyStores}`);
       }
 
       if (parsed.temperament) {
           setHistory(prev => [...prev, { type: 'temperament', prev: temperament }]);
-          markTouched('temperament');
           setTemperament(parsed.temperament);
           feedback.push(`Gemytt: ${parsed.temperament}`);
       }
 
       if (parsed.broodCondition) {
           setHistory(prev => [...prev, { type: 'broodCondition', prev: broodCondition }]);
-          markTouched('broodCondition');
           setBroodCondition(parsed.broodCondition);
           feedback.push(`Yngel: ${parsed.broodCondition}`);
       }
 
       if (parsed.status) {
           setHistory(prev => [...prev, { type: 'status', prev: status }]);
-          markTouched('status');
           setStatus(parsed.status);
           feedback.push(`Status: ${parsed.status}`);
       }
@@ -360,7 +347,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       // Show feedback if we understood something
       if (feedback.length > 0) {
-          dirtyRef.current = true;
           setLastCommand(feedback.join(', '));
           speak(feedback.join('. '));
           // Clear feedback after 4s
@@ -374,30 +360,18 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
   };
 
-  const { isListening, startListening, stopListening, pauseListening, resumeListening, toggleListening, isSupported, lastError } = useVoiceRecognition(handleVoiceCommand);
+  const { isListening, startListening, stopListening, pauseListening, resumeListening, toggleListening, isSupported } = useVoiceRecognition(handleVoiceCommand);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(new Date().toTimeString().split(' ')[0].substring(0, 5));
-  const [queenSeen, setQueenSeen] = useState<'' | 'ja' | 'nei'>('');
+  const [queenSeen, setQueenSeen] = useState(false);
   const [queenColor, setQueenColor] = useState<string>('');
   const [queenYear, setQueenYear] = useState<string>('');
-  const [eggsSeen, setEggsSeen] = useState<'' | 'ja' | 'nei'>('');
+  const [eggsSeen, setEggsSeen] = useState(false);
   const [broodCondition, setBroodCondition] = useState('normal');
   const [honeyStores, setHoneyStores] = useState('middels');
   const [temperament, setTemperament] = useState('rolig');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('OK');
-  const prefillDoneRef = useRef(false);
-  const touchedRef = useRef({
-    queenColor: false,
-    queenYear: false,
-    broodCondition: false,
-    honeyStores: false,
-    temperament: false,
-    status: false,
-  });
-  const markTouched = (key: keyof typeof touchedRef.current) => {
-    touchedRef.current[key] = true;
-  };
   
   // Weather State
   const [weather, setWeather] = useState('');
@@ -415,47 +389,16 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   const supabase = createClient();
   const router = useRouter();
-  const voiceErrorAlertedRef = useRef(false);
-
-  useEffect(() => {
-    const err = String(lastError || '').trim().toLowerCase();
-    if (!err) return;
-    if (voiceErrorAlertedRef.current) return;
-    if (err === 'not-allowed' || err === 'service-not-allowed') {
-      voiceErrorAlertedRef.current = true;
-      alert('Talestyring er blokkert av nettleseren. Sjekk mikrofon-tillatelse for LEK-Biens Vokter og prøv igjen.');
-    }
-    if (err === 'interaction-required') {
-      voiceErrorAlertedRef.current = true;
-      alert('Trykk mikrofon-knappen én gang for å aktivere talestyring (iPhone/Safari krever ofte dette).');
-    }
-  }, [lastError]);
 
   useEffect(() => {
     try {
       if (typeof window === 'undefined') return;
-      if (shouldAutoVoice) {
-        setHandsfreeReady(true);
-        return;
-      }
       setHandsfreeReady(localStorage.getItem('handsfree_setup_done') === '1');
     } catch {}
-  }, [shouldAutoVoice]);
+  }, []);
 
   useEffect(() => {
     fetchHiveAndWeather();
-  }, [params.id]);
-
-  useEffect(() => {
-    prefillDoneRef.current = false;
-    touchedRef.current = {
-      queenColor: false,
-      queenYear: false,
-      broodCondition: false,
-      honeyStores: false,
-      temperament: false,
-      status: false,
-    };
   }, [params.id]);
 
   useEffect(() => {
@@ -521,6 +464,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const speak = (text: string) => {
     try {
       if (typeof window === 'undefined') return;
+      // Short cue to ensure audio context is unlocked on iOS
+      beep(1200, 260);
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       const wasListening = isListening;
       // Pause lytte-modus mens vi snakker; bruk midlertidig pause
@@ -539,9 +484,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       u.rate = 0.92;
       u.pitch = 1.0;
       u.volume = 1.0;
-      u.onstart = () => {
-        try { beep(1200, 260); } catch {}
-      };
       // Velg norsk stemme hvis tilgjengelig
       const pickVoice = () => {
         try {
@@ -615,14 +557,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   // Sikre kontinuerlig lytting gjennom hele inspeksjonen
   useEffect(() => {
-    if (!handsfreeReady && !shouldAutoVoice) return;
-    if (!isSupported) return;
+    if (!handsfreeReady) return;
     try { startListening(); } catch {}
-
-    return () => {
-      try { stopListening(); } catch {}
-    };
-  }, [handsfreeReady, isSupported, shouldAutoVoice, startListening, stopListening]);
+    return () => { try { stopListening(); } catch {} };
+  }, [handsfreeReady]);
 
 
   const fetchHiveAndWeather = async () => {
@@ -647,43 +585,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           const parsed = JSON.parse(offlineData);
           const foundHive = parsed.hives?.find((h: any) => h.id === params.id);
           if (foundHive) setHive(foundHive);
-          if (!prefillDoneRef.current) {
-            const list = Array.isArray(parsed?.inspections) ? parsed.inspections : [];
-            const mine = list.filter((i: any) => String(i?.hive_id || '') === params.id);
-            mine.sort((a: any, b: any) => {
-              const ad = String(a?.inspection_date || '');
-              const bd = String(b?.inspection_date || '');
-              if (ad !== bd) return bd.localeCompare(ad);
-              const at = String(a?.time || '');
-              const bt = String(b?.time || '');
-              return bt.localeCompare(at);
-            });
-            const last = mine[0] || null;
-            if (last) {
-              const lastWithQueenColor = mine.find((i: any) => {
-                const v = i?.queen_color;
-                return v != null && String(v).trim();
-              });
-              const lastWithQueenYear = mine.find((i: any) => {
-                const v = i?.queen_year;
-                return v != null && String(v).trim();
-              });
-              const qc = lastWithQueenColor?.queen_color ? String(lastWithQueenColor.queen_color) : '';
-              const qy = lastWithQueenYear?.queen_year != null && String(lastWithQueenYear.queen_year).trim() ? String(lastWithQueenYear.queen_year) : '';
-              const bc = String(last?.brood_condition || '');
-              const hs = String(last?.honey_stores || '');
-              const tp = String(last?.temperament || '');
-              const st = String(last?.status || '');
-
-              if (!touchedRef.current.queenColor && qc) setQueenColor(qc);
-              if (!touchedRef.current.queenYear && qy) setQueenYear(qy);
-              if (!touchedRef.current.broodCondition && bc && ['darlig', 'normal', 'bra'].includes(bc)) setBroodCondition(bc);
-              if (!touchedRef.current.honeyStores && hs && ['lite', 'middels', 'mye'].includes(hs)) setHoneyStores(hs);
-              if (!touchedRef.current.temperament && tp && ['rolig', 'urolig', 'aggressiv'].includes(tp)) setTemperament(tp);
-              if (!touchedRef.current.status && st) setStatus(st);
-              prefillDoneRef.current = true;
-            }
-          }
           if (isOffline && !foundHive) {
             setLoadError('Kuben finnes ikke i offline-cache. Koble til nett eller last ned data for offline først.');
             return;
@@ -704,84 +605,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           9000
         );
 
-        if (hiveRes?.data) {
-          const hiveData = hiveRes.data;
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user?.id) {
-            router.push('/login');
-            return;
-          }
-          const ownerId = String(hiveData?.user_id || '').trim();
-          if (ownerId && ownerId !== user.id) {
-            const { data: access } = await supabase
-              .from('account_access')
-              .select('owner_id, member_id')
-              .eq('owner_id', ownerId)
-              .eq('member_id', user.id)
-              .maybeSingle();
-
-            if (!access) {
-              setLoadError('Ingen tilgang til denne kuben');
-              return;
-            }
-          }
-          setHive(hiveData);
-
-          if (!prefillDoneRef.current) {
-            const { data: last, error: lastError } = await supabase
-              .from('inspections')
-              .select('queen_color, queen_year, brood_condition, honey_stores, temperament, status, inspection_date, time')
-              .eq('hive_id', params.id)
-              .order('inspection_date', { ascending: false })
-              .order('time', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-
-            if (!lastError && last) {
-              let qc = last?.queen_color ? String(last.queen_color) : '';
-              let qy = last?.queen_year != null && String(last.queen_year).trim() ? String(last.queen_year) : '';
-              const bc = String(last?.brood_condition || '');
-              const hs = String(last?.honey_stores || '');
-              const tp = String(last?.temperament || '');
-              const st = String(last?.status || '');
-
-              if (!touchedRef.current.queenColor && !qc) {
-                const { data: prev } = await supabase
-                  .from('inspections')
-                  .select('queen_color, inspection_date, time')
-                  .eq('hive_id', params.id)
-                  .not('queen_color', 'is', null)
-                  .neq('queen_color', '')
-                  .order('inspection_date', { ascending: false })
-                  .order('time', { ascending: false })
-                  .limit(1)
-                  .maybeSingle();
-                if (prev?.queen_color) qc = String(prev.queen_color);
-              }
-
-              if (!touchedRef.current.queenYear && !qy) {
-                const { data: prev } = await supabase
-                  .from('inspections')
-                  .select('queen_year, inspection_date, time')
-                  .eq('hive_id', params.id)
-                  .not('queen_year', 'is', null)
-                  .order('inspection_date', { ascending: false })
-                  .order('time', { ascending: false })
-                  .limit(1)
-                  .maybeSingle();
-                if (prev?.queen_year != null && String(prev.queen_year).trim()) qy = String(prev.queen_year);
-              }
-
-              if (!touchedRef.current.queenColor && qc) setQueenColor(qc);
-              if (!touchedRef.current.queenYear && qy) setQueenYear(qy);
-              if (!touchedRef.current.broodCondition && bc && ['darlig', 'normal', 'bra'].includes(bc)) setBroodCondition(bc);
-              if (!touchedRef.current.honeyStores && hs && ['lite', 'middels', 'mye'].includes(hs)) setHoneyStores(hs);
-              if (!touchedRef.current.temperament && tp && ['rolig', 'urolig', 'aggressiv'].includes(tp)) setTemperament(tp);
-              if (!touchedRef.current.status && st) setStatus(st);
-              prefillDoneRef.current = true;
-            }
-          }
-        }
+        if (hiveRes?.data) setHive(hiveRes.data);
       }
 
       if (handsfreeReady && navigator.geolocation && !isOffline) {
@@ -906,162 +730,15 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     return msg.includes('bucket not found') || msg.includes('bucket') && msg.includes('not found');
   };
 
-  const confirmGpsMismatchIfNeeded = async () => {
-    try {
-      if (typeof window === 'undefined') return true;
-      if (!navigator.geolocation) return true;
-
-      const apiaryId = String((hive as any)?.apiary_id || '').trim();
-      if (!apiaryId) return true;
-
-      const getApiaryCoords = async () => {
-        const { data } = await supabase
-          .from('apiaries')
-          .select('id, name, location, latitude, longitude, coordinates')
-          .eq('id', apiaryId)
-          .maybeSingle();
-
-        const lat = typeof (data as any)?.latitude === 'number' ? (data as any).latitude : null;
-        const lon = typeof (data as any)?.longitude === 'number' ? (data as any).longitude : null;
-        if (lat != null && lon != null && Number.isFinite(lat) && Number.isFinite(lon)) {
-          return { lat, lon, name: String((data as any)?.name || '').trim(), location: String((data as any)?.location || '').trim() };
-        }
-
-        const raw = String((data as any)?.coordinates || '').trim();
-        if (raw) {
-          const matches = raw.match(/-?\d+(?:\.\d+)?/g);
-          if (matches && matches.length >= 2) {
-            const pLat = Number(matches[0]);
-            const pLon = Number(matches[1]);
-            if (Number.isFinite(pLat) && Number.isFinite(pLon)) {
-              return { lat: pLat, lon: pLon, name: String((data as any)?.name || '').trim(), location: String((data as any)?.location || '').trim() };
-            }
-          }
-        }
-
-        return null;
-      };
-
-      const apiary = await getApiaryCoords();
-      if (!apiary) return true;
-
-      const getCachedCoords = () => {
-        if (coordinates && Number.isFinite(coordinates.lat) && Number.isFinite(coordinates.lng)) {
-          return { lat: coordinates.lat, lon: coordinates.lng };
-        }
-        try {
-          const w = window.localStorage.getItem('lek_last_weather_coords');
-          if (w) {
-            const parsed = JSON.parse(w);
-            const lat = Number(parsed?.lat);
-            const lon = Number(parsed?.lon);
-            if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon };
-          }
-        } catch {}
-        try {
-          const m = window.localStorage.getItem('lek_last_map_coords');
-          if (m) {
-            const parsed = JSON.parse(m);
-            const lat = Number(parsed?.lat);
-            const lon = Number(parsed?.lng);
-            if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon };
-          }
-        } catch {}
-        return null;
-      };
-
-      const cached = getCachedCoords();
-      const current = cached
-        ? cached
-        : await new Promise<{ lat: number; lon: number } | null>((resolve) => {
-            let done = false;
-            const timeout = setTimeout(() => {
-              if (done) return;
-              done = true;
-              resolve(null);
-            }, 7000);
-            navigator.geolocation.getCurrentPosition(
-              (pos) => {
-                if (done) return;
-                done = true;
-                clearTimeout(timeout);
-                const lat = Number(pos.coords.latitude);
-                const lon = Number(pos.coords.longitude);
-                if (!Number.isFinite(lat) || !Number.isFinite(lon)) resolve(null);
-                else resolve({ lat, lon });
-              },
-              () => {
-                if (done) return;
-                done = true;
-                clearTimeout(timeout);
-                resolve(null);
-              },
-              { enableHighAccuracy: true, maximumAge: 2000, timeout: 6500 }
-            );
-          });
-
-      if (!current) return true;
-
-      const distanceM = getDistanceFromLatLonInM(current.lat, current.lon, apiary.lat, apiary.lon);
-      if (!Number.isFinite(distanceM)) return true;
-
-      const thresholdM = 200;
-      if (distanceM <= thresholdM) return true;
-
-      const title = apiary.name || apiary.location || 'bigård';
-      const rounded = Math.round(distanceM / 10) * 10;
-      const ok = window.confirm(
-        `Du inspiserer nå en bikube som tilhører ${title}, men GPS viser at du er ca. ${rounded} meter unna.\n\nStemmer dette?`
-      );
-      return ok;
-    } catch {
-      return true;
-    }
-  };
-
-  const submitInspection = async (opts?: { skipGpsConfirm?: boolean }) => {
-    const queenSeenValue = queenSeen === 'ja' ? true : queenSeen === 'nei' ? false : null;
-    const eggsSeenValue = eggsSeen === 'ja' ? true : eggsSeen === 'nei' ? false : null;
-    if (!opts?.skipGpsConfirm) {
-      const okLocation = await confirmGpsMismatchIfNeeded();
-      if (!okLocation) return;
-    }
+  const submitInspection = async () => {
     const opId = crypto.randomUUID();
     setSubmitting(true);
-
-    const safeReturnTo = (value: string | null) => {
-      const v = String(value || '').trim();
-      if (!v) return null;
-      if (!v.startsWith('/') || v.startsWith('//') || v.includes('://')) return null;
-      return v;
-    };
-    const returnTo = safeReturnTo(searchParams?.get('returnTo') || null);
-    const apiaryId = String((hive as any)?.apiary_id || '').trim();
-    const afterSavePath = isDemoActive ? '/hives?demo=1' : (returnTo || (apiaryId ? `/apiaries/${apiaryId}` : '/hives'));
 
     try {
       const allFiles: File[] = [
         ...(selectedImage ? [selectedImage] : []),
         ...(extraImages && extraImages.length > 0 ? extraImages : []),
       ];
-
-      const hiveOwnerId = String((hive as any)?.user_id || '').trim();
-      const user = await getUserWithSessionFallback(supabase);
-      let performedByTag = '';
-      if (user?.id && hiveOwnerId && user.id !== hiveOwnerId) {
-        const { data: me } = await supabase.from('profiles').select('full_name, role').eq('id', user.id).maybeSingle();
-        const role = String((me as any)?.role || '').trim().toLowerCase();
-        const isPrivileged = role === 'admin' || role === 'mattilsynet';
-        if (!isPrivileged && allFiles.length === 0) {
-          alert('Tilgang/Familie/Avløser må ta minst ett bilde per inspeksjon.');
-          return;
-        }
-        const performerName = String((me as any)?.full_name || user.email || '').trim();
-        if (performerName) performedByTag = `[[LEK_UTFORT_AV:${performerName}]]`;
-      }
-
-      const baseNotes =
-        performedByTag ? `${performedByTag}${notes ? `\n${notes}` : ''}` : notes;
 
       // 1. Check Offline Mode
       if (isOffline) {
@@ -1082,14 +759,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               hive_id: params.id,
               inspection_date: date,
               time: time,
-              queen_seen: queenSeenValue,
+              queen_seen: queenSeen,
               queen_color: queenColor || null,
               queen_year: queenYear ? parseInt(queenYear, 10) : null,
-              eggs_seen: eggsSeenValue,
+              eggs_seen: eggsSeen,
               brood_condition: broodCondition,
               honey_stores: honeyStores,
               temperament: temperament,
-              notes: baseNotes,
+              notes: notes,
               status: status, 
               temperature: temperature ? parseFloat(temperature) : null,
               weather: weather,
@@ -1103,10 +780,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         });
         
         alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
-        router.push(afterSavePath);
+        router.push(isDemoActive ? '/hives?demo=1' : '/hives');
         return;
       }
 
+      const user = await getUserWithSessionFallback(supabase);
       if (!user) {
         if (isDemoActive) {
           alert('Demo-modus krever at du er logget inn.');
@@ -1125,14 +803,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               hive_id: params.id,
               inspection_date: date,
               time: time,
-              queen_seen: queenSeenValue,
+              queen_seen: queenSeen,
               queen_color: queenColor || null,
               queen_year: queenYear ? parseInt(queenYear, 10) : null,
-              eggs_seen: eggsSeenValue,
+              eggs_seen: eggsSeen,
               brood_condition: broodCondition,
               honey_stores: honeyStores,
               temperament: temperament,
-              notes: baseNotes,
+              notes: notes,
               status: status,
               temperature: temperature ? parseFloat(temperature) : null,
               weather: weather,
@@ -1146,7 +824,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         });
 
         alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
-        router.push(afterSavePath);
+        router.push(isDemoActive ? '/hives?demo=1' : '/hives');
         return;
       }
 
@@ -1176,9 +854,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         }
 
         const notesWithImages =
-          allPhotos.length > 1
-            ? `${baseNotes}${baseNotes ? '\n' : ''}${allPhotos.slice(1).map((u, i) => `Bilde ${i + 2}: ${u}`).join('\n')}`
-            : baseNotes;
+          allPhotos.length > 1 ? `${notes}\n${allPhotos.slice(1).map((u, i) => `Bilde ${i + 2}: ${u}`).join('\n')}` : notes;
         const details = `Inspeksjon utført. Status: ${status}. Temp: ${temperature}°C. ${notes ? 'Notater lagt til.' : ''}`;
         const res = await fetch('/api/demo/write/inspection', {
           method: 'POST',
@@ -1190,10 +866,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             inspection: {
               inspection_date: date,
               time: time,
-              queen_seen: queenSeenValue,
+              queen_seen: queenSeen,
               queen_color: queenColor || null,
               queen_year: queenYear ? parseInt(queenYear, 10) : null,
-              eggs_seen: eggsSeenValue,
+              eggs_seen: eggsSeen,
               brood_condition: broodCondition,
               honey_stores: honeyStores,
               temperament: temperament,
@@ -1261,20 +937,17 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         .insert({
           id: opId,
           hive_id: params.id,
-          user_id: user.id,
+          user_id: String((hive as any)?.user_id || user.id),
           inspection_date: date,
           time: time,
-          queen_seen: queenSeenValue,
+          queen_seen: queenSeen,
           queen_color: queenColor || null,
           queen_year: queenYear ? parseInt(queenYear, 10) : null,
-          eggs_seen: eggsSeenValue,
+          eggs_seen: eggsSeen,
           brood_condition: broodCondition,
           honey_stores: honeyStores,
           temperament: temperament,
-          notes:
-            allPhotos.length > 1
-              ? `${baseNotes}${baseNotes ? '\n' : ''}${allPhotos.slice(1).map((u, i) => `Bilde ${i + 2}: ${u}`).join('\n')}`
-              : baseNotes,
+          notes: allPhotos.length > 1 ? `${notes}\n${allPhotos.slice(1).map((u, i) => `Bilde ${i + 2}: ${u}`).join('\n')}` : notes,
           status: status, 
           temperature: temperature ? parseFloat(temperature) : null,
           weather: weather,
@@ -1306,51 +979,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       if (logError) throw logError;
 
-      try {
-        const existingRaw = localStorage.getItem('offline_data');
-        const existing = existingRaw ? JSON.parse(existingRaw) : {};
-        const prevInspections = Array.isArray(existing?.inspections) ? existing.inspections : [];
-        const prevHives = Array.isArray(existing?.hives) ? existing.hives : [];
-        const nextInspection = {
-          id: opId,
-          hive_id: params.id,
-          inspection_date: date,
-          time: time,
-          queen_seen: queenSeenValue,
-          queen_color: queenColor || null,
-          queen_year: queenYear ? parseInt(queenYear, 10) : null,
-          eggs_seen: eggsSeenValue,
-          brood_condition: broodCondition,
-          honey_stores: honeyStores,
-          temperament: temperament,
-          notes: allPhotos.length > 1 ? `${notes}\n${allPhotos.slice(1).map((u, i) => `Bilde ${i + 2}: ${u}`).join('\n')}` : notes,
-          status: status,
-          temperature: temperature ? parseFloat(temperature) : null,
-          weather: weather,
-          weather_place: weatherPlace || null,
-          image_url: imageUrl,
-        };
-        const mergedInspections = [nextInspection, ...prevInspections.filter((i: any) => String(i?.id || '') !== opId)];
-        const mergedHives = prevHives.map((h: any) => {
-          if (String(h?.id || '') !== String(params.id)) return h;
-          return {
-            ...h,
-            status: status === 'DØD' ? 'DØD' : 'AKTIV',
-            last_inspection_date: date,
-          };
-        });
-        localStorage.setItem(
-          'offline_data',
-          JSON.stringify({
-            ...existing,
-            inspections: mergedInspections,
-            hives: mergedHives,
-            timestamp: Date.now(),
-          })
-        );
-      } catch {}
-
-      router.push(afterSavePath);
+      router.push('/hives');
     } catch (error: any) {
       try {
         const msg = String(error?.message || '');
@@ -1366,26 +995,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             ...(extraImages && extraImages.length > 0 ? extraImages : []),
           ];
 
-          let fallbackNotes = notes;
-          try {
-            const hiveOwnerId = String((hive as any)?.user_id || '').trim();
-            const u = await getUserWithSessionFallback(supabase);
-            if (u?.id && hiveOwnerId && u.id !== hiveOwnerId) {
-              const { data: me } = await supabase.from('profiles').select('full_name, role').eq('id', u.id).maybeSingle();
-              const role = String((me as any)?.role || '').trim().toLowerCase();
-              const isPrivileged = role === 'admin' || role === 'mattilsynet';
-              if (!isPrivileged && allFiles.length === 0) {
-                alert('Tilgang/Familie/Avløser må ta minst ett bilde per inspeksjon.');
-                return;
-              }
-              const performerName = String((me as any)?.full_name || u.email || '').trim();
-              if (performerName) {
-                const tag = `[[LEK_UTFORT_AV:${performerName}]]`;
-                fallbackNotes = `${tag}${notes ? `\n${notes}` : ''}`;
-              }
-            }
-          } catch {}
-
           await saveInspection({
             id: opId,
             hiveId: params.id,
@@ -1399,14 +1008,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 hive_id: params.id,
                 inspection_date: date,
                 time: time,
-                queen_seen: queenSeenValue,
+                queen_seen: queenSeen,
                 queen_color: queenColor || null,
                 queen_year: queenYear ? parseInt(queenYear, 10) : null,
-                eggs_seen: eggsSeenValue,
+                eggs_seen: eggsSeen,
                 brood_condition: broodCondition,
                 honey_stores: honeyStores,
                 temperament: temperament,
-                notes: fallbackNotes,
+                notes: notes,
                 status: status,
                 temperature: temperature ? parseFloat(temperature) : null,
                 weather: weather,
@@ -1419,7 +1028,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             },
           });
           alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
-          router.push(afterSavePath);
+          router.push('/hives');
           return;
         }
       } catch {}
@@ -1429,103 +1038,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       setSubmitting(false);
     }
   };
-
-  useEffect(() => {
-    submitInspectionRef.current = submitInspection;
-  }, [submitInspection]);
-
-  useEffect(() => {
-    try {
-      if (typeof window === 'undefined') return;
-      if (!navigator.geolocation) return;
-      if (!handsfreeReady && !shouldAutoVoice) return;
-      if (submitting) return;
-
-      const apiaryId = String((hive as any)?.apiary_id || '').trim();
-      if (!apiaryId) return;
-
-      let cancelled = false;
-      const thresholdInM = 5;
-      const thresholdOutM = 8;
-
-      const parseCoords = (value: any): { lat: number; lon: number } | null => {
-        const s = typeof value === 'string' ? value : value ? String(value) : '';
-        if (!s) return null;
-        const matches = s.match(/-?\d+(?:\.\d+)?/g);
-        if (!matches || matches.length < 2) return null;
-        const lat = Number(matches[0]);
-        const lon = Number(matches[1]);
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-        return { lat, lon };
-      };
-
-      const ensureApiaryCoords = async () => {
-        if (apiaryCoordsRef.current) return apiaryCoordsRef.current;
-        const { data } = await supabase
-          .from('apiaries')
-          .select('id, latitude, longitude, coordinates')
-          .eq('id', apiaryId)
-          .maybeSingle();
-        const lat = typeof (data as any)?.latitude === 'number' ? (data as any).latitude : null;
-        const lon = typeof (data as any)?.longitude === 'number' ? (data as any).longitude : null;
-        if (lat != null && lon != null && Number.isFinite(lat) && Number.isFinite(lon)) {
-          apiaryCoordsRef.current = { lat, lon };
-          return apiaryCoordsRef.current;
-        }
-        const parsed = parseCoords((data as any)?.coordinates);
-        if (parsed) {
-          apiaryCoordsRef.current = parsed;
-          return apiaryCoordsRef.current;
-        }
-        return null;
-      };
-
-      let watchId: number | null = null;
-
-      void (async () => {
-        const coords = await ensureApiaryCoords().catch(() => null);
-        if (cancelled) return;
-        if (!coords) return;
-
-        watchId = navigator.geolocation.watchPosition(
-          (pos) => {
-            if (cancelled) return;
-            const curLat = Number(pos.coords.latitude);
-            const curLon = Number(pos.coords.longitude);
-            if (!Number.isFinite(curLat) || !Number.isFinite(curLon)) return;
-
-            const d = getDistanceFromLatLonInM(curLat, curLon, coords.lat, coords.lon);
-            if (!Number.isFinite(d)) return;
-
-            const wasInside = insideApiaryRef.current === true;
-            const isInside = d <= thresholdInM;
-            const isOutside = d >= thresholdOutM;
-
-            if (insideApiaryRef.current === null) insideApiaryRef.current = isInside;
-            if (isInside) insideApiaryRef.current = true;
-
-            if (wasInside && isOutside && !autoExitSavedRef.current && dirtyRef.current) {
-              autoExitSavedRef.current = true;
-              try { stopListening(); } catch {}
-              try { speakRef.current('Du har forlatt bigården. Lagrer inspeksjon.'); } catch {}
-              void submitInspectionRef.current({ skipGpsConfirm: true });
-            }
-          },
-          () => {},
-          { enableHighAccuracy: true, maximumAge: 2000, timeout: 8000 }
-        );
-      })();
-
-      return () => {
-        cancelled = true;
-        try {
-          if (watchId != null) navigator.geolocation.clearWatch(watchId);
-        } catch {}
-      };
-    } catch {
-      return;
-    }
-  }, [handsfreeReady, hive, shouldAutoVoice, submitting, supabase, stopListening]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1593,10 +1105,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
             <button
                 onClick={() => {
-                  if (!isSupported) {
-                    alert('Talestyring støttes ikke på denne enheten/nettleseren.');
-                    return;
-                  }
                   if (!isListening) primeTts(true);
                   toggleListening();
                 }}
@@ -1734,28 +1242,18 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             
             <div className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
               <span className="text-gray-700">Dronning sett?</span>
-              <select
-                value={queenSeen}
-                onChange={(e) => setQueenSeen(e.target.value as any)}
-                className="p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
-              >
-                <option value="">Ikke valgt</option>
-                <option value="ja">Ja</option>
-                <option value="nei">Nei</option>
-              </select>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" checked={queenSeen} onChange={e => setQueenSeen(e.target.checked)} className="sr-only peer" />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-honey-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-honey-500"></div>
+              </label>
             </div>
 
             <div className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
               <span className="text-gray-700">Egg sett?</span>
-              <select
-                value={eggsSeen}
-                onChange={(e) => setEggsSeen(e.target.value as any)}
-                className="p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
-              >
-                <option value="">Ikke valgt</option>
-                <option value="ja">Ja</option>
-                <option value="nei">Nei</option>
-              </select>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" checked={eggsSeen} onChange={e => setEggsSeen(e.target.checked)} className="sr-only peer" />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-honey-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-honey-500"></div>
+              </label>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -1763,10 +1261,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Dronningfarge</label>
                 <select
                   value={queenColor}
-                  onChange={(e) => {
-                    markTouched('queenColor');
-                    setQueenColor(e.target.value);
-                  }}
+                  onChange={(e) => setQueenColor(e.target.value)}
                   className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
                 >
                   <option value="">Ukjent</option>
@@ -1783,10 +1278,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                   type="number"
                   inputMode="numeric"
                   value={queenYear}
-                  onChange={(e) => {
-                    markTouched('queenYear');
-                    setQueenYear(e.target.value);
-                  }}
+                  onChange={(e) => setQueenYear(e.target.value)}
                   placeholder="f.eks. 2025"
                   className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
                 />
@@ -1802,10 +1294,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               <label className="block text-sm font-medium text-gray-700 mb-2">Kubestatus</label>
               <select 
                 value={status} 
-                onChange={(e) => {
-                  markTouched('status');
-                  setStatus(e.target.value);
-                }}
+                onChange={e => setStatus(e.target.value)}
                 className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg font-medium text-gray-900"
               >
                 <option value="OK">OK</option>
@@ -1826,10 +1315,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Yngelleie</label>
                 <select 
                     value={broodCondition} 
-                    onChange={(e) => {
-                      markTouched('broodCondition');
-                      setBroodCondition(e.target.value);
-                    }}
+                    onChange={e => setBroodCondition(e.target.value)}
                     className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
                 >
                     <option value="darlig">Dårlig / Lite</option>
@@ -1842,10 +1328,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fôr</label>
                 <select 
                     value={honeyStores} 
-                    onChange={(e) => {
-                      markTouched('honeyStores');
-                      setHoneyStores(e.target.value);
-                    }}
+                    onChange={e => setHoneyStores(e.target.value)}
                     className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
                 >
                     <option value="lite">Lite</option>
@@ -1859,10 +1342,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Gemytt</label>
               <select 
                 value={temperament} 
-                onChange={(e) => {
-                  markTouched('temperament');
-                  setTemperament(e.target.value);
-                }}
+                onChange={e => setTemperament(e.target.value)}
                 className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
               >
                 <option value="rolig">Rolig</option>
