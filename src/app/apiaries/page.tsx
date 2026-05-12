@@ -252,7 +252,15 @@ export default function ApiariesPage() {
     }
   }, [router]);
 
-  const { isListening, startListening, stopListening, pauseListening, resumeListening, isSupported } = useVoiceRecognition(handleVoice);
+  const { isListening, startListening, stopListening, pauseListening, resumeListening, isSupported, lastError } = useVoiceRecognition(handleVoice);
+
+  useEffect(() => {
+    const err = String(lastError || '').trim().toLowerCase();
+    if (!err) return;
+    if (err === 'not-allowed' || err === 'service-not-allowed') {
+      setVoiceInfo('Talestyring er blokkert. Gi mikrofon-tilgang i nettleserens innstillinger og prøv igjen.');
+    }
+  }, [lastError]);
 
   useEffect(() => {
     isListeningRef.current = isListening;
@@ -325,9 +333,6 @@ export default function ApiariesPage() {
       }
       return;
     }
-    if (isSupported && !isListeningRef.current) {
-      try { startListening(); } catch {}
-    }
     if (!navigator?.geolocation) {
       setVoiceInfo('GPS er ikke tilgjengelig på denne enheten.');
       return;
@@ -352,14 +357,18 @@ export default function ApiariesPage() {
         if (!best) return;
 
         const dist = Math.round(best.distance);
-        const inside = best.distance <= 20;
-        const outside = best.distance >= 35;
+        const inside = best.distance <= 5;
+        const outside = best.distance >= 8;
 
         if (inside) {
           setNearApiary(best.apiary);
-          if (voiceStepRef.current === 'idle') setVoiceStep('armed');
-
-          setVoiceInfo(`Nær ${best.apiary.name} (${dist} m). Si "start inspeksjon".`);
+          if (voiceStepRef.current === 'idle' || voiceStepRef.current === 'armed') {
+            setSelectedVoiceApiary(best.apiary);
+            setVoiceStep('awaiting_hive');
+            setVoiceInfo(`Du er i ${best.apiary.name} (${dist} m). Si kube nummer (f.eks. 101).`);
+          } else {
+            setVoiceInfo(`Du er i ${best.apiary.name} (${dist} m). Si kube nummer (f.eks. 101).`);
+          }
 
           const now = Date.now();
           const shouldPrompt =
@@ -368,7 +377,7 @@ export default function ApiariesPage() {
           if (shouldPrompt) {
             lastPromptApiaryIdRef.current = best.apiary.id;
             lastPromptAtRef.current = now;
-            speak(`Du er nær ${best.apiary.name}. Si start inspeksjon.`);
+            speak(`Du er i ${best.apiary.name}. Si kube nummer.`);
           }
 
           if (isSupported && !isListeningRef.current) {
@@ -377,12 +386,16 @@ export default function ApiariesPage() {
         } else if (outside) {
           if (nearApiaryRef.current?.id) {
             setNearApiary(null);
-            if (voiceStepRef.current === 'awaiting_hive') setVoiceStep('armed');
-            setVoiceInfo('Gå nær en bigård for å starte inspeksjon med tale.');
+            if (voiceStepRef.current !== 'idle') setVoiceStep('idle');
+            setSelectedVoiceApiary(null);
+            setVoiceInfo('Utenfor bigård. Talestyring er ikke aktiv.');
+            if (isListeningRef.current) {
+              try { stopListening(); } catch {}
+            }
           }
         } else {
           if (voiceStepRef.current === 'idle') {
-            setVoiceInfo(`Nærmeste bigård: ${best.apiary.name} (${dist} m).`);
+            setVoiceInfo(`Nærmeste bigård: ${best.apiary.name} (${dist} m). Gå nærmere (5 m) for talestyrt inspeksjon.`);
           }
         }
       },
@@ -1083,10 +1096,18 @@ export default function ApiariesPage() {
               } else {
                 setIsVoiceEnabled(true);
                 try { startListening(); } catch {}
-                setVoiceStep('armed');
-                setSelectedVoiceApiary(null);
-                setVoiceInfo('Si "start inspeksjon".');
-                speak('Si start inspeksjon.');
+                const apiary = nearApiaryRef.current;
+                if (apiary) {
+                  setSelectedVoiceApiary(apiary);
+                  setVoiceStep('awaiting_hive');
+                  setVoiceInfo(`Du er i ${apiary.name}. Si kube nummer (f.eks. 101).`);
+                  speak(`Du er i ${apiary.name}. Si kube nummer.`);
+                } else {
+                  setVoiceStep('armed');
+                  setSelectedVoiceApiary(null);
+                  setVoiceInfo('Gå nær en bigård (5 meter) og si kube nummer.');
+                  speak('Gå nær en bigård og si kube nummer.');
+                }
               }
             }}
             className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 ${

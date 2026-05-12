@@ -18,6 +18,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [submitting, setSubmitting] = useState(false);
   const searchParams = useSearchParams();
   const autoVoice = searchParams.get('autoVoice');
+  const shouldAutoVoice = autoVoice === '1' || autoVoice === 'true';
   const isDemoParam = searchParams.get('demo') === '1';
   const [isDemoActive, setIsDemoActive] = useState(isDemoParam);
   const [handsfreeReady, setHandsfreeReady] = useState(false);
@@ -39,6 +40,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [lastCommand, setLastCommand] = useState<string | null>(null);
   const [notesActive, setNotesActive] = useState(false);
   const [history, setHistory] = useState<Array<{ type: string; prev: any }>>([]);
+  const dirtyRef = useRef(false);
+  const autoExitSavedRef = useRef(false);
+  const insideApiaryRef = useRef<boolean | null>(null);
+  const apiaryCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
+  const submitInspectionRef = useRef<(opts?: { skipGpsConfirm?: boolean }) => Promise<void>>(async () => {});
   useEffect(() => { loadAliases(); }, []);
 
   // Camera State
@@ -354,6 +360,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       // Show feedback if we understood something
       if (feedback.length > 0) {
+          dirtyRef.current = true;
           setLastCommand(feedback.join(', '));
           speak(feedback.join('. '));
           // Clear feedback after 4s
@@ -423,9 +430,13 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   useEffect(() => {
     try {
       if (typeof window === 'undefined') return;
+      if (shouldAutoVoice) {
+        setHandsfreeReady(true);
+        return;
+      }
       setHandsfreeReady(localStorage.getItem('handsfree_setup_done') === '1');
     } catch {}
-  }, []);
+  }, [shouldAutoVoice]);
 
   useEffect(() => {
     fetchHiveAndWeather();
@@ -599,7 +610,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   // Sikre kontinuerlig lytting gjennom hele inspeksjonen
   useEffect(() => {
-    if (!handsfreeReady) return;
+    if (!handsfreeReady && !shouldAutoVoice) return;
     if (!isSupported) return;
     try { startListening(); } catch {}
 
@@ -614,7 +625,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       try { window.removeEventListener('pointerdown', onFirstInteraction as any); } catch {}
       try { stopListening(); } catch {}
     };
-  }, [handsfreeReady, isSupported, startListening, stopListening]);
+  }, [handsfreeReady, isSupported, shouldAutoVoice, startListening, stopListening]);
 
 
   const fetchHiveAndWeather = async () => {
@@ -1011,12 +1022,13 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     }
   };
 
-  const submitInspection = async () => {
+  const submitInspection = async (opts?: { skipGpsConfirm?: boolean }) => {
     const queenSeenValue = queenSeen === 'ja' ? true : queenSeen === 'nei' ? false : null;
     const eggsSeenValue = eggsSeen === 'ja' ? true : eggsSeen === 'nei' ? false : null;
-
-    const okLocation = await confirmGpsMismatchIfNeeded();
-    if (!okLocation) return;
+    if (!opts?.skipGpsConfirm) {
+      const okLocation = await confirmGpsMismatchIfNeeded();
+      if (!okLocation) return;
+    }
     const opId = crypto.randomUUID();
     setSubmitting(true);
 
@@ -1420,6 +1432,103 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    submitInspectionRef.current = submitInspection;
+  }, [submitInspection]);
+
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      if (!navigator.geolocation) return;
+      if (!handsfreeReady && !shouldAutoVoice) return;
+      if (submitting) return;
+
+      const apiaryId = String((hive as any)?.apiary_id || '').trim();
+      if (!apiaryId) return;
+
+      let cancelled = false;
+      const thresholdInM = 5;
+      const thresholdOutM = 8;
+
+      const parseCoords = (value: any): { lat: number; lon: number } | null => {
+        const s = typeof value === 'string' ? value : value ? String(value) : '';
+        if (!s) return null;
+        const matches = s.match(/-?\d+(?:\.\d+)?/g);
+        if (!matches || matches.length < 2) return null;
+        const lat = Number(matches[0]);
+        const lon = Number(matches[1]);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+        return { lat, lon };
+      };
+
+      const ensureApiaryCoords = async () => {
+        if (apiaryCoordsRef.current) return apiaryCoordsRef.current;
+        const { data } = await supabase
+          .from('apiaries')
+          .select('id, latitude, longitude, coordinates')
+          .eq('id', apiaryId)
+          .maybeSingle();
+        const lat = typeof (data as any)?.latitude === 'number' ? (data as any).latitude : null;
+        const lon = typeof (data as any)?.longitude === 'number' ? (data as any).longitude : null;
+        if (lat != null && lon != null && Number.isFinite(lat) && Number.isFinite(lon)) {
+          apiaryCoordsRef.current = { lat, lon };
+          return apiaryCoordsRef.current;
+        }
+        const parsed = parseCoords((data as any)?.coordinates);
+        if (parsed) {
+          apiaryCoordsRef.current = parsed;
+          return apiaryCoordsRef.current;
+        }
+        return null;
+      };
+
+      let watchId: number | null = null;
+
+      void (async () => {
+        const coords = await ensureApiaryCoords().catch(() => null);
+        if (cancelled) return;
+        if (!coords) return;
+
+        watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            if (cancelled) return;
+            const curLat = Number(pos.coords.latitude);
+            const curLon = Number(pos.coords.longitude);
+            if (!Number.isFinite(curLat) || !Number.isFinite(curLon)) return;
+
+            const d = getDistanceFromLatLonInM(curLat, curLon, coords.lat, coords.lon);
+            if (!Number.isFinite(d)) return;
+
+            const wasInside = insideApiaryRef.current === true;
+            const isInside = d <= thresholdInM;
+            const isOutside = d >= thresholdOutM;
+
+            if (insideApiaryRef.current === null) insideApiaryRef.current = isInside;
+            if (isInside) insideApiaryRef.current = true;
+
+            if (wasInside && isOutside && !autoExitSavedRef.current && dirtyRef.current) {
+              autoExitSavedRef.current = true;
+              try { stopListening(); } catch {}
+              try { speakRef.current('Du har forlatt bigården. Lagrer inspeksjon.'); } catch {}
+              void submitInspectionRef.current({ skipGpsConfirm: true });
+            }
+          },
+          () => {},
+          { enableHighAccuracy: true, maximumAge: 2000, timeout: 8000 }
+        );
+      })();
+
+      return () => {
+        cancelled = true;
+        try {
+          if (watchId != null) navigator.geolocation.clearWatch(watchId);
+        } catch {}
+      };
+    } catch {
+      return;
+    }
+  }, [handsfreeReady, hive, shouldAutoVoice, submitting, supabase, stopListening]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

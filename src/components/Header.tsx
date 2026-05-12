@@ -105,9 +105,7 @@ export default function Header({ isStagingHost }: HeaderProps) {
             .single();
 
           if (hive) {
-                  // Navigate to Inspection page directly - REMOVED autoVoice
-                  router.push(`/hives/${hive.id}/new-inspection`);
-                  // REMOVED voice feedback
+                  router.push(`/hives/${hive.id}/new-inspection?autoVoice=1&returnTo=${encodeURIComponent(`/apiaries/${hive.apiary_id}`)}`);
                   alert("Kube funnet. Starter inspeksjon.");
               } else {
               alert('Kube ikke funnet. Opprett ny?');
