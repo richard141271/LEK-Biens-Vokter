@@ -449,6 +449,29 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const audioCtxRef = useRef<AudioContext | null>(null);
   const ttsPrimedRef = useRef(false);
   const ttsUnlockedRef = useRef(false);
+  const unlockAudioSession = () => {
+    try {
+      if (typeof window === 'undefined') return;
+      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      try {
+        if (ctx.state === 'suspended' && typeof ctx.resume === 'function') void ctx.resume();
+      } catch {}
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + 0.05);
+      setTimeout(() => {
+        try {
+          ctx.close();
+        } catch {}
+      }, 120);
+    } catch {}
+  };
   const beep = (freq = 880, ms = 220) => {
     try {
       if (typeof window === 'undefined') return;
@@ -1293,6 +1316,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 onClick={() => {
                   if (!isListening) {
                     primeTts(false);
+                    unlockAudioSession();
                     if (!ttsUnlockedRef.current) {
                       unlockTtsFromGesture('Talesvar på');
                     }
