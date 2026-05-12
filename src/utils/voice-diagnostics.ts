@@ -8,6 +8,11 @@ type Parsed = {
   honeyStores?: 'lite' | 'middels' | 'mye';
   temperament?: 'rolig' | 'urolig' | 'aggressiv';
   broodCondition?: 'darlig' | 'normal' | 'bra';
+  broodEgg?: 'lite' | 'normal' | 'mye';
+  broodLarvae?: 'lite' | 'normal' | 'mye';
+  broodYngel?: 'lite' | 'normal' | 'mye';
+  broodDrones?: 'lite' | 'normal' | 'mye';
+  broodFrames?: string;
   status?: string;
   temperature?: string;
   weather?: string;
@@ -27,6 +32,11 @@ const catalog: Phrase[] = [
   { group: 'Dronning', text: 'Ingen dronning', expected: { queenSeen: false } },
   { group: 'Dronning', text: 'Dronningfarge gul', expected: { queenColor: 'Gul' } },
   { group: 'Dronning', text: 'Årgang 2025', expected: { queenYear: '2025' } },
+  { group: 'Yngelleie', text: 'Egg mye', expected: { broodEgg: 'mye' } },
+  { group: 'Yngelleie', text: 'Larver lite', expected: { broodLarvae: 'lite' } },
+  { group: 'Yngelleie', text: 'Yngel normal', expected: { broodYngel: 'normal' } },
+  { group: 'Yngelleie', text: 'Droner mye', expected: { broodDrones: 'mye' } },
+  { group: 'Bistyrke', text: 'Bistyrke 5.5', expected: { broodFrames: '5.5' } },
   { group: 'Egg', text: 'Egg sett', expected: { eggsSeen: true } },
   { group: 'Egg', text: 'Ingen egg', expected: { eggsSeen: false } },
   { group: 'Honning', text: 'Lite honning', expected: { honeyStores: 'lite' } },
@@ -39,15 +49,16 @@ const catalog: Phrase[] = [
   { group: 'Yngel', text: 'Normal yngel', expected: { broodCondition: 'normal' } },
   { group: 'Yngel', text: 'Dårlig yngel', expected: { broodCondition: 'darlig' } },
   { group: 'Status', text: 'Alt bra', expected: { status: 'OK' } },
-  { group: 'Status', text: 'Svak', expected: { status: 'SVAK' } },
-  { group: 'Status', text: 'Død', expected: { status: 'DØD' } },
-  { group: 'Status', text: 'Sykdom', expected: { status: 'SYKDOM' } },
-  { group: 'Status', text: 'Bytt dronning', expected: { status: 'BYTT_DRONNING' } },
-  { group: 'Status', text: 'Mottatt fôr', expected: { status: 'MOTTATT_FOR' } },
-  { group: 'Status', text: 'Skiftet rammer', expected: { status: 'SKIFTET_RAMMER' } },
-  { group: 'Status', text: 'Sverming', expected: { status: 'SVERMING' } },
-  { group: 'Status', text: 'Varroa mistanke', expected: { status: 'VARROA_MISTANKE' } },
-  { group: 'Status', text: 'Byttet voks', expected: { status: 'BYTTET_VOKS' } },
+  { group: 'Status', text: 'Sterk', expected: { status: 'Sterk' } },
+  { group: 'Status', text: 'Svak', expected: { status: 'Svak' } },
+  { group: 'Status', text: 'Død', expected: { status: 'Død' } },
+  { group: 'Status', text: 'Sykdom', expected: { status: 'Sykdom' } },
+  { group: 'Status', text: 'Bytt dronning', expected: { status: 'Bytt Dronning' } },
+  { group: 'Status', text: 'Mottatt fôr', expected: { status: 'Mottatt fôr' } },
+  { group: 'Status', text: 'Skiftet rammer', expected: { status: 'Skiftet rammer' } },
+  { group: 'Status', text: 'Sverming', expected: { status: 'Sverming' } },
+  { group: 'Status', text: 'Varroa mistanke', expected: { status: 'Varroa mistanke' } },
+  { group: 'Status', text: 'Byttet voks', expected: { status: 'Byttet voks' } },
   { group: 'Vær', text: 'Sol', expected: { weather: 'Klart' } },
   { group: 'Vær', text: 'Regn', expected: { weather: 'Regn' } },
   { group: 'Vær', text: 'Overskyet', expected: { weather: 'Lettskyet/Overskyet' } },

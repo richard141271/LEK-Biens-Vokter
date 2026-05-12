@@ -214,7 +214,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               if (last.type === 'eggsSeen') setEggsSeen(last.prev);
               if (last.type === 'honeyStores') setHoneyStores(last.prev);
               if (last.type === 'temperament') setTemperament(last.prev);
-              if (last.type === 'broodCondition') setBroodCondition(last.prev);
+              if (last.type === 'broodEgg') setBroodEgg(last.prev);
+              if (last.type === 'broodLarvae') setBroodLarvae(last.prev);
+              if (last.type === 'broodYngel') setBroodYngel(last.prev);
+              if (last.type === 'broodDrones') setBroodDrones(last.prev);
+              if (last.type === 'broodFrames') setBroodFrames(last.prev);
               if (last.type === 'status') setStatus(last.prev);
               if (last.type === 'temperature') setTemperature(last.prev);
               if (last.type === 'weather') setWeather(last.prev);
@@ -242,6 +246,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       let parsed = parseVoiceCommand(text);
       const res = analyzeAndCorrect(text, parsed);
       parsed = res.parsed;
+      const p: any = parsed as any;
       let feedback: string[] = [];
       if (res.corrected && res.matched) {
           setLastCorrection({ phrase: res.matched, similarity: res.similarity });
@@ -256,7 +261,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             rawKey &&
             rawKey === lastVoiceCaptureTextRef.current &&
             now - lastVoiceCaptureAtRef.current < 6000;
-          if (now - lastVoiceCaptureAtRef.current < 2500 || isDuplicateText) {
+          if (pendingCapture || now - lastVoiceCaptureAtRef.current < 12000 || isDuplicateText) {
               feedback.push("Bilde er allerede tatt");
           } else if (cameraActive) {
               lastVoiceCaptureAtRef.current = now;
@@ -324,11 +329,66 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           feedback.push(`Gemytt: ${parsed.temperament}`);
       }
 
-      if (parsed.broodCondition) {
-          setHistory(prev => [...prev, { type: 'broodCondition', prev: broodCondition }]);
-          markTouched('broodCondition');
-          setBroodCondition(parsed.broodCondition);
-          feedback.push(`Yngel: ${parsed.broodCondition}`);
+      const normalizeBrood = (v: any): BroodAmount | null => {
+          const s = String(v || '').toLowerCase();
+          if (s === 'lite') return 'lite';
+          if (s === 'mye') return 'mye';
+          if (s === 'normal' || s === 'normalt') return 'normal';
+          return null;
+      };
+      const applyBroodAll = (v: any) => {
+          const mapped = String(v || '') === 'darlig' ? 'lite' : String(v || '') === 'bra' ? 'mye' : 'normal';
+          setHistory(prev => [...prev, { type: 'broodEgg', prev: broodEgg }]);
+          setHistory(prev => [...prev, { type: 'broodLarvae', prev: broodLarvae }]);
+          setHistory(prev => [...prev, { type: 'broodYngel', prev: broodYngel }]);
+          setHistory(prev => [...prev, { type: 'broodDrones', prev: broodDrones }]);
+          markTouched('broodEgg');
+          markTouched('broodLarvae');
+          markTouched('broodYngel');
+          markTouched('broodDrones');
+          setBroodEgg(mapped as any);
+          setBroodLarvae(mapped as any);
+          setBroodYngel(mapped as any);
+          setBroodDrones(mapped as any);
+          feedback.push(`Yngelleie: ${mapped}`);
+      };
+      if (p.broodCondition) {
+          applyBroodAll(p.broodCondition);
+      }
+      const eggV = normalizeBrood(p.broodEgg);
+      if (eggV) {
+          setHistory(prev => [...prev, { type: 'broodEgg', prev: broodEgg }]);
+          markTouched('broodEgg');
+          setBroodEgg(eggV);
+          feedback.push(`Egg: ${eggV}`);
+      }
+      const larvV = normalizeBrood(p.broodLarvae);
+      if (larvV) {
+          setHistory(prev => [...prev, { type: 'broodLarvae', prev: broodLarvae }]);
+          markTouched('broodLarvae');
+          setBroodLarvae(larvV);
+          feedback.push(`Larver: ${larvV}`);
+      }
+      const yngV = normalizeBrood(p.broodYngel);
+      if (yngV) {
+          setHistory(prev => [...prev, { type: 'broodYngel', prev: broodYngel }]);
+          markTouched('broodYngel');
+          setBroodYngel(yngV);
+          feedback.push(`Yngel: ${yngV}`);
+      }
+      const droV = normalizeBrood(p.broodDrones);
+      if (droV) {
+          setHistory(prev => [...prev, { type: 'broodDrones', prev: broodDrones }]);
+          markTouched('broodDrones');
+          setBroodDrones(droV);
+          feedback.push(`Droner: ${droV}`);
+      }
+      if (p.broodFrames != null && String(p.broodFrames).trim().length > 0) {
+          const v = String(p.broodFrames).trim().replace(',', '.');
+          setHistory(prev => [...prev, { type: 'broodFrames', prev: broodFrames }]);
+          markTouched('broodFrames');
+          setBroodFrames(v);
+          feedback.push(`Bistyrke: ${v} rammer yngel`);
       }
 
       if (parsed.status) {
@@ -374,7 +434,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [queenColor, setQueenColor] = useState<string>('');
   const [queenYear, setQueenYear] = useState<string>('');
   const [eggsSeen, setEggsSeen] = useState<'' | 'ja' | 'nei'>('');
-  const [broodCondition, setBroodCondition] = useState('normal');
+  type BroodAmount = 'lite' | 'normal' | 'mye';
+  const [broodEgg, setBroodEgg] = useState<BroodAmount>('normal');
+  const [broodLarvae, setBroodLarvae] = useState<BroodAmount>('normal');
+  const [broodYngel, setBroodYngel] = useState<BroodAmount>('normal');
+  const [broodDrones, setBroodDrones] = useState<BroodAmount>('normal');
+  const [broodFrames, setBroodFrames] = useState<string>('');
   const [honeyStores, setHoneyStores] = useState('middels');
   const [temperament, setTemperament] = useState('rolig');
   const [notes, setNotes] = useState('');
@@ -393,6 +458,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [photoCount, setPhotoCount] = useState(0);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [zoomImageSrc, setZoomImageSrc] = useState<string | null>(null);
+  const [zoomScale, setZoomScale] = useState(1);
 
   const supabase = createClient();
   const router = useRouter();
@@ -400,7 +467,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   type StickyKey =
     | 'queenColor'
     | 'queenYear'
-    | 'broodCondition'
+    | 'broodEgg'
+    | 'broodLarvae'
+    | 'broodYngel'
+    | 'broodDrones'
+    | 'broodFrames'
     | 'honeyStores'
     | 'temperament'
     | 'status';
@@ -408,7 +479,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const touchedRef = useRef<Record<StickyKey, boolean>>({
     queenColor: false,
     queenYear: false,
-    broodCondition: false,
+    broodEgg: false,
+    broodLarvae: false,
+    broodYngel: false,
+    broodDrones: false,
+    broodFrames: false,
     honeyStores: false,
     temperament: false,
     status: false,
@@ -425,7 +500,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     touchedRef.current = {
       queenColor: false,
       queenYear: false,
-      broodCondition: false,
+      broodEgg: false,
+      broodLarvae: false,
+      broodYngel: false,
+      broodDrones: false,
+      broodFrames: false,
       honeyStores: false,
       temperament: false,
       status: false,
@@ -457,7 +536,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const ttsQueueRef = useRef<Array<{ text: string; shouldPauseMic: boolean; onDone: () => void }>>([]);
   const ttsBusyRef = useRef(false);
   const ttsBufferCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
-  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const ttsDecodedCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
   const unlockAudioSession = () => {
     try {
       if (typeof window === 'undefined') return;
@@ -626,51 +705,97 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
       ttsBusyRef.current = true;
 
+      unlockAudioSession();
+      const ctx = audioCtxRef.current;
       const finish = () => {
-        try {
-          const a = ttsAudioRef.current;
-          if (a) {
-            try {
-              a.pause();
-            } catch {}
-          }
-        } catch {}
         ttsBusyRef.current = false;
         onDone();
         const next = ttsQueueRef.current.shift();
         if (next) void speakWithServer(next.text, next.shouldPauseMic, next.onDone);
       };
-
-      let bytes = ttsBufferCacheRef.current.get(trimmed) || null;
-      if (!bytes) {
-        const res = await fetch('/api/voice/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: trimmed }),
-        });
-        if (!res.ok) {
-          try {
-            beep(880, 140);
-            setTimeout(() => beep(740, 140), 180);
-          } catch {}
-          finish();
-          return;
-        }
-        bytes = await res.arrayBuffer();
-        ttsBufferCacheRef.current.set(trimmed, bytes);
+      if (!ctx) {
+        try {
+          beep(880, 140);
+          setTimeout(() => beep(740, 140), 180);
+        } catch {}
+        finish();
+        return;
       }
 
+      let finished = false;
+      const safeFinish = () => {
+        if (finished) return;
+        finished = true;
+        finish();
+      };
+
       try {
+        if (ctx.state === 'suspended' && typeof ctx.resume === 'function') await ctx.resume();
+      } catch {}
+
+      let bytes = ttsBufferCacheRef.current.get(trimmed) || null;
+      const decode = (buf: ArrayBuffer): Promise<AudioBuffer> => {
+        return new Promise((resolve, reject) => {
+          try {
+            const copy = buf.slice(0);
+            const maybe = (ctx as any).decodeAudioData(copy, resolve, reject);
+            if (maybe && typeof (maybe as any).then === 'function') {
+              (maybe as any).then(resolve).catch(reject);
+            }
+          } catch (e) {
+            reject(e);
+          }
+        });
+      };
+
+      const playWithWebAudio = async () => {
+        let decoded = ttsDecodedCacheRef.current.get(trimmed) || null;
+        if (!decoded) {
+          if (!bytes) {
+            const res = await fetch('/api/voice/tts', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: trimmed }),
+            });
+            if (!res.ok) throw new Error('tts_fetch_failed');
+            bytes = await res.arrayBuffer();
+            ttsBufferCacheRef.current.set(trimmed, bytes);
+          }
+          decoded = await decode(bytes);
+          ttsDecodedCacheRef.current.set(trimmed, decoded);
+        }
+
+        const src = ctx.createBufferSource();
+        src.buffer = decoded;
+        src.connect(ctx.destination);
+        src.onended = safeFinish;
+        if (shouldPauseMic) {
+          try {
+            pauseListening();
+          } catch {}
+        }
+        src.start();
+      };
+
+      const playWithHtmlAudio = async () => {
+        if (!bytes) {
+          const res = await fetch('/api/voice/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: trimmed }),
+          });
+          if (!res.ok) throw new Error('tts_fetch_failed');
+          bytes = await res.arrayBuffer();
+          ttsBufferCacheRef.current.set(trimmed, bytes);
+        }
         const blob = new Blob([bytes], { type: 'audio/wav' });
         const url = URL.createObjectURL(blob);
         const a = new Audio(url);
-        ttsAudioRef.current = a;
         a.preload = 'auto';
         (a as any).playsInline = true;
         try {
           a.setAttribute?.('playsinline', 'true');
         } catch {}
-
         const cleanup = () => {
           try {
             URL.revokeObjectURL(url);
@@ -678,17 +803,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         };
         a.onended = () => {
           cleanup();
-          finish();
+          safeFinish();
         };
         a.onerror = () => {
           cleanup();
-          try {
-            beep(880, 140);
-            setTimeout(() => beep(740, 140), 180);
-          } catch {}
-          finish();
+          safeFinish();
         };
-
         if (shouldPauseMic) {
           try {
             pauseListening();
@@ -699,17 +819,22 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         } catch {}
         const p = a.play();
         if (p && typeof (p as any).catch === 'function') {
-          (p as any).catch(() => {
-            cleanup();
-            try {
-              beep(880, 140);
-              setTimeout(() => beep(740, 140), 180);
-            } catch {}
-            finish();
-          });
+          await (p as any);
         }
+      };
+
+      try {
+        await playWithWebAudio();
       } catch {
-        finish();
+        try {
+          await playWithHtmlAudio();
+        } catch {
+          try {
+            beep(880, 140);
+            setTimeout(() => beep(740, 140), 180);
+          } catch {}
+          safeFinish();
+        }
       }
     } catch {
       try {
@@ -943,10 +1068,43 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         })?.queen_year as number | undefined;
 
         if (!touchedRef.current.status && typeof latest?.status === 'string' && latest.status) {
-          setStatus(latest.status);
+          const raw = String(latest.status || '').trim();
+          const up = raw.toUpperCase();
+          const mapped =
+            up === 'SVAK' ? 'Svak' :
+            up === 'DØD' ? 'Død' :
+            up === 'SYKDOM' ? 'Sykdom' :
+            up === 'BYTT_DRONNING' ? 'Bytt Dronning' :
+            up === 'MOTTATT_FOR' ? 'Mottatt fôr' :
+            up === 'SKIFTET_RAMMER' ? 'Skiftet rammer' :
+            up === 'SVERMING' ? 'Sverming' :
+            up === 'VARROA_MISTANKE' ? 'Varroa mistanke' :
+            up === 'BYTTET_VOKS' ? 'Byttet voks' :
+            up === 'AKTIV' ? 'OK' :
+            raw;
+          setStatus(mapped);
         }
-        if (!touchedRef.current.broodCondition && typeof latest?.brood_condition === 'string' && latest.brood_condition) {
-          setBroodCondition(latest.brood_condition);
+        const rawBrood = typeof latest?.brood_condition === 'string' ? String(latest.brood_condition) : '';
+        if (rawBrood) {
+          const low = rawBrood.toLowerCase();
+          const readKV = (key: string) => {
+            const m = low.match(new RegExp(`\\b${key}\\s*[:=]\\s*(lite|normal|mye)\\b`));
+            return m ? (m[1] as BroodAmount) : null;
+          };
+          const legacy = low === 'darlig' ? ('lite' as BroodAmount) : low === 'bra' ? ('mye' as BroodAmount) : low === 'normal' ? ('normal' as BroodAmount) : null;
+
+          const egg = readKV('egg') || legacy;
+          const larver = readKV('larver') || readKV('larve') || legacy;
+          const yngel = readKV('yngel') || legacy;
+          const droner = readKV('droner') || readKV('drone') || legacy;
+          const framesMatch = low.match(/\b(frames|rammer|bistyrke)\s*[:=]\s*(\d+(?:[.,]5)?)\b/);
+          const frames = framesMatch ? String(framesMatch[2]).replace(',', '.') : '';
+
+          if (egg && !touchedRef.current.broodEgg) setBroodEgg(egg);
+          if (larver && !touchedRef.current.broodLarvae) setBroodLarvae(larver);
+          if (yngel && !touchedRef.current.broodYngel) setBroodYngel(yngel);
+          if (droner && !touchedRef.current.broodDrones) setBroodDrones(droner);
+          if (frames && !touchedRef.current.broodFrames) setBroodFrames(frames);
         }
         if (!touchedRef.current.honeyStores && typeof latest?.honey_stores === 'string' && latest.honey_stores) {
           setHoneyStores(latest.honey_stores);
@@ -1221,6 +1379,13 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     setSubmitting(true);
     const queenSeenValue = queenSeen === 'ja' ? true : queenSeen === 'nei' ? false : null;
     const eggsSeenValue = eggsSeen === 'ja' ? true : eggsSeen === 'nei' ? false : null;
+    const broodConditionToSave =
+      `egg:${broodEgg};larver:${broodLarvae};yngel:${broodYngel};droner:${broodDrones}` +
+      (String(broodFrames || '').trim() ? `;frames:${String(broodFrames).trim().replace(',', '.')}` : '');
+    const isDeadStatus =
+      String(status || '').trim().toLowerCase() === 'død' ||
+      String(status || '').trim().toUpperCase() === 'DØD';
+    const hiveStatusToSave = isDeadStatus ? 'Død' : status;
 
     try {
       const allFiles: File[] = [
@@ -1251,7 +1416,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               queen_color: queenColor || null,
               queen_year: queenYear ? parseInt(queenYear, 10) : null,
               eggs_seen: eggsSeenValue,
-              brood_condition: broodCondition,
+              brood_condition: broodConditionToSave,
               honey_stores: honeyStores,
               temperament: temperament,
               notes: notes,
@@ -1261,7 +1426,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               weather_place: weatherPlace || null,
             },
             hiveUpdate: {
-              status: status === 'DØD' ? 'DØD' : 'AKTIV',
+              status: hiveStatusToSave,
               last_inspection_date: date 
             }
           }
@@ -1300,7 +1465,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               queen_color: queenColor || null,
               queen_year: queenYear ? parseInt(queenYear, 10) : null,
               eggs_seen: eggsSeenValue,
-              brood_condition: broodCondition,
+              brood_condition: broodConditionToSave,
               honey_stores: honeyStores,
               temperament: temperament,
               notes: notes,
@@ -1310,7 +1475,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               weather_place: weatherPlace || null,
             },
             hiveUpdate: {
-              status: status === 'DØD' ? 'DØD' : 'AKTIV',
+              status: hiveStatusToSave,
               last_inspection_date: date,
             },
           },
@@ -1368,7 +1533,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               queen_color: queenColor || null,
               queen_year: queenYear ? parseInt(queenYear, 10) : null,
               eggs_seen: eggsSeenValue,
-              brood_condition: broodCondition,
+              brood_condition: broodConditionToSave,
               honey_stores: honeyStores,
               temperament: temperament,
               notes: notesWithImages,
@@ -1445,7 +1610,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           queen_color: queenColor || null,
           queen_year: queenYear ? parseInt(queenYear, 10) : null,
           eggs_seen: eggsSeenValue,
-          brood_condition: broodCondition,
+          brood_condition: broodConditionToSave,
           honey_stores: honeyStores,
           temperament: temperament,
           notes: allPhotos.length > 1 ? `${notes}\n${allPhotos.slice(1).map((u, i) => `Bilde ${i + 2}: ${u}`).join('\n')}` : notes,
@@ -1462,7 +1627,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       await supabase
         .from('hives')
         .update({ 
-          status: status === 'DØD' ? 'DØD' : 'AKTIV',
+          status: hiveStatusToSave,
           last_inspection_date: date 
         }) 
         .eq('id', params.id);
@@ -1516,7 +1681,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 queen_color: queenColor || null,
                 queen_year: queenYear ? parseInt(queenYear, 10) : null,
                 eggs_seen: eggsSeenValue,
-                brood_condition: broodCondition,
+                brood_condition: broodConditionToSave,
                 honey_stores: honeyStores,
                 temperament: temperament,
                 notes: notes,
@@ -1526,7 +1691,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 weather_place: weatherPlace || null,
               },
               hiveUpdate: {
-                status: status === 'DØD' ? 'DØD' : 'AKTIV',
+                status: hiveStatusToSave,
                 last_inspection_date: date,
               },
             },
@@ -1868,36 +2033,106 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg font-medium text-gray-900"
               >
                 <option value="OK">OK</option>
-                <option value="SVAK">Svak</option>
-                <option value="DØD">Død</option>
-                <option value="SYKDOM">Sykdom</option>
-                <option value="BYTT_DRONNING">Bytt dronning</option>
-                <option value="MOTTATT_FOR">Mottatt fôr</option>
-                <option value="SKIFTET_RAMMER">Skiftet rammer</option>
-                <option value="SVERMING">Sverming</option>
-                <option value="VARROA_MISTANKE">Varroa mistanke</option>
-                <option value="BYTTET_VOKS">Byttet voks</option>
+                <option value="Sterk">Sterk</option>
+                <option value="Svak">Svak</option>
+                <option value="Byttet voks">Byttet voks</option>
+                <option value="Mottatt fôr">Mottatt fôr</option>
+                <option value="Skiftet rammer">Skiftet rammer</option>
+                <option value="Sverming">Sverming</option>
+                <option value="Bytt Dronning">Bytt Dronning</option>
+                <option value="Varroa mistanke">Varroa mistanke</option>
+                <option value="Sykdom">Sykdom</option>
+                <option value="Død">Død</option>
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Yngelleie</label>
-                <select 
-                    value={broodCondition} 
-                    onChange={e => {
-                      markTouched('broodCondition');
-                      setBroodCondition(e.target.value);
-                    }}
-                    className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
-                >
-                    <option value="darlig">Dårlig / Lite</option>
-                    <option value="normal">Normalt</option>
-                    <option value="bra">Bra / Mye</option>
-                </select>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Yngelleie</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Egg</label>
+                    <select
+                      value={broodEgg}
+                      onChange={(e) => {
+                        markTouched('broodEgg');
+                        setBroodEgg(e.target.value as any);
+                      }}
+                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="mye">Mye</option>
+                      <option value="lite">Lite</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Larver</label>
+                    <select
+                      value={broodLarvae}
+                      onChange={(e) => {
+                        markTouched('broodLarvae');
+                        setBroodLarvae(e.target.value as any);
+                      }}
+                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="mye">Mye</option>
+                      <option value="lite">Lite</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Yngel</label>
+                    <select
+                      value={broodYngel}
+                      onChange={(e) => {
+                        markTouched('broodYngel');
+                        setBroodYngel(e.target.value as any);
+                      }}
+                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="mye">Mye</option>
+                      <option value="lite">Lite</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Droner</label>
+                    <select
+                      value={broodDrones}
+                      onChange={(e) => {
+                        markTouched('broodDrones');
+                        setBroodDrones(e.target.value as any);
+                      }}
+                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="mye">Mye</option>
+                      <option value="lite">Lite</option>
+                    </select>
+                  </div>
                 </div>
+              </div>
 
-                <div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bistyrke (rammer med yngel)</label>
+                <select
+                  value={broodFrames}
+                  onChange={(e) => {
+                    markTouched('broodFrames');
+                    setBroodFrames(e.target.value);
+                  }}
+                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
+                >
+                  <option value="">Ukjent</option>
+                  {Array.from({ length: 23 }, (_, i) => (i / 2).toFixed(1).replace('.0', '')).map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fôr</label>
                 <select 
                     value={honeyStores} 
@@ -1911,7 +2146,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                     <option value="middels">Middels</option>
                     <option value="mye">Mye</option>
                 </select>
-                </div>
+              </div>
             </div>
 
             <div>
@@ -1975,7 +2210,16 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                         const src = getPreviewUrl(file);
                         return (
                           <div key={key} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-                            <img src={src} alt="Bilde" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setZoomImageSrc(src);
+                                setZoomScale(1);
+                              }}
+                              className="absolute inset-0"
+                            >
+                              <img src={src} alt="Bilde" className="w-full h-full object-cover" />
+                            </button>
                             <button
                               type="button"
                               onClick={() => {
@@ -2039,6 +2283,60 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             {submitting ? 'Lagrer...' : 'Lagre inspeksjon'}
           </button>
         </form>
+
+        {zoomImageSrc && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+            <button
+              type="button"
+              onClick={() => setZoomImageSrc(null)}
+              className="absolute inset-0 bg-black/70"
+              aria-label="Lukk bilde"
+            />
+            <div className="relative z-10 w-full max-w-3xl bg-white rounded-xl shadow-xl overflow-hidden">
+              <div className="flex items-center justify-between p-3 border-b border-gray-200">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setZoomScale((z) => Math.max(1, Number((z - 0.5).toFixed(1))))}
+                    className="px-3 py-1 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 font-semibold"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setZoomScale((z) => Math.min(4, Number((z + 0.5).toFixed(1))))}
+                    className="px-3 py-1 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 font-semibold"
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setZoomScale(1)}
+                    className="px-3 py-1 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 font-semibold"
+                  >
+                    1x
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setZoomImageSrc(null)}
+                  className="p-2 rounded-lg hover:bg-gray-100"
+                  aria-label="Lukk"
+                >
+                  <X className="w-5 h-5 text-gray-700" />
+                </button>
+              </div>
+              <div className="max-h-[80vh] overflow-auto bg-black">
+                <img
+                  src={zoomImageSrc}
+                  alt="Bilde"
+                  className="block max-w-none"
+                  style={{ transform: `scale(${zoomScale})`, transformOrigin: 'top left' }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

@@ -409,6 +409,21 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
     }
   };
 
+  const handleTwoQueenDriftChange = async (twoQueenDrift: boolean) => {
+    setHive({ ...hive, two_queen_drift: twoQueenDrift });
+
+    const { error } = await supabase
+      .from('hives')
+      .update({ two_queen_drift: twoQueenDrift })
+      .eq('id', params.id);
+
+    if (error) {
+      console.error('Failed to update two_queen_drift', error);
+      alert('Kunne ikke oppdatere to dronning drift');
+      fetchHiveDetails();
+    }
+  };
+
   const handleActiveToggle = async () => {
     const isCurrentlyActive = hive.active !== false; // Default true if undefined
 
@@ -673,17 +688,20 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
     
     switch (status) {
       case 'DØD':
+      case 'Død':
       case 'SYKDOM': // Case sensitive match fix
       case 'Sykdom':
         return 'bg-red-100 text-red-800 border-red-200';
       case 'SVAK':
       case 'Svak':
       case 'Bytt dronning':
+      case 'Bytt Dronning':
       case 'Sverming':
       case 'Varroa mistanke':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'AKTIV':
       case 'OK':
+      case 'Sterk':
       case 'Mottatt fôr':
       case 'Skiftet rammer':
       case 'Byttet voks':
@@ -881,6 +899,17 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                     />
                     <span className="text-sm font-medium text-gray-700">Avlegger</span>
                 </label>
+            </div>
+            <div className="mt-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!!(hive as any)?.two_queen_drift}
+                  onChange={(e) => handleTwoQueenDriftChange(e.target.checked)}
+                  className="text-honey-600 focus:ring-honey-500"
+                />
+                <span className="text-sm font-medium text-gray-700">To dronning drift</span>
+              </label>
             </div>
           </div>
           

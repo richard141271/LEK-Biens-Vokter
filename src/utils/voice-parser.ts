@@ -8,6 +8,11 @@ export interface ParsedInspection {
     honeyStores?: 'lite' | 'middels' | 'mye';
     temperament?: 'rolig' | 'urolig' | 'aggressiv';
     broodCondition?: 'darlig' | 'normal' | 'bra';
+    broodEgg?: 'lite' | 'normal' | 'mye';
+    broodLarvae?: 'lite' | 'normal' | 'mye';
+    broodYngel?: 'lite' | 'normal' | 'mye';
+    broodDrones?: 'lite' | 'normal' | 'mye';
+    broodFrames?: string;
     status?: string;
     temperature?: string;
     weather?: string;
@@ -27,6 +32,11 @@ export function parseVoiceCommand(text: string): ParsedInspection {
     const cmd = parseStructured(t);
     if (cmd.status) result.status = cmd.status;
     if (cmd.broodCondition) result.broodCondition = cmd.broodCondition as any;
+    if (cmd.broodEgg) result.broodEgg = cmd.broodEgg as any;
+    if (cmd.broodLarvae) result.broodLarvae = cmd.broodLarvae as any;
+    if (cmd.broodYngel) result.broodYngel = cmd.broodYngel as any;
+    if (cmd.broodDrones) result.broodDrones = cmd.broodDrones as any;
+    if (cmd.broodFrames) result.broodFrames = cmd.broodFrames as any;
     if (cmd.honeyStores) result.honeyStores = cmd.honeyStores as any;
     if (cmd.temperament) result.temperament = cmd.temperament as any;
     if (cmd.eggsSeen !== undefined) result.eggsSeen = cmd.eggsSeen;
@@ -38,6 +48,11 @@ export function parseVoiceCommand(text: string): ParsedInspection {
     if (
         result.status ||
         result.broodCondition ||
+        result.broodEgg ||
+        result.broodLarvae ||
+        result.broodYngel ||
+        result.broodDrones ||
+        result.broodFrames ||
         result.honeyStores ||
         result.temperament ||
         result.eggsSeen !== undefined ||
@@ -82,7 +97,7 @@ export function parseVoiceCommand(text: string): ParsedInspection {
     }
 
     // --- Action: Take Photo ---
-    if (has(['ta bilde', 'ta foto', 'knips', 'bilde'])) {
+    if (has(['ta bilde', 'ta et bilde', 'ta foto', 'knips'])) {
         result.action = 'TAKE_PHOTO';
     }
 
@@ -189,30 +204,62 @@ export function parseVoiceCommand(text: string): ParsedInspection {
         }
     }
 
+    const normAmount = (v: string): 'lite' | 'normal' | 'mye' | '' => {
+        const s = (v || '').toLowerCase().trim();
+        if (s === 'lite') return 'lite';
+        if (s === 'normal' || s === 'normalt') return 'normal';
+        if (s === 'mye' || s === 'masse') return 'mye';
+        return '';
+    };
+    const parseAmountFor = (key: string): 'lite' | 'normal' | 'mye' | '' => {
+        const re1 = new RegExp(`\\b${key}\\b\\s*(lite|normal(t)?|mye|masse)\\b`);
+        const re2 = new RegExp(`\\b(lite|normal(t)?|mye|masse)\\b\\s*\\b${key}\\b`);
+        const m1 = t.match(re1);
+        const m2 = t.match(re2);
+        const raw = (m1 && (m1[1] || '')) || (m2 && (m2[1] || '')) || '';
+        return normAmount(String(raw || ''));
+    };
+
+    const eggA = parseAmountFor('egg');
+    if (eggA) result.broodEgg = eggA;
+    const larvA = parseAmountFor('larver') || parseAmountFor('larve');
+    if (larvA) result.broodLarvae = larvA;
+    const yngA = parseAmountFor('yngel');
+    if (yngA) result.broodYngel = yngA;
+    const drA = parseAmountFor('droner') || parseAmountFor('drone');
+    if (drA) result.broodDrones = drA;
+
+    const framesMatch =
+        t.match(/\b(bistyrke|rammer(\s+med\s+yngel)?|yngelrammer)\s*[:\-]?\s*(\d+(?:[.,]5)?)\b/) ||
+        t.match(/\b(\d+(?:[.,]5)?)\s*(rammer(\s+med\s+yngel)?|bistyrke|yngelrammer)\b/);
+    if (framesMatch) {
+        const num = framesMatch.find((x) => /^\d/.test(String(x))) || '';
+        if (num) result.broodFrames = String(num).replace(',', '.');
+    }
+
     // --- Status (Kubestatus) ---
-    // Mappings: OK, SVAK, DØD, SYKDOM, BYTT_DRONNING, MOTTATT_FOR, SKIFTET_RAMMER, SVERMING, VARROA_MISTANKE, BYTTET_VOKS
-    
-    if (has(['svak', 'lite bier', 'stusselig'])) {
-        result.status = 'SVAK';
-    } else if (has(['død', 'tom kube', 'ingen bier'])) {
-        result.status = 'DØD';
-    } else if (has(['alt bra', 'fin kube', 'sterk', 'super', 'ok'])) {
-        result.status = 'OK';
+    if (has(['død', 'tom kube', 'ingen bier'])) {
+        result.status = 'Død';
     } else if (has(['sykdom', 'syk'])) {
-        result.status = 'SYKDOM';
+        result.status = 'Sykdom';
+    } else if (has(['varroa', 'varoa']) || (hasWord('midd') && !t.includes('middels'))) {
+        result.status = 'Varroa mistanke';
     } else if (has(['bytt dronning', 'dronningbytte', 'ny dronning'])) {
-        result.status = 'BYTT_DRONNING';
-    } else if (has(['mottatt fôr', 'fôret', 'fikk mat', 'fikk fôr'])) {
-        result.status = 'MOTTATT_FOR';
-    } else if (has(['skiftet rammer', 'skifte rammer', 'nye rammer', 'byttet rammer'])) {
-        result.status = 'SKIFTET_RAMMER';
+        result.status = 'Bytt Dronning';
     } else if (has(['sverming', 'svømming', 'har svermet', 'sverm', 'svermetrang', 'fare for sverming', 'sverre trang', 'fare på svømming', 'fare for svømming'])) {
-        result.status = 'SVERMING';
-    } else if (hasWord('varroa') || (hasWord('midd') && !t.includes('middels'))) {
-        // Varroa/Midd: unngå falsk treff på 'middels'
-        result.status = 'VARROA_MISTANKE';
+        result.status = 'Sverming';
     } else if (has(['byttet voks', 'byttet boks', 'vox', 'ny voks', 'smeltet voks'])) {
-        result.status = 'BYTTET_VOKS';
+        result.status = 'Byttet voks';
+    } else if (has(['mottatt fôr', 'mottatt for', 'fôret', 'foret', 'fikk mat', 'fikk fôr', 'fikk for'])) {
+        result.status = 'Mottatt fôr';
+    } else if (has(['skiftet rammer', 'skifte rammer', 'nye rammer', 'byttet rammer'])) {
+        result.status = 'Skiftet rammer';
+    } else if (has(['sterk', 'mye bier', 'kraftig'])) {
+        result.status = 'Sterk';
+    } else if (has(['svak', 'lite bier', 'stusselig'])) {
+        result.status = 'Svak';
+    } else if (has(['alt bra', 'fin kube', 'super', 'ok'])) {
+        result.status = 'OK';
     }
 
     // --- Temperature ---
@@ -263,18 +310,22 @@ function parseStructured(t: string): any {
         const v = value.trim();
         if (!v) return;
         if (key === 'status') {
-            if (/\bsvak\b/.test(v)) out.status = 'SVAK';
-            else if (/\bdød\b/.test(v)) out.status = 'DØD';
-            else if (/\bok\b|\balt bra\b|\bfin\b|\bsterk\b/.test(v)) out.status = 'OK';
-            else if (/\bsykdom\b/.test(v)) out.status = 'SYKDOM';
-            else if (/\bbytt\b.*\bdronning\b/.test(v)) out.status = 'BYTT_DRONNING';
-            else if (/\bmottatt\b.*\bf[oø]r\b|\bf[oø]ret\b/.test(v)) out.status = 'MOTTATT_FOR';
-            else if (/\bskiftet\b.*rammer\b|\bbyttet\b.*rammer\b/.test(v)) out.status = 'SKIFTET_RAMMER';
-            else if (/\bsverming\b|\bsverm(et|ing)?\b/.test(v)) out.status = 'SVERMING';
-            else if (/\bvarroa\b|\bmidd\b(?!els)/.test(v)) out.status = 'VARROA_MISTANKE';
-            else if (/\bbyttet\b.*voks\b/.test(v)) out.status = 'BYTTET_VOKS';
+            if (/\bdød\b/.test(v)) out.status = 'Død';
+            else if (/\bsykdom\b/.test(v)) out.status = 'Sykdom';
+            else if (/\bvarroa\b|\bmidd\b(?!els)/.test(v)) out.status = 'Varroa mistanke';
+            else if (/\bbytt\b.*\bdronning\b/.test(v)) out.status = 'Bytt Dronning';
+            else if (/\bsverming\b|\bsverm(et|ing)?\b/.test(v)) out.status = 'Sverming';
+            else if (/\bbyttet\b.*voks\b/.test(v)) out.status = 'Byttet voks';
+            else if (/\bmottatt\b.*\bf[oø]r\b|\bf[oø]ret\b/.test(v)) out.status = 'Mottatt fôr';
+            else if (/\bskiftet\b.*rammer\b|\bbyttet\b.*rammer\b/.test(v)) out.status = 'Skiftet rammer';
+            else if (/\bsterk\b/.test(v)) out.status = 'Sterk';
+            else if (/\bsvak\b/.test(v)) out.status = 'Svak';
+            else if (/\bok\b|\balt bra\b|\bfin\b/.test(v)) out.status = 'OK';
         } else if (key === 'yngel') {
-            if (/\bd[åa]rlig\b/.test(v)) out.broodCondition = 'darlig';
+            if (/\blite\b/.test(v)) out.broodYngel = 'lite';
+            else if (/\bmye\b|\bmasse\b/.test(v)) out.broodYngel = 'mye';
+            else if (/\bnormal(t)?\b/.test(v)) out.broodYngel = 'normal';
+            else if (/\bd[åa]rlig\b/.test(v)) out.broodCondition = 'darlig';
             else if (/\bbra\b|\btett\b|\bfin\b/.test(v)) out.broodCondition = 'bra';
             else if (/\bnormal\b|\bgrei\b/.test(v)) out.broodCondition = 'normal';
         } else if (key === 'honning') {
@@ -286,11 +337,25 @@ function parseStructured(t: string): any {
             else if (/\brolig\b|\bsnill(e)?\b/.test(v)) out.temperament = 'rolig';
             else if (/\baggressiv\b|\bsint\b/.test(v)) out.temperament = 'aggressiv';
         } else if (key === 'egg') {
-            if (/\bingen\b|\bikke\b/.test(v)) out.eggsSeen = false;
+            if (/\blite\b/.test(v)) out.broodEgg = 'lite';
+            else if (/\bmye\b|\bmasse\b/.test(v)) out.broodEgg = 'mye';
+            else if (/\bnormal(t)?\b/.test(v)) out.broodEgg = 'normal';
+            else if (/\bingen\b|\bikke\b/.test(v)) out.eggsSeen = false;
             else if (/\bsett\b|\bser\b|\bmasse\b|\bs[oa]?\b/.test(v)) out.eggsSeen = true;
         } else if (key === 'dronning') {
             if (/\bingen\b|\bikke\b|\bmangler\b/.test(v)) out.queenSeen = false;
             else if (/\bsett\b|\bser\b|\bfant\b/.test(v)) out.queenSeen = true;
+        } else if (key === 'larver' || key === 'larve') {
+            if (/\blite\b/.test(v)) out.broodLarvae = 'lite';
+            else if (/\bmye\b|\bmasse\b/.test(v)) out.broodLarvae = 'mye';
+            else if (/\bnormal(t)?\b/.test(v)) out.broodLarvae = 'normal';
+        } else if (key === 'droner' || key === 'drone') {
+            if (/\blite\b/.test(v)) out.broodDrones = 'lite';
+            else if (/\bmye\b|\bmasse\b/.test(v)) out.broodDrones = 'mye';
+            else if (/\bnormal(t)?\b/.test(v)) out.broodDrones = 'normal';
+        } else if (key === 'bistyrke' || key === 'rammer') {
+            const m = v.match(/\b(\d+(?:[.,]5)?)\b/);
+            if (m) out.broodFrames = m[1].replace(',', '.');
         } else if (key === 'dronningfarge' || key === 'dronning farge' || key === 'farge') {
             if (/\bhvit\b/.test(v)) out.queenColor = 'Hvit';
             else if (/\bgul\b/.test(v)) out.queenColor = 'Gul';
@@ -310,7 +375,7 @@ function parseStructured(t: string): any {
         }
     };
     for (const line of lines) {
-        const m = line.match(/\b(status|yngel|honning|gemytt|temperament|egg|dronning|temperatur|vær|vaer)\s*[:\-]\s*([^:;|]+)/);
+        const m = line.match(/\b(status|yngel|honning|gemytt|temperament|egg|larver|larve|droner|drone|bistyrke|rammer|dronning|temperatur|vær|vaer)\s*[:\-]\s*([^:;|]+)/);
         if (m) {
             take(m[1], m[2]);
         }
