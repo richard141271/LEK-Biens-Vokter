@@ -909,14 +909,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         }, 250);
       };
 
-      const isiOS =
-        typeof navigator !== 'undefined' &&
-        /(iphone|ipad|ipod)/i.test(navigator.userAgent || '');
-      if (isiOS) {
-        void speakWithServer(trimmed, wasListening, resume);
-        return;
-      }
-
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       if (!s) {
         void speakWithServer(trimmed, wasListening, resume);
@@ -1818,11 +1810,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                     if (!ttsUnlockedRef.current) {
                       unlockTtsFromGesture('Talesvar på');
                     }
+                    try {
+                      startListening();
+                    } catch {}
                     setTimeout(() => {
                       try {
-                        startListening();
+                        if (!isListening) startListening();
                       } catch {}
-                    }, 250);
+                    }, 350);
                     return;
                   }
                   startListening();
@@ -2248,6 +2243,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                               alt="Bilde"
                               className="w-full h-full object-cover cursor-zoom-in"
                               onClick={() => {
+                                setZoomImageSrc(src);
+                                setZoomScale(1);
+                              }}
+                              onTouchEnd={() => {
+                                setZoomImageSrc(src);
+                                setZoomScale(1);
+                              }}
+                              onPointerUp={() => {
                                 setZoomImageSrc(src);
                                 setZoomScale(1);
                               }}

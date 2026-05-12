@@ -16,7 +16,12 @@ const DEFAULTS: AliasMap = {
   // Bigård/Apiary feilhøringer
   'bygård': 'bigård',
   'by gård': 'bigård',
-  'bigard': 'bigård'
+  'bigard': 'bigård',
+  // Bistyrke feilhøringer
+  'bi styrke': 'bistyrke',
+  'bis styrke': 'bistyrke',
+  'bestyrke': 'bistyrke',
+  'bistyrka': 'bistyrke'
 };
 
 export async function loadAliases(): Promise<void> {
