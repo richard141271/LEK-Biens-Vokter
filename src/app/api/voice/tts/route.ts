@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         model: 'gpt-4o-mini-tts',
         voice: 'alloy',
-        format: 'mp3',
+        format: 'wav',
         input: text,
       }),
     });
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     return new Response(audio, {
       status: 200,
       headers: {
-        'Content-Type': 'audio/mpeg',
+        'Content-Type': 'audio/wav',
         'Cache-Control': 'no-store',
       },
     });
@@ -79,4 +79,3 @@ export async function POST(request: Request) {
     });
   }
 }
-

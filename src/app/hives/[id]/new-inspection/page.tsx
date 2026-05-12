@@ -452,14 +452,16 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const audioUnlockedRef = useRef(false);
   const ttsQueueRef = useRef<string[]>([]);
   const ttsBusyRef = useRef(false);
-  const ttsCacheRef = useRef<Map<string, string>>(new Map());
-  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const ttsBufferCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
+  const ttsDecodedCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
   const unlockAudioSession = () => {
     try {
       if (typeof window === 'undefined') return;
       const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
       if (!Ctx) return;
-      const ctx = new Ctx();
+      if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
       try {
         if (ctx.state === 'suspended' && typeof ctx.resume === 'function') void ctx.resume();
       } catch {}
@@ -470,11 +472,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       g.connect(ctx.destination);
       o.start();
       o.stop(ctx.currentTime + 0.05);
-      setTimeout(() => {
-        try {
-          ctx.close();
-        } catch {}
-      }, 120);
     } catch {}
   };
 
@@ -625,60 +622,76 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
       ttsBusyRef.current = true;
 
-      const cached = ttsCacheRef.current.get(trimmed) || null;
-      let url = cached;
-      if (!url) {
+      unlockAudioSession();
+      const ctx = audioCtxRef.current;
+      const finish = () => {
+        ttsBusyRef.current = false;
+        onDone();
+        const next = ttsQueueRef.current.shift();
+        if (next) void speakWithServer(next, onDone);
+      };
+      if (!ctx) {
+        finish();
+        return;
+      }
+
+      try {
+        if (ctx.state === 'suspended' && typeof ctx.resume === 'function') await ctx.resume();
+      } catch {}
+
+      const decoded = ttsDecodedCacheRef.current.get(trimmed) || null;
+      if (decoded) {
+        const src = ctx.createBufferSource();
+        src.buffer = decoded;
+        src.connect(ctx.destination);
+        src.onended = finish;
+        try {
+          src.start();
+        } catch {
+          finish();
+        }
+        return;
+      }
+
+      let bytes = ttsBufferCacheRef.current.get(trimmed) || null;
+      if (!bytes) {
         const res = await fetch('/api/voice/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: trimmed }),
         });
         if (!res.ok) {
-          ttsBusyRef.current = false;
-          onDone();
+          finish();
           return;
         }
-        const buf = await res.arrayBuffer();
-        const blob = new Blob([buf], { type: 'audio/mpeg' });
-        url = URL.createObjectURL(blob);
-        ttsCacheRef.current.set(trimmed, url);
+        bytes = await res.arrayBuffer();
+        ttsBufferCacheRef.current.set(trimmed, bytes);
       }
 
-      try {
-        const prev = ttsAudioRef.current;
-        if (prev) {
+      const decode = (buf: ArrayBuffer): Promise<AudioBuffer> => {
+        return new Promise((resolve, reject) => {
           try {
-            prev.pause();
-          } catch {}
-          ttsAudioRef.current = null;
-        }
-      } catch {}
-
-      const a = new Audio(url);
-      a.preload = 'auto';
-      (a as any).playsInline = true;
-      try {
-        a.setAttribute?.('playsinline', 'true');
-      } catch {}
-      a.onended = () => {
-        ttsBusyRef.current = false;
-        onDone();
-        const next = ttsQueueRef.current.shift();
-        if (next) void speakWithServer(next, onDone);
+            const copy = buf.slice(0);
+            const maybe = (ctx as any).decodeAudioData(copy, resolve, reject);
+            if (maybe && typeof (maybe as any).then === 'function') {
+              (maybe as any).then(resolve).catch(reject);
+            }
+          } catch (e) {
+            reject(e);
+          }
+        });
       };
-      a.onerror = () => {
-        ttsBusyRef.current = false;
-        onDone();
-        const next = ttsQueueRef.current.shift();
-        if (next) void speakWithServer(next, onDone);
-      };
-      ttsAudioRef.current = a;
 
       try {
-        await a.play();
+        const audio = await decode(bytes);
+        ttsDecodedCacheRef.current.set(trimmed, audio);
+        const src = ctx.createBufferSource();
+        src.buffer = audio;
+        src.connect(ctx.destination);
+        src.onended = finish;
+        src.start();
       } catch {
-        ttsBusyRef.current = false;
-        onDone();
+        finish();
       }
     } catch {
       try {
@@ -707,9 +720,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       const trimmed = String(text || '').trim();
       if (!trimmed) return;
 
-      const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
-      if (!s) return;
-
       const wasListening = isListening;
       if (wasListening) {
         try {
@@ -731,6 +741,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           } catch {}
         }, 250);
       };
+
+      const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
+      if (!s) {
+        void speakWithServer(trimmed, resume);
+        return;
+      }
 
       let started = false;
       let serverAttempted = false;
@@ -930,12 +946,18 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     };
 
     try {
+      let didFetchWeather = false;
+      let offlineParsed: any = null;
+      let loadedHive: any = null;
       if (typeof window !== 'undefined') {
         const offlineData = localStorage.getItem('offline_data');
         if (offlineData) {
-          const parsed = JSON.parse(offlineData);
-          const foundHive = parsed.hives?.find((h: any) => h.id === params.id);
-          if (foundHive) setHive(foundHive);
+          offlineParsed = JSON.parse(offlineData);
+          const foundHive = offlineParsed.hives?.find((h: any) => h.id === params.id);
+          if (foundHive) {
+            loadedHive = foundHive;
+            setHive(foundHive);
+          }
           if (isOffline && !foundHive) {
             setLoadError('Kuben finnes ikke i offline-cache. Koble til nett eller last ned data for offline først.');
             return;
@@ -956,62 +978,139 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           9000
         );
 
-        if (hiveRes?.data) setHive(hiveRes.data);
+        if (hiveRes?.data) {
+          loadedHive = hiveRes.data;
+          setHive(hiveRes.data);
+        }
       }
 
-      if (handsfreeReady && navigator.geolocation && !isOffline) {
+      const parseLatLng = (raw: any): { lat: number; lon: number } | null => {
+        try {
+          if (!raw) return null;
+          if (typeof raw === 'string') {
+            const parts = raw.split(',').map((p) => p.trim());
+            if (parts.length < 2) return null;
+            const lat = Number(parts[0]);
+            const lon = Number(parts[1]);
+            if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon };
+            return null;
+          }
+          return null;
+        } catch {
+          return null;
+        }
+      };
+
+      const fetchPlaceName = async (lat: number, lon: number) => {
+        try {
+          const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&accept-language=no`;
+          const res = await withTimeout(fetch(url, { headers: { Accept: 'application/json' } }), 8000);
+          if (!res.ok) return '';
+          const data: any = await res.json();
+          const addr = data?.address || {};
+          const name =
+            addr.city ||
+            addr.town ||
+            addr.village ||
+            addr.hamlet ||
+            addr.municipality ||
+            addr.county ||
+            data?.name ||
+            '';
+          return String(name || '').trim();
+        } catch {
+          return '';
+        }
+      };
+
+      const fetchWeatherFor = async (lat: number, lon: number) => {
         setWeatherLoading(true);
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords;
-            setCoordinates({ lat: latitude, lng: longitude });
+        try {
+          didFetchWeather = true;
+          setCoordinates({ lat, lng: lon });
+          const response = await withTimeout(
+            fetch(
+              `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&wind_speed_unit=ms`
+            ),
+            8000
+          );
+          const weatherData = await response.json();
+          if (weatherData.current) {
+            setTemperature(String(weatherData.current.temperature_2m ?? ''));
+            setWeather(getWeatherDescription(Number(weatherData.current.weather_code)));
+          }
+          const place = await fetchPlaceName(lat, lon);
+          if (place) setWeatherPlace((prev) => prev || place);
+        } catch {
+        } finally {
+          setWeatherLoading(false);
+        }
+      };
 
-            const fetchPlaceName = async (lat: number, lon: number) => {
-              try {
-                const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&accept-language=no`;
-                const res = await withTimeout(fetch(url, { headers: { Accept: 'application/json' } }), 8000);
-                if (!res.ok) return '';
-                const data: any = await res.json();
-                const addr = data?.address || {};
-                const name =
-                  addr.city ||
-                  addr.town ||
-                  addr.village ||
-                  addr.hamlet ||
-                  addr.municipality ||
-                  addr.county ||
-                  data?.name ||
-                  '';
-                return String(name || '').trim();
-              } catch {
-                return '';
-              }
-            };
-
-            try {
-              const response = await withTimeout(
-                fetch(
-                  `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&wind_speed_unit=ms`
-                ),
-                8000
-              );
-              const weatherData = await response.json();
-
-              if (weatherData.current) {
-                setTemperature(weatherData.current.temperature_2m.toString());
-                setWeather(getWeatherDescription(weatherData.current.weather_code));
-              }
-              const place = await fetchPlaceName(latitude, longitude);
-              if (place) setWeatherPlace(place);
-            } catch {} finally {
-              setWeatherLoading(false);
+      if (!isOffline) {
+        const apiaryId = loadedHive?.apiary_id;
+        if (apiaryId) {
+          try {
+            const apiaryRes: any = await withTimeout(
+              supabase
+                .from('apiaries')
+                .select('id, name, location, coordinates, latitude, longitude')
+                .eq('id', apiaryId)
+                .single() as any,
+              9000
+            );
+            const a = apiaryRes?.data;
+            const lat = Number(a?.latitude);
+            const lon = Number(a?.longitude);
+            const coords =
+              Number.isFinite(lat) && Number.isFinite(lon)
+                ? { lat, lon }
+                : parseLatLng(a?.coordinates);
+            if (coords) {
+              if (a?.name) setWeatherPlace((prev) => prev || String(a.name));
+              await fetchWeatherFor(coords.lat, coords.lon);
             }
-          },
-          () => {
-            setWeatherLoading(false);
-          },
-          { enableHighAccuracy: true, maximumAge: 2000, timeout: 8000 }
-        );
+          } catch {}
+        }
+      } else {
+        const apiaryId = loadedHive?.apiary_id;
+        if (apiaryId && offlineParsed?.apiaries) {
+          try {
+            const a = offlineParsed.apiaries.find((x: any) => x?.id === apiaryId);
+            const lat = Number(a?.latitude);
+            const lon = Number(a?.longitude);
+            const coords =
+              Number.isFinite(lat) && Number.isFinite(lon)
+                ? { lat, lon }
+                : parseLatLng(a?.coordinates);
+            if (coords) {
+              if (a?.name) setWeatherPlace((prev) => prev || String(a.name));
+              await fetchWeatherFor(coords.lat, coords.lon);
+            }
+          } catch {}
+        }
+      }
+
+      if (!didFetchWeather && !isOffline) {
+        try {
+          if (typeof navigator !== 'undefined' && navigator.geolocation) {
+            const pos = await withTimeout(
+              new Promise<GeolocationPosition>((resolve, reject) => {
+                try {
+                  navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: false,
+                    timeout: 8000,
+                    maximumAge: 5 * 60 * 1000,
+                  });
+                } catch (e) {
+                  reject(e);
+                }
+              }),
+              9000
+            );
+            await fetchWeatherFor(pos.coords.latitude, pos.coords.longitude);
+          }
+        } catch {}
       }
     } catch {
       setLoadError('Kunne ikke hente kubedata akkurat nå. Sjekk nett og prøv igjen.');
