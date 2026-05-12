@@ -39,7 +39,6 @@ export default function DashboardPage() {
   const [availableApiaries, setAvailableApiaries] = useState<any[]>([]);
   const createCountRepeatTimeoutRef = useRef<number | null>(null);
   const createCountRepeatIntervalRef = useRef<number | null>(null);
-  const suppressCreateCountClickRef = useRef(false);
 
   // Wizard State
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -108,14 +107,10 @@ export default function DashboardPage() {
       window.clearInterval(createCountRepeatIntervalRef.current);
       createCountRepeatIntervalRef.current = null;
     }
-    window.setTimeout(() => {
-      suppressCreateCountClickRef.current = false;
-    }, 1200);
   };
 
   const startCreateCountRepeat = (delta: number) => {
     stopCreateCountRepeat();
-    suppressCreateCountClickRef.current = true;
     setCreateCount((c) => Math.max(0, c + delta));
     createCountRepeatTimeoutRef.current = window.setTimeout(() => {
       createCountRepeatIntervalRef.current = window.setInterval(() => {
@@ -1293,23 +1288,14 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-center gap-3">
                         <button 
                             type="button"
-                            onMouseDown={() => startCreateCountRepeat(-1)}
-                            onMouseUp={stopCreateCountRepeat}
-                            onMouseLeave={stopCreateCountRepeat}
-                            onTouchStart={(e) => {
+                            onPointerDown={(e) => {
                               e.preventDefault();
                               startCreateCountRepeat(-1);
                             }}
-                            onTouchEnd={stopCreateCountRepeat}
-                            onTouchCancel={stopCreateCountRepeat}
-                            onClick={(e) => {
-                              if (suppressCreateCountClickRef.current) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                return;
-                              }
-                              setCreateCount((c) => Math.max(0, c - 1));
-                            }}
+                            onPointerUp={stopCreateCountRepeat}
+                            onPointerLeave={stopCreateCountRepeat}
+                            onPointerCancel={stopCreateCountRepeat}
+                            style={{ touchAction: 'none' }}
                             className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl font-bold hover:bg-gray-200"
                         >
                             -
@@ -1328,23 +1314,14 @@ export default function DashboardPage() {
                         />
                         <button 
                             type="button"
-                            onMouseDown={() => startCreateCountRepeat(1)}
-                            onMouseUp={stopCreateCountRepeat}
-                            onMouseLeave={stopCreateCountRepeat}
-                            onTouchStart={(e) => {
+                            onPointerDown={(e) => {
                               e.preventDefault();
                               startCreateCountRepeat(1);
                             }}
-                            onTouchEnd={stopCreateCountRepeat}
-                            onTouchCancel={stopCreateCountRepeat}
-                            onClick={(e) => {
-                              if (suppressCreateCountClickRef.current) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                return;
-                              }
-                              setCreateCount((c) => c + 1);
-                            }}
+                            onPointerUp={stopCreateCountRepeat}
+                            onPointerLeave={stopCreateCountRepeat}
+                            onPointerCancel={stopCreateCountRepeat}
+                            style={{ touchAction: 'none' }}
                             className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-xl font-bold hover:bg-gray-200"
                         >
                             +

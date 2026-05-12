@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 export function useVoiceRecognition(onResult: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const onResultRef = useRef(onResult);
   const keepAliveRef = useRef(false);
@@ -183,11 +184,15 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
 
             recognition.onerror = (event: any) => {
                 console.error("Speech recognition error", event.error);
+                setLastError(String(event?.error || 'unknown'));
                 startingRef.current = false;
                 listeningRef.current = false;
                 setIsListening(false);
                 const err = String(event?.error || '').toLowerCase();
-                if (err === 'not-allowed' || err === 'service-not-allowed') return;
+                if (err === 'not-allowed' || err === 'service-not-allowed') {
+                  keepAliveRef.current = false;
+                  return;
+                }
                 if (err === 'aborted') return;
                 if (err === 'no-speech' || err === 'audio-capture') {
                   backoffMsRef.current = Math.min(Math.max(backoffMsRef.current * 1.4, 800), 2600);
@@ -234,6 +239,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
       clearTimeout(restartTimerRef.current);
       restartTimerRef.current = null;
     }
+    setLastError(null);
     keepAliveRef.current = true;
     pausedRef.current = false;
     backoffMsRef.current = 220;
@@ -293,6 +299,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
       clearTimeout(restartTimerRef.current);
       restartTimerRef.current = null;
     }
+    setLastError(null);
     keepAliveRef.current = true;
     pausedRef.current = false;
     safeStartRef.current?.();
@@ -308,5 +315,5 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
       }
   }, [isListening, startListening, stopListening]);
 
-  return { isListening, startListening, stopListening, pauseListening, resumeListening, toggleListening, isSupported };
+  return { isListening, startListening, stopListening, pauseListening, resumeListening, toggleListening, isSupported, lastError };
 }

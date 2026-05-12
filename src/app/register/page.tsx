@@ -37,6 +37,243 @@ function RegisterForm() {
     phoneNumber: '',
     referralCode: '',
   });
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
+
+  const termsText = `Vilkår for bruk – LEK-Biens Vokter™
+Sist oppdatert: 10.05.2026
+
+1. Generelt
+LEK-Biens Vokter™ er en digital plattform og et verktøy utviklet for registrering, organisering, læring, analyse, samhandling og videreutvikling innen blant annet birøkt, naturforvaltning, pollinering, teknologi, kunstig intelligens og tilknyttede tjenester.
+Ved å opprette konto, benytte plattformen eller bruke tilknyttede tjenester, samtykker brukeren til disse vilkårene.
+Plattformen eies, forvaltes og videreutvikles av LEK-Biens Vokter™ og eventuelle tilknyttede selskaper, samarbeidspartnere eller autoriserte bidragsytere.
+
+2. Aksept av vilkår
+Ved bruk av plattformen bekrefter brukeren at:
+oppgitte opplysninger er korrekte
+bruk skjer på eget ansvar
+brukeren har rett til å laste opp innhold som bilder, tekst og data
+brukeren ikke vil misbruke tjenesten eller forsøke å skade systemet
+Bruk som bryter med norsk lov, god skikk, sikkerhetshensyn eller plattformens formål kan føre til begrenset tilgang, suspensjon eller permanent utestengelse.
+
+3. Personopplysninger og personvern
+Plattformen behandler personopplysninger i samsvar med gjeldende norsk lovgivning og personvernregler, inkludert personopplysningsloven og GDPR.
+Opplysninger som kan behandles inkluderer blant annet:
+navn og kontaktinformasjon
+brukerinnhold
+bilder og media
+posisjonsdata
+aktivitetsdata
+registreringer og analyser
+teknisk informasjon om enheter og bruk
+Opplysninger benyttes for:
+drift av plattformen
+forbedring av funksjoner og brukeropplevelse
+sikkerhet og feilsøking
+utvikling av nye tjenester
+statistikk og analyse
+forskning og videreutvikling av kunstig intelligens
+Sensitive personopplysninger behandles ikke uten særskilt grunnlag eller samtykke.
+Brukeren kan kontakte plattformens ansvarlige for innsyn, retting eller sletting av personopplysninger der lovverket gir rett til dette.
+Plattformen er under kontinuerlig utvikling, og behandling, strukturering og forbedring av tjenester, funksjoner og dataflyt kan endres over tid.
+
+4. Bruk av data, bilder og kunstig intelligens
+Ved bruk av plattformen samtykker brukeren til at opplastet innhold, registreringer, bilder, metadata, aktivitetsdata og annen relevant informasjon kan benyttes til:
+forbedring av plattformen
+analyse og statistikk
+videreutvikling av tjenester
+opplæring, testing og forbedring av KI-systemer
+automatisering og optimalisering av funksjoner
+forskning og utvikling
+Data vil så langt det er praktisk mulig anonymiseres eller pseudonymiseres før bruk til analyse og KI-relaterte formål.
+Plattformen kan benytte aggregert og anonymisert data til:
+innsikt
+rapporter
+forskning
+analysearbeid
+forbedring av brukeropplevelse
+utvikling av fremtidige tjenester og verktøy
+Brukeren beholder eierskap til eget innhold, men gir plattformen en ikke-eksklusiv, verdensomspennende, overførbar og vederlagsfri rett til å lagre, behandle, analysere, tilpasse, videreutvikle og benytte innholdet innenfor plattformens formål og videre utvikling av tjenester, funksjoner og KI-relaterte systemer.
+
+5. Ansvarsbegrensning
+Plattformen leveres \"som den er\" uten garanti for:
+kontinuerlig tilgjengelighet
+feilfri drift
+fullstendig datanøyaktighet
+kompatibilitet med alle enheter eller tjenester
+LEK-Biens Vokter™ kan ikke holdes ansvarlig for:
+tap av data
+indirekte tap
+driftsavbrudd
+økonomisk tap
+feilregistreringer
+brukerfeil
+beslutninger tatt basert på informasjon fra plattformen
+Brukeren er selv ansvarlig for å kvalitetssikre egne registreringer og vurderinger.
+
+6. Brukerinnhold
+Brukeren er fullt ansvarlig for alt innhold som lastes opp, registreres, deles eller behandles via plattformen.
+Det er ikke tillatt å laste opp eller dele:
+ulovlig innhold
+krenkende materiale
+skadelig kode
+materiale som bryter andres rettigheter
+villedende eller falsk informasjon
+Plattformen forbeholder seg retten til å fjerne innhold eller begrense tilgang uten varsel dersom dette anses nødvendig.
+
+7. Immaterielle rettigheter
+Navn, design, konsepter, systemer, logoer, funksjoner og innhold tilhørende LEK-Biens Vokter™ er beskyttet av gjeldende lover om opphavsrett, varemerker og immaterielle rettigheter.
+Innhold, struktur, systemdesign, funksjoner og materiale fra plattformen kan ikke kopieres, videreselges, distribueres eller gjenbrukes uten skriftlig tillatelse.
+
+8. Drift, endringer og tilgjengelighet
+Plattformen kan når som helst:
+oppdateres
+endres
+videreutvikles
+pauses
+begrenses
+avsluttes
+uten forhåndsvarsel dersom dette anses nødvendig av tekniske, juridiske eller driftsmessige årsaker.
+Funksjoner, innhold og tjenester kan variere mellom ulike brukere, testmiljøer og utviklingsfaser.
+
+9. Sikkerhet
+Brukeren er ansvarlig for å:
+beskytte egne innloggingsopplysninger
+bruke sikre passord
+varsle ved mistanke om misbruk
+Forsøk på hacking, misbruk, automatisert angrep, scraping eller uautorisert tilgang kan politianmeldes.
+
+10. Tredjepartstjenester
+Plattformen kan integreres med tredjepartstjenester som:
+kartløsninger
+betalingstjenester
+KI-tjenester
+analyseverktøy
+skylagring
+sensorer og eksterne systemer
+LEK-Biens Vokter™ er ikke ansvarlig for forhold, feil, datatap, sikkerhetsbrudd eller driftsproblemer knyttet til tredjepartsleverandører eller eksterne tjenester.
+
+11. Endringer i vilkår
+Vilkårene kan oppdateres ved behov.
+Videre bruk av plattformen etter oppdateringer anses som aksept av gjeldende vilkår.
+
+12. Lovvalg og jurisdiksjon
+Vilkårene reguleres av norsk lov.
+Eventuelle tvister søkes løst i minnelighet. Dersom dette ikke lykkes, behandles saken etter norsk jurisdiksjon.
+
+13. Aldersgrense
+Plattformen er i utgangspunktet beregnet for personer over 13 år.
+Brukere under 13 år skal kun benytte plattformen med samtykke fra foresatte eller ansvarlig verge dersom dette kreves etter gjeldende lovverk.
+Plattformen kan når som helst be om bekreftelse på alder eller samtykke.
+
+14. Testmiljø, studentutvikling og eksperimentelle moduler
+Plattformen kan inneholde:
+testfunksjoner
+eksperimentelle løsninger
+beta-funksjoner
+moduler under utvikling
+studentprosjekter
+tredjepartsintegrasjoner
+Slike funksjoner kan:
+inneholde feil
+endres uten varsel
+fjernes midlertidig eller permanent
+gi uforutsigbare resultater
+ha begrenset støtte eller tilgjengelighet
+LEK-Biens Vokter™ forbeholder seg retten til å:
+deaktivere moduler
+slette testdata
+begrense tilgang
+endre funksjonalitet
+fjerne eksperimentelle løsninger
+uten forhåndsvarsel dersom dette anses nødvendig.
+
+15. Utvikler-, modul- og bidragsvilkår
+Kode, moduler, konsepter, integrasjoner, funksjoner, design, arbeidsflyt, dokumentasjon og annet materiale utviklet for eller tilknyttet plattformen kan helt eller delvis tilfalle LEK-Biens Vokter™ dersom ikke annet er uttrykkelig skriftlig avtalt.
+Ved bidrag til plattformen samtykker utviklere, studenter og samarbeidspartnere til at:
+løsninger kan videreutvikles
+kode kan endres eller fjernes
+funksjoner kan integreres i plattformen
+bidrag kan benyttes videre av plattformen
+moduler kan omstruktureres, flyttes eller slettes
+LEK-Biens Vokter™ står fritt til å:
+godkjenne eller avslå bidrag
+endre arkitektur
+reorganisere moduler
+videreutvikle løsninger uavhengig av opprinnelig bidragsyter
+
+16. Kunstig intelligens og automatiserte funksjoner
+Plattformen kan benytte kunstig intelligens, automatiserte analyser og maskinlæring i forbindelse med:
+registreringer
+analyser
+forslag
+automatisering
+beslutningsstøtte
+bildeanalyse
+læringssystemer
+optimalisering
+KI-generert informasjon kan inneholde feil, mangler eller unøyaktigheter og skal ikke regnes som profesjonell rådgivning, medisinsk vurdering, juridisk rådgivning eller annen faglig garanti.
+Brukeren er selv ansvarlig for å kvalitetssikre informasjon og vurderinger.
+
+17. Bilder, media og brukerinnhold
+Ved opplasting eller deling av bilder, video, lyd, tekst eller annet innhold samtykker brukeren til at materialet kan benyttes av LEK-Biens Vokter™ i forbindelse med:
+drift av plattformen
+analyse
+statistikk
+forbedring av tjenester
+opplæring og utvikling av KI-systemer
+presentasjoner
+dokumentasjon
+forskning
+markedsføring av plattformen
+Der det er praktisk, teknisk og juridisk mulig vil data anonymiseres eller pseudonymiseres.
+Brukeren bekrefter samtidig at vedkommende har nødvendige rettigheter til å laste opp innholdet.
+
+18. Backup, lagring og datatap
+Selv om plattformen arbeider for stabil drift og sikker lagring, gis ingen garanti mot:
+datatap
+korrupte filer
+tap av registreringer
+utilgjengelige tjenester
+tekniske feil
+Brukeren er selv ansvarlig for å:
+ta egne sikkerhetskopier ved behov
+eksportere viktige data
+lagre kritisk informasjon eksternt
+LEK-Biens Vokter™ kan ikke holdes ansvarlig for tap av data eller konsekvenser som følge av tekniske problemer, utviklingsarbeid eller feil hos tredjepartsleverandører.
+Plattformen kan sende:
+varsler
+driftsmeldinger
+sikkerhetsinformasjon
+oppdateringer
+systemmeldinger
+relevant informasjon knyttet til tjenesten
+via e-post, push-varsler, SMS eller andre kommunikasjonskanaler knyttet til brukerens konto eller registrerte kontaktinformasjon.
+
+19. Feature testing og beta-funksjoner
+Deler av plattformen kan til enhver tid være under:
+testing
+utvikling
+optimalisering
+eksperimentering
+Funksjoner kan:
+endres uten varsel
+flyttes
+deaktiveres
+fjernes
+erstattes
+Bruk av beta- og testfunksjoner skjer på eget ansvar.
+LEK-Biens Vokter™ forbeholder seg retten til å suspendere, begrense eller avslutte brukerkontoer ved:
+misbruk av plattformen
+sikkerhetsrisiko
+forsøk på uautorisert tilgang
+brudd på vilkårene
+ulovlig aktivitet
+aktivitet som anses skadelig for plattformen, brukerne eller tilknyttede tjenester
+Slike tiltak kan gjennomføres midlertidig eller permanent uten forhåndsvarsel dersom dette anses nødvendig.
+
+20. Kontakt
+Spørsmål knyttet til vilkår, personvern eller bruk av plattformen kan rettes til plattformens ansvarlige kontaktperson eller virksomhet.`;
 
   const next = searchParams.get('next');
   const loginHref = next ? `/login?next=${encodeURIComponent(next)}` : '/login';
@@ -120,6 +357,10 @@ function RegisterForm() {
     }
     if (formData.password.length < 6) {
       setError('Passordet må være minst 6 tegn');
+      return false;
+    }
+    if (!acceptedTerms) {
+      setError('Du må godta vilkår for å registrere deg');
       return false;
     }
     return true;
@@ -317,6 +558,70 @@ function RegisterForm() {
                   />
                 </div>
               </div>
+            </div>
+
+            {termsOpen && (
+              <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[70]">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden border border-gray-200">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+                    <div className="font-semibold text-gray-900">Vilkår for bruk</div>
+                    <button
+                      type="button"
+                      onClick={() => setTermsOpen(false)}
+                      className="p-2 rounded-lg hover:bg-gray-100"
+                      aria-label="Lukk"
+                    >
+                      <ArrowLeft className="w-5 h-5 rotate-180 text-gray-600" />
+                    </button>
+                  </div>
+                  <div className="p-5 max-h-[70vh] overflow-y-auto">
+                    <pre className="whitespace-pre-wrap text-sm text-gray-800 leading-relaxed font-sans">
+                      {termsText}
+                    </pre>
+                  </div>
+                  <div className="px-5 py-4 border-t border-gray-200 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTermsOpen(false)}
+                      className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold"
+                    >
+                      Lukk
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAcceptedTerms(true);
+                        setTermsOpen(false);
+                      }}
+                      className="px-4 py-2 rounded-lg bg-honey-500 hover:bg-honey-600 text-white font-semibold"
+                    >
+                      Godta vilkår
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="mt-1 w-5 h-5 text-honey-600 rounded focus:ring-honey-500 border-gray-300"
+                />
+                <span className="text-sm text-gray-700">
+                  Jeg godtar{' '}
+                  <button
+                    type="button"
+                    onClick={() => setTermsOpen(true)}
+                    className="text-honey-700 font-semibold hover:underline"
+                  >
+                    vilkår for bruk
+                  </button>
+                  .
+                </span>
+              </label>
             </div>
 
             <div className="pt-6">

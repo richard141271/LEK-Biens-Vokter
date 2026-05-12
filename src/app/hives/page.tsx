@@ -380,7 +380,7 @@ export default function AllHivesPage() {
             const inspections = selectedHives.map(id => ({
                 id: crypto.randomUUID(),
                 hive_id: id,
-                user_id: ownerIdByHiveId.get(String(id)) || activeOwnerId || user.id,
+                user_id: user.id,
                 inspection_date: today,
                 time: hhmm,
                 queen_seen: massInspectionData.queen_seen,

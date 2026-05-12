@@ -1276,7 +1276,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             const inspections = ids.map(id => ({
                 id: crypto.randomUUID(),
                 hive_id: id,
-                user_id: ownerIdByHiveId.get(String(id)) || user.id,
+                user_id: user.id,
                 inspection_date: today,
                 time: hhmm,
                 queen_seen: massInspectionData.queen_seen,

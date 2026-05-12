@@ -367,7 +367,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
   };
 
-  const { isListening, startListening, stopListening, pauseListening, resumeListening, toggleListening, isSupported } = useVoiceRecognition(handleVoiceCommand);
+  const { isListening, startListening, stopListening, pauseListening, resumeListening, toggleListening, isSupported, lastError } = useVoiceRecognition(handleVoiceCommand);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(new Date().toTimeString().split(' ')[0].substring(0, 5));
   const [queenSeen, setQueenSeen] = useState<'' | 'ja' | 'nei'>('');
@@ -408,6 +408,17 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   const supabase = createClient();
   const router = useRouter();
+  const voiceErrorAlertedRef = useRef(false);
+
+  useEffect(() => {
+    const err = String(lastError || '').trim().toLowerCase();
+    if (!err) return;
+    if (voiceErrorAlertedRef.current) return;
+    if (err === 'not-allowed' || err === 'service-not-allowed') {
+      voiceErrorAlertedRef.current = true;
+      alert('Talestyring er blokkert av nettleseren. Sjekk mikrofon-tillatelse for LEK-Biens Vokter og prøv igjen.');
+    }
+  }, [lastError]);
 
   useEffect(() => {
     try {
@@ -589,9 +600,21 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   // Sikre kontinuerlig lytting gjennom hele inspeksjonen
   useEffect(() => {
     if (!handsfreeReady) return;
+    if (!isSupported) return;
     try { startListening(); } catch {}
-    return () => { try { stopListening(); } catch {} };
-  }, [handsfreeReady]);
+
+    const onFirstInteraction = () => {
+      try { startListening(); } catch {}
+    };
+    try {
+      window.addEventListener('pointerdown', onFirstInteraction, { passive: true });
+    } catch {}
+
+    return () => {
+      try { window.removeEventListener('pointerdown', onFirstInteraction as any); } catch {}
+      try { stopListening(); } catch {}
+    };
+  }, [handsfreeReady, isSupported, startListening, stopListening]);
 
 
   const fetchHiveAndWeather = async () => {
@@ -1229,7 +1252,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         .insert({
           id: opId,
           hive_id: params.id,
-          user_id: String((hive as any)?.user_id || user.id),
+          user_id: user.id,
           inspection_date: date,
           time: time,
           queen_seen: queenSeenValue,
@@ -1464,6 +1487,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
             <button
                 onClick={() => {
+                  if (!isSupported) {
+                    alert('Talestyring støttes ikke på denne enheten/nettleseren.');
+                    return;
+                  }
                   if (!isListening) primeTts(true);
                   toggleListening();
                 }}
