@@ -449,6 +449,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const audioCtxRef = useRef<AudioContext | null>(null);
   const ttsPrimedRef = useRef(false);
   const ttsUnlockedRef = useRef(false);
+  const ttsQueueRef = useRef<string[]>([]);
+  const ttsBusyRef = useRef(false);
+  const ttsCacheRef = useRef<Map<string, string>>(new Map());
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const unlockAudioSession = () => {
     try {
       if (typeof window === 'undefined') return;
@@ -539,6 +543,76 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     } catch {}
   };
 
+  const speakWithServer = async (text: string, onDone: () => void) => {
+    try {
+      if (typeof window === 'undefined') return;
+      const trimmed = String(text || '').trim();
+      if (!trimmed) return;
+      if (ttsBusyRef.current) {
+        ttsQueueRef.current.push(trimmed);
+        return;
+      }
+      ttsBusyRef.current = true;
+
+      const cached = ttsCacheRef.current.get(trimmed) || null;
+      let url = cached;
+      if (!url) {
+        const res = await fetch('/api/voice/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: trimmed }),
+        });
+        if (!res.ok) {
+          ttsBusyRef.current = false;
+          onDone();
+          return;
+        }
+        const buf = await res.arrayBuffer();
+        const blob = new Blob([buf], { type: 'audio/mpeg' });
+        url = URL.createObjectURL(blob);
+        ttsCacheRef.current.set(trimmed, url);
+      }
+
+      try {
+        const prev = ttsAudioRef.current;
+        if (prev) {
+          try {
+            prev.pause();
+          } catch {}
+          ttsAudioRef.current = null;
+        }
+      } catch {}
+
+      const a = new Audio(url);
+      a.preload = 'auto';
+      a.onended = () => {
+        ttsBusyRef.current = false;
+        onDone();
+        const next = ttsQueueRef.current.shift();
+        if (next) void speakWithServer(next, onDone);
+      };
+      a.onerror = () => {
+        ttsBusyRef.current = false;
+        onDone();
+        const next = ttsQueueRef.current.shift();
+        if (next) void speakWithServer(next, onDone);
+      };
+      ttsAudioRef.current = a;
+
+      try {
+        await a.play();
+      } catch {
+        ttsBusyRef.current = false;
+        onDone();
+      }
+    } catch {
+      try {
+        ttsBusyRef.current = false;
+        onDone();
+      } catch {}
+    }
+  };
+
   useEffect(() => {
     const onFirst = () => {
       primeTts(false);
@@ -584,15 +658,35 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       };
 
       let started = false;
+      let serverAttempted = false;
       const startWatch = setTimeout(() => {
-        if (!started) resume();
-      }, 1200);
+        if (started) return;
+        if (serverAttempted) {
+          resume();
+          return;
+        }
+        serverAttempted = true;
+        try {
+          s.cancel();
+        } catch {}
+        void speakWithServer(trimmed, resume);
+      }, 900);
       const hardWatch = setTimeout(() => {
+        if (started) return;
+        if (!serverAttempted) {
+          serverAttempted = true;
+          try {
+            s.cancel();
+          } catch {}
+          void speakWithServer(trimmed, resume);
+          return;
+        }
         resume();
       }, 10000);
 
       u.onstart = () => {
         started = true;
+        serverAttempted = false;
         clearTimeout(startWatch);
       };
       u.onend = () => {
