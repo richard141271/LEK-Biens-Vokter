@@ -49,6 +49,7 @@ export default function ApiariesPage() {
   const prevVoiceStepRef = useRef<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
   const apiariesRef = useRef<any[]>([]);
   const ttsSafetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceInsideRef = useRef(false);
 
   useEffect(() => {
     fetchData();
@@ -361,6 +362,8 @@ export default function ApiariesPage() {
         const outside = best.distance >= 8;
 
         if (inside) {
+          const entering = !voiceInsideRef.current;
+          voiceInsideRef.current = true;
           setNearApiary(best.apiary);
           if (voiceStepRef.current === 'idle' || voiceStepRef.current === 'armed') {
             setSelectedVoiceApiary(best.apiary);
@@ -380,11 +383,14 @@ export default function ApiariesPage() {
             speak(`Du er i ${best.apiary.name}. Si kube nummer.`);
           }
 
-          if (isSupported && !isListeningRef.current) {
-            try { startListening(); } catch {}
+          if (entering) {
+            if (isSupported) {
+              try { startListening(); } catch {}
+            }
           }
         } else if (outside) {
-          if (nearApiaryRef.current?.id) {
+          if (voiceInsideRef.current) {
+            voiceInsideRef.current = false;
             setNearApiary(null);
             if (voiceStepRef.current !== 'idle') setVoiceStep('idle');
             setSelectedVoiceApiary(null);
@@ -406,6 +412,7 @@ export default function ApiariesPage() {
     );
 
     return () => {
+      voiceInsideRef.current = false;
       try { navigator.geolocation.clearWatch(watchId); } catch {}
     };
   }, [apiariesWithCoords, isSelectionMode, isSupported, isVoiceEnabled, speak, startListening, stopListening]);
