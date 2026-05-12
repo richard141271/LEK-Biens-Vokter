@@ -445,6 +445,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const audioCtxRef = useRef<AudioContext | null>(null);
   const ttsPrimedRef = useRef(false);
   const ttsSeqRef = useRef(0);
+  const isSpeakingRef = useRef(false);
+  const pendingSpeakTextRef = useRef<string | null>(null);
+  const isListeningRef = useRef(false);
   const beep = (freq = 880, ms = 220) => {
     try {
       if (typeof window === 'undefined') return;
@@ -475,6 +478,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       if (!s) return;
       ttsPrimedRef.current = true;
+      try {
+        if (typeof s.getVoices === 'function') s.getVoices();
+      } catch {}
       if (!shouldSpeak) return;
       s.cancel();
       const u = new SpeechSynthesisUtterance('Talestyring aktivert');
@@ -503,9 +509,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     try {
       if (typeof window === 'undefined') return;
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
-      const wasListening = isListening;
-      const seq = (ttsSeqRef.current += 1);
-      let started = false;
+      if (!s) {
+        return;
+      }
+      const trimmed = String(text || '').trim();
+      if (!trimmed) return;
+
+      pendingSpeakTextRef.current = trimmed;
+      if (isSpeakingRef.current) return;
 
       const ack = () => {
         beep(880, 90);
@@ -513,88 +524,124 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         setTimeout(() => beep(1320, 110), 260);
       };
 
-      const finish = () => {
+      const runNext = () => {
+        const nextText = pendingSpeakTextRef.current;
+        if (!nextText) return;
+        pendingSpeakTextRef.current = null;
+        isSpeakingRef.current = true;
+
+        const seq = (ttsSeqRef.current += 1);
+        const wasListening = isListeningRef.current;
         if (wasListening) {
-          setTimeout(() => {
-            try {
-              resumeListening();
-            } catch {}
-          }, 160);
+          try {
+            pauseListening();
+          } catch {}
         }
+
+        const finish = () => {
+          if (wasListening) {
+            setTimeout(() => {
+              try {
+                resumeListening();
+              } catch {}
+            }, 160);
+          }
+          isSpeakingRef.current = false;
+          if (pendingSpeakTextRef.current) runNext();
+        };
+
+        const makeUtterance = (t: string) => {
+          const u = new SpeechSynthesisUtterance(t);
+          u.lang = 'nb-NO';
+          u.rate = 0.92;
+          u.pitch = 1.0;
+          u.volume = 1.0;
+          try {
+            const voices = typeof s.getVoices === 'function' ? s.getVoices() : [];
+            const nb = voices.find((v) => (v.lang || '').toLowerCase().startsWith('nb'));
+            const no = voices.find((v) => (v.lang || '').toLowerCase().startsWith('no'));
+            const nn = voices.find((v) => (v.lang || '').toLowerCase().includes('nor'));
+            u.voice = nb || no || nn || u.voice || null;
+          } catch {}
+          return u;
+        };
+
+        const trySpeak = (attempt: number) => {
+          if (ttsSeqRef.current !== seq) return;
+
+          let started = false;
+          const u = makeUtterance(nextText);
+
+          const safety = setTimeout(() => {
+            if (ttsSeqRef.current !== seq) return;
+            if (!started && attempt < 2) {
+              try {
+                s.cancel();
+              } catch {}
+              try {
+                if (typeof s.resume === 'function') s.resume();
+              } catch {}
+              setTimeout(() => trySpeak(attempt + 1), 80);
+              return;
+            }
+            if (!started) ack();
+            finish();
+          }, 850);
+
+          u.onstart = () => {
+            started = true;
+          };
+          u.onend = () => {
+            clearTimeout(safety);
+            finish();
+          };
+          u.onerror = () => {
+            clearTimeout(safety);
+            if (attempt < 2) {
+              try {
+                s.cancel();
+              } catch {}
+              try {
+                if (typeof s.resume === 'function') s.resume();
+              } catch {}
+              setTimeout(() => trySpeak(attempt + 1), 80);
+              return;
+            }
+            ack();
+            finish();
+          };
+
+          try {
+            if (typeof s.resume === 'function') s.resume();
+          } catch {}
+          try {
+            s.cancel();
+          } catch {}
+          setTimeout(() => {
+            if (ttsSeqRef.current !== seq) return;
+            try {
+              s.speak(u);
+            } catch {
+              clearTimeout(safety);
+              ack();
+              finish();
+            }
+          }, 0);
+        };
+
+        trySpeak(0);
       };
 
-      // Pause lytte-modus mens vi snakker; bruk midlertidig pause
-      if (wasListening) {
-        try { pauseListening(); } catch {}
-      }
-      if (!s) {
-        if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 250);
-        return;
-      }
-      s.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'nb-NO';
-      u.rate = 0.92;
-      u.pitch = 1.0;
-      u.volume = 1.0;
-      // Velg norsk stemme hvis tilgjengelig
-      const pickVoice = () => {
-        try {
-          const voices = s.getVoices ? s.getVoices() : [];
-          const nb = voices.find(v => (v.lang || '').toLowerCase().startsWith('nb'));
-          const no = voices.find(v => (v.lang || '').toLowerCase().startsWith('no'));
-          const nn = voices.find(v => (v.lang || '').toLowerCase().includes('nor'));
-          u.voice = nb || no || nn || u.voice || null;
-        } catch {}
-      };
-      if (!s.getVoices || s.getVoices().length === 0) {
-        const prev = (s as any)._voicesChanged;
-        (s as any)._voicesChanged = true;
-        s.onvoiceschanged = () => {
-          if (!(s as any)._voicesChanged) return;
-          (s as any)._voicesChanged = false;
-          pickVoice();
-          s.speak(u);
-        };
-        // Fallback timeout
-        setTimeout(() => {
-          if ((s as any)._voicesChanged) {
-            (s as any)._voicesChanged = false;
-            pickVoice();
-            s.speak(u);
-          }
-        }, 300);
-      } else {
-        pickVoice();
-        s.speak(u);
-      }
-      // Safety fallback: om onend ikke fyrer (plattformbegrensning), gjenoppta etter 3s
-      const safety = setTimeout(() => {
-        if (wasListening) { try { resumeListening(); } catch {} }
-      }, 3000);
-      const startWatch = setTimeout(() => {
-        if (ttsSeqRef.current !== seq) return;
-        if (!started) ack();
-      }, 900);
-      u.onstart = () => {
-        started = true;
-      };
-      u.onend = () => {
-        clearTimeout(startWatch);
-        clearTimeout(safety);
-        finish();
-      };
-      u.onerror = () => {
-        clearTimeout(startWatch);
-        clearTimeout(safety);
-        ack();
-        finish();
-      };
+      runNext();
     } catch {}
   };
   useEffect(() => {
     speakRef.current = speak;
   }, [speak]);
+
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
 
   useEffect(() => {
     selectedImageRef.current = selectedImage;
@@ -1287,20 +1334,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         )}
         <canvas ref={canvasRef} className="hidden" />
 
-        {lastCorrection && (
-          <div className="mb-3 p-2 bg-amber-50 text-amber-800 rounded-lg flex items-center gap-2 border border-amber-200">
-            <Info className="w-4 h-4" />
-            <span className="text-sm font-medium">Tolkning brukt: {lastCorrection.phrase} ({Math.round((lastCorrection.similarity || 0) * 100)}%)</span>
-          </div>
-        )}
-
-        {/* Voice Feedback */}
-        {lastCommand && (
-          <div className="mb-4 p-3 bg-green-100 text-green-800 rounded-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2 shadow-sm border border-green-200">
-            <Mic className="w-5 h-5" />
-            <span className="font-medium">Oppfattet: {lastCommand}</span>
-          </div>
-        )}
+        <div className="sr-only" aria-live="polite">
+          {lastCorrection ? `Tolkning brukt: ${lastCorrection.phrase} (${Math.round((lastCorrection.similarity || 0) * 100)}%)` : ''}
+          {lastCommand ? `Oppfattet: ${lastCommand}` : ''}
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-6 max-w-lg mx-auto">
           
