@@ -1,3 +1,20 @@
+let buildRevision =
+  process.env.NEXT_PUBLIC_BUILD_REVISION ||
+  process.env.VERCEL_GIT_COMMIT_SHA ||
+  process.env.GITHUB_SHA ||
+  '';
+
+if (!buildRevision) {
+  try {
+    const { execSync } = require('child_process');
+    buildRevision = String(execSync('git rev-parse HEAD')).trim();
+  } catch {}
+}
+
+if (!buildRevision) {
+  buildRevision = String(Date.now());
+}
+
 const withPWA = require('next-pwa')({
   dest: 'public',
   register: false,
@@ -15,12 +32,12 @@ const withPWA = require('next-pwa')({
     /\/[^/?]+\.[^/]+$/,
   ],
   additionalManifestEntries: [
-    { url: '/', revision: null },
-    { url: '/dashboard', revision: null },
-    { url: '/apiaries', revision: null },
-    { url: '/hives', revision: null },
-    { url: '/offline.html', revision: null },
-    { url: '/offline', revision: null },
+    { url: '/', revision: buildRevision },
+    { url: '/dashboard', revision: buildRevision },
+    { url: '/apiaries', revision: buildRevision },
+    { url: '/hives', revision: buildRevision },
+    { url: '/offline.html', revision: buildRevision },
+    { url: '/offline', revision: buildRevision },
   ],
   runtimeCaching: [
     {
