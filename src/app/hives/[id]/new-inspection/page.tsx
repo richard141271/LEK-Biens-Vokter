@@ -517,8 +517,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const speak = (text: string) => {
     try {
       if (typeof window === 'undefined') return;
-      // Short cue to ensure audio context is unlocked on iOS
-      beep(1200, 260);
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       const wasListening = isListening;
       // Pause lytte-modus mens vi snakker; bruk midlertidig pause
@@ -537,6 +535,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       u.rate = 0.92;
       u.pitch = 1.0;
       u.volume = 1.0;
+      u.onstart = () => {
+        try { beep(1200, 260); } catch {}
+      };
       // Velg norsk stemme hvis tilgjengelig
       const pickVoice = () => {
         try {
@@ -614,15 +615,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     if (!isSupported) return;
     try { startListening(); } catch {}
 
-    const onFirstInteraction = () => {
-      try { startListening(); } catch {}
-    };
-    try {
-      window.addEventListener('pointerdown', onFirstInteraction, { passive: true });
-    } catch {}
-
     return () => {
-      try { window.removeEventListener('pointerdown', onFirstInteraction as any); } catch {}
       try { stopListening(); } catch {}
     };
   }, [handsfreeReady, isSupported, shouldAutoVoice, startListening, stopListening]);
