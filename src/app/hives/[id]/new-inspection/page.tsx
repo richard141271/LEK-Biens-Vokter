@@ -446,8 +446,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const ttsPrimedRef = useRef(false);
   const ttsSeqRef = useRef(0);
   const isSpeakingRef = useRef(false);
-  const pendingSpeakTextRef = useRef<string | null>(null);
+  const speakQueueRef = useRef<string[]>([]);
   const isListeningRef = useRef(false);
+  const pausedByTtsRef = useRef(false);
   const beep = (freq = 880, ms = 220) => {
     try {
       if (typeof window === 'undefined') return;
@@ -482,7 +483,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         if (typeof s.getVoices === 'function') s.getVoices();
       } catch {}
       if (!shouldSpeak) return;
-      s.cancel();
       const u = new SpeechSynthesisUtterance('Talestyring aktivert');
       u.lang = 'nb-NO';
       u.rate = 0.95;
@@ -494,7 +494,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   useEffect(() => {
     const onFirst = () => {
-      primeTts(true);
+      primeTts(false);
     };
     try {
       window.addEventListener('pointerdown', onFirst, { once: true, passive: true } as any);
@@ -509,130 +509,101 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     try {
       if (typeof window === 'undefined') return;
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
-      if (!s) {
-        return;
-      }
+      if (!s) return;
       const trimmed = String(text || '').trim();
       if (!trimmed) return;
 
-      pendingSpeakTextRef.current = trimmed;
+      speakQueueRef.current.push(trimmed);
       if (isSpeakingRef.current) return;
 
-      const ack = () => {
-        beep(880, 90);
-        setTimeout(() => beep(1040, 90), 120);
-        setTimeout(() => beep(1320, 110), 260);
-      };
+      const startQueue = () => {
+        if (isSpeakingRef.current) return;
+        if (speakQueueRef.current.length === 0) return;
 
-      const runNext = () => {
-        const nextText = pendingSpeakTextRef.current;
-        if (!nextText) return;
-        pendingSpeakTextRef.current = null;
-        isSpeakingRef.current = true;
-
-        const seq = (ttsSeqRef.current += 1);
         const wasListening = isListeningRef.current;
-        if (wasListening) {
+        if (wasListening && !pausedByTtsRef.current) {
+          pausedByTtsRef.current = true;
           try {
             pauseListening();
           } catch {}
         }
 
-        const finish = () => {
-          if (wasListening) {
+        isSpeakingRef.current = true;
+        const seq = (ttsSeqRef.current += 1);
+
+        const finishOne = () => {
+          if (ttsSeqRef.current !== seq) return;
+          isSpeakingRef.current = false;
+          if (speakQueueRef.current.length > 0) {
+            startQueue();
+            return;
+          }
+          if (pausedByTtsRef.current) {
+            pausedByTtsRef.current = false;
             setTimeout(() => {
               try {
                 resumeListening();
               } catch {}
-            }, 160);
+            }, 180);
           }
-          isSpeakingRef.current = false;
-          if (pendingSpeakTextRef.current) runNext();
         };
 
-        const makeUtterance = (t: string) => {
-          const u = new SpeechSynthesisUtterance(t);
-          u.lang = 'nb-NO';
-          u.rate = 0.92;
-          u.pitch = 1.0;
-          u.volume = 1.0;
+        const nextText = speakQueueRef.current.shift();
+        if (!nextText) {
+          finishOne();
+          return;
+        }
+
+        try {
+          if (typeof s.resume === 'function') s.resume();
+        } catch {}
+
+        const voices = (() => {
           try {
-            const voices = typeof s.getVoices === 'function' ? s.getVoices() : [];
-            const nb = voices.find((v) => (v.lang || '').toLowerCase().startsWith('nb'));
-            const no = voices.find((v) => (v.lang || '').toLowerCase().startsWith('no'));
-            const nn = voices.find((v) => (v.lang || '').toLowerCase().includes('nor'));
-            u.voice = nb || no || nn || u.voice || null;
+            return typeof s.getVoices === 'function' ? s.getVoices() : [];
+          } catch {
+            return [];
+          }
+        })();
+
+        const u = new SpeechSynthesisUtterance(nextText);
+        u.lang = 'nb-NO';
+        u.rate = 0.92;
+        u.pitch = 1.0;
+        u.volume = 1.0;
+        try {
+          const nb = voices.find((v) => (v.lang || '').toLowerCase().startsWith('nb'));
+          const no = voices.find((v) => (v.lang || '').toLowerCase().startsWith('no'));
+          const nn = voices.find((v) => (v.lang || '').toLowerCase().includes('nor'));
+          const picked = nb || no || nn;
+          if (picked) u.voice = picked;
+        } catch {}
+
+        const safety = setTimeout(() => {
+          try {
+            if (typeof s.cancel === 'function') s.cancel();
           } catch {}
-          return u;
+          finishOne();
+        }, 6000);
+
+        u.onend = () => {
+          clearTimeout(safety);
+          finishOne();
+        };
+        u.onerror = () => {
+          clearTimeout(safety);
+          finishOne();
         };
 
-        const trySpeak = (attempt: number) => {
-          if (ttsSeqRef.current !== seq) return;
-
-          let started = false;
-          const u = makeUtterance(nextText);
-
-          const safety = setTimeout(() => {
-            if (ttsSeqRef.current !== seq) return;
-            if (!started && attempt < 2) {
-              try {
-                s.cancel();
-              } catch {}
-              try {
-                if (typeof s.resume === 'function') s.resume();
-              } catch {}
-              setTimeout(() => trySpeak(attempt + 1), 80);
-              return;
-            }
-            if (!started) ack();
-            finish();
-          }, 850);
-
-          u.onstart = () => {
-            started = true;
-          };
-          u.onend = () => {
-            clearTimeout(safety);
-            finish();
-          };
-          u.onerror = () => {
-            clearTimeout(safety);
-            if (attempt < 2) {
-              try {
-                s.cancel();
-              } catch {}
-              try {
-                if (typeof s.resume === 'function') s.resume();
-              } catch {}
-              setTimeout(() => trySpeak(attempt + 1), 80);
-              return;
-            }
-            ack();
-            finish();
-          };
-
-          try {
-            if (typeof s.resume === 'function') s.resume();
-          } catch {}
-          try {
-            s.cancel();
-          } catch {}
-          setTimeout(() => {
-            if (ttsSeqRef.current !== seq) return;
-            try {
-              s.speak(u);
-            } catch {
-              clearTimeout(safety);
-              ack();
-              finish();
-            }
-          }, 0);
-        };
-
-        trySpeak(0);
+        try {
+          s.speak(u);
+        } catch {
+          clearTimeout(safety);
+          finishOne();
+        }
       };
 
-      runNext();
+      startQueue();
     } catch {}
   };
   useEffect(() => {
@@ -1289,7 +1260,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
             <button
                 onClick={() => {
-                  if (!isListening) primeTts(true);
+                  if (!isListening) {
+                    primeTts(false);
+                    speak('Talestyring aktivert');
+                  }
                   toggleListening();
                 }}
                 className={`p-3 rounded-full transition-all ${
