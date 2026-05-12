@@ -510,7 +510,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       const wasListening = isListening;
       if (wasListening) {
         try {
-          stopListening();
+          pauseListening();
         } catch {}
       }
 
@@ -520,30 +520,18 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       u.pitch = 1.0;
       u.volume = 1.0;
 
-      try {
-        const voices = typeof s.getVoices === 'function' ? s.getVoices() : [];
-        const nb = voices.find((v) => (v.lang || '').toLowerCase().startsWith('nb'));
-        const no = voices.find((v) => (v.lang || '').toLowerCase().startsWith('no'));
-        const nn = voices.find((v) => (v.lang || '').toLowerCase().includes('nor'));
-        const picked = nb || no || nn;
-        if (picked) u.voice = picked;
-      } catch {}
-
-      const restart = () => {
+      const resume = () => {
         if (!wasListening) return;
         setTimeout(() => {
           try {
-            startListening();
+            resumeListening();
           } catch {}
         }, 250);
       };
 
-      u.onend = restart;
-      u.onerror = restart;
+      u.onend = resume;
+      u.onerror = resume;
 
-      try {
-        if (typeof s.cancel === 'function') s.cancel();
-      } catch {}
       try {
         if (typeof s.resume === 'function') s.resume();
       } catch {}
@@ -551,9 +539,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       const delay = wasListening ? 650 : 0;
       setTimeout(() => {
         try {
+          if (s.speaking || s.pending) s.cancel();
+        } catch {}
+        try {
           s.speak(u);
         } catch {
-          restart();
+          resume();
         }
       }, delay);
     } catch {}
