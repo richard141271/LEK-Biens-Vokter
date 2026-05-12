@@ -74,10 +74,10 @@ export function parseVoiceCommand(text: string): ParsedInspection {
         return '';
     };
     const colorMatch =
-        t.match(/\b(dronningfarge|dronning\s*farge|farge)\s+(hvit|gul|rød|rod|grønn|gronn|blå|bla)\b/) ||
+        t.match(/\b(dronningfarge|dronning\s*farge|farge)\s*(er\s*)?(hvit|gul|rød|rod|grønn|gronn|blå|bla)\b/) ||
         t.match(/\b(hvit|gul|rød|rod|grønn|gronn|blå|bla)\s+dronning(a)?\b/);
     if (colorMatch) {
-        const rawColor = String(colorMatch[2] || colorMatch[1] || '');
+        const rawColor = String(colorMatch[3] || colorMatch[2] || colorMatch[1] || '');
         const norm = normalizeColor(String(rawColor || ''));
         if (norm) result.queenColor = norm;
     }
@@ -235,6 +235,61 @@ export function parseVoiceCommand(text: string): ParsedInspection {
     if (framesMatch) {
         const num = framesMatch.find((x) => /^\d/.test(String(x))) || '';
         if (num) result.broodFrames = String(num).replace(',', '.');
+    } else if (/\b(bistyrke|rammer(\s+med\s+yngel)?|yngelrammer)\b/.test(t)) {
+        const normalize = (s: string) =>
+            s
+                .toLowerCase()
+                .normalize('NFKD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9\s]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        const tn = normalize(t);
+        const map: Record<string, number> = {
+            'null': 0,
+            'en': 1,
+            'ett': 1,
+            'to': 2,
+            'tre': 3,
+            'fire': 4,
+            'fem': 5,
+            'seks': 6,
+            'sju': 7,
+            'syv': 7,
+            'atte': 8,
+            'aette': 8,
+            'ni': 9,
+            'ti': 10,
+            'elleve': 11,
+        };
+        const wordToNum = (w: string): number | null => {
+            const ww = normalize(w);
+            if (/^\d+$/.test(ww)) return Number(ww);
+            if (Object.prototype.hasOwnProperty.call(map, ww)) return map[ww];
+            return null;
+        };
+        const parseSpokenNumber = (): number | null => {
+            if (/\bhalv\b/.test(tn) && !/\b(og|komma)\b/.test(tn)) return 0.5;
+            const half = tn.match(/\b([a-z0-9]+)\s+og\s+en\s+halv\b/) || tn.match(/\b([a-z0-9]+)\s+og\s+halv\b/);
+            if (half) {
+                const base = wordToNum(half[1]);
+                if (base != null) return base + 0.5;
+            }
+            const comma = tn.match(/\b([a-z0-9]+)\s+komma\s+([a-z0-9]+)\b/);
+            if (comma) {
+                const a = wordToNum(comma[1]);
+                const b = wordToNum(comma[2]);
+                if (a != null && b != null) return Number(`${a}.${b}`);
+            }
+            const single = tn.match(/\b(bistyrke|yngelrammer|rammer)\s+(null|en|ett|to|tre|fire|fem|seks|sju|syv|atte|ni|ti|elleve|\d+)\b/);
+            if (single) {
+                const n = wordToNum(single[2]);
+                if (n != null) return n;
+            }
+            return null;
+        };
+        const v = parseSpokenNumber();
+        if (v != null && Number.isFinite(v)) result.broodFrames = String(v);
     }
 
     // --- Status (Kubestatus) ---

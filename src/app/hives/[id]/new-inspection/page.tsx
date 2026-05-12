@@ -261,7 +261,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             rawKey &&
             rawKey === lastVoiceCaptureTextRef.current &&
             now - lastVoiceCaptureAtRef.current < 6000;
-          if (pendingCapture || now - lastVoiceCaptureAtRef.current < 12000 || isDuplicateText) {
+          if (pendingCapture || now - lastVoiceCaptureAtRef.current < 3500 || isDuplicateText) {
               feedback.push("Bilde er allerede tatt");
           } else if (cameraActive) {
               lastVoiceCaptureAtRef.current = now;
@@ -728,6 +728,17 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         finished = true;
         finish();
       };
+      const hardTimer = setTimeout(() => {
+        try {
+          safeFinish();
+        } catch {}
+      }, 12000);
+      const safeFinishWithTimer = () => {
+        try {
+          clearTimeout(hardTimer);
+        } catch {}
+        safeFinish();
+      };
 
       try {
         if (ctx.state === 'suspended' && typeof ctx.resume === 'function') await ctx.resume();
@@ -768,7 +779,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         const src = ctx.createBufferSource();
         src.buffer = decoded;
         src.connect(ctx.destination);
-        src.onended = safeFinish;
+          src.onended = safeFinishWithTimer;
         if (shouldPauseMic) {
           try {
             pauseListening();
@@ -803,11 +814,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         };
         a.onended = () => {
           cleanup();
-          safeFinish();
+          safeFinishWithTimer();
         };
         a.onerror = () => {
           cleanup();
-          safeFinish();
+          safeFinishWithTimer();
         };
         if (shouldPauseMic) {
           try {
@@ -833,7 +844,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             beep(880, 140);
             setTimeout(() => beep(740, 140), 180);
           } catch {}
-          safeFinish();
+          safeFinishWithTimer();
         }
       }
     } catch {
@@ -864,10 +875,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     };
     try {
       window.addEventListener('pointerdown', onFirst, { once: true, passive: true } as any);
+      window.addEventListener('touchstart', onFirst, { once: true, passive: true } as any);
+      window.addEventListener('mousedown', onFirst, { once: true, passive: true } as any);
     } catch {}
     return () => {
       try {
         window.removeEventListener('pointerdown', onFirst as any);
+        window.removeEventListener('touchstart', onFirst as any);
+        window.removeEventListener('mousedown', onFirst as any);
       } catch {}
     };
   }, [handsfreeReady, startListening]);
@@ -893,6 +908,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           } catch {}
         }, 250);
       };
+
+      const isiOS =
+        typeof navigator !== 'undefined' &&
+        /(iphone|ipad|ipod)/i.test(navigator.userAgent || '');
+      if (isiOS) {
+        void speakWithServer(trimmed, wasListening, resume);
+        return;
+      }
 
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       if (!s) {
@@ -1036,7 +1059,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     if (isiOS && !gestureUnlockedRef.current) return;
     try { startListening(); } catch {}
     return () => { try { stopListening(); } catch {} };
-  }, [handsfreeReady]);
+  }, [handsfreeReady, startListening, stopListening]);
 
   useEffect(() => {
     if (isOffline) return;
@@ -1783,7 +1806,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
             <button
                 onClick={() => {
-                  if (!isListening) {
+                  if (isListening) {
+                    stopListening();
+                    return;
+                  }
+                  if (!gestureUnlockedRef.current) {
                     gestureUnlockedRef.current = true;
                     primeTts(false);
                     unlockAudioSession();
@@ -1791,8 +1818,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                     if (!ttsUnlockedRef.current) {
                       unlockTtsFromGesture('Talesvar på');
                     }
+                    setTimeout(() => {
+                      try {
+                        startListening();
+                      } catch {}
+                    }, 250);
+                    return;
                   }
-                  toggleListening();
+                  startListening();
                 }}
                 className={`p-3 rounded-full transition-all ${
                     isListening 
@@ -2210,16 +2243,15 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                         const src = getPreviewUrl(file);
                         return (
                           <div key={key} className="relative aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-                            <button
-                              type="button"
+                            <img
+                              src={src}
+                              alt="Bilde"
+                              className="w-full h-full object-cover cursor-zoom-in"
                               onClick={() => {
                                 setZoomImageSrc(src);
                                 setZoomScale(1);
                               }}
-                              className="absolute inset-0"
-                            >
-                              <img src={src} alt="Bilde" className="w-full h-full object-cover" />
-                            </button>
+                            />
                             <button
                               type="button"
                               onClick={() => {

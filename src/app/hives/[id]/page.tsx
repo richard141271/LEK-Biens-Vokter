@@ -419,7 +419,13 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
 
     if (error) {
       console.error('Failed to update two_queen_drift', error);
-      alert('Kunne ikke oppdatere to dronning drift');
+      const msg = String((error as any)?.message || (error as any)?.details || '');
+      const missingCol = msg.toLowerCase().includes('two_queen_drift') && msg.toLowerCase().includes('column');
+      if (missingCol) {
+        alert('Mangler kolonne i Supabase: two_queen_drift (boolean). Legg den til i tabell hives.');
+      } else {
+        alert('Kunne ikke oppdatere to dronning drift');
+      }
       fetchHiveDetails();
     }
   };
