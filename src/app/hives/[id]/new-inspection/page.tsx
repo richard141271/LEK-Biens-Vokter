@@ -482,13 +482,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         if (typeof s.getVoices === 'function') s.getVoices();
       } catch {}
       if (!shouldSpeak) return;
-      s.cancel();
-      const u = new SpeechSynthesisUtterance('Talestyring aktivert');
-      u.lang = 'nb-NO';
-      u.rate = 0.95;
-      u.pitch = 1.0;
-      u.volume = 0.9;
-      s.speak(u);
     } catch {}
   };
 
@@ -508,108 +501,60 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const speak = (text: string) => {
     try {
       if (typeof window === 'undefined') return;
-      const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       const trimmed = String(text || '').trim();
       if (!trimmed) return;
+
+      const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
+      if (!s) return;
 
       const wasListening = isListening;
       if (wasListening) {
         try {
-          pauseListening();
+          stopListening();
         } catch {}
       }
-      if (!s) {
-        if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 250);
-        return;
-      }
 
-      const ack = () => {
-        beep(880, 110);
-        setTimeout(() => beep(660, 110), 160);
+      const u = new SpeechSynthesisUtterance(trimmed);
+      u.lang = 'nb-NO';
+      u.rate = 0.92;
+      u.pitch = 1.0;
+      u.volume = 1.0;
+
+      try {
+        const voices = typeof s.getVoices === 'function' ? s.getVoices() : [];
+        const nb = voices.find((v) => (v.lang || '').toLowerCase().startsWith('nb'));
+        const no = voices.find((v) => (v.lang || '').toLowerCase().startsWith('no'));
+        const nn = voices.find((v) => (v.lang || '').toLowerCase().includes('nor'));
+        const picked = nb || no || nn;
+        if (picked) u.voice = picked;
+      } catch {}
+
+      const restart = () => {
+        if (!wasListening) return;
+        setTimeout(() => {
+          try {
+            startListening();
+          } catch {}
+        }, 250);
       };
 
-      const attempts: Array<{ lang?: string; preferNorwegian: boolean }> = [
-        { lang: 'nb-NO', preferNorwegian: true },
-        { preferNorwegian: false },
-        { lang: 'en-US', preferNorwegian: false },
-      ];
+      u.onend = restart;
+      u.onerror = restart;
+
+      try {
+        if (typeof s.cancel === 'function') s.cancel();
+      } catch {}
+      try {
+        if (typeof s.resume === 'function') s.resume();
+      } catch {}
 
       const delay = wasListening ? 650 : 0;
       setTimeout(() => {
-        let idx = 0;
-
-        const tryOne = () => {
-          if (idx >= attempts.length) {
-            ack();
-            if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 180);
-            return;
-          }
-
-          const attempt = attempts[idx];
-          idx += 1;
-
-          let started = false;
-          const u = new SpeechSynthesisUtterance(trimmed);
-          if (attempt.lang) u.lang = attempt.lang;
-          u.rate = 0.92;
-          u.pitch = 1.0;
-          u.volume = 1.0;
-
-          if (attempt.preferNorwegian) {
-            try {
-              const voices = typeof s.getVoices === 'function' ? s.getVoices() : [];
-              const nb = voices.find((v) => (v.lang || '').toLowerCase().startsWith('nb'));
-              const no = voices.find((v) => (v.lang || '').toLowerCase().startsWith('no'));
-              const nn = voices.find((v) => (v.lang || '').toLowerCase().includes('nor'));
-              const picked = nb || no || nn;
-              if (picked) u.voice = picked;
-            } catch {}
-          }
-
-          const startWatch = setTimeout(() => {
-            if (started) return;
-            try {
-              s.cancel();
-            } catch {}
-            tryOne();
-          }, 1300);
-
-          const safety = setTimeout(() => {
-            clearTimeout(startWatch);
-            tryOne();
-          }, 4500);
-
-          u.onstart = () => {
-            started = true;
-            clearTimeout(startWatch);
-          };
-          u.onend = () => {
-            clearTimeout(safety);
-            clearTimeout(startWatch);
-            if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 180);
-          };
-          u.onerror = () => {
-            clearTimeout(safety);
-            clearTimeout(startWatch);
-            tryOne();
-          };
-
-          try {
-            if (typeof s.resume === 'function') s.resume();
-          } catch {}
-          try {
-            s.speak(u);
-          } catch {
-            clearTimeout(safety);
-            clearTimeout(startWatch);
-            tryOne();
-          }
-        };
-
         try {
-          s.cancel();
-        } catch {}
-        tryOne();
+          s.speak(u);
+        } catch {
+          restart();
+        }
       }, delay);
     } catch {}
   };
@@ -1263,10 +1208,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
             <button
                 onClick={() => {
-                  if (!isListening) {
-                    primeTts(false);
-                    speak('Talestyring aktivert');
-                  }
+                  if (!isListening) primeTts(false);
                   toggleListening();
                 }}
                 className={`p-3 rounded-full transition-all ${
