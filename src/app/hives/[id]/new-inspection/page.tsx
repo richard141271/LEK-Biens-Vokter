@@ -292,12 +292,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       if (parsed.queenColor) {
           setHistory(prev => [...prev, { type: 'queenColor', prev: queenColor }]);
+          markTouched('queenColor');
           setQueenColor(parsed.queenColor);
           feedback.push(`Dronningfarge: ${parsed.queenColor}`);
       }
 
       if (parsed.queenYear) {
           setHistory(prev => [...prev, { type: 'queenYear', prev: queenYear }]);
+          markTouched('queenYear');
           setQueenYear(parsed.queenYear);
           feedback.push(`Årgang: ${parsed.queenYear}`);
       }
@@ -310,24 +312,28 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       if (parsed.honeyStores) {
           setHistory(prev => [...prev, { type: 'honeyStores', prev: honeyStores }]);
+          markTouched('honeyStores');
           setHoneyStores(parsed.honeyStores);
           feedback.push(`Honning: ${parsed.honeyStores}`);
       }
 
       if (parsed.temperament) {
           setHistory(prev => [...prev, { type: 'temperament', prev: temperament }]);
+          markTouched('temperament');
           setTemperament(parsed.temperament);
           feedback.push(`Gemytt: ${parsed.temperament}`);
       }
 
       if (parsed.broodCondition) {
           setHistory(prev => [...prev, { type: 'broodCondition', prev: broodCondition }]);
+          markTouched('broodCondition');
           setBroodCondition(parsed.broodCondition);
           feedback.push(`Yngel: ${parsed.broodCondition}`);
       }
 
       if (parsed.status) {
           setHistory(prev => [...prev, { type: 'status', prev: status }]);
+          markTouched('status');
           setStatus(parsed.status);
           feedback.push(`Status: ${parsed.status}`);
       }
@@ -451,7 +457,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const ttsQueueRef = useRef<Array<{ text: string; shouldPauseMic: boolean; onDone: () => void }>>([]);
   const ttsBusyRef = useRef(false);
   const ttsBufferCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
-  const ttsDecodedCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
   const unlockAudioSession = () => {
     try {
       if (typeof window === 'undefined') return;
@@ -620,41 +626,20 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
       ttsBusyRef.current = true;
 
-      unlockAudioSession();
-      const ctx = audioCtxRef.current;
       const finish = () => {
+        try {
+          const a = ttsAudioRef.current;
+          if (a) {
+            try {
+              a.pause();
+            } catch {}
+          }
+        } catch {}
         ttsBusyRef.current = false;
         onDone();
         const next = ttsQueueRef.current.shift();
         if (next) void speakWithServer(next.text, next.shouldPauseMic, next.onDone);
       };
-      if (!ctx) {
-        finish();
-        return;
-      }
-
-      try {
-        if (ctx.state === 'suspended' && typeof ctx.resume === 'function') await ctx.resume();
-      } catch {}
-
-      const decoded = ttsDecodedCacheRef.current.get(trimmed) || null;
-      if (decoded) {
-        const src = ctx.createBufferSource();
-        src.buffer = decoded;
-        src.connect(ctx.destination);
-        src.onended = finish;
-        if (shouldPauseMic) {
-          try {
-            pauseListening();
-          } catch {}
-        }
-        try {
-          src.start();
-        } catch {
-          finish();
-        }
-        return;
-      }
 
       let bytes = ttsBufferCacheRef.current.get(trimmed) || null;
       if (!bytes) {
@@ -664,6 +649,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           body: JSON.stringify({ text: trimmed }),
         });
         if (!res.ok) {
+          try {
+            beep(880, 140);
+            setTimeout(() => beep(740, 140), 180);
+          } catch {}
           finish();
           return;
         }
@@ -671,33 +660,54 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         ttsBufferCacheRef.current.set(trimmed, bytes);
       }
 
-      const decode = (buf: ArrayBuffer): Promise<AudioBuffer> => {
-        return new Promise((resolve, reject) => {
-          try {
-            const copy = buf.slice(0);
-            const maybe = (ctx as any).decodeAudioData(copy, resolve, reject);
-            if (maybe && typeof (maybe as any).then === 'function') {
-              (maybe as any).then(resolve).catch(reject);
-            }
-          } catch (e) {
-            reject(e);
-          }
-        });
-      };
-
       try {
-        const audio = await decode(bytes);
-        ttsDecodedCacheRef.current.set(trimmed, audio);
-        const src = ctx.createBufferSource();
-        src.buffer = audio;
-        src.connect(ctx.destination);
-        src.onended = finish;
+        const blob = new Blob([bytes], { type: 'audio/wav' });
+        const url = URL.createObjectURL(blob);
+        const a = new Audio(url);
+        ttsAudioRef.current = a;
+        a.preload = 'auto';
+        (a as any).playsInline = true;
+        try {
+          a.setAttribute?.('playsinline', 'true');
+        } catch {}
+
+        const cleanup = () => {
+          try {
+            URL.revokeObjectURL(url);
+          } catch {}
+        };
+        a.onended = () => {
+          cleanup();
+          finish();
+        };
+        a.onerror = () => {
+          cleanup();
+          try {
+            beep(880, 140);
+            setTimeout(() => beep(740, 140), 180);
+          } catch {}
+          finish();
+        };
+
         if (shouldPauseMic) {
           try {
             pauseListening();
           } catch {}
         }
-        src.start();
+        try {
+          a.currentTime = 0;
+        } catch {}
+        const p = a.play();
+        if (p && typeof (p as any).catch === 'function') {
+          (p as any).catch(() => {
+            cleanup();
+            try {
+              beep(880, 140);
+              setTimeout(() => beep(740, 140), 180);
+            } catch {}
+            finish();
+          });
+        }
       } catch {
         finish();
       }
