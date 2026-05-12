@@ -172,7 +172,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [lastCorrection, setLastCorrection] = useState<{ phrase?: string; similarity?: number } | null>(null);
 
   const handleVoiceCommand = (text: string) => {
-      console.log("Voice Command:", text);
       const raw = text || '';
       const lower = raw.toLowerCase();
       if (/\b(start|aktiver)\s+(body|bodey)?cam\b/.test(lower) || /\bstart kamera\b/.test(lower)) {
@@ -359,8 +358,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       if (notesActive) {
           setNotes(prev => prev + (prev ? '\n' : '') + raw);
-      } else {
-          setNotes(prev => prev + (prev ? '\n' : '') + "Stemme: " + raw);
       }
   };
 
@@ -450,7 +447,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const ttsPrimedRef = useRef(false);
   const ttsUnlockedRef = useRef(false);
   const audioUnlockedRef = useRef(false);
-  const ttsQueueRef = useRef<string[]>([]);
+  const gestureUnlockedRef = useRef(false);
+  const ttsQueueRef = useRef<Array<{ text: string; shouldPauseMic: boolean; onDone: () => void }>>([]);
   const ttsBusyRef = useRef(false);
   const ttsBufferCacheRef = useRef<Map<string, ArrayBuffer>>(new Map());
   const ttsDecodedCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
@@ -611,13 +609,13 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     } catch {}
   };
 
-  const speakWithServer = async (text: string, onDone: () => void) => {
+  const speakWithServer = async (text: string, shouldPauseMic: boolean, onDone: () => void) => {
     try {
       if (typeof window === 'undefined') return;
       const trimmed = String(text || '').trim();
       if (!trimmed) return;
       if (ttsBusyRef.current) {
-        ttsQueueRef.current.push(trimmed);
+        ttsQueueRef.current.push({ text: trimmed, shouldPauseMic, onDone });
         return;
       }
       ttsBusyRef.current = true;
@@ -628,7 +626,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         ttsBusyRef.current = false;
         onDone();
         const next = ttsQueueRef.current.shift();
-        if (next) void speakWithServer(next, onDone);
+        if (next) void speakWithServer(next.text, next.shouldPauseMic, next.onDone);
       };
       if (!ctx) {
         finish();
@@ -645,6 +643,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         src.buffer = decoded;
         src.connect(ctx.destination);
         src.onended = finish;
+        if (shouldPauseMic) {
+          try {
+            pauseListening();
+          } catch {}
+        }
         try {
           src.start();
         } catch {
@@ -689,6 +692,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         src.buffer = audio;
         src.connect(ctx.destination);
         src.onended = finish;
+        if (shouldPauseMic) {
+          try {
+            pauseListening();
+          } catch {}
+        }
         src.start();
       } catch {
         finish();
@@ -703,7 +711,21 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   useEffect(() => {
     const onFirst = () => {
+      gestureUnlockedRef.current = true;
       primeTts(false);
+      unlockAudioSession();
+      unlockHtmlAudioFromGesture();
+      if (!ttsUnlockedRef.current) {
+        unlockTtsFromGesture('Talesvar på');
+      }
+      const isiOS =
+        typeof navigator !== 'undefined' &&
+        /(iphone|ipad|ipod)/i.test(navigator.userAgent || '');
+      if (handsfreeReady && isiOS) {
+        try {
+          startListening();
+        } catch {}
+      }
     };
     try {
       window.addEventListener('pointerdown', onFirst, { once: true, passive: true } as any);
@@ -713,7 +735,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         window.removeEventListener('pointerdown', onFirst as any);
       } catch {}
     };
-  }, []);
+  }, [handsfreeReady, startListening]);
   const speak = (text: string) => {
     try {
       if (typeof window === 'undefined') return;
@@ -721,11 +743,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       if (!trimmed) return;
 
       const wasListening = isListening;
-      if (wasListening) {
-        try {
-          pauseListening();
-        } catch {}
-      }
 
       const u = new SpeechSynthesisUtterance(trimmed);
       u.lang = 'nb-NO';
@@ -744,7 +761,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       if (!s) {
-        void speakWithServer(trimmed, resume);
+        void speakWithServer(trimmed, wasListening, resume);
         return;
       }
 
@@ -760,7 +777,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         try {
           s.cancel();
         } catch {}
-        void speakWithServer(trimmed, resume);
+        void speakWithServer(trimmed, wasListening, resume);
       }, 900);
       const hardWatch = setTimeout(() => {
         if (started) return;
@@ -769,13 +786,18 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           try {
             s.cancel();
           } catch {}
-          void speakWithServer(trimmed, resume);
+          void speakWithServer(trimmed, wasListening, resume);
           return;
         }
         resume();
       }, 10000);
 
       u.onstart = () => {
+        if (wasListening) {
+          try {
+            pauseListening();
+          } catch {}
+        }
         started = true;
         serverAttempted = false;
         clearTimeout(startWatch);
@@ -873,6 +895,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   // Sikre kontinuerlig lytting gjennom hele inspeksjonen
   useEffect(() => {
     if (!handsfreeReady) return;
+    const isiOS =
+      typeof navigator !== 'undefined' &&
+      /(iphone|ipad|ipod)/i.test(navigator.userAgent || '');
+    if (isiOS && !gestureUnlockedRef.current) return;
     try { startListening(); } catch {}
     return () => { try { stopListening(); } catch {} };
   }, [handsfreeReady]);
@@ -1583,6 +1609,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             <button
                 onClick={() => {
                   if (!isListening) {
+                    gestureUnlockedRef.current = true;
                     primeTts(false);
                     unlockAudioSession();
                     unlockHtmlAudioFromGesture();
