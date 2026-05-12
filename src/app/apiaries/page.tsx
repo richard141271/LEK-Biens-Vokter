@@ -11,6 +11,7 @@ import { getDistanceFromLatLonInM } from '@/utils/geo';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 
 const ACTIVE_OWNER_KEY = 'lek_active_owner_id';
+const VOICE_PRIMED_KEY = 'lek_voice_primed';
 
 export default function ApiariesPage() {
   const [apiaries, setApiaries] = useState<any[]>([]);
@@ -26,6 +27,7 @@ export default function ApiariesPage() {
   const [voiceStep, setVoiceStep] = useState<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
   const [selectedVoiceApiary, setSelectedVoiceApiary] = useState<any | null>(null);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(true);
+  const [isVoicePrimed, setIsVoicePrimed] = useState<boolean>(false);
   
   // Offline Download State
   const [isDownloading, setIsDownloading] = useState(false);
@@ -46,6 +48,7 @@ export default function ApiariesPage() {
   const lastPromptAtRef = useRef<number>(0);
   const isListeningRef = useRef<boolean>(false);
   const isVoiceEnabledRef = useRef<boolean>(true);
+  const isVoicePrimedRef = useRef<boolean>(false);
   const prevVoiceStepRef = useRef<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
   const apiariesRef = useRef<any[]>([]);
   const ttsSafetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -60,6 +63,14 @@ export default function ApiariesPage() {
     try {
       const raw = window.localStorage.getItem('lek_voice_enabled');
       if (raw === '0') setIsVoiceEnabled(false);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(VOICE_PRIMED_KEY);
+      if (raw === '1') setIsVoicePrimed(true);
     } catch {}
   }, []);
 
@@ -80,6 +91,14 @@ export default function ApiariesPage() {
       }
     }
   }, [isVoiceEnabled]);
+
+  useEffect(() => {
+    isVoicePrimedRef.current = isVoicePrimed;
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(VOICE_PRIMED_KEY, isVoicePrimed ? '1' : '0');
+    } catch {}
+  }, [isVoicePrimed]);
 
   useEffect(() => {
     voiceStepRef.current = voiceStep;
@@ -261,6 +280,10 @@ export default function ApiariesPage() {
     if (err === 'not-allowed' || err === 'service-not-allowed') {
       setVoiceInfo('Talestyring er blokkert. Gi mikrofon-tilgang i nettleserens innstillinger og prøv igjen.');
     }
+    if (err === 'interaction-required') {
+      setVoiceInfo('Trykk mikrofon-knappen én gang for å aktivere talestyring (iPhone/Safari krever ofte dette).');
+      try { stopListening(); } catch {}
+    }
   }, [lastError]);
 
   useEffect(() => {
@@ -385,7 +408,11 @@ export default function ApiariesPage() {
 
           if (entering) {
             if (isSupported) {
-              try { startListening(); } catch {}
+              if (!isVoicePrimedRef.current) {
+                setVoiceInfo('Trykk mikrofon-knappen én gang for å aktivere talestyring.');
+              } else {
+                try { startListening(); } catch {}
+              }
             }
           }
         } else if (outside) {
@@ -1102,6 +1129,7 @@ export default function ApiariesPage() {
                 setIsVoiceEnabled(false);
               } else {
                 setIsVoiceEnabled(true);
+                setIsVoicePrimed(true);
                 try { startListening(); } catch {}
                 const apiary = nearApiaryRef.current;
                 if (apiary) {

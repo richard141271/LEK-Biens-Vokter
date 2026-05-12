@@ -425,6 +425,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       voiceErrorAlertedRef.current = true;
       alert('Talestyring er blokkert av nettleseren. Sjekk mikrofon-tillatelse for LEK-Biens Vokter og prøv igjen.');
     }
+    if (err === 'interaction-required') {
+      voiceErrorAlertedRef.current = true;
+      alert('Trykk mikrofon-knappen én gang for å aktivere talestyring (iPhone/Safari krever ofte dette).');
+    }
   }, [lastError]);
 
   useEffect(() => {

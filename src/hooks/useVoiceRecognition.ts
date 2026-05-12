@@ -15,6 +15,8 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
   const lastStopAtRef = useRef<number>(0);
   const backoffMsRef = useRef<number>(220);
   const safeStartRef = useRef<(() => void) | null>(null);
+  const quickEndCountRef = useRef<number>(0);
+  const quickEndWindowStartRef = useRef<number>(0);
 
   useEffect(() => {
     onResultRef.current = onResult;
@@ -174,6 +176,23 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
                 const sinceStart = Date.now() - lastStartAtRef.current;
                 if (keepAliveRef.current && !pausedRef.current) {
                   if (sinceStart > 0 && sinceStart < 900) {
+                    const now = Date.now();
+                    if (!quickEndWindowStartRef.current || now - quickEndWindowStartRef.current > 12_000) {
+                      quickEndWindowStartRef.current = now;
+                      quickEndCountRef.current = 1;
+                    } else {
+                      quickEndCountRef.current += 1;
+                    }
+                    if (quickEndCountRef.current >= 5) {
+                      keepAliveRef.current = false;
+                      setLastError('interaction-required');
+                      return;
+                    }
+                  } else {
+                    quickEndWindowStartRef.current = 0;
+                    quickEndCountRef.current = 0;
+                  }
+                  if (sinceStart > 0 && sinceStart < 900) {
                     backoffMsRef.current = Math.min(Math.max(backoffMsRef.current * 1.6, 400), 2200);
                   } else {
                     backoffMsRef.current = 220;
@@ -196,6 +215,18 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
                 if (err === 'aborted') return;
                 if (err === 'no-speech' || err === 'audio-capture') {
                   backoffMsRef.current = Math.min(Math.max(backoffMsRef.current * 1.4, 800), 2600);
+                  const now = Date.now();
+                  if (!quickEndWindowStartRef.current || now - quickEndWindowStartRef.current > 12_000) {
+                    quickEndWindowStartRef.current = now;
+                    quickEndCountRef.current = 1;
+                  } else {
+                    quickEndCountRef.current += 1;
+                  }
+                  if (quickEndCountRef.current >= 5) {
+                    keepAliveRef.current = false;
+                    setLastError('interaction-required');
+                    return;
+                  }
                   scheduleRestart(900);
                   return;
                 }
@@ -216,6 +247,8 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
       pausedRef.current = false;
       listeningRef.current = false;
       startingRef.current = false;
+      quickEndWindowStartRef.current = 0;
+      quickEndCountRef.current = 0;
       if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
       restartTimerRef.current = null;
       try {
@@ -240,6 +273,8 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
       restartTimerRef.current = null;
     }
     setLastError(null);
+    quickEndWindowStartRef.current = 0;
+    quickEndCountRef.current = 0;
     keepAliveRef.current = true;
     pausedRef.current = false;
     backoffMsRef.current = 220;
