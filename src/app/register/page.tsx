@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { signup } from '@/app/actions/auth';
 
 export default function RegisterPage() {
@@ -23,7 +23,6 @@ function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const submitLockRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
-  const [role] = useState<'beekeeper' | 'tenant'>('beekeeper');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -37,17 +36,6 @@ function RegisterForm() {
     region: '',
     phoneNumber: '',
     referralCode: '',
-    isNorgesBirokterlagMember: false,
-    memberNumber: '',
-    localAssociation: '',
-    isLekHonningMember: false,
-    interests: [] as string[],
-    beekeepingType: 'hobby', // 'hobby' or 'business'
-    companyName: '',
-    orgNumber: '',
-    companyBankAccount: '',
-    companyAddress: '',
-    privateBankAccount: ''
   });
 
   const next = searchParams.get('next');
@@ -121,20 +109,6 @@ function RegisterForm() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = e.target;
-    setFormData(prev => ({ ...prev, [name]: checked }));
-  };
-
-  const handleInterestChange = (interest: string) => {
-    setFormData(prev => {
-      const interests = prev.interests.includes(interest)
-        ? prev.interests.filter(i => i !== interest)
-        : [...prev.interests, interest];
-      return { ...prev, interests };
-    });
-  };
-
   const validateForm = () => {
     if (!formData.email || !formData.password || !formData.fullName || !formData.address || !formData.postalCode || !formData.city || !formData.phoneNumber) {
         setError('Vennligst fyll ut alle obligatoriske felt (merket med *)');
@@ -168,7 +142,7 @@ function RegisterForm() {
       // Use Server Action for registration
       const result = await signup({
         ...formData,
-        role // Add role to the data
+        role: 'beekeeper'
       });
 
       if (result.error) {
@@ -213,13 +187,6 @@ function RegisterForm() {
 
         <div className="bg-white shadow-xl rounded-2xl overflow-hidden border border-honey-100">
           <form onSubmit={handleSubmit} className="p-8 space-y-8">
-            
-            {/* Account Type (låst til birøkter) */}
-            <div className="flex bg-gray-100 p-1 rounded-xl mb-8">
-              <div className="flex-1 py-3 rounded-lg font-bold bg-white text-orange-600 shadow-sm text-center">
-                Jeg er Birøkter
-              </div>
-            </div>
 
             {/* Error Message */}
             {error && (
@@ -240,6 +207,7 @@ function RegisterForm() {
                     name="fullName"
                     value={formData.fullName}
                     onChange={handleChange}
+                    autoComplete="name"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
                     placeholder="Ola Nordmann"
                   />
@@ -253,6 +221,7 @@ function RegisterForm() {
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
+                    autoComplete="email"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
                     placeholder="ola@eksempel.no"
                   />
@@ -265,6 +234,8 @@ function RegisterForm() {
                     name="phoneNumber"
                     value={formData.phoneNumber}
                     onChange={handleChange}
+                    autoComplete="tel"
+                    inputMode="tel"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
                     placeholder="900 00 000"
                   />
@@ -278,6 +249,7 @@ function RegisterForm() {
                     name="password"
                     value={formData.password}
                     onChange={handleChange}
+                    autoComplete="new-password"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
                     placeholder="Minst 6 tegn"
                   />
@@ -290,6 +262,7 @@ function RegisterForm() {
                     name="confirmPassword"
                     value={formData.confirmPassword}
                     onChange={handleChange}
+                    autoComplete="new-password"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
                     placeholder="Gjenta passord"
                   />
@@ -302,6 +275,7 @@ function RegisterForm() {
                     name="address"
                     value={formData.address}
                     onChange={handleChange}
+                    autoComplete="street-address"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
                     placeholder="Gateveien 1"
                   />
@@ -313,6 +287,8 @@ function RegisterForm() {
                     name="postalCode"
                     value={formData.postalCode}
                     onChange={handleChange}
+                    autoComplete="postal-code"
+                    inputMode="numeric"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
                     placeholder="0001"
                   />
@@ -324,6 +300,7 @@ function RegisterForm() {
                     name="city"
                     value={formData.city}
                     onChange={handleChange}
+                    autoComplete="address-level2"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none transition-all"
                     placeholder="Oslo"
                   />
@@ -334,174 +311,13 @@ function RegisterForm() {
                     name="region"
                     value={formData.region}
                     readOnly
+                    autoComplete="address-level1"
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 outline-none"
                     placeholder="Fylles automatisk basert på postnummer"
                   />
                 </div>
               </div>
             </div>
-
-            {role === 'beekeeper' && (
-              <>
-                {/* Section 2: Membership & Interests (Optional) */}
-                <div className="space-y-6">
-                  <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">2. Medlemskap & Interesser (Frivillig)</h2>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                      <input
-                        type="checkbox"
-                        id="nbk"
-                        name="isNorgesBirokterlagMember"
-                        checked={formData.isNorgesBirokterlagMember}
-                        onChange={handleCheckboxChange}
-                        className="mt-1 w-5 h-5 text-honey-600 rounded focus:ring-honey-500 border-gray-300"
-                      />
-                      <div className="flex-1">
-                        <label htmlFor="nbk" className="font-medium text-gray-900 block">Medlem i Norges Birøkterlag</label>
-                        {formData.isNorgesBirokterlagMember && (
-                          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
-                            <input
-                              name="memberNumber"
-                              value={formData.memberNumber}
-                              onChange={handleChange}
-                              placeholder="Medlemsnummer"
-                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
-                            />
-                            <input
-                              name="localAssociation"
-                              value={formData.localAssociation}
-                              onChange={handleChange}
-                              placeholder="Lokallag"
-                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                      <input
-                        type="checkbox"
-                        id="lek"
-                        name="isLekHonningMember"
-                        checked={formData.isLekHonningMember}
-                        onChange={handleCheckboxChange}
-                        className="w-5 h-5 text-honey-600 rounded focus:ring-honey-500 border-gray-300"
-                      />
-                      <label htmlFor="lek" className="font-medium text-gray-900">Medlem i LEK Honning</label>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Hva er du interessert i?</label>
-                    <div className="flex flex-wrap gap-3">
-                      {['Salg', 'Rekruttering', 'Kurs', 'Samarbeid'].map((interest) => (
-                        <button
-                          key={interest}
-                          type="button"
-                          onClick={() => handleInterestChange(interest)}
-                          className={`px-4 py-2 rounded-full border transition-all ${
-                            formData.interests.includes(interest)
-                              ? 'bg-honey-100 border-honey-500 text-honey-700 font-medium'
-                              : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
-                          }`}
-                        >
-                          {interest} {formData.interests.includes(interest) && '✓'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section 3: Economy & Business (Optional) */}
-                <div className="space-y-6">
-                  <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">3. Økonomi & Driftstype (Frivillig)</h2>
-                  
-                  <div className="flex gap-6 mb-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="beekeepingType"
-                        value="hobby"
-                        checked={formData.beekeepingType === 'hobby'}
-                        onChange={handleChange}
-                        className="w-5 h-5 text-honey-600 focus:ring-honey-500 border-gray-300"
-                      />
-                      <span className="font-medium text-gray-900">Hobbybirøkt</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="beekeepingType"
-                        value="business"
-                        checked={formData.beekeepingType === 'business'}
-                        onChange={handleChange}
-                        className="w-5 h-5 text-honey-600 focus:ring-honey-500 border-gray-300"
-                      />
-                      <span className="font-medium text-gray-900">Næringsbirøkt</span>
-                    </label>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Privat Kontonummer (For utbetalinger)</label>
-                      <input
-                        name="privateBankAccount"
-                        value={formData.privateBankAccount}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-honey-500 focus:border-transparent outline-none"
-                        placeholder="1234.56.78903"
-                      />
-                    </div>
-
-                    {formData.beekeepingType === 'business' && (
-                      <div className="bg-honey-50 p-6 rounded-xl border border-honey-100 space-y-4 animate-in fade-in">
-                        <h3 className="font-medium text-honey-900">Firmaopplysninger</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Firmanavn</label>
-                            <input
-                              name="companyName"
-                              value={formData.companyName}
-                              onChange={handleChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Organisasjonsnummer</label>
-                            <input
-                              name="orgNumber"
-                              value={formData.orgNumber}
-                              onChange={handleChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Firma Kontonummer</label>
-                            <input
-                              name="companyBankAccount"
-                              value={formData.companyBankAccount}
-                              onChange={handleChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Firmaadresse</label>
-                            <input
-                              name="companyAddress"
-                              value={formData.companyAddress}
-                              onChange={handleChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-honey-500 outline-none"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
 
             <div className="pt-6">
               <button
