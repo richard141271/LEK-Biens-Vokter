@@ -287,7 +287,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       // Update State based on parsed result
       if (parsed.queenSeen !== undefined) {
           setHistory(prev => [...prev, { type: 'queenSeen', prev: queenSeen }]);
-          setQueenSeen(parsed.queenSeen);
+          setQueenSeen(parsed.queenSeen ? 'ja' : 'nei');
           feedback.push(parsed.queenSeen ? 'Dronning sett' : 'Ingen dronning');
       }
 
@@ -305,7 +305,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       if (parsed.eggsSeen !== undefined) {
           setHistory(prev => [...prev, { type: 'eggsSeen', prev: eggsSeen }]);
-          setEggsSeen(parsed.eggsSeen);
+          setEggsSeen(parsed.eggsSeen ? 'ja' : 'nei');
           feedback.push(parsed.eggsSeen ? 'Egg sett' : 'Ingen egg');
       }
 
@@ -363,10 +363,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const { isListening, startListening, stopListening, pauseListening, resumeListening, toggleListening, isSupported } = useVoiceRecognition(handleVoiceCommand);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(new Date().toTimeString().split(' ')[0].substring(0, 5));
-  const [queenSeen, setQueenSeen] = useState(false);
+  const [queenSeen, setQueenSeen] = useState<'' | 'ja' | 'nei'>('');
   const [queenColor, setQueenColor] = useState<string>('');
   const [queenYear, setQueenYear] = useState<string>('');
-  const [eggsSeen, setEggsSeen] = useState(false);
+  const [eggsSeen, setEggsSeen] = useState<'' | 'ja' | 'nei'>('');
   const [broodCondition, setBroodCondition] = useState('normal');
   const [honeyStores, setHoneyStores] = useState('middels');
   const [temperament, setTemperament] = useState('rolig');
@@ -389,6 +389,43 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   const supabase = createClient();
   const router = useRouter();
+
+  type StickyKey =
+    | 'queenColor'
+    | 'queenYear'
+    | 'broodCondition'
+    | 'honeyStores'
+    | 'temperament'
+    | 'status';
+
+  const touchedRef = useRef<Record<StickyKey, boolean>>({
+    queenColor: false,
+    queenYear: false,
+    broodCondition: false,
+    honeyStores: false,
+    temperament: false,
+    status: false,
+  });
+
+  const markTouched = (key: StickyKey) => {
+    touchedRef.current[key] = true;
+  };
+
+  const prefillDoneRef = useRef(false);
+
+  useEffect(() => {
+    prefillDoneRef.current = false;
+    touchedRef.current = {
+      queenColor: false,
+      queenYear: false,
+      broodCondition: false,
+      honeyStores: false,
+      temperament: false,
+      status: false,
+    };
+    setQueenSeen('');
+    setEggsSeen('');
+  }, [params.id]);
 
   useEffect(() => {
     try {
@@ -450,7 +487,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   useEffect(() => {
     const onFirst = () => {
-      primeTts(false);
+      primeTts(true);
     };
     try {
       window.addEventListener('pointerdown', onFirst, { once: true, passive: true } as any);
@@ -464,8 +501,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const speak = (text: string) => {
     try {
       if (typeof window === 'undefined') return;
-      // Short cue to ensure audio context is unlocked on iOS
-      beep(1200, 260);
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       const wasListening = isListening;
       // Pause lytte-modus mens vi snakker; bruk midlertidig pause
@@ -473,8 +508,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         try { pauseListening(); } catch {}
       }
       if (!s) {
-        // Fallback: gi tydelig dobbel-tone og gjenoppta lytting
-        setTimeout(() => beep(900, 180), 120);
         if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 250);
         return;
       }
@@ -562,9 +595,61 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     return () => { try { stopListening(); } catch {} };
   }, [handsfreeReady]);
 
+  useEffect(() => {
+    if (isOffline) return;
+    if (isDemoActive) return;
+    if (!hive) return;
+    if (prefillDoneRef.current) return;
+    prefillDoneRef.current = true;
+
+    const run = async () => {
+      try {
+        const { data } = await supabase
+          .from('inspections')
+          .select('queen_color, queen_year, brood_condition, honey_stores, temperament, status, created_at')
+          .eq('hive_id', params.id)
+          .order('created_at', { ascending: false })
+          .limit(25);
+
+        if (!data || data.length === 0) return;
+        const latest: any = data[0] || {};
+
+        const firstNonEmptyQueenColor = (data as any[]).find((r) => {
+          const v = r?.queen_color;
+          return typeof v === 'string' && v.trim().length > 0;
+        })?.queen_color as string | undefined;
+
+        const firstNonEmptyQueenYear = (data as any[]).find((r) => {
+          const v = r?.queen_year;
+          return typeof v === 'number' && Number.isFinite(v);
+        })?.queen_year as number | undefined;
+
+        if (!touchedRef.current.status && typeof latest?.status === 'string' && latest.status) {
+          setStatus(latest.status);
+        }
+        if (!touchedRef.current.broodCondition && typeof latest?.brood_condition === 'string' && latest.brood_condition) {
+          setBroodCondition(latest.brood_condition);
+        }
+        if (!touchedRef.current.honeyStores && typeof latest?.honey_stores === 'string' && latest.honey_stores) {
+          setHoneyStores(latest.honey_stores);
+        }
+        if (!touchedRef.current.temperament && typeof latest?.temperament === 'string' && latest.temperament) {
+          setTemperament(latest.temperament);
+        }
+        if (!touchedRef.current.queenColor && typeof firstNonEmptyQueenColor === 'string' && firstNonEmptyQueenColor) {
+          setQueenColor(firstNonEmptyQueenColor);
+        }
+        if (!touchedRef.current.queenYear && typeof firstNonEmptyQueenYear === 'number') {
+          setQueenYear(String(firstNonEmptyQueenYear));
+        }
+      } catch {}
+    };
+
+    void run();
+  }, [hive, isOffline, isDemoActive, params.id, supabase]);
+
 
   const fetchHiveAndWeather = async () => {
-    setLoadError(null);
     const withTimeout = async <T,>(p: PromiseLike<T>, ms: number): Promise<T> => {
       return await new Promise<T>((resolve, reject) => {
         const t = setTimeout(() => reject(new Error('timeout')), ms);
@@ -733,6 +818,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const submitInspection = async () => {
     const opId = crypto.randomUUID();
     setSubmitting(true);
+    const queenSeenValue = queenSeen === 'ja' ? true : queenSeen === 'nei' ? false : null;
+    const eggsSeenValue = eggsSeen === 'ja' ? true : eggsSeen === 'nei' ? false : null;
 
     try {
       const allFiles: File[] = [
@@ -759,10 +846,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               hive_id: params.id,
               inspection_date: date,
               time: time,
-              queen_seen: queenSeen,
+              queen_seen: queenSeenValue,
               queen_color: queenColor || null,
               queen_year: queenYear ? parseInt(queenYear, 10) : null,
-              eggs_seen: eggsSeen,
+              eggs_seen: eggsSeenValue,
               brood_condition: broodCondition,
               honey_stores: honeyStores,
               temperament: temperament,
@@ -803,10 +890,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               hive_id: params.id,
               inspection_date: date,
               time: time,
-              queen_seen: queenSeen,
+              queen_seen: queenSeenValue,
               queen_color: queenColor || null,
               queen_year: queenYear ? parseInt(queenYear, 10) : null,
-              eggs_seen: eggsSeen,
+              eggs_seen: eggsSeenValue,
               brood_condition: broodCondition,
               honey_stores: honeyStores,
               temperament: temperament,
@@ -866,10 +953,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             inspection: {
               inspection_date: date,
               time: time,
-              queen_seen: queenSeen,
+              queen_seen: queenSeenValue,
               queen_color: queenColor || null,
               queen_year: queenYear ? parseInt(queenYear, 10) : null,
-              eggs_seen: eggsSeen,
+              eggs_seen: eggsSeenValue,
               brood_condition: broodCondition,
               honey_stores: honeyStores,
               temperament: temperament,
@@ -940,10 +1027,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           user_id: String((hive as any)?.user_id || user.id),
           inspection_date: date,
           time: time,
-          queen_seen: queenSeen,
+          queen_seen: queenSeenValue,
           queen_color: queenColor || null,
           queen_year: queenYear ? parseInt(queenYear, 10) : null,
-          eggs_seen: eggsSeen,
+          eggs_seen: eggsSeenValue,
           brood_condition: broodCondition,
           honey_stores: honeyStores,
           temperament: temperament,
@@ -1008,10 +1095,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 hive_id: params.id,
                 inspection_date: date,
                 time: time,
-                queen_seen: queenSeen,
+                queen_seen: queenSeenValue,
                 queen_color: queenColor || null,
                 queen_year: queenYear ? parseInt(queenYear, 10) : null,
-                eggs_seen: eggsSeen,
+                eggs_seen: eggsSeenValue,
                 brood_condition: broodCondition,
                 honey_stores: honeyStores,
                 temperament: temperament,
@@ -1242,18 +1329,68 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             
             <div className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
               <span className="text-gray-700">Dronning sett?</span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" checked={queenSeen} onChange={e => setQueenSeen(e.target.checked)} className="sr-only peer" />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-honey-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-honey-500"></div>
-              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQueenSeen('')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${
+                    queenSeen === '' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  Ikke valgt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQueenSeen('ja')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${
+                    queenSeen === 'ja' ? 'bg-honey-500 text-white' : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  Ja
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQueenSeen('nei')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${
+                    queenSeen === 'nei' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  Nei
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
               <span className="text-gray-700">Egg sett?</span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" checked={eggsSeen} onChange={e => setEggsSeen(e.target.checked)} className="sr-only peer" />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-honey-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-honey-500"></div>
-              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEggsSeen('')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${
+                    eggsSeen === '' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  Ikke valgt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEggsSeen('ja')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${
+                    eggsSeen === 'ja' ? 'bg-honey-500 text-white' : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  Ja
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEggsSeen('nei')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${
+                    eggsSeen === 'nei' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-800'
+                  }`}
+                >
+                  Nei
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -1261,7 +1398,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Dronningfarge</label>
                 <select
                   value={queenColor}
-                  onChange={(e) => setQueenColor(e.target.value)}
+                  onChange={(e) => {
+                    markTouched('queenColor');
+                    setQueenColor(e.target.value);
+                  }}
                   className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
                 >
                   <option value="">Ukjent</option>
@@ -1278,7 +1418,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                   type="number"
                   inputMode="numeric"
                   value={queenYear}
-                  onChange={(e) => setQueenYear(e.target.value)}
+                  onChange={(e) => {
+                    markTouched('queenYear');
+                    setQueenYear(e.target.value);
+                  }}
                   placeholder="f.eks. 2025"
                   className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
                 />
@@ -1294,7 +1437,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               <label className="block text-sm font-medium text-gray-700 mb-2">Kubestatus</label>
               <select 
                 value={status} 
-                onChange={e => setStatus(e.target.value)}
+                onChange={e => {
+                  markTouched('status');
+                  setStatus(e.target.value);
+                }}
                 className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg font-medium text-gray-900"
               >
                 <option value="OK">OK</option>
@@ -1315,7 +1461,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Yngelleie</label>
                 <select 
                     value={broodCondition} 
-                    onChange={e => setBroodCondition(e.target.value)}
+                    onChange={e => {
+                      markTouched('broodCondition');
+                      setBroodCondition(e.target.value);
+                    }}
                     className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
                 >
                     <option value="darlig">Dårlig / Lite</option>
@@ -1328,7 +1477,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fôr</label>
                 <select 
                     value={honeyStores} 
-                    onChange={e => setHoneyStores(e.target.value)}
+                    onChange={e => {
+                      markTouched('honeyStores');
+                      setHoneyStores(e.target.value);
+                    }}
                     className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
                 >
                     <option value="lite">Lite</option>
@@ -1342,7 +1494,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Gemytt</label>
               <select 
                 value={temperament} 
-                onChange={e => setTemperament(e.target.value)}
+                onChange={e => {
+                  markTouched('temperament');
+                  setTemperament(e.target.value);
+                }}
                 className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
               >
                 <option value="rolig">Rolig</option>
