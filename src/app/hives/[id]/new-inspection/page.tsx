@@ -444,11 +444,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const ttsPrimedRef = useRef(false);
-  const ttsSeqRef = useRef(0);
-  const isSpeakingRef = useRef(false);
-  const speakQueueRef = useRef<string[]>([]);
-  const isListeningRef = useRef(false);
-  const pausedByTtsRef = useRef(false);
   const beep = (freq = 880, ms = 220) => {
     try {
       if (typeof window === 'undefined') return;
@@ -483,6 +478,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         if (typeof s.getVoices === 'function') s.getVoices();
       } catch {}
       if (!shouldSpeak) return;
+      s.cancel();
       const u = new SpeechSynthesisUtterance('Talestyring aktivert');
       u.lang = 'nb-NO';
       u.rate = 0.95;
@@ -508,111 +504,74 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const speak = (text: string) => {
     try {
       if (typeof window === 'undefined') return;
+      beep(1200, 260);
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       if (!s) return;
-      const trimmed = String(text || '').trim();
-      if (!trimmed) return;
-
-      speakQueueRef.current.push(trimmed);
-      if (isSpeakingRef.current) return;
-
-      const startQueue = () => {
-        if (isSpeakingRef.current) return;
-        if (speakQueueRef.current.length === 0) return;
-
-        const wasListening = isListeningRef.current;
-        if (wasListening && !pausedByTtsRef.current) {
-          pausedByTtsRef.current = true;
-          try {
-            pauseListening();
-          } catch {}
-        }
-
-        isSpeakingRef.current = true;
-        const seq = (ttsSeqRef.current += 1);
-
-        const finishOne = () => {
-          if (ttsSeqRef.current !== seq) return;
-          isSpeakingRef.current = false;
-          if (speakQueueRef.current.length > 0) {
-            startQueue();
-            return;
-          }
-          if (pausedByTtsRef.current) {
-            pausedByTtsRef.current = false;
-            setTimeout(() => {
-              try {
-                resumeListening();
-              } catch {}
-            }, 180);
-          }
-        };
-
-        const nextText = speakQueueRef.current.shift();
-        if (!nextText) {
-          finishOne();
-          return;
-        }
-
+      const wasListening = isListening;
+      if (wasListening) {
         try {
-          if (typeof s.resume === 'function') s.resume();
+          pauseListening();
         } catch {}
-
-        const voices = (() => {
-          try {
-            return typeof s.getVoices === 'function' ? s.getVoices() : [];
-          } catch {
-            return [];
-          }
-        })();
-
-        const u = new SpeechSynthesisUtterance(nextText);
-        u.lang = 'nb-NO';
-        u.rate = 0.92;
-        u.pitch = 1.0;
-        u.volume = 1.0;
+      }
+      if (!s) {
+        setTimeout(() => beep(900, 180), 120);
+        if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 250);
+        return;
+      }
+      s.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'nb-NO';
+      u.rate = 0.92;
+      u.pitch = 1.0;
+      u.volume = 1.0;
+      const pickVoice = () => {
         try {
+          const voices = s.getVoices ? s.getVoices() : [];
           const nb = voices.find((v) => (v.lang || '').toLowerCase().startsWith('nb'));
           const no = voices.find((v) => (v.lang || '').toLowerCase().startsWith('no'));
           const nn = voices.find((v) => (v.lang || '').toLowerCase().includes('nor'));
-          const picked = nb || no || nn;
-          if (picked) u.voice = picked;
+          u.voice = nb || no || nn || u.voice || null;
         } catch {}
-
-        const safety = setTimeout(() => {
-          try {
-            if (typeof s.cancel === 'function') s.cancel();
-          } catch {}
-          finishOne();
-        }, 6000);
-
-        u.onend = () => {
-          clearTimeout(safety);
-          finishOne();
-        };
-        u.onerror = () => {
-          clearTimeout(safety);
-          finishOne();
-        };
-
-        try {
+      };
+      if (!s.getVoices || s.getVoices().length === 0) {
+        (s as any)._voicesChanged = true;
+        s.onvoiceschanged = () => {
+          if (!(s as any)._voicesChanged) return;
+          (s as any)._voicesChanged = false;
+          pickVoice();
           s.speak(u);
-        } catch {
-          clearTimeout(safety);
-          finishOne();
+        };
+        setTimeout(() => {
+          if ((s as any)._voicesChanged) {
+            (s as any)._voicesChanged = false;
+            pickVoice();
+            s.speak(u);
+          }
+        }, 300);
+      } else {
+        pickVoice();
+        s.speak(u);
+      }
+      const safety = setTimeout(() => {
+        if (wasListening) { try { resumeListening(); } catch {} }
+      }, 3000);
+      u.onend = () => {
+        clearTimeout(safety);
+        if (wasListening) {
+          setTimeout(() => { try { resumeListening(); } catch {} }, 120);
         }
       };
-
-      startQueue();
+      u.onerror = () => {
+        clearTimeout(safety);
+        if (wasListening) {
+          setTimeout(() => { try { resumeListening(); } catch {} }, 120);
+        }
+      };
     } catch {}
   };
   useEffect(() => {
     speakRef.current = speak;
   }, [speak]);
-
-  useEffect(() => {
-    isListeningRef.current = isListening;
-  }, [isListening]);
 
   useEffect(() => {
     selectedImageRef.current = selectedImage;
