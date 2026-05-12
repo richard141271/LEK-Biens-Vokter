@@ -529,8 +529,28 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         }, 250);
       };
 
-      u.onend = resume;
-      u.onerror = resume;
+      let started = false;
+      const startWatch = setTimeout(() => {
+        if (!started) resume();
+      }, 1200);
+      const hardWatch = setTimeout(() => {
+        resume();
+      }, 10000);
+
+      u.onstart = () => {
+        started = true;
+        clearTimeout(startWatch);
+      };
+      u.onend = () => {
+        clearTimeout(startWatch);
+        clearTimeout(hardWatch);
+        resume();
+      };
+      u.onerror = () => {
+        clearTimeout(startWatch);
+        clearTimeout(hardWatch);
+        resume();
+      };
 
       try {
         if (typeof s.resume === 'function') s.resume();
@@ -538,11 +558,52 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       const delay = wasListening ? 650 : 0;
       setTimeout(() => {
+        const pickNorwegianVoice = () => {
+          try {
+            const voices = typeof s.getVoices === 'function' ? s.getVoices() : [];
+            const nb = voices.find((v) => (v.lang || '').toLowerCase().startsWith('nb'));
+            const no = voices.find((v) => (v.lang || '').toLowerCase().startsWith('no'));
+            const nn = voices.find((v) => (v.lang || '').toLowerCase().includes('nor'));
+            const picked = nb || no || nn;
+            if (picked) u.voice = picked;
+          } catch {}
+        };
+
+        const doSpeak = () => {
+          try {
+            if (s.speaking || s.pending) s.cancel();
+          } catch {}
+          try {
+            s.speak(u);
+          } catch {
+            resume();
+          }
+        };
+
         try {
           if (s.speaking || s.pending) s.cancel();
         } catch {}
         try {
-          s.speak(u);
+          const voices = typeof s.getVoices === 'function' ? s.getVoices() : [];
+          if (voices.length === 0) {
+            let fired = false;
+            const onVoices = () => {
+              if (fired) return;
+              fired = true;
+              try {
+                s.onvoiceschanged = null;
+              } catch {}
+              pickNorwegianVoice();
+              doSpeak();
+            };
+            try {
+              s.onvoiceschanged = onVoices;
+            } catch {}
+            setTimeout(onVoices, 350);
+          } else {
+            pickNorwegianVoice();
+            doSpeak();
+          }
         } catch {
           resume();
         }
