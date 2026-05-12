@@ -91,31 +91,38 @@ export async function signup(formData: any) {
     return { error: 'Noe gikk galt under registrering (ingen bruker opprettet)' }
   }
 
-  // 2. Create Profile (using Admin Client to bypass RLS)
-  // This ensures profile is created even if email verification is pending
-  const { error: profileError } = await adminClient
-    .from('profiles')
-    .insert({
-      id: userId,
-      role: role || 'beekeeper',
-      full_name: normalizedFullName,
-      address: address,
-      postal_code: postalCode,
-      city: city,
-      region: region || null,
-      phone_number: phoneNumber,
-      is_norges_birokterlag_member: isNorgesBirokterlagMember || false,
-      member_number: memberNumber || null,
-      local_association: localAssociation || null,
-      is_lek_honning_member: isLekHonningMember || false,
-      interests: interests || [],
-      beekeeping_type: beekeepingType || 'hobby',
-      company_name: companyName || null,
-      org_number: orgNumber || null,
-      company_bank_account: companyBankAccount || null,
-      company_address: companyAddress || null,
-      private_bank_account: privateBankAccount || null
-    })
+  const profilePayload: any = {
+    id: userId,
+    role: role || 'beekeeper',
+    full_name: normalizedFullName,
+    address: address,
+    postal_code: postalCode,
+    city: city,
+    region: region || null,
+    phone_number: phoneNumber,
+    is_norges_birokterlag_member: isNorgesBirokterlagMember || false,
+    member_number: memberNumber || null,
+    local_association: localAssociation || null,
+    is_lek_honning_member: isLekHonningMember || false,
+    interests: interests || [],
+    beekeeping_type: beekeepingType || 'hobby',
+    company_name: companyName || null,
+    org_number: orgNumber || null,
+    company_bank_account: companyBankAccount || null,
+    company_address: companyAddress || null,
+    private_bank_account: privateBankAccount || null
+  }
+
+  const isRegionColumnMissing = (message: string) => {
+    const m = String(message || '').toLowerCase()
+    return (m.includes("'region'") || m.includes(' region ')) && (m.includes('schema cache') || m.includes('column') || m.includes('does not exist'))
+  }
+
+  let profileError = (await adminClient.from('profiles').insert(profilePayload)).error
+  if (profileError && isRegionColumnMissing(profileError.message)) {
+    const { region: _region, ...withoutRegion } = profilePayload
+    profileError = (await adminClient.from('profiles').insert(withoutRegion)).error
+  }
 
   if (profileError) {
     console.error('Profile creation failed:', profileError)
