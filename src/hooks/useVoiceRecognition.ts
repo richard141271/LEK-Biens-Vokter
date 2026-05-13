@@ -11,8 +11,12 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastStartAtRef = useRef<number>(0);
   const lastActivityAtRef = useRef<number>(0);
+  const lastResultAtRef = useRef<number>(0);
   const quickEndWindowStartRef = useRef<number>(0);
   const quickEndCountRef = useRef<number>(0);
+  const silentEndCountRef = useRef<number>(0);
+  const silentEndWindowStartRef = useRef<number>(0);
+  const pendingVisibleRestartRef = useRef<boolean>(false);
   const watchdogTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startingRef = useRef(false);
   const listeningRef = useRef(false);
@@ -38,7 +42,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
         if (SpeechRecognitionConstructor) {
             setIsSupported(true);
             const recognition = new SpeechRecognitionConstructor();
-            recognition.continuous = false;
+            recognition.continuous = true;
             recognition.lang = 'nb-NO';
             recognition.interimResults = false;
             recognition.maxAlternatives = 5;
@@ -138,6 +142,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
                 };
                 const text = pickBest(event.results[last]);
                 lastActivityAtRef.current = Date.now();
+                lastResultAtRef.current = lastActivityAtRef.current;
                 onResultRef.current(text);
             };
 
@@ -147,11 +152,19 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
                 if (pausedRef.current) return;
                 if (restartTimerRef.current) return;
                 if (startingRef.current) return;
+                if (typeof document !== 'undefined' && document.hidden) {
+                  pendingVisibleRestartRef.current = true;
+                  return;
+                }
                 const finalDelay = Math.max(delayMs, backoffMsRef.current, Date.now() - lastStopAtRef.current < 450 ? 450 : 0);
                 restartTimerRef.current = setTimeout(() => {
                   restartTimerRef.current = null;
                   if (!keepAliveRef.current || pausedRef.current) return;
                   if (startingRef.current) return;
+                  if (typeof document !== 'undefined' && document.hidden) {
+                    pendingVisibleRestartRef.current = true;
+                    return;
+                  }
                   try {
                     safeStartRef.current?.();
                   } catch {
@@ -167,6 +180,10 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
               if (startingRef.current) return;
               if (listeningRef.current) return;
               if (restartTimerRef.current) return;
+              if (typeof document !== 'undefined' && document.hidden) {
+                pendingVisibleRestartRef.current = true;
+                return;
+              }
               if (Date.now() - lastStopAtRef.current < 450) {
                 scheduleRestart(320);
                 return;
@@ -206,6 +223,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
                 lastStopAtRef.current = Date.now();
                 setIsListening(false);
                 const sinceStart = Date.now() - lastStartAtRef.current;
+                const hadResult = lastResultAtRef.current >= lastStartAtRef.current;
                 if (keepAliveRef.current && !pausedRef.current) {
                   if (sinceStart > 0 && sinceStart < 900) {
                     backoffMsRef.current = Math.min(Math.max(backoffMsRef.current * 1.6, 400), 2200);
@@ -228,7 +246,19 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
                     return;
                   }
                 }
-                scheduleRestart(260);
+                if (keepAliveRef.current && !pausedRef.current && !hadResult && sinceStart > 0 && sinceStart < 2200) {
+                  const now = Date.now();
+                  if (silentEndWindowStartRef.current === 0 || now - silentEndWindowStartRef.current > 20000) {
+                    silentEndWindowStartRef.current = now;
+                    silentEndCountRef.current = 0;
+                  }
+                  silentEndCountRef.current += 1;
+                  backoffMsRef.current = Math.min(Math.max(backoffMsRef.current * 1.45, 1200), 9000);
+                  const delay = Math.min(2000 + silentEndCountRef.current * 900, 10000);
+                  scheduleRestart(delay);
+                  return;
+                }
+                scheduleRestart(450);
             };
 
             recognition.onerror = (event: any) => {
@@ -263,8 +293,9 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
                   const r = recognitionRef.current;
                   if (!r) return;
                   if (!listeningRef.current) return;
+                  if (typeof document !== 'undefined' && document.hidden) return;
                   const idleMs = Date.now() - lastActivityAtRef.current;
-                  if (idleMs < 12000) return;
+                  if (idleMs < 45000) return;
                   lastStopAtRef.current = Date.now();
                   startingRef.current = false;
                   listeningRef.current = false;
@@ -275,9 +306,10 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
                   try {
                     r.stop();
                   } catch {}
-                  scheduleRestart(900);
+                  backoffMsRef.current = Math.min(Math.max(backoffMsRef.current * 1.35, 1200), 9000);
+                  scheduleRestart(1800);
                 } catch {}
-              }, 2000);
+              }, 3000);
             }
         }
     }
@@ -307,6 +339,23 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
       recognitionRef.current = null;
       safeStartRef.current = null;
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVis = () => {
+      try {
+        if (document.hidden) return;
+        if (!keepAliveRef.current) return;
+        if (pausedRef.current) return;
+        if (!pendingVisibleRestartRef.current) return;
+        pendingVisibleRestartRef.current = false;
+        if (restartTimerRef.current) return;
+        safeStartRef.current?.();
+      } catch {}
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
 
   const startListening = useCallback(() => {
