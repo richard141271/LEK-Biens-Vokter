@@ -702,6 +702,60 @@ export default function DashboardPage() {
     };
 
     try {
+      const playConfirm = async (text: string) => {
+        const trimmed = String(text || '').trim();
+        if (!trimmed) return;
+        try {
+          const res = await fetch('/api/voice/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: trimmed }),
+          });
+          if (!res.ok) throw new Error('tts_failed');
+          const bytes = await res.arrayBuffer();
+          const blob = new Blob([bytes], { type: 'audio/wav' });
+          const url = URL.createObjectURL(blob);
+          const a = new Audio(url);
+          a.preload = 'auto';
+          (a as any).playsInline = true;
+          try {
+            a.setAttribute?.('playsinline', 'true');
+          } catch {}
+          const done = () => {
+            try {
+              URL.revokeObjectURL(url);
+            } catch {}
+          };
+          a.onended = done;
+          a.onerror = done;
+          try {
+            const p = a.play();
+            if (p && typeof (p as any).catch === 'function') await (p as any);
+          } catch {
+            done();
+            throw new Error('tts_play_failed');
+          }
+          return;
+        } catch {
+          try {
+            const synth = (window as any).speechSynthesis as SpeechSynthesis | undefined;
+            if (!synth) return;
+            try {
+              if (typeof synth.resume === 'function') synth.resume();
+            } catch {}
+            try {
+              synth.cancel();
+            } catch {}
+            const u = new SpeechSynthesisUtterance(trimmed);
+            u.lang = 'nb-NO';
+            u.rate = 0.95;
+            u.pitch = 1.0;
+            u.volume = 1.0;
+            synth.speak(u);
+          } catch {}
+        }
+      };
+
       try {
         setHandsfreeStatus('Mikrofon og kamera…');
         if (!navigator.mediaDevices?.getUserMedia) throw new Error('getUserMedia_unsupported');
@@ -791,6 +845,11 @@ export default function DashboardPage() {
           }
           done();
         }
+      } catch {}
+
+      try {
+        setHandsfreeStatus('Aurora…');
+        await playConfirm('Handsfree aktivert.');
       } catch {}
 
       try {
