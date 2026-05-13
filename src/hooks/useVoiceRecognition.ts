@@ -10,6 +10,10 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
   const pausedRef = useRef(false);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastStartAtRef = useRef<number>(0);
+  const lastActivityAtRef = useRef<number>(0);
+  const quickEndWindowStartRef = useRef<number>(0);
+  const quickEndCountRef = useRef<number>(0);
+  const watchdogTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startingRef = useRef(false);
   const listeningRef = useRef(false);
   const lastStopAtRef = useRef<number>(0);
@@ -34,7 +38,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
         if (SpeechRecognitionConstructor) {
             setIsSupported(true);
             const recognition = new SpeechRecognitionConstructor();
-            recognition.continuous = true;
+            recognition.continuous = false;
             recognition.lang = 'nb-NO';
             recognition.interimResults = false;
             recognition.maxAlternatives = 5;
@@ -133,6 +137,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
                   }
                 };
                 const text = pickBest(event.results[last]);
+                lastActivityAtRef.current = Date.now();
                 onResultRef.current(text);
             };
 
@@ -142,7 +147,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
                 if (pausedRef.current) return;
                 if (restartTimerRef.current) return;
                 if (startingRef.current) return;
-                const finalDelay = Math.max(delayMs, backoffMsRef.current, Date.now() - lastStopAtRef.current < 300 ? 300 : 0);
+                const finalDelay = Math.max(delayMs, backoffMsRef.current, Date.now() - lastStopAtRef.current < 450 ? 450 : 0);
                 restartTimerRef.current = setTimeout(() => {
                   restartTimerRef.current = null;
                   if (!keepAliveRef.current || pausedRef.current) return;
@@ -162,7 +167,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
               if (startingRef.current) return;
               if (listeningRef.current) return;
               if (restartTimerRef.current) return;
-              if (Date.now() - lastStopAtRef.current < 300) {
+              if (Date.now() - lastStopAtRef.current < 450) {
                 scheduleRestart(320);
                 return;
               }
@@ -170,6 +175,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
               try {
                 startingRef.current = true;
                 lastStartAtRef.current = Date.now();
+                lastActivityAtRef.current = lastStartAtRef.current;
                 recognition.start();
               } catch {
                 startingRef.current = false;
@@ -180,12 +186,24 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
             recognition.onstart = () => {
               startingRef.current = false;
               listeningRef.current = true;
+              lastActivityAtRef.current = Date.now();
               setIsListening(true);
+            };
+
+            recognition.onaudiostart = () => {
+              lastActivityAtRef.current = Date.now();
+            };
+            recognition.onsoundstart = () => {
+              lastActivityAtRef.current = Date.now();
+            };
+            recognition.onspeechstart = () => {
+              lastActivityAtRef.current = Date.now();
             };
 
             recognition.onend = () => {
                 startingRef.current = false;
                 listeningRef.current = false;
+                lastStopAtRef.current = Date.now();
                 setIsListening(false);
                 const sinceStart = Date.now() - lastStartAtRef.current;
                 if (keepAliveRef.current && !pausedRef.current) {
@@ -195,13 +213,29 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
                     backoffMsRef.current = 220;
                   }
                 }
-                scheduleRestart(220);
+                if (keepAliveRef.current && !pausedRef.current) {
+                  const now = Date.now();
+                  if (quickEndWindowStartRef.current === 0 || now - quickEndWindowStartRef.current > 12000) {
+                    quickEndWindowStartRef.current = now;
+                    quickEndCountRef.current = 0;
+                  }
+                  if (sinceStart > 0 && sinceStart < 900) {
+                    quickEndCountRef.current += 1;
+                  }
+                  if (quickEndCountRef.current >= 4) {
+                    backoffMsRef.current = Math.min(Math.max(backoffMsRef.current * 1.8, 1200), 4500);
+                    scheduleRestart(1600);
+                    return;
+                  }
+                }
+                scheduleRestart(260);
             };
 
             recognition.onerror = (event: any) => {
                 console.error("Speech recognition error", event.error);
                 startingRef.current = false;
                 listeningRef.current = false;
+                lastStopAtRef.current = Date.now();
                 setIsListening(false);
                 const err = String(event?.error || '').toLowerCase();
                 if (err === 'not-allowed' || err === 'service-not-allowed') return;
@@ -220,6 +254,31 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
             };
 
             recognitionRef.current = recognition;
+
+            if (!watchdogTimerRef.current) {
+              watchdogTimerRef.current = setInterval(() => {
+                try {
+                  if (!keepAliveRef.current) return;
+                  if (pausedRef.current) return;
+                  const r = recognitionRef.current;
+                  if (!r) return;
+                  if (!listeningRef.current) return;
+                  const idleMs = Date.now() - lastActivityAtRef.current;
+                  if (idleMs < 12000) return;
+                  lastStopAtRef.current = Date.now();
+                  startingRef.current = false;
+                  listeningRef.current = false;
+                  setIsListening(false);
+                  try {
+                    if (typeof r.abort === 'function') r.abort();
+                  } catch {}
+                  try {
+                    r.stop();
+                  } catch {}
+                  scheduleRestart(900);
+                } catch {}
+              }, 2000);
+            }
         }
     }
 
@@ -230,6 +289,8 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
       startingRef.current = false;
       if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
       restartTimerRef.current = null;
+      if (watchdogTimerRef.current) clearInterval(watchdogTimerRef.current);
+      watchdogTimerRef.current = null;
       try {
         const r = recognitionRef.current;
         if (r) {
@@ -237,6 +298,9 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
           r.onerror = null;
           r.onend = null;
           r.onstart = null;
+          r.onaudiostart = null;
+          r.onsoundstart = null;
+          r.onspeechstart = null;
           r.stop();
         }
       } catch {}
@@ -280,7 +344,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
 
   // Temporarily stop without clearing keepAlive, so auto-restart is allowed
   const pauseListening = useCallback(() => {
-    if (recognitionRef.current && isListening) {
+    if (recognitionRef.current && (listeningRef.current || startingRef.current)) {
       try {
         if (restartTimerRef.current) {
           clearTimeout(restartTimerRef.current);
