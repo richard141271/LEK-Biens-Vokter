@@ -38,6 +38,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [lastCommand, setLastCommand] = useState<string | null>(null);
   const [notesActive, setNotesActive] = useState(false);
   const [history, setHistory] = useState<Array<{ type: string; prev: any }>>([]);
+  const lastUnknownAtRef = useRef<number>(0);
+  const lastUnknownTextRef = useRef<string>('');
   useEffect(() => { loadAliases(); }, []);
 
   // Camera State
@@ -430,6 +432,20 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           speak(spoken);
           // Clear feedback after 4s
           setTimeout(() => setLastCommand(null), 4000);
+      } else if (!notesActive) {
+          const heard = String(raw || '').trim();
+          if (heard) {
+              const now = Date.now();
+              const key = heard.toLowerCase();
+              const same = key === lastUnknownTextRef.current;
+              if (!same || now - lastUnknownAtRef.current > 6000) {
+                  lastUnknownAtRef.current = now;
+                  lastUnknownTextRef.current = key;
+                  setLastCommand(`Hørte: ${heard}`);
+                  speak('Jeg forstod ikke. Prøv igjen.');
+                  setTimeout(() => setLastCommand(null), 3000);
+              }
+          }
       }
 
       if (notesActive) {
@@ -704,14 +720,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     } catch {}
   };
 
-  const speakWithServer = async (text: string, shouldPauseMic: boolean, onDone: () => void) => {
+  const speakWithServer = async (text: string, shouldPauseMic: boolean, onDone: () => void): Promise<boolean> => {
     try {
-      if (typeof window === 'undefined') return;
+      if (typeof window === 'undefined') return false;
       const trimmed = String(text || '').trim();
-      if (!trimmed) return;
+      if (!trimmed) return false;
       if (ttsBusyRef.current) {
         ttsQueueRef.current.push({ text: trimmed, shouldPauseMic, onDone });
-        return;
+        return true;
       }
       ttsBusyRef.current = true;
 
@@ -723,6 +739,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         if (next) void speakWithServer(next.text, next.shouldPauseMic, next.onDone);
       };
       let bytes = ttsBufferCacheRef.current.get(trimmed) || null;
+      let startedPlayback = false;
 
       const ctx = audioCtxRef.current;
 
@@ -788,6 +805,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         if (p && typeof (p as any).catch === 'function') {
           await (p as any);
         }
+        startedPlayback = true;
       };
 
       if (!ctx) {
@@ -795,8 +813,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           await playWithHtmlAudio();
         } catch {
           safeFinishWithTimer();
+          return false;
         }
-        return;
+        return startedPlayback;
       }
 
       try {
@@ -844,6 +863,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           } catch {}
         }
         src.start();
+        startedPlayback = true;
       };
 
       try {
@@ -853,13 +873,16 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           await playWithHtmlAudio();
         } catch {
           safeFinishWithTimer();
+          return false;
         }
       }
+      return startedPlayback;
     } catch {
       try {
         ttsBusyRef.current = false;
         onDone();
       } catch {}
+      return false;
     }
   };
 
@@ -920,115 +943,65 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       };
 
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
-      if (!s) {
-        void speakWithServer(trimmed, wasListening, resume);
+
+      if (!isOffline) {
+        void (async () => {
+          const ok = await speakWithServer(trimmed, shouldResume, resume);
+          if (ok) return;
+          if (!s) {
+            resume();
+            return;
+          }
+          const u2 = new SpeechSynthesisUtterance(trimmed);
+          u2.lang = 'nb-NO';
+          u2.rate = 0.92;
+          u2.pitch = 1.0;
+          u2.volume = 1.0;
+          u2.onstart = () => {
+            if (shouldResume) {
+              try {
+                pauseListening();
+              } catch {}
+            }
+          };
+          u2.onend = resume;
+          u2.onerror = resume;
+          try {
+            if (typeof s.resume === 'function') s.resume();
+          } catch {}
+          try {
+            if (s.speaking || s.pending) s.cancel();
+          } catch {}
+          try {
+            s.speak(u2);
+          } catch {
+            resume();
+          }
+        })();
         return;
       }
 
-      let started = false;
-      let serverAttempted = false;
-      const startWatch = setTimeout(() => {
-        if (started) return;
-        if (serverAttempted) {
-          resume();
-          return;
-        }
-        serverAttempted = true;
-        try {
-          s.cancel();
-        } catch {}
-        void speakWithServer(trimmed, wasListening, resume);
-      }, 900);
-      const hardWatch = setTimeout(() => {
-        if (started) return;
-        if (!serverAttempted) {
-          serverAttempted = true;
-          try {
-            s.cancel();
-          } catch {}
-          void speakWithServer(trimmed, wasListening, resume);
-          return;
-        }
-        resume();
-      }, 10000);
-
+      if (!s) return;
       u.onstart = () => {
         if (shouldResume) {
           try {
             pauseListening();
           } catch {}
         }
-        started = true;
-        serverAttempted = false;
-        clearTimeout(startWatch);
       };
-      u.onend = () => {
-        clearTimeout(startWatch);
-        clearTimeout(hardWatch);
-        resume();
-      };
-      u.onerror = () => {
-        clearTimeout(startWatch);
-        clearTimeout(hardWatch);
-        resume();
-      };
-
+      u.onend = resume;
+      u.onerror = resume;
       try {
         if (typeof s.resume === 'function') s.resume();
       } catch {}
-
-      const delay = wasListening ? 650 : 0;
-      setTimeout(() => {
-        const pickNorwegianVoice = () => {
-          try {
-            const voices = typeof s.getVoices === 'function' ? s.getVoices() : [];
-            const nb = voices.find((v) => (v.lang || '').toLowerCase().startsWith('nb'));
-            const no = voices.find((v) => (v.lang || '').toLowerCase().startsWith('no'));
-            const nn = voices.find((v) => (v.lang || '').toLowerCase().includes('nor'));
-            const picked = nb || no || nn;
-            if (picked) u.voice = picked;
-          } catch {}
-        };
-
-        const doSpeak = () => {
-          try {
-            if (s.speaking || s.pending) s.cancel();
-          } catch {}
-          try {
-            s.speak(u);
-          } catch {
-            resume();
-          }
-        };
-
-        try {
-          if (s.speaking || s.pending) s.cancel();
-        } catch {}
-        try {
-          const voices = typeof s.getVoices === 'function' ? s.getVoices() : [];
-          if (voices.length === 0) {
-            let fired = false;
-            const onVoices = () => {
-              if (fired) return;
-              fired = true;
-              try {
-                s.onvoiceschanged = null;
-              } catch {}
-              pickNorwegianVoice();
-              doSpeak();
-            };
-            try {
-              s.onvoiceschanged = onVoices;
-            } catch {}
-            setTimeout(onVoices, 350);
-          } else {
-            pickNorwegianVoice();
-            doSpeak();
-          }
-        } catch {
-          resume();
-        }
-      }, delay);
+      try {
+        if (s.speaking || s.pending) s.cancel();
+      } catch {}
+      try {
+        s.speak(u);
+      } catch {
+        resume();
+      }
     } catch {}
   };
   useEffect(() => {
