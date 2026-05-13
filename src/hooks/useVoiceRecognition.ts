@@ -368,7 +368,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
     pausedRef.current = false;
     backoffMsRef.current = 220;
     safeStartRef.current?.();
-  }, [isListening]);
+  }, []);
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
@@ -415,7 +415,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
         console.error("Could not pause recognition", e);
       }
     }
-  }, [isListening]);
+  }, []);
 
   const resumeListening = useCallback(() => {
     if (!recognitionRef.current) return;
@@ -426,7 +426,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
     keepAliveRef.current = true;
     pausedRef.current = false;
     safeStartRef.current?.();
-  }, [isListening]);
+  }, []);
 
   const toggleListening = useCallback(() => {
       // If we are effectively listening (state is true), stop.

@@ -674,16 +674,16 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     } catch {}
   };
 
-  const unlockTtsFromGesture = (text: string) => {
+  const unlockTtsFromGesture = () => {
     try {
       if (typeof window === 'undefined') return;
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       if (!s) return;
-      const u = new SpeechSynthesisUtterance(text);
+      const u = new SpeechSynthesisUtterance('.');
       u.lang = 'nb-NO';
-      u.rate = 0.92;
+      u.rate = 1.0;
       u.pitch = 1.0;
-      u.volume = 1.0;
+      u.volume = 0.0;
       u.onstart = () => {
         ttsUnlockedRef.current = true;
       };
@@ -867,12 +867,13 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   useEffect(() => {
     const onFirst = () => {
+      if (gestureUnlockedRef.current) return;
       gestureUnlockedRef.current = true;
       primeTts(false);
       unlockAudioSession();
       unlockHtmlAudioFromGesture();
       if (!ttsUnlockedRef.current) {
-        unlockTtsFromGesture('Talesvar på');
+        unlockTtsFromGesture();
       }
       const isiOS =
         typeof navigator !== 'undefined' &&
@@ -1819,7 +1820,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                     unlockAudioSession();
                     unlockHtmlAudioFromGesture();
                     if (!ttsUnlockedRef.current) {
-                      unlockTtsFromGesture('Talesvar på');
+                      unlockTtsFromGesture();
                     }
                     try {
                       startListening();
