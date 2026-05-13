@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { loadAliases } from '@/utils/voice-alias';
 
 export function useVoiceRecognition(onResult: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
@@ -18,6 +19,12 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
   useEffect(() => {
     onResultRef.current = onResult;
   }, [onResult]);
+
+  useEffect(() => {
+    try {
+      void loadAliases();
+    } catch {}
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {

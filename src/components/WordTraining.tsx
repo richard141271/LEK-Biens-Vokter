@@ -4,48 +4,14 @@ import { useMemo, useState, useCallback } from 'react';
 import { Mic, MicOff, X, BookOpen, RotateCcw, ChevronLeft, ChevronRight, CheckCircle, ClipboardList, ClipboardCopy, Download, Trash2 } from 'lucide-react';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { parseVoiceCommand } from '@/utils/voice-parser';
+import { getCatalog } from '@/utils/voice-diagnostics';
 
 type Props = {
   onClose: () => void;
 };
 
 export default function WordTraining({ onClose }: Props) {
-  const phrases = useMemo(
-    () => [
-      { group: 'Handling', text: 'Ta bilde', expected: { action: 'TAKE_PHOTO' } },
-      { group: 'Handling', text: 'Lagre inspeksjon', expected: { action: 'SAVE_INSPECTION' } },
-      { group: 'Dronning', text: 'Dronning sett', expected: { queenSeen: true } },
-      { group: 'Dronning', text: 'Ingen dronning', expected: { queenSeen: false } },
-      { group: 'Dronning', text: 'Dronningfarge gul', expected: { queenColor: 'Gul' } },
-      { group: 'Dronning', text: 'Årgang 2025', expected: { queenYear: '2025' } },
-      { group: 'Egg', text: 'Egg sett', expected: { eggsSeen: true } },
-      { group: 'Egg', text: 'Ingen egg', expected: { eggsSeen: false } },
-      { group: 'Honning', text: 'Lite honning', expected: { honeyStores: 'lite' } },
-      { group: 'Honning', text: 'Middels honning', expected: { honeyStores: 'middels' } },
-      { group: 'Honning', text: 'Mye honning', expected: { honeyStores: 'mye' } },
-      { group: 'Gemytt', text: 'Rolig', expected: { temperament: 'rolig' } },
-      { group: 'Gemytt', text: 'Urolig', expected: { temperament: 'urolig' } },
-      { group: 'Gemytt', text: 'Aggressiv', expected: { temperament: 'aggressiv' } },
-      { group: 'Yngel', text: 'Bra yngel', expected: { broodCondition: 'bra' } },
-      { group: 'Yngel', text: 'Normal yngel', expected: { broodCondition: 'normal' } },
-      { group: 'Yngel', text: 'Dårlig yngel', expected: { broodCondition: 'darlig' } },
-      { group: 'Status', text: 'Alt bra', expected: { status: 'OK' } },
-      { group: 'Status', text: 'Svak', expected: { status: 'SVAK' } },
-      { group: 'Status', text: 'Død', expected: { status: 'DØD' } },
-      { group: 'Status', text: 'Sykdom', expected: { status: 'SYKDOM' } },
-      { group: 'Status', text: 'Bytt dronning', expected: { status: 'BYTT_DRONNING' } },
-      { group: 'Status', text: 'Mottatt fôr', expected: { status: 'MOTTATT_FOR' } },
-      { group: 'Status', text: 'Skiftet rammer', expected: { status: 'SKIFTET_RAMMER' } },
-      { group: 'Status', text: 'Sverming', expected: { status: 'SVERMING' } },
-      { group: 'Status', text: 'Varroa mistanke', expected: { status: 'VARROA_MISTANKE' } },
-      { group: 'Status', text: 'Byttet voks', expected: { status: 'BYTTET_VOKS' } },
-      { group: 'Vær', text: 'Sol', expected: { weather: 'Klart' } },
-      { group: 'Vær', text: 'Regn', expected: { weather: 'Regn' } },
-      { group: 'Vær', text: 'Overskyet', expected: { weather: 'Lettskyet/Overskyet' } },
-      { group: 'Temperatur', text: '20 grader', expected: { temperature: '20' } }
-    ],
-    []
-  );
+  const phrases = useMemo(() => getCatalog(), []);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [recognized, setRecognized] = useState<string | null>(null);

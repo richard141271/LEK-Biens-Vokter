@@ -26,7 +26,8 @@ export function parseVoiceCommand(text: string): ParsedInspection {
     const result: ParsedInspection = {};
 
     const has = (patterns: string[]) => patterns.some(p => t.includes(p));
-    const hasWord = (w: string) => new RegExp(`\\b${w}\\b`).test(t);
+    const WORD_CHARS = 'A-Za-z0-9_ÆØÅæøå';
+    const hasWord = (w: string) => new RegExp(`(^|[^${WORD_CHARS}])${escapeReg(w)}(?=[^${WORD_CHARS}]|$)`, 'i').test(t);
     const pickLast = <T extends string>(arr: T[]): T | undefined => arr.length ? arr[arr.length - 1] : undefined;
 
     const cmd = parseStructured(t);
@@ -73,23 +74,32 @@ export function parseVoiceCommand(text: string): ParsedInspection {
         if (v === 'blå' || v === 'bla') return 'Blå';
         return '';
     };
-    const colorMatch =
-        t.match(/\b(dronningfarge|dronning\s*farge|farge)\s*(er\s*)?(hvit|gul|rød|rod|grønn|gronn|blå|bla)\b/) ||
-        t.match(/\b(hvit|gul|rød|rod|grønn|gronn|blå|bla)\s+dronning(a)?\b/);
-    if (colorMatch) {
-        const rawColor = String(colorMatch[3] || colorMatch[2] || colorMatch[1] || '');
-        const norm = normalizeColor(String(rawColor || ''));
+    const colorRe1 =
+        /(^|[^A-Za-z0-9_ÆØÅæøå])(?:dronning\s*farg(?:e(n)?|a)?|dronningfarg(?:e(n)?|a)?|farg(?:e(n)?|a)?)\s*(?:er\s*)?(hvit|gul|rød|rod|grønn|gronn|blå|bla)(?=[^A-Za-z0-9_ÆØÅæøå]|$)/i;
+    const colorRe2 =
+        /(^|[^A-Za-z0-9_ÆØÅæøå])(hvit|gul|rød|rod|grønn|gronn|blå|bla)\s+dronning(a)?(?=[^A-Za-z0-9_ÆØÅæøå]|$)/i;
+    const cm1 = t.match(colorRe1);
+    const cm2 = t.match(colorRe2);
+    const rawColor = String((cm1 && cm1[3]) || (cm2 && cm2[2]) || '');
+    if (rawColor) {
+        const norm = normalizeColor(rawColor);
         if (norm) result.queenColor = norm;
     }
 
-    const yearMatch =
-        t.match(/\b(årgang|ar(gang)?|år|alder)\s*(20\d{2})\b/) ||
-        t.match(/\b(20\d{2})\s*(årgang|ar(gang)?|år|alder)\b/) ||
-        (/\bdronning(a)?\b/.test(t) ? t.match(/\b(20\d{2})\b/) : null);
-    if (yearMatch) {
-        const yr = yearMatch.find((x) => /^\d{4}$/.test(String(x))) || '';
-        if (yr) result.queenYear = String(yr);
-    }
+    const tYear = t
+        .replace(/\b(20)\s+(\d)\s+(\d)\b/g, '$1$2$3')
+        .replace(/\b(20)\s+(\d{2})\b/g, '$1$2');
+    const yearRe1 =
+        /(^|[^A-Za-z0-9_ÆØÅæøå])(?:år\s*gang(en)?|ar\s*gang(en)?|årgang(en)?|argang(en)?|år|ar|alder)\s*(?:er\s*)?(20\d{2})(?=[^A-Za-z0-9_ÆØÅæøå]|$)/i;
+    const yearRe2 =
+        /(^|[^A-Za-z0-9_ÆØÅæøå])(20\d{2})\s*(?:år\s*gang(en)?|ar\s*gang(en)?|årgang(en)?|argang(en)?|år|ar|alder)(?=[^A-Za-z0-9_ÆØÅæøå]|$)/i;
+    const ym1 = tYear.match(yearRe1);
+    const ym2 = tYear.match(yearRe2);
+    const ym3 = /(^|[^A-Za-z0-9_ÆØÅæøå])dronning(a)?(?=[^A-Za-z0-9_ÆØÅæøå]|$)/i.test(tYear)
+        ? tYear.match(/(^|[^A-Za-z0-9_ÆØÅæøå])(20\d{2})(?=[^A-Za-z0-9_ÆØÅæøå]|$)/i)
+        : null;
+    const yr = String((ym1 && ym1[3]) || (ym2 && ym2[2]) || (ym3 && ym3[2]) || '');
+    if (yr) result.queenYear = yr;
 
     // --- Action: Save Inspection ---
     if (has(['lagre inspeksjon', 'lagre skjema', 'lagring inspeksjon', 'lag inspeksjon', 'ferdig med inspeksjon', 'send inn', 'lagre nå', 'avslutt inspeksjon'])) {
@@ -230,12 +240,16 @@ export function parseVoiceCommand(text: string): ParsedInspection {
     if (drA) result.broodDrones = drA;
 
     const framesMatch =
-        t.match(/\b(bistyrke|rammer(\s+med\s+yngel)?|yngelrammer)\s*[:\-]?\s*(\d+(?:[.,]5)?)\b/) ||
-        t.match(/\b(\d+(?:[.,]5)?)\s*(rammer(\s+med\s+yngel)?|bistyrke|yngelrammer)\b/);
+        t.match(
+            /(^|[^A-Za-z0-9_ÆØÅæøå])(?:bistyrk(?:e(n)?|a)?|rammer(\s+med\s+yngel)?|yngelrammer)\s*(?:er\s*)?[:\-=]?\s*(\d+(?:[.,]5)?)(?=[^A-Za-z0-9_ÆØÅæøå]|$)/i
+        ) ||
+        t.match(
+            /(^|[^A-Za-z0-9_ÆØÅæøå])(\d+(?:[.,]5)?)\s*(?:rammer(\s+med\s+yngel)?|bistyrk(?:e(n)?|a)?|yngelrammer)(?=[^A-Za-z0-9_ÆØÅæøå]|$)/i
+        );
     if (framesMatch) {
         const num = framesMatch.find((x) => /^\d/.test(String(x))) || '';
         if (num) result.broodFrames = String(num).replace(',', '.');
-    } else if (/\b(bistyrke|rammer(\s+med\s+yngel)?|yngelrammer)\b/.test(t)) {
+    } else if (/(^|[^A-Za-z0-9_ÆØÅæøå])(?:bistyrk(?:e(n)?|a)?|rammer(\s+med\s+yngel)?|yngelrammer)(?=[^A-Za-z0-9_ÆØÅæøå]|$)/i.test(t)) {
         const normalize = (s: string) =>
             s
                 .toLowerCase()
@@ -281,9 +295,9 @@ export function parseVoiceCommand(text: string): ParsedInspection {
                 const b = wordToNum(comma[2]);
                 if (a != null && b != null) return Number(`${a}.${b}`);
             }
-            const single = tn.match(/\b(bistyrke|yngelrammer|rammer)\s+(null|en|ett|to|tre|fire|fem|seks|sju|syv|atte|ni|ti|elleve|\d+)\b/);
+            const single = tn.match(/(^|\s)(bistyrke|yngelrammer|rammer)\s+(null|en|ett|to|tre|fire|fem|seks|sju|syv|atte|ni|ti|elleve|\d+)(\s|$)/);
             if (single) {
-                const n = wordToNum(single[2]);
+                const n = wordToNum(single[3]);
                 if (n != null) return n;
             }
             return null;
@@ -344,8 +358,9 @@ function applyAliases(input: string): string {
         for (const a of aliases) {
             const p = map[a];
             if (!a || !p) continue;
-            const re = new RegExp(`\\b${escapeReg(a)}\\b`, 'g');
-            out = out.replace(re, p);
+            const token = escapeReg(a).replace(/\\ /g, '\\s+');
+            const re = new RegExp(`(^|[^A-Za-z0-9_ÆØÅæøå])${token}(?=[^A-Za-z0-9_ÆØÅæøå]|$)`, 'gi');
+            out = out.replace(re, `$1${p}`);
         }
         return out;
     } catch {

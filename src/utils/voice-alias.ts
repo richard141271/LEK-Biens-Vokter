@@ -13,6 +13,16 @@ const DEFAULTS: AliasMap = {
   'yngle leie': 'yngel',
   'ynglelei': 'yngel',
   'innleie': 'yngel',
+  // Dronningfarge / årgang feilhøringer
+  'dronningfargen': 'dronningfarge',
+  'dronning fargen': 'dronningfarge',
+  'dronning farge': 'dronningfarge',
+  'år gang': 'årgang',
+  'år gangen': 'årgang',
+  'årgangen': 'årgang',
+  'ar gang': 'årgang',
+  'ar gangen': 'årgang',
+  'argang': 'årgang',
   // Bigård/Apiary feilhøringer
   'bygård': 'bigård',
   'by gård': 'bigård',
@@ -39,10 +49,12 @@ export async function loadAliases(): Promise<void> {
     const approved: AliasMap = {};
     const personal: AliasMap = {};
     (data.approved || []).forEach((r: any) => {
-      if (r.alias && r.phrase) approved[r.alias.toLowerCase()] = r.phrase.toLowerCase();
+      const phrase = r?.phrase || r?.correct_phrase;
+      if (r.alias && phrase) approved[String(r.alias).toLowerCase()] = String(phrase).toLowerCase();
     });
     (data.personal || []).forEach((r: any) => {
-      if (r.alias && r.phrase) personal[r.alias.toLowerCase()] = r.phrase.toLowerCase();
+      const phrase = r?.phrase || r?.correct_phrase;
+      if (r.alias && phrase) personal[String(r.alias).toLowerCase()] = String(phrase).toLowerCase();
     });
     localStorage.setItem(KEY, JSON.stringify({ ts: now, approved, personal }));
   } catch {}
