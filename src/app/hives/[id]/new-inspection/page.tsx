@@ -45,7 +45,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [pendingCapture, setPendingCapture] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const speakRef = useRef<(text: string) => void>(() => {});
+  const speakRef = useRef<(text: string, opts?: { resume?: boolean }) => void>(() => {});
+  const voicePhotoFlowRef = useRef(false);
   const lastVoiceCaptureAtRef = useRef<number>(0);
   const lastVoiceCaptureTextRef = useRef<string>('');
   const lastManualCaptureAtRef = useRef<number>(0);
@@ -81,7 +82,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 const nextPreviewUrl = getPreviewUrl(file);
                 setPhotoCount((n) => {
                   const next = n + 1;
-                  speakRef.current(`Bilde tatt. Dette er bilde nummer ${next}`);
+                  if (voicePhotoFlowRef.current) {
+                    voicePhotoFlowRef.current = false;
+                    speakRef.current(`Bilde tatt. Dette er bilde nummer ${next}`, { resume: true });
+                  } else {
+                    speakRef.current(`Bilde tatt. Dette er bilde nummer ${next}`);
+                  }
                   return next;
                 });
                 setSelectedImage((prev) => {
@@ -266,16 +272,20 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           } else if (cameraActive) {
               lastVoiceCaptureAtRef.current = now;
               lastVoiceCaptureTextRef.current = rawKey;
+              voicePhotoFlowRef.current = true;
+              try { pauseListening(); } catch {}
+              speak('Tar bilde', { resume: false });
               capturePhoto();
-              feedback.push("Tar bilde...");
           } else {
               // Start camera and schedule capture when ready
               if (!pendingCapture) {
                   lastVoiceCaptureAtRef.current = now;
                   lastVoiceCaptureTextRef.current = rawKey;
+                  voicePhotoFlowRef.current = true;
+                  try { pauseListening(); } catch {}
+                  speak('Starter kamera og tar bilde', { resume: false });
                   setPendingCapture(true);
                   setCameraActive(true);
-                  feedback.push("Starter kamera og tar bilde...");
               } else {
                   feedback.push("Kamera starter allerede");
               }
@@ -886,13 +896,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       } catch {}
     };
   }, [handsfreeReady, startListening]);
-  const speak = (text: string) => {
+  const speak = (text: string, opts?: { resume?: boolean }) => {
     try {
       if (typeof window === 'undefined') return;
       const trimmed = String(text || '').trim();
       if (!trimmed) return;
 
       const wasListening = isListening;
+      const shouldResume = Boolean(opts?.resume ?? wasListening);
 
       const u = new SpeechSynthesisUtterance(trimmed);
       u.lang = 'nb-NO';
@@ -901,7 +912,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       u.volume = 1.0;
 
       const resume = () => {
-        if (!wasListening) return;
+        if (!shouldResume) return;
         setTimeout(() => {
           try {
             resumeListening();
@@ -943,7 +954,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }, 10000);
 
       u.onstart = () => {
-        if (wasListening) {
+        if (shouldResume) {
           try {
             pauseListening();
           } catch {}
