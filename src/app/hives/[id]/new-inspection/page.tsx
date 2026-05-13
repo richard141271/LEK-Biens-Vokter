@@ -256,6 +256,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       parsed = res.parsed;
       const p: any = parsed as any;
       let feedback: string[] = [];
+      let scrollTarget: string | null = null;
+      const setScrollTarget = (id: string) => {
+        if (!scrollTarget) scrollTarget = id;
+      };
       if (res.corrected && res.matched) {
           setLastCorrection({ phrase: res.matched, similarity: res.similarity });
           feedback.push(`Tolkning brukt: ${res.matched}`);
@@ -263,6 +267,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       // Action: Take Photo
       if (parsed.action === 'TAKE_PHOTO') {
+          setScrollTarget('field-camera');
           const now = Date.now();
           const rawKey = String(text || '').trim().toLowerCase();
           const isDuplicateText =
@@ -296,18 +301,21 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       // Action: Save Inspection
       if (parsed.action === 'SAVE_INSPECTION') {
+          setScrollTarget('field-save');
           feedback.push("Lagrer inspeksjon...");
           submitInspection();
       }
 
       // Update State based on parsed result
       if (parsed.queenSeen !== undefined) {
+          setScrollTarget('field-queenSeen');
           setHistory(prev => [...prev, { type: 'queenSeen', prev: queenSeen }]);
           setQueenSeen(parsed.queenSeen ? 'ja' : 'nei');
           feedback.push(parsed.queenSeen ? 'Dronning sett' : 'Ingen dronning');
       }
 
       if (parsed.queenColor) {
+          setScrollTarget('field-queenColor');
           setHistory(prev => [...prev, { type: 'queenColor', prev: queenColor }]);
           markTouched('queenColor');
           setQueenColor(parsed.queenColor);
@@ -315,6 +323,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
 
       if (parsed.queenYear) {
+          setScrollTarget('field-queenYear');
           setHistory(prev => [...prev, { type: 'queenYear', prev: queenYear }]);
           markTouched('queenYear');
           setQueenYear(parsed.queenYear);
@@ -322,12 +331,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
 
       if (parsed.eggsSeen !== undefined) {
+          setScrollTarget('field-eggsSeen');
           setHistory(prev => [...prev, { type: 'eggsSeen', prev: eggsSeen }]);
           setEggsSeen(parsed.eggsSeen ? 'ja' : 'nei');
           feedback.push(parsed.eggsSeen ? 'Egg sett' : 'Ingen egg');
       }
 
       if (parsed.honeyStores) {
+          setScrollTarget('field-honeyStores');
           setHistory(prev => [...prev, { type: 'honeyStores', prev: honeyStores }]);
           markTouched('honeyStores');
           setHoneyStores(parsed.honeyStores);
@@ -335,6 +346,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
 
       if (parsed.temperament) {
+          setScrollTarget('field-temperament');
           setHistory(prev => [...prev, { type: 'temperament', prev: temperament }]);
           markTouched('temperament');
           setTemperament(parsed.temperament);
@@ -365,10 +377,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           feedback.push(`Yngelleie: ${mapped}`);
       };
       if (p.broodCondition) {
+          setScrollTarget('field-brood');
           applyBroodAll(p.broodCondition);
       }
       const eggV = normalizeBrood(p.broodEgg);
       if (eggV) {
+          setScrollTarget('field-brood');
           setHistory(prev => [...prev, { type: 'broodEgg', prev: broodEgg }]);
           markTouched('broodEgg');
           setBroodEgg(eggV);
@@ -376,6 +390,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
       const larvV = normalizeBrood(p.broodLarvae);
       if (larvV) {
+          setScrollTarget('field-brood');
           setHistory(prev => [...prev, { type: 'broodLarvae', prev: broodLarvae }]);
           markTouched('broodLarvae');
           setBroodLarvae(larvV);
@@ -383,6 +398,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
       const yngV = normalizeBrood(p.broodYngel);
       if (yngV) {
+          setScrollTarget('field-brood');
           setHistory(prev => [...prev, { type: 'broodYngel', prev: broodYngel }]);
           markTouched('broodYngel');
           setBroodYngel(yngV);
@@ -390,12 +406,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
       const droV = normalizeBrood(p.broodDrones);
       if (droV) {
+          setScrollTarget('field-brood');
           setHistory(prev => [...prev, { type: 'broodDrones', prev: broodDrones }]);
           markTouched('broodDrones');
           setBroodDrones(droV);
           feedback.push(`Droner: ${droV}`);
       }
       if (p.broodFrames != null && String(p.broodFrames).trim().length > 0) {
+          setScrollTarget('field-broodFrames');
           const v = String(p.broodFrames).trim().replace(',', '.');
           setHistory(prev => [...prev, { type: 'broodFrames', prev: broodFrames }]);
           markTouched('broodFrames');
@@ -404,6 +422,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
 
       if (parsed.status) {
+          setScrollTarget('field-status');
           setHistory(prev => [...prev, { type: 'status', prev: status }]);
           markTouched('status');
           setStatus(parsed.status);
@@ -411,12 +430,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
 
       if (parsed.temperature) {
+          setScrollTarget('field-weather');
           setHistory(prev => [...prev, { type: 'temperature', prev: temperature }]);
           setTemperature(parsed.temperature);
           feedback.push(`Temp: ${parsed.temperature}°C`);
       }
 
       if (parsed.weather) {
+          setScrollTarget('field-weather');
           setHistory(prev => [...prev, { type: 'weather', prev: weather }]);
           setWeather(parsed.weather);
           feedback.push(`Vær: ${parsed.weather}`);
@@ -430,6 +451,17 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               ? feedback.join('. ')
               : `${feedback[0]}. Oppdatert.`;
           speak(spoken);
+          if (scrollTarget && typeof window !== 'undefined') {
+            const id = scrollTarget;
+            setTimeout(() => {
+              try {
+                const el = document.getElementById(id);
+                if (el && typeof el.scrollIntoView === 'function') {
+                  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              } catch {}
+            }, 60);
+          }
           // Clear feedback after 4s
           setTimeout(() => setLastCommand(null), 4000);
       } else if (!notesActive) {
@@ -1820,7 +1852,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       <main className="p-4">
         {/* Camera Preview (Bodycam Mode) */}
         {cameraActive && (
-            <div className="mb-4 relative rounded-xl overflow-hidden shadow-lg bg-black aspect-video mx-auto max-w-lg border-2 border-blue-500">
+            <div id="field-camera" className="mb-4 relative rounded-xl overflow-hidden shadow-lg bg-black aspect-video mx-auto max-w-lg border-2 border-blue-500">
                 <video 
                     ref={videoRef} 
                     autoPlay 
@@ -1855,7 +1887,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         <form onSubmit={handleSubmit} className="space-y-6 max-w-lg mx-auto">
           
           {/* Date & Weather */}
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-4">
+          <div id="field-weather" className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-4">
             <h3 className="font-semibold text-gray-900 flex items-center gap-2">
               <Calendar className="w-4 h-4" /> Tid og Vær
             </h3>
@@ -1927,7 +1959,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-4">
             <h3 className="font-semibold text-gray-900">Dronning og Yngel</h3>
             
-            <div className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
+            <div id="field-queenSeen" className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
               <span className="text-gray-700">Dronning sett?</span>
               <div className="flex items-center gap-2">
                 <button
@@ -1960,7 +1992,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               </div>
             </div>
 
-            <div className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
+            <div id="field-eggsSeen" className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
               <span className="text-gray-700">Egg sett?</span>
               <div className="flex items-center gap-2">
                 <button
@@ -1994,7 +2026,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div id="field-queenColor">
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Dronningfarge</label>
                 <select
                   value={queenColor}
@@ -2012,7 +2044,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                   <option value="Blå">Blå</option>
                 </select>
               </div>
-              <div>
+              <div id="field-queenYear">
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Årgang</label>
                 <input
                   type="number"
@@ -2033,7 +2065,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-4">
             <h3 className="font-semibold text-gray-900">Tilstand & Status</h3>
             
-            <div>
+            <div id="field-status">
               <label className="block text-sm font-medium text-gray-700 mb-2">Kubestatus</label>
               <select 
                 value={status} 
@@ -2058,7 +2090,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             </div>
 
             <div className="space-y-4">
-              <div>
+              <div id="field-brood">
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Yngelleie</label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -2124,7 +2156,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 </div>
               </div>
 
-              <div>
+              <div id="field-broodFrames">
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bistyrke (rammer med yngel)</label>
                 <select
                   value={broodFrames}
@@ -2143,7 +2175,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 </select>
               </div>
 
-              <div>
+              <div id="field-honeyStores">
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fôr</label>
                 <select 
                     value={honeyStores} 
@@ -2160,7 +2192,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               </div>
             </div>
 
-            <div>
+            <div id="field-temperament">
               <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Gemytt</label>
               <select 
                 value={temperament} 
@@ -2293,6 +2325,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
           {/* Submit */}
           <button
+            id="field-save"
             type="submit"
             disabled={submitting}
             className="w-full bg-honey-500 hover:bg-honey-600 text-white font-bold py-4 rounded-xl shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"

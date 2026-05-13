@@ -703,53 +703,93 @@ export default function DashboardPage() {
 
     try {
       try {
+        setHandsfreeStatus('Mikrofon og kamera…');
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error('getUserMedia_unsupported');
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: { facingMode: 'environment' },
+        });
+        stopTracks(stream);
+      } catch {
+        setHandsfreeStatus('Trykk «Tillat» for mikrofon og kamera.');
+        return;
+      }
+
+      try {
+        setHandsfreeStatus('Lyd…');
         if (typeof window !== 'undefined') {
-          const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
-          if (s) {
-            s.cancel();
-            const u = new SpeechSynthesisUtterance('Handsfree aktivert.');
+          const synth = (window as any).speechSynthesis as SpeechSynthesis | undefined;
+          if (synth) {
+            try {
+              synth.cancel();
+            } catch {}
+            const u = new SpeechSynthesisUtterance('.');
             u.lang = 'nb-NO';
-            u.rate = 0.95;
-            s.speak(u);
+            u.rate = 1.0;
+            u.pitch = 1.0;
+            u.volume = 0.0;
+            try {
+              if (typeof synth.resume === 'function') synth.resume();
+            } catch {}
+            try {
+              synth.speak(u);
+            } catch {}
           }
-        }
-      } catch {}
 
-      try {
-        setHandsfreeStatus('Mikrofon…');
-        if (navigator.mediaDevices?.getUserMedia) {
-          const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-          stopTracks(s);
-        }
-      } catch {}
+          const bytes = new Uint8Array(44 + 2);
+          const writeStr = (offset: number, s: string) => {
+            for (let i = 0; i < s.length; i += 1) bytes[offset + i] = s.charCodeAt(i);
+          };
+          const writeU32 = (offset: number, v: number) => {
+            bytes[offset + 0] = v & 0xff;
+            bytes[offset + 1] = (v >> 8) & 0xff;
+            bytes[offset + 2] = (v >> 16) & 0xff;
+            bytes[offset + 3] = (v >> 24) & 0xff;
+          };
+          const writeU16 = (offset: number, v: number) => {
+            bytes[offset + 0] = v & 0xff;
+            bytes[offset + 1] = (v >> 8) & 0xff;
+          };
 
-      try {
-        setHandsfreeStatus('Kamera…');
-        if (navigator.mediaDevices?.getUserMedia) {
-          const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-          stopTracks(s);
-        }
-      } catch {}
+          writeStr(0, 'RIFF');
+          writeU32(4, 36 + 2);
+          writeStr(8, 'WAVE');
+          writeStr(12, 'fmt ');
+          writeU32(16, 16);
+          writeU16(20, 1);
+          writeU16(22, 1);
+          writeU32(24, 8000);
+          writeU32(28, 8000 * 2);
+          writeU16(32, 2);
+          writeU16(34, 16);
+          writeStr(36, 'data');
+          writeU32(40, 2);
+          bytes[44] = 0;
+          bytes[45] = 0;
 
-      try {
-        setHandsfreeStatus('Posisjon…');
-        if (navigator.geolocation) {
-          await new Promise<void>((resolve) => {
-            navigator.geolocation.getCurrentPosition(
-              () => resolve(),
-              () => resolve(),
-              { enableHighAccuracy: false, timeout: 8000 }
-            );
-          });
-        }
-      } catch {}
-
-      try {
-        setHandsfreeStatus('Varsler…');
-        if (typeof window !== 'undefined' && 'Notification' in window) {
-          if (Notification.permission === 'default') {
-            await Notification.requestPermission();
+          const blob = new Blob([bytes], { type: 'audio/wav' });
+          const url = URL.createObjectURL(blob);
+          const a = new Audio(url);
+          a.volume = 0;
+          (a as any).playsInline = true;
+          try {
+            a.setAttribute?.('playsinline', 'true');
+          } catch {}
+          const done = () => {
+            try {
+              a.pause();
+            } catch {}
+            try {
+              URL.revokeObjectURL(url);
+            } catch {}
+          };
+          a.onended = done;
+          a.onerror = done;
+          const p = a.play();
+          if (p && typeof (p as any).then === 'function') {
+            await (p as any).catch(() => {});
           }
+          done();
         }
       } catch {}
 
@@ -777,7 +817,7 @@ export default function DashboardPage() {
             <div className="p-5 border-b border-gray-100">
               <h3 className="text-lg font-bold text-gray-900">Handsfree-oppsett</h3>
               <p className="text-sm text-gray-600 mt-1">
-                Trykk én gang for å gi tilgang til mikrofon, kamera, posisjon og varsler. Da slipper du popups midt i bruk.
+                Trykk én gang for å gi tilgang til mikrofon og kamera, og aktivere lyd. Da slipper du popups midt i inspeksjon.
               </p>
             </div>
             <div className="p-5 space-y-4">

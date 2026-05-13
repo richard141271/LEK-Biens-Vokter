@@ -25,6 +25,11 @@ type Phrase = {
   expected: Parsed;
 };
 
+const yearPhrases: Phrase[] = Array.from({ length: 23 }, (_, i) => {
+  const year = String(2018 + i);
+  return { group: 'Dronning', text: `Årgang ${year}`, expected: { queenYear: year } };
+});
+
 const catalog: Phrase[] = [
   { group: 'Handling', text: 'Ta bilde', expected: { action: 'TAKE_PHOTO' } },
   { group: 'Handling', text: 'Knips', expected: { action: 'TAKE_PHOTO' } },
@@ -44,8 +49,7 @@ const catalog: Phrase[] = [
   { group: 'Dronning', text: 'Dronningfarge rød', expected: { queenColor: 'Rød' } },
   { group: 'Dronning', text: 'Dronningfarge grønn', expected: { queenColor: 'Grønn' } },
   { group: 'Dronning', text: 'Dronningfarge blå', expected: { queenColor: 'Blå' } },
-  { group: 'Dronning', text: 'Årgang 2024', expected: { queenYear: '2024' } },
-  { group: 'Dronning', text: 'Årgang 2025', expected: { queenYear: '2025' } },
+  ...yearPhrases,
   { group: 'Yngelleie', text: 'Egg mye', expected: { broodEgg: 'mye' } },
   { group: 'Yngelleie', text: 'Egg normal', expected: { broodEgg: 'normal' } },
   { group: 'Yngelleie', text: 'Egg lite', expected: { broodEgg: 'lite' } },
@@ -163,6 +167,8 @@ function pushFailure(entry: any) {
 
 export function analyzeAndCorrect(recognized: string, parsed: Parsed): { parsed: Parsed, corrected: boolean, matched?: string, similarity: number } {
   const text = recognized || '';
+  const textYear = String(text).match(/\b(20\d{2})\b/);
+  const yearInText = textYear ? textYear[1] : '';
   const best = getCatalog()
     .map(p => ({ ...p, score: similarity(text, p.text) }))
     .sort((a, b) => b.score - a.score)[0];
@@ -170,7 +176,10 @@ export function analyzeAndCorrect(recognized: string, parsed: Parsed): { parsed:
   const thresh = 0.7;
   let corrected = parsed;
   const before = JSON.stringify(parsed);
-  const exp = best?.expected || {};
+  const exp: Parsed = { ...(best?.expected || {}) };
+  if (exp.queenYear && yearInText && exp.queenYear !== yearInText) {
+    delete (exp as any).queenYear;
+  }
 
   let inconsistent = false;
   for (const k of Object.keys(exp)) {
@@ -179,6 +188,9 @@ export function analyzeAndCorrect(recognized: string, parsed: Parsed): { parsed:
     if (k === 'temperature') {
       const pvStr = typeof pv === 'string' ? pv : pv != null ? String(pv) : '';
       if (!pvStr.startsWith(String(ev))) inconsistent = true;
+    } else if (k === 'queenYear') {
+      if (yearInText && pv === yearInText) continue;
+      if (pv !== ev) inconsistent = true;
     } else {
       if (pv !== ev) inconsistent = true;
     }
