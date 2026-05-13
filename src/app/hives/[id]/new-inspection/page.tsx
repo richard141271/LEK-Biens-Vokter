@@ -716,21 +716,15 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       ttsBusyRef.current = true;
 
       unlockAudioSession();
-      const ctx = audioCtxRef.current;
       const finish = () => {
         ttsBusyRef.current = false;
         onDone();
         const next = ttsQueueRef.current.shift();
         if (next) void speakWithServer(next.text, next.shouldPauseMic, next.onDone);
       };
-      if (!ctx) {
-        try {
-          beep(880, 140);
-          setTimeout(() => beep(740, 140), 180);
-        } catch {}
-        finish();
-        return;
-      }
+      let bytes = ttsBufferCacheRef.current.get(trimmed) || null;
+
+      const ctx = audioCtxRef.current;
 
       let finished = false;
       const safeFinish = () => {
@@ -748,54 +742,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           clearTimeout(hardTimer);
         } catch {}
         safeFinish();
-      };
-
-      try {
-        if (ctx.state === 'suspended' && typeof ctx.resume === 'function') await ctx.resume();
-      } catch {}
-
-      let bytes = ttsBufferCacheRef.current.get(trimmed) || null;
-      const decode = (buf: ArrayBuffer): Promise<AudioBuffer> => {
-        return new Promise((resolve, reject) => {
-          try {
-            const copy = buf.slice(0);
-            const maybe = (ctx as any).decodeAudioData(copy, resolve, reject);
-            if (maybe && typeof (maybe as any).then === 'function') {
-              (maybe as any).then(resolve).catch(reject);
-            }
-          } catch (e) {
-            reject(e);
-          }
-        });
-      };
-
-      const playWithWebAudio = async () => {
-        let decoded = ttsDecodedCacheRef.current.get(trimmed) || null;
-        if (!decoded) {
-          if (!bytes) {
-            const res = await fetch('/api/voice/tts', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: trimmed }),
-            });
-            if (!res.ok) throw new Error('tts_fetch_failed');
-            bytes = await res.arrayBuffer();
-            ttsBufferCacheRef.current.set(trimmed, bytes);
-          }
-          decoded = await decode(bytes);
-          ttsDecodedCacheRef.current.set(trimmed, decoded);
-        }
-
-        const src = ctx.createBufferSource();
-        src.buffer = decoded;
-        src.connect(ctx.destination);
-          src.onended = safeFinishWithTimer;
-        if (shouldPauseMic) {
-          try {
-            pauseListening();
-          } catch {}
-        }
-        src.start();
       };
 
       const playWithHtmlAudio = async () => {
@@ -844,16 +790,68 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         }
       };
 
+      if (!ctx) {
+        try {
+          await playWithHtmlAudio();
+        } catch {
+          safeFinishWithTimer();
+        }
+        return;
+      }
+
+      try {
+        if (ctx.state === 'suspended' && typeof ctx.resume === 'function') await ctx.resume();
+      } catch {}
+
+      const decode = (buf: ArrayBuffer): Promise<AudioBuffer> => {
+        return new Promise((resolve, reject) => {
+          try {
+            const copy = buf.slice(0);
+            const maybe = (ctx as any).decodeAudioData(copy, resolve, reject);
+            if (maybe && typeof (maybe as any).then === 'function') {
+              (maybe as any).then(resolve).catch(reject);
+            }
+          } catch (e) {
+            reject(e);
+          }
+        });
+      };
+
+      const playWithWebAudio = async () => {
+        let decoded = ttsDecodedCacheRef.current.get(trimmed) || null;
+        if (!decoded) {
+          if (!bytes) {
+            const res = await fetch('/api/voice/tts', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: trimmed }),
+            });
+            if (!res.ok) throw new Error('tts_fetch_failed');
+            bytes = await res.arrayBuffer();
+            ttsBufferCacheRef.current.set(trimmed, bytes);
+          }
+          decoded = await decode(bytes);
+          ttsDecodedCacheRef.current.set(trimmed, decoded);
+        }
+
+        const src = ctx.createBufferSource();
+        src.buffer = decoded;
+        src.connect(ctx.destination);
+          src.onended = safeFinishWithTimer;
+        if (shouldPauseMic) {
+          try {
+            pauseListening();
+          } catch {}
+        }
+        src.start();
+      };
+
       try {
         await playWithWebAudio();
       } catch {
         try {
           await playWithHtmlAudio();
         } catch {
-          try {
-            beep(880, 140);
-            setTimeout(() => beep(740, 140), 180);
-          } catch {}
           safeFinishWithTimer();
         }
       }
