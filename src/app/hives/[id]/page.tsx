@@ -23,6 +23,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   const [offlineSubmitting, setOfflineSubmitting] = useState(false);
   const [offlineDate, setOfflineDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [offlineTime, setOfflineTime] = useState(() => new Date().toTimeString().slice(0, 5));
+  const [offlineQueenSide, setOfflineQueenSide] = useState<1 | 2>(1);
   const [offlineQueenSeen, setOfflineQueenSeen] = useState(false);
   const [offlineEggsSeen, setOfflineEggsSeen] = useState(false);
   const [offlineBroodCondition, setOfflineBroodCondition] = useState('Bra');
@@ -269,6 +270,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
 
   const submitOfflineInspection = async () => {
     if (!hive?.id) return;
+    const isTwoQueen = Boolean((hive as any)?.two_queen_drift);
     const opId = crypto.randomUUID();
     setOfflineSubmitting(true);
     try {
@@ -296,7 +298,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
         id: opId,
         hiveId: hive.id,
         action: 'FULL_INSPECTION',
-        details: `Inspeksjon utført (Offline). Status: ${offlineStatus}.`,
+        details: `Inspeksjon utført (Offline).${isTwoQueen ? ` Dronning ${offlineQueenSide}.` : ''} Status: ${offlineStatus}.`,
         sharedWithMattilsynet: false,
         images:
           offlineImages && offlineImages.length > 0
@@ -308,6 +310,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
             hive_id: hive.id,
             inspection_date: offlineDate,
             time: offlineTime,
+            ...(isTwoQueen ? { queen_side: offlineQueenSide } : {}),
             queen_seen: offlineQueenSeen,
             eggs_seen: offlineEggsSeen,
             brood_condition: offlineBroodCondition,
@@ -1011,6 +1014,32 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                   </div>
                 </div>
 
+                {Boolean((hive as any)?.two_queen_drift) && (
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-honey-50 border border-honey-100">
+                    <span className="text-sm font-semibold text-honey-800">Todronning drift</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setOfflineQueenSide(1)}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold ${
+                          offlineQueenSide === 1 ? 'bg-honey-500 text-white' : 'bg-white text-gray-800 border border-gray-200'
+                        }`}
+                      >
+                        Dronning 1
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOfflineQueenSide(2)}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold ${
+                          offlineQueenSide === 2 ? 'bg-honey-500 text-white' : 'bg-white text-gray-800 border border-gray-200'
+                        }`}
+                      >
+                        Dronning 2
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
                   <label className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                     <input
@@ -1444,6 +1473,11 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                              <span className={`text-xs font-bold px-2 py-0.5 rounded border ${getStatusColor(inspection.status)}`}>
                                {inspection.status}
                              </span>
+                             {inspection.queen_side ? (
+                               <span className="text-xs font-bold bg-honey-50 text-honey-800 px-2 py-0.5 rounded-full border border-honey-100">
+                                 Dronning {inspection.queen_side}
+                               </span>
+                             ) : null}
                              {inspection.weather && (
                                <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
                                  {inspection.weather_place ? `${inspection.weather} (${inspection.weather_place})` : inspection.weather}
@@ -1479,6 +1513,17 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                             {inspection.queen_seen ? 'Observert' : 'Ikke sett'}
                           </span>
                         </div>
+                        {inspection.queen_side ? (
+                          <div>
+                            <span className="block text-xs font-bold text-gray-500 uppercase">Dronning-side</span>
+                            <span className="text-gray-800">Dronning {inspection.queen_side}</span>
+                          </div>
+                        ) : (
+                          <div>
+                            <span className="block text-xs font-bold text-gray-500 uppercase">Dronning-side</span>
+                            <span className="text-gray-400">-</span>
+                          </div>
+                        )}
                         <div>
                           <span className="block text-xs font-bold text-gray-500 uppercase">Dronningfarge</span>
                           <span className="text-gray-800">{inspection.queen_color || '-'}</span>

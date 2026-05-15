@@ -40,6 +40,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [history, setHistory] = useState<Array<{ type: string; prev: any }>>([]);
   const lastUnknownAtRef = useRef<number>(0);
   const lastUnknownTextRef = useRef<string>('');
+  const [queenSide, setQueenSide] = useState<1 | 2>(1);
   useEffect(() => { loadAliases(); }, []);
 
   // Camera State
@@ -182,6 +183,24 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const handleVoiceCommand = (text: string) => {
       const raw = text || '';
       const lower = raw.toLowerCase();
+      const isTwoQueen = Boolean((hive as any)?.two_queen_drift);
+      if (isTwoQueen) {
+          const wantsOne =
+            /\b(dronning|side)\s*(1|en|ein|første|forste)\b/.test(lower) ||
+            /\b(velg|bytt til|gå til)\s+(dronning|side)\s*(1|en|ein|første|forste)\b/.test(lower);
+          const wantsTwo =
+            /\b(dronning|side)\s*(2|to|andre)\b/.test(lower) ||
+            /\b(velg|bytt til|gå til)\s+(dronning|side)\s*(2|to|andre)\b/.test(lower);
+          const nextSide: 1 | 2 | null = wantsOne ? 1 : wantsTwo ? 2 : null;
+          if (nextSide && nextSide !== queenSide) {
+              setQueenSide(nextSide);
+              speak(`Dronning ${nextSide}`);
+              setLastCommand(`Dronning ${nextSide}`);
+              setTimeout(() => setLastCommand(null), 2500);
+              if (notesActive) setNotes(prev => prev + (prev ? '\n' : '') + raw);
+              return;
+          }
+      }
       if (/\b(start|aktiver)\s+(body|bodey)?cam\b/.test(lower) || /\bstart kamera\b/.test(lower)) {
           setCameraActive(true);
           speak('Bodycam aktivert');
@@ -551,10 +570,78 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     touchedRef.current[key] = true;
   };
 
-  const prefillDoneRef = useRef(false);
+  const prefillKeyRef = useRef<string>('');
+  const savedSidesRef = useRef<Record<1 | 2, boolean>>({ 1: false, 2: false });
 
-  useEffect(() => {
-    prefillDoneRef.current = false;
+  type SideDraft = {
+    queenSeen: '' | 'ja' | 'nei';
+    eggsSeen: '' | 'ja' | 'nei';
+    queenColor: string;
+    queenYear: string;
+    broodEgg: BroodAmount;
+    broodLarvae: BroodAmount;
+    broodYngel: BroodAmount;
+    broodDrones: BroodAmount;
+    broodFrames: string;
+    honeyStores: string;
+    temperament: string;
+    notes: string;
+    status: string;
+    selectedImage: File | null;
+    extraImages: File[] | null;
+    photoCount: number;
+    imagePreview: string | null;
+    touched: Record<StickyKey, boolean>;
+  };
+
+  const sideDraftsRef = useRef<Record<1 | 2, SideDraft | null>>({ 1: null, 2: null });
+  const prevQueenSideRef = useRef<1 | 2>(1);
+
+  const captureSideDraft = (): SideDraft => {
+    return {
+      queenSeen,
+      eggsSeen,
+      queenColor,
+      queenYear,
+      broodEgg,
+      broodLarvae,
+      broodYngel,
+      broodDrones,
+      broodFrames,
+      honeyStores,
+      temperament,
+      notes,
+      status,
+      selectedImage,
+      extraImages,
+      photoCount,
+      imagePreview,
+      touched: { ...touchedRef.current },
+    };
+  };
+
+  const applySideDraft = (d: SideDraft) => {
+    touchedRef.current = { ...d.touched };
+    setQueenSeen(d.queenSeen);
+    setEggsSeen(d.eggsSeen);
+    setQueenColor(d.queenColor);
+    setQueenYear(d.queenYear);
+    setBroodEgg(d.broodEgg);
+    setBroodLarvae(d.broodLarvae);
+    setBroodYngel(d.broodYngel);
+    setBroodDrones(d.broodDrones);
+    setBroodFrames(d.broodFrames);
+    setHoneyStores(d.honeyStores);
+    setTemperament(d.temperament);
+    setNotes(d.notes);
+    setStatus(d.status);
+    setSelectedImage(d.selectedImage);
+    setExtraImages(d.extraImages);
+    setPhotoCount(d.photoCount);
+    setImagePreview(d.imagePreview);
+  };
+
+  const resetForSide = () => {
     touchedRef.current = {
       queenColor: false,
       queenYear: false,
@@ -569,7 +656,82 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     };
     setQueenSeen('');
     setEggsSeen('');
+    setQueenColor('');
+    setQueenYear('');
+    setBroodEgg('normal');
+    setBroodLarvae('normal');
+    setBroodYngel('normal');
+    setBroodDrones('normal');
+    setBroodFrames('');
+    setHoneyStores('middels');
+    setTemperament('rolig');
+    setNotes('');
+    setStatus('OK');
+    setSelectedImage(null);
+    setExtraImages(null);
+    setPhotoCount(0);
+    setImagePreview(null);
+  };
+
+  useEffect(() => {
+    prefillKeyRef.current = '';
+    savedSidesRef.current = { 1: false, 2: false };
+    sideDraftsRef.current = { 1: null, 2: null };
+    prevQueenSideRef.current = 1;
+    touchedRef.current = {
+      queenColor: false,
+      queenYear: false,
+      broodEgg: false,
+      broodLarvae: false,
+      broodYngel: false,
+      broodDrones: false,
+      broodFrames: false,
+      honeyStores: false,
+      temperament: false,
+      status: false,
+    };
+    setQueenSeen('');
+    setEggsSeen('');
+    setQueenSide(1);
   }, [params.id]);
+
+  useEffect(() => {
+    const isTwoQueen = Boolean((hive as any)?.two_queen_drift);
+    if (!isTwoQueen) return;
+    if (prevQueenSideRef.current === queenSide) return;
+
+    const prev = prevQueenSideRef.current;
+    sideDraftsRef.current[prev] = captureSideDraft();
+    prevQueenSideRef.current = queenSide;
+
+    const nextDraft = sideDraftsRef.current[queenSide];
+    if (nextDraft) {
+      applySideDraft(nextDraft);
+      return;
+    }
+
+    resetForSide();
+  }, [
+    hive,
+    queenSide,
+    queenSeen,
+    eggsSeen,
+    queenColor,
+    queenYear,
+    broodEgg,
+    broodLarvae,
+    broodYngel,
+    broodDrones,
+    broodFrames,
+    honeyStores,
+    temperament,
+    notes,
+    status,
+    selectedImage,
+    extraImages,
+    photoCount,
+    imagePreview,
+  ]);
 
   useEffect(() => {
     try {
@@ -1053,17 +1215,49 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     if (isOffline) return;
     if (isDemoActive) return;
     if (!hive) return;
-    if (prefillDoneRef.current) return;
-    prefillDoneRef.current = true;
+    const isTwoQueen = Boolean((hive as any)?.two_queen_drift);
+    const key = `${params.id}:${isTwoQueen ? queenSide : 0}`;
+    if (prefillKeyRef.current === key) return;
+    prefillKeyRef.current = key;
 
     const run = async () => {
       try {
-        const { data } = await supabase
-          .from('inspections')
-          .select('queen_color, queen_year, brood_condition, honey_stores, temperament, status, created_at')
-          .eq('hive_id', params.id)
-          .order('created_at', { ascending: false })
-          .limit(25);
+        const isMissingColumn = (err: any, col: string) => {
+          const code = String(err?.code || '');
+          const msg = String(err?.message || err || '').toLowerCase();
+          return code === '42703' || msg.includes(`column \"${col}\"`) || (msg.includes(col) && msg.includes('does not exist'));
+        };
+
+        let data: any[] | null = null;
+        if (isTwoQueen) {
+          const res = await supabase
+            .from('inspections')
+            .select('queen_color, queen_year, brood_condition, honey_stores, temperament, status, created_at, queen_side')
+            .eq('hive_id', params.id)
+            .eq('queen_side', queenSide)
+            .order('created_at', { ascending: false })
+            .limit(25);
+
+          if (res.error && isMissingColumn(res.error, 'queen_side')) {
+            const fallback = await supabase
+              .from('inspections')
+              .select('queen_color, queen_year, brood_condition, honey_stores, temperament, status, created_at')
+              .eq('hive_id', params.id)
+              .order('created_at', { ascending: false })
+              .limit(25);
+            data = fallback.data as any;
+          } else {
+            data = res.data as any;
+          }
+        } else {
+          const res = await supabase
+            .from('inspections')
+            .select('queen_color, queen_year, brood_condition, honey_stores, temperament, status, created_at')
+            .eq('hive_id', params.id)
+            .order('created_at', { ascending: false })
+            .limit(25);
+          data = res.data as any;
+        }
 
         if (!data || data.length === 0) return;
         const latest: any = data[0] || {};
@@ -1133,7 +1327,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     };
 
     void run();
-  }, [hive, isOffline, isDemoActive, params.id, supabase]);
+  }, [hive, isOffline, isDemoActive, params.id, supabase, queenSide]);
 
 
   const fetchHiveAndWeather = async () => {
@@ -1174,14 +1368,31 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
 
       if (!isOffline) {
-        const hiveRes: any = await withTimeout(
+        const isMissingColumn = (err: any, col: string) => {
+          const code = String(err?.code || '');
+          const msg = String(err?.message || err || '').toLowerCase();
+          return code === '42703' || msg.includes(`column \"${col}\"`) || (msg.includes(col) && msg.includes('does not exist'));
+        };
+
+        let hiveRes: any = await withTimeout(
           supabase
             .from('hives')
-            .select('name, hive_number, apiary_id, user_id')
+            .select('name, hive_number, apiary_id, user_id, two_queen_drift')
             .eq('id', params.id)
             .single() as any,
           9000
         );
+
+        if (hiveRes?.error && isMissingColumn(hiveRes.error, 'two_queen_drift')) {
+          hiveRes = await withTimeout(
+            supabase
+              .from('hives')
+              .select('name, hive_number, apiary_id, user_id')
+              .eq('id', params.id)
+              .single() as any,
+            9000
+          );
+        }
 
         if (hiveRes?.data) {
           loadedHive = hiveRes.data;
@@ -1388,6 +1599,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const submitInspection = async () => {
     const opId = crypto.randomUUID();
     setSubmitting(true);
+    const isTwoQueen = Boolean((hive as any)?.two_queen_drift);
     const queenSeenValue = queenSeen === 'ja' ? true : queenSeen === 'nei' ? false : null;
     const eggsSeenValue = eggsSeen === 'ja' ? true : eggsSeen === 'nei' ? false : null;
     const broodConditionToSave =
@@ -1399,6 +1611,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     const hiveStatusToSave = isDeadStatus ? 'Død' : status;
 
     try {
+      const isMissingColumn = (err: any, col: string) => {
+        const code = String(err?.code || '');
+        const msg = String(err?.message || err || '').toLowerCase();
+        return code === '42703' || msg.includes(`column \"${col}\"`) || (msg.includes(col) && msg.includes('does not exist'));
+      };
+
       const allFiles: File[] = [
         ...(selectedImage ? [selectedImage] : []),
         ...(extraImages && extraImages.length > 0 ? extraImages : []),
@@ -1414,7 +1632,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           id: opId,
           hiveId: params.id,
           action: 'FULL_INSPECTION',
-          details: `Inspeksjon utført (Offline). Status: ${status}.`,
+          details: `Inspeksjon utført (Offline).${isTwoQueen ? ` Dronning ${queenSide}.` : ''} Status: ${status}.`,
           sharedWithMattilsynet: false, // Page doesn't have this field?
           images: allFiles.length > 0 ? allFiles.map((f) => ({ name: f.name, type: f.type, blob: f })) : undefined,
           data: {
@@ -1423,6 +1641,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               hive_id: params.id,
               inspection_date: date,
               time: time,
+              ...(isTwoQueen ? { queen_side: queenSide } : {}),
               queen_seen: queenSeenValue,
               queen_color: queenColor || null,
               queen_year: queenYear ? parseInt(queenYear, 10) : null,
@@ -1442,6 +1661,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             }
           }
         });
+        savedSidesRef.current[queenSide] = true;
+        if (isTwoQueen && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
+          const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
+          setLastCommand(`Dronning ${queenSide} lagret offline`);
+          speak(`Dronning ${queenSide} lagret offline. Fortsett med dronning ${nextSide}`);
+          setQueenSide(nextSide);
+          return;
+        }
         setLastCommand('Inspeksjon lagret offline');
         speak('Inspeksjon lagret offline');
         if (!handsfreeReady) {
@@ -1463,7 +1690,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           id: opId,
           hiveId: params.id,
           action: 'FULL_INSPECTION',
-          details: `Inspeksjon utført (Offline). Status: ${status}.`,
+          details: `Inspeksjon utført (Offline).${isTwoQueen ? ` Dronning ${queenSide}.` : ''} Status: ${status}.`,
           sharedWithMattilsynet: false,
           images: allFiles.length > 0 ? allFiles.map((f) => ({ name: f.name, type: f.type, blob: f })) : undefined,
           data: {
@@ -1472,6 +1699,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               hive_id: params.id,
               inspection_date: date,
               time: time,
+              ...(isTwoQueen ? { queen_side: queenSide } : {}),
               queen_seen: queenSeenValue,
               queen_color: queenColor || null,
               queen_year: queenYear ? parseInt(queenYear, 10) : null,
@@ -1491,6 +1719,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             },
           },
         });
+        savedSidesRef.current[queenSide] = true;
+        if (isTwoQueen && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
+          const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
+          setLastCommand(`Dronning ${queenSide} lagret offline`);
+          speak(`Dronning ${queenSide} lagret offline. Fortsett med dronning ${nextSide}`);
+          setQueenSide(nextSide);
+          return;
+        }
         setLastCommand('Inspeksjon lagret offline');
         speak('Inspeksjon lagret offline');
         if (!handsfreeReady) {
@@ -1540,6 +1776,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             inspection: {
               inspection_date: date,
               time: time,
+              ...(isTwoQueen ? { queen_side: queenSide } : {}),
               queen_seen: queenSeenValue,
               queen_color: queenColor || null,
               queen_year: queenYear ? parseInt(queenYear, 10) : null,
@@ -1559,6 +1796,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         const payload = await res.json().catch(() => ({}));
         if (!res.ok || !payload?.success) {
           throw new Error(payload?.error || 'Kunne ikke lagre inspeksjon i demo');
+        }
+        savedSidesRef.current[queenSide] = true;
+        if (isTwoQueen && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
+          const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
+          setLastCommand(`Dronning ${queenSide} lagret`);
+          speak(`Dronning ${queenSide} lagret. Fortsett med dronning ${nextSide}`);
+          setQueenSide(nextSide);
+          return;
         }
         setLastCommand('Inspeksjon lagret');
         speak('Inspeksjon lagret');
@@ -1609,14 +1854,13 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
 
       // 1. Insert Inspection
-      const { error: inspectionError } = await supabase
-        .from('inspections')
-        .insert({
+      const insertPayload: any = {
           id: opId,
           hive_id: params.id,
           user_id: String((hive as any)?.user_id || user.id),
           inspection_date: date,
           time: time,
+          ...(isTwoQueen ? { queen_side: queenSide } : {}),
           queen_seen: queenSeenValue,
           queen_color: queenColor || null,
           queen_year: queenYear ? parseInt(queenYear, 10) : null,
@@ -1630,8 +1874,18 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           weather: weather,
           weather_place: weatherPlace || null,
           image_url: imageUrl
-        });
+        };
 
+      let inspectionError: any = null;
+      {
+        const res = await supabase.from('inspections').insert(insertPayload);
+        inspectionError = res.error;
+      }
+      if (inspectionError && isMissingColumn(inspectionError, 'queen_side')) {
+        const { queen_side: _drop, ...rest } = insertPayload;
+        const res = await supabase.from('inspections').insert(rest);
+        inspectionError = res.error;
+      }
       if (inspectionError) throw inspectionError;
 
       // 2. Update Hive Status and Last Inspection Date
@@ -1651,10 +1905,18 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           hive_id: params.id,
           user_id: user.id,
           action: 'INSPEKSJON',
-          details: `Inspeksjon utført. Status: ${status}. Temp: ${temperature}°C. ${notes ? 'Notater lagt til.' : ''}`
+          details: `Inspeksjon utført.${isTwoQueen ? ` Dronning ${queenSide}.` : ''} Status: ${status}. Temp: ${temperature}°C. ${notes ? 'Notater lagt til.' : ''}`
         });
 
       if (logError) throw logError;
+      savedSidesRef.current[queenSide] = true;
+      if (isTwoQueen && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
+        const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
+        setLastCommand(`Dronning ${queenSide} lagret`);
+        speak(`Dronning ${queenSide} lagret. Fortsett med dronning ${nextSide}`);
+        setQueenSide(nextSide);
+        return;
+      }
       setLastCommand('Inspeksjon lagret');
       speak('Inspeksjon lagret');
       setTimeout(() => {
@@ -1679,7 +1941,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             id: opId,
             hiveId: params.id,
             action: 'FULL_INSPECTION',
-            details: `Inspeksjon utført (Offline). Status: ${status}.`,
+            details: `Inspeksjon utført (Offline).${isTwoQueen ? ` Dronning ${queenSide}.` : ''} Status: ${status}.`,
             sharedWithMattilsynet: false,
             images: allFiles.length > 0 ? allFiles.map((f) => ({ name: f.name, type: f.type, blob: f })) : undefined,
             data: {
@@ -1688,6 +1950,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 hive_id: params.id,
                 inspection_date: date,
                 time: time,
+                ...(isTwoQueen ? { queen_side: queenSide } : {}),
                 queen_seen: queenSeenValue,
                 queen_color: queenColor || null,
                 queen_year: queenYear ? parseInt(queenYear, 10) : null,
@@ -1707,6 +1970,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               },
             },
           });
+          savedSidesRef.current[queenSide] = true;
+          if (isTwoQueen && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
+            const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
+            setLastCommand(`Dronning ${queenSide} lagret offline`);
+            speak(`Dronning ${queenSide} lagret offline. Fortsett med dronning ${nextSide}`);
+            setQueenSide(nextSide);
+            return;
+          }
           setLastCommand('Inspeksjon lagret offline');
           speak('Inspeksjon lagret offline');
           if (!handsfreeReady) {
@@ -1939,6 +2210,32 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           {/* Queen & Eggs */}
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-4">
             <h3 className="font-semibold text-gray-900">Dronning og Yngel</h3>
+
+            {Boolean((hive as any)?.two_queen_drift) && (
+              <div className="flex items-center justify-between p-2 rounded-lg bg-honey-50 border border-honey-100">
+                <span className="text-sm font-semibold text-honey-800">Todronning drift</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setQueenSide(1)}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold ${
+                      queenSide === 1 ? 'bg-honey-500 text-white' : 'bg-white text-gray-800 border border-gray-200'
+                    }`}
+                  >
+                    Dronning 1
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQueenSide(2)}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold ${
+                      queenSide === 2 ? 'bg-honey-500 text-white' : 'bg-white text-gray-800 border border-gray-200'
+                    }`}
+                  >
+                    Dronning 2
+                  </button>
+                </div>
+              </div>
+            )}
             
             <div id="field-queenSeen" className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
               <span className="text-gray-700">Dronning sett?</span>

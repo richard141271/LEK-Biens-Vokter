@@ -121,15 +121,30 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
                  ? `${baseNotes}${baseNotes ? '\n' : ''}${extraUrls.map((u, idx) => `Bilde ${idx + 2}: ${u}`).join('\n')}`
                  : baseNotes;
 
-             const { error: inspectionError } = await supabase
-               .from('inspections')
-               .insert({
-                 ...item.data.inspection,
-                 id: inspectionId,
-                 image_url: imageUrl,
-                 notes: notesWithPhotos,
-                 user_id: ownerId
-               });
+             const isMissingColumn = (err: any, col: string) => {
+               const code = String(err?.code || '');
+               const msg = String(err?.message || err || '').toLowerCase();
+               return code === '42703' || msg.includes(`column \"${col}\"`) || (msg.includes(col) && msg.includes('does not exist'));
+             };
+
+             const insertPayload: any = {
+               ...item.data.inspection,
+               id: inspectionId,
+               image_url: imageUrl,
+               notes: notesWithPhotos,
+               user_id: ownerId
+             };
+
+             let inspectionError: any = null;
+             {
+               const res = await supabase.from('inspections').insert(insertPayload);
+               inspectionError = res.error;
+             }
+             if (inspectionError && isMissingColumn(inspectionError, 'queen_side')) {
+               const { queen_side: _drop, ...rest } = insertPayload;
+               const res = await supabase.from('inspections').insert(rest);
+               inspectionError = res.error;
+             }
              if (inspectionError) {
                const msg = String((inspectionError as any)?.message || '');
                const isDuplicate =

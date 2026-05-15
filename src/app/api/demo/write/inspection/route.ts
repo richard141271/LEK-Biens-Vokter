@@ -132,6 +132,7 @@ export async function POST(request: Request) {
     user_id: demo.demoOwnerId,
     inspection_date: inspection.inspection_date,
     time: inspection.time,
+    queen_side: inspection.queen_side ?? null,
     queen_seen: inspection.queen_seen,
     queen_color: inspection.queen_color ?? null,
     queen_year: inspection.queen_year ?? null,
@@ -148,7 +149,22 @@ export async function POST(request: Request) {
     actions: inspection.actions ?? null,
   };
 
-  const { error: inspectionError } = await admin.from('inspections').insert(inspectionRow);
+  const isMissingColumn = (err: any, col: string) => {
+    const code = String(err?.code || '');
+    const msg = String(err?.message || err || '').toLowerCase();
+    return code === '42703' || msg.includes(`column \"${col}\"`) || (msg.includes(col) && msg.includes('does not exist'));
+  };
+
+  let inspectionError: any = null;
+  {
+    const res = await admin.from('inspections').insert(inspectionRow);
+    inspectionError = res.error;
+  }
+  if (inspectionError && isMissingColumn(inspectionError, 'queen_side')) {
+    const { queen_side: _drop, ...rest } = inspectionRow;
+    const res = await admin.from('inspections').insert(rest);
+    inspectionError = res.error;
+  }
   if (inspectionError) {
     return NextResponse.json({ success: false, error: inspectionError.message }, { status: 500 });
   }
