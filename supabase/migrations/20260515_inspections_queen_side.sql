@@ -1,9 +1,15 @@
 alter table public.inspections
 add column if not exists queen_side smallint;
 
-alter table public.inspections
-add constraint if not exists inspections_queen_side_check
-check (queen_side in (1, 2)) not valid;
+do $$
+begin
+  alter table public.inspections
+  add constraint inspections_queen_side_check
+  check (queen_side in (1, 2)) not valid;
+exception
+  when duplicate_object then null;
+end
+$$;
 
 alter table public.inspections
 validate constraint inspections_queen_side_check;

@@ -41,6 +41,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const lastUnknownAtRef = useRef<number>(0);
   const lastUnknownTextRef = useRef<string>('');
   const [queenSide, setQueenSide] = useState<1 | 2>(1);
+  const [queenSideDbSupported, setQueenSideDbSupported] = useState<boolean | null>(null);
   useEffect(() => { loadAliases(); }, []);
 
   // Camera State
@@ -693,6 +694,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     setQueenSeen('');
     setEggsSeen('');
     setQueenSide(1);
+    setQueenSideDbSupported(null);
   }, [params.id]);
 
   useEffect(() => {
@@ -1239,6 +1241,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             .limit(25);
 
           if (res.error && isMissingColumn(res.error, 'queen_side')) {
+            setQueenSideDbSupported(false);
             const fallback = await supabase
               .from('inspections')
               .select('queen_color, queen_year, brood_condition, honey_stores, temperament, status, created_at')
@@ -1247,6 +1250,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               .limit(25);
             data = fallback.data as any;
           } else {
+            if (!res.error) setQueenSideDbSupported(true);
             data = res.data as any;
           }
         } else {
@@ -1600,6 +1604,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     const opId = crypto.randomUUID();
     setSubmitting(true);
     const isTwoQueen = Boolean((hive as any)?.two_queen_drift);
+    let shouldUseQueenSide = isTwoQueen && queenSideDbSupported !== false;
+    let shouldSplit = shouldUseQueenSide;
     const queenSeenValue = queenSeen === 'ja' ? true : queenSeen === 'nei' ? false : null;
     const eggsSeenValue = eggsSeen === 'ja' ? true : eggsSeen === 'nei' ? false : null;
     const broodConditionToSave =
@@ -1662,7 +1668,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           }
         });
         savedSidesRef.current[queenSide] = true;
-        if (isTwoQueen && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
+        if (shouldSplit && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
           const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
           setLastCommand(`Dronning ${queenSide} lagret offline`);
           speak(`Dronning ${queenSide} lagret offline. Fortsett med dronning ${nextSide}`);
@@ -1720,7 +1726,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           },
         });
         savedSidesRef.current[queenSide] = true;
-        if (isTwoQueen && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
+        if (shouldSplit && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
           const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
           setLastCommand(`Dronning ${queenSide} lagret offline`);
           speak(`Dronning ${queenSide} lagret offline. Fortsett med dronning ${nextSide}`);
@@ -1776,7 +1782,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             inspection: {
               inspection_date: date,
               time: time,
-              ...(isTwoQueen ? { queen_side: queenSide } : {}),
+              ...(shouldUseQueenSide ? { queen_side: queenSide } : {}),
               queen_seen: queenSeenValue,
               queen_color: queenColor || null,
               queen_year: queenYear ? parseInt(queenYear, 10) : null,
@@ -1798,7 +1804,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           throw new Error(payload?.error || 'Kunne ikke lagre inspeksjon i demo');
         }
         savedSidesRef.current[queenSide] = true;
-        if (isTwoQueen && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
+        if (shouldSplit && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
           const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
           setLastCommand(`Dronning ${queenSide} lagret`);
           speak(`Dronning ${queenSide} lagret. Fortsett med dronning ${nextSide}`);
@@ -1860,7 +1866,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           user_id: String((hive as any)?.user_id || user.id),
           inspection_date: date,
           time: time,
-          ...(isTwoQueen ? { queen_side: queenSide } : {}),
+          ...(shouldUseQueenSide ? { queen_side: queenSide } : {}),
           queen_seen: queenSeenValue,
           queen_color: queenColor || null,
           queen_year: queenYear ? parseInt(queenYear, 10) : null,
@@ -1882,6 +1888,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         inspectionError = res.error;
       }
       if (inspectionError && isMissingColumn(inspectionError, 'queen_side')) {
+        setQueenSideDbSupported(false);
+        shouldUseQueenSide = false;
+        shouldSplit = false;
         const { queen_side: _drop, ...rest } = insertPayload;
         const res = await supabase.from('inspections').insert(rest);
         inspectionError = res.error;
@@ -1910,7 +1919,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       if (logError) throw logError;
       savedSidesRef.current[queenSide] = true;
-      if (isTwoQueen && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
+      if (shouldSplit && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
         const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
         setLastCommand(`Dronning ${queenSide} lagret`);
         speak(`Dronning ${queenSide} lagret. Fortsett med dronning ${nextSide}`);
@@ -1971,7 +1980,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             },
           });
           savedSidesRef.current[queenSide] = true;
-          if (isTwoQueen && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
+          if (shouldSplit && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
             const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
             setLastCommand(`Dronning ${queenSide} lagret offline`);
             speak(`Dronning ${queenSide} lagret offline. Fortsett med dronning ${nextSide}`);
@@ -2212,28 +2221,35 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             <h3 className="font-semibold text-gray-900">Dronning og Yngel</h3>
 
             {Boolean((hive as any)?.two_queen_drift) && (
-              <div className="flex items-center justify-between p-2 rounded-lg bg-honey-50 border border-honey-100">
-                <span className="text-sm font-semibold text-honey-800">Todronning drift</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setQueenSide(1)}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold ${
-                      queenSide === 1 ? 'bg-honey-500 text-white' : 'bg-white text-gray-800 border border-gray-200'
-                    }`}
-                  >
-                    Dronning 1
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setQueenSide(2)}
-                    className={`px-3 py-1 rounded-lg text-xs font-semibold ${
-                      queenSide === 2 ? 'bg-honey-500 text-white' : 'bg-white text-gray-800 border border-gray-200'
-                    }`}
-                  >
-                    Dronning 2
-                  </button>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-2 rounded-lg bg-honey-50 border border-honey-100">
+                  <span className="text-sm font-semibold text-honey-800">Todronning drift</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setQueenSide(1)}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold ${
+                        queenSide === 1 ? 'bg-honey-500 text-white' : 'bg-white text-gray-800 border border-gray-200'
+                      }`}
+                    >
+                      Dronning 1
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQueenSide(2)}
+                      className={`px-3 py-1 rounded-lg text-xs font-semibold ${
+                        queenSide === 2 ? 'bg-honey-500 text-white' : 'bg-white text-gray-800 border border-gray-200'
+                      }`}
+                    >
+                      Dronning 2
+                    </button>
+                  </div>
                 </div>
+                {queenSideDbSupported === false && (
+                  <div className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    Databasen mangler kolonnen queen_side for todronning drift. Inspeksjonen lagres uten side 1/2 til du kjører SQL-migrasjonen i Supabase.
+                  </div>
+                )}
               </div>
             )}
             
