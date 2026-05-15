@@ -439,9 +439,9 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       try {
         stored = typeof window !== 'undefined' ? window.localStorage.getItem(selectedContactStorageKey) || '' : '';
       } catch {}
-      nextSelected = stored && exists(stored) ? stored : combined[0].contact_id;
+      nextSelected = stored && exists(stored) ? stored : '';
     }
-    if (nextSelected && nextSelected !== selectedContactId) setSelectedContactId(nextSelected);
+    if (nextSelected !== selectedContactId) setSelectedContactId(nextSelected);
   };
 
   const fetchAvailableApiaries = async () => {
@@ -2054,16 +2054,13 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
            </div>
            
            <div className="flex gap-2 items-center">
-             <button 
-                onClick={() => {
-                    setIsScanModalOpen(true);
-                    setTimeout(() => document.getElementById('scan-input')?.focus(), 100);
-                }}
-                className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-800 whitespace-nowrap"
+             <Link
+               href={`/scan?returnTo=${encodeURIComponent(`/apiaries/${params.id}`)}`}
+               className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-gray-800 whitespace-nowrap"
              >
-                <QrCode className="w-4 h-4" />
-                Skann
-             </button>
+               <QrCode className="w-4 h-4" />
+               Skann
+             </Link>
 
              {isSelectionMode && selectedHiveIds.size > 0 && (
                 <>

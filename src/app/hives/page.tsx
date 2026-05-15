@@ -12,6 +12,8 @@ const ACTIVE_OWNER_KEY = 'lek_active_owner_id';
 
 export default function AllHivesPage() {
   const [hives, setHives] = useState<any[]>([]);
+  const [twoQueenSideStatusByHiveId, setTwoQueenSideStatusByHiveId] = useState<Record<string, { 1?: string; 2?: string }>>({});
+  const [queenSideSupported, setQueenSideSupported] = useState<boolean | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [accounts, setAccounts] = useState<{ id: string; label: string }[]>([]);
   const [activeOwnerId, setActiveOwnerId] = useState<string>('');
@@ -66,6 +68,72 @@ export default function AllHivesPage() {
 
   const supabase = createClient();
   const router = useRouter();
+
+  const isMissingColumn = (err: any, col: string) => {
+    const code = String(err?.code || '');
+    const msg = String(err?.message || err || '').toLowerCase();
+    return code === '42703' || msg.includes(`column \"${col}\"`) || (msg.includes(col) && msg.includes('does not exist'));
+  };
+
+  const fetchTwoQueenSideStatuses = async (hivesList: any[]) => {
+    try {
+      const twoQueenIds = (Array.isArray(hivesList) ? hivesList : [])
+        .filter((h: any) => Boolean(h?.two_queen_drift))
+        .map((h: any) => String(h?.id || '').trim())
+        .filter(Boolean);
+
+      if (twoQueenIds.length === 0) {
+        setTwoQueenSideStatusByHiveId({});
+        setQueenSideSupported(null);
+        return;
+      }
+
+      const sideStatus: Record<string, { 1?: string; 2?: string }> = {};
+      const fetchSide = async (side: 1 | 2) => {
+        const res = await supabase
+          .from('inspections')
+          .select('hive_id, status, created_at, queen_side')
+          .in('hive_id', twoQueenIds)
+          .eq('queen_side', side)
+          .order('created_at', { ascending: false })
+          .limit(2000);
+
+        if (res.error) throw res.error;
+        return Array.isArray(res.data) ? res.data : [];
+      };
+
+      try {
+        const [s1, s2] = await Promise.all([fetchSide(1), fetchSide(2)]);
+        for (const row of s1) {
+          const hiveId = String((row as any)?.hive_id || '').trim();
+          if (!hiveId) continue;
+          if (!sideStatus[hiveId]) sideStatus[hiveId] = {};
+          if (sideStatus[hiveId][1] != null) continue;
+          sideStatus[hiveId][1] = String((row as any)?.status || '').trim() || '-';
+        }
+        for (const row of s2) {
+          const hiveId = String((row as any)?.hive_id || '').trim();
+          if (!hiveId) continue;
+          if (!sideStatus[hiveId]) sideStatus[hiveId] = {};
+          if (sideStatus[hiveId][2] != null) continue;
+          sideStatus[hiveId][2] = String((row as any)?.status || '').trim() || '-';
+        }
+
+        setTwoQueenSideStatusByHiveId(sideStatus);
+        setQueenSideSupported(true);
+        return;
+      } catch (e: any) {
+        if (isMissingColumn(e, 'queen_side')) {
+          setTwoQueenSideStatusByHiveId({});
+          setQueenSideSupported(false);
+          return;
+        }
+        throw e;
+      }
+    } catch {
+      setTwoQueenSideStatusByHiveId({});
+    }
+  };
 
   useEffect(() => {
     try {
@@ -138,6 +206,8 @@ export default function AllHivesPage() {
           }
         }
       } catch {}
+      setTwoQueenSideStatusByHiveId({});
+      setQueenSideSupported(null);
       setLoading(false);
       return;
     }
@@ -218,7 +288,12 @@ export default function AllHivesPage() {
     const { data, error } = await hiveQuery;
 
     if (data) {
-      setHives(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      setHives(list);
+      void fetchTwoQueenSideStatuses(list);
+    } else {
+      setTwoQueenSideStatusByHiveId({});
+      setQueenSideSupported(null);
     }
 
     try {
@@ -1034,11 +1109,22 @@ export default function AllHivesPage() {
                                     PROD
                                 </span>
                             )}
+                            {hive.two_queen_drift && (
+                                <span className="text-[10px] bg-honey-50 text-honey-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide shrink-0 border border-honey-100">
+                                    Todronning
+                                </span>
+                            )}
                         </div>
                         <div className="flex items-center gap-1 text-xs text-gray-500 min-w-0">
                             <MapPin className="w-3 h-3 shrink-0" />
                             <span className="truncate">{hive.apiaries?.name || 'Ingen lokasjon'}</span>
                         </div>
+                        {hive.two_queen_drift && queenSideSupported !== false && (
+                          <div className="mt-1 text-[11px] text-gray-600">
+                            <span className="font-bold">D-1:</span> {twoQueenSideStatusByHiveId[String(hive.id)]?.[1] || '-'} /{' '}
+                            <span className="font-bold">D-2:</span> {twoQueenSideStatusByHiveId[String(hive.id)]?.[2] || '-'}
+                          </div>
+                        )}
                         </div>
                     </div>
                     

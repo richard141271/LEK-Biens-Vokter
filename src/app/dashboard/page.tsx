@@ -57,9 +57,6 @@ export default function DashboardPage() {
   const [latestHiveLog, setLatestHiveLog] = useState<any>(null); // New State for Tenant Log
   const [pendingMissionsCount, setPendingMissionsCount] = useState(0);
   const [meetingDate, setMeetingDate] = useState<string | null>(null);
-  const [showHandsfreeModal, setShowHandsfreeModal] = useState(false);
-  const [handsfreeBusy, setHandsfreeBusy] = useState(false);
-  const [handsfreeStatus, setHandsfreeStatus] = useState('');
 
   // Data State
   const [allHives, setAllHives] = useState<any[]>([]);
@@ -80,14 +77,6 @@ export default function DashboardPage() {
       if (window.localStorage.getItem('lek_demo_session_id')) setIsDemoActive(true);
     } catch {}
   }, [isDemoParam]);
-
-  useEffect(() => {
-    try {
-      if (typeof window === 'undefined') return;
-      if (localStorage.getItem('handsfree_setup_done') === '1') return;
-      setShowHandsfreeModal(true);
-    } catch {}
-  }, []);
 
   const getApiaryTypeLabel = (t?: string) => {
     if (t === 'bigård') return 'Bigård';
@@ -687,229 +676,11 @@ export default function DashboardPage() {
     router.push('/');
   };
 
-  const handleHandsfreeSetup = async () => {
-    if (handsfreeBusy) return;
-    setHandsfreeBusy(true);
-    setHandsfreeStatus('Åpner tillatelser…');
-
-    const stopTracks = (stream: MediaStream | null | undefined) => {
-      try {
-        if (!stream) return;
-        for (const t of stream.getTracks()) {
-          try { t.stop(); } catch {}
-        }
-      } catch {}
-    };
-
-    try {
-      const playConfirm = async (text: string) => {
-        const trimmed = String(text || '').trim();
-        if (!trimmed) return;
-        try {
-          const res = await fetch('/api/voice/tts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: trimmed }),
-          });
-          if (!res.ok) throw new Error('tts_failed');
-          const bytes = await res.arrayBuffer();
-          const blob = new Blob([bytes], { type: 'audio/wav' });
-          const url = URL.createObjectURL(blob);
-          const a = new Audio(url);
-          a.preload = 'auto';
-          (a as any).playsInline = true;
-          try {
-            a.setAttribute?.('playsinline', 'true');
-          } catch {}
-          const done = () => {
-            try {
-              URL.revokeObjectURL(url);
-            } catch {}
-          };
-          a.onended = done;
-          a.onerror = done;
-          try {
-            const p = a.play();
-            if (p && typeof (p as any).catch === 'function') await (p as any);
-          } catch {
-            done();
-            throw new Error('tts_play_failed');
-          }
-          return;
-        } catch {
-          try {
-            const synth = (window as any).speechSynthesis as SpeechSynthesis | undefined;
-            if (!synth) return;
-            try {
-              if (typeof synth.resume === 'function') synth.resume();
-            } catch {}
-            try {
-              synth.cancel();
-            } catch {}
-            const u = new SpeechSynthesisUtterance(trimmed);
-            u.lang = 'nb-NO';
-            u.rate = 0.95;
-            u.pitch = 1.0;
-            u.volume = 1.0;
-            synth.speak(u);
-          } catch {}
-        }
-      };
-
-      try {
-        setHandsfreeStatus('Mikrofon og kamera…');
-        if (!navigator.mediaDevices?.getUserMedia) throw new Error('getUserMedia_unsupported');
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: { facingMode: 'environment' },
-        });
-        stopTracks(stream);
-      } catch {
-        setHandsfreeStatus('Trykk «Tillat» for mikrofon og kamera.');
-        return;
-      }
-
-      try {
-        setHandsfreeStatus('Lyd…');
-        if (typeof window !== 'undefined') {
-          const synth = (window as any).speechSynthesis as SpeechSynthesis | undefined;
-          if (synth) {
-            try {
-              synth.cancel();
-            } catch {}
-            const u = new SpeechSynthesisUtterance('.');
-            u.lang = 'nb-NO';
-            u.rate = 1.0;
-            u.pitch = 1.0;
-            u.volume = 0.0;
-            try {
-              if (typeof synth.resume === 'function') synth.resume();
-            } catch {}
-            try {
-              synth.speak(u);
-            } catch {}
-          }
-
-          const bytes = new Uint8Array(44 + 2);
-          const writeStr = (offset: number, s: string) => {
-            for (let i = 0; i < s.length; i += 1) bytes[offset + i] = s.charCodeAt(i);
-          };
-          const writeU32 = (offset: number, v: number) => {
-            bytes[offset + 0] = v & 0xff;
-            bytes[offset + 1] = (v >> 8) & 0xff;
-            bytes[offset + 2] = (v >> 16) & 0xff;
-            bytes[offset + 3] = (v >> 24) & 0xff;
-          };
-          const writeU16 = (offset: number, v: number) => {
-            bytes[offset + 0] = v & 0xff;
-            bytes[offset + 1] = (v >> 8) & 0xff;
-          };
-
-          writeStr(0, 'RIFF');
-          writeU32(4, 36 + 2);
-          writeStr(8, 'WAVE');
-          writeStr(12, 'fmt ');
-          writeU32(16, 16);
-          writeU16(20, 1);
-          writeU16(22, 1);
-          writeU32(24, 8000);
-          writeU32(28, 8000 * 2);
-          writeU16(32, 2);
-          writeU16(34, 16);
-          writeStr(36, 'data');
-          writeU32(40, 2);
-          bytes[44] = 0;
-          bytes[45] = 0;
-
-          const blob = new Blob([bytes], { type: 'audio/wav' });
-          const url = URL.createObjectURL(blob);
-          const a = new Audio(url);
-          a.volume = 0;
-          (a as any).playsInline = true;
-          try {
-            a.setAttribute?.('playsinline', 'true');
-          } catch {}
-          const done = () => {
-            try {
-              a.pause();
-            } catch {}
-            try {
-              URL.revokeObjectURL(url);
-            } catch {}
-          };
-          a.onended = done;
-          a.onerror = done;
-          const p = a.play();
-          if (p && typeof (p as any).then === 'function') {
-            await (p as any).catch(() => {});
-          }
-          done();
-        }
-      } catch {}
-
-      try {
-        setHandsfreeStatus('Aurora…');
-        await playConfirm('Handsfree aktivert.');
-      } catch {}
-
-      try {
-        localStorage.setItem('handsfree_setup_done', '1');
-        localStorage.setItem('lek_voice_enabled', '1');
-      } catch {}
-
-      setShowHandsfreeModal(false);
-    } finally {
-      setHandsfreeBusy(false);
-      setHandsfreeStatus('');
-    }
-  };
-
   if (loading) return <div className="p-8 text-center">Laster oversikt...</div>;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <BeekeeperAlertsPoller />
-
-      {showHandsfreeModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden">
-            <div className="p-5 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900">Handsfree-oppsett</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Trykk én gang for å gi tilgang til mikrofon og kamera, og aktivere lyd. Da slipper du popups midt i inspeksjon.
-              </p>
-            </div>
-            <div className="p-5 space-y-4">
-              {handsfreeStatus ? (
-                <div className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                  {handsfreeStatus}
-                </div>
-              ) : null}
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={handleHandsfreeSetup}
-                  disabled={handsfreeBusy}
-                  className="bg-honey-500 hover:bg-honey-600 disabled:bg-honey-700 text-white font-bold py-3 rounded-xl"
-                >
-                  {handsfreeBusy ? 'Åpner…' : 'Aktiver'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    try { localStorage.setItem('handsfree_setup_done', '1'); } catch {}
-                    try { localStorage.setItem('lek_voice_enabled', '1'); } catch {}
-                    setShowHandsfreeModal(false);
-                  }}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold py-3 rounded-xl"
-                >
-                  Ikke nå
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
       
       <main className="p-2 space-y-2 max-w-lg mx-auto">
           

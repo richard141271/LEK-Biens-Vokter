@@ -10,6 +10,8 @@ export default function ScanPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isMassMode = (searchParams.get('mode') || '').toLowerCase() === 'mass';
+  const returnToRaw = searchParams.get('returnTo') || '';
+  const returnTo = returnToRaw.startsWith('/') && !returnToRaw.startsWith('//') ? returnToRaw : '/dashboard';
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
@@ -244,7 +246,7 @@ export default function ScanPage() {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
       <header className="p-4 flex items-center gap-4 bg-black/50 backdrop-blur-sm fixed top-0 w-full z-10">
-        <Link href="/dashboard" className="p-2 -ml-2 hover:bg-white/10 rounded-full">
+        <Link href={returnTo} className="p-2 -ml-2 hover:bg-white/10 rounded-full">
           <ArrowLeft className="w-6 h-6" />
         </Link>
         <h1 className="text-xl font-bold">{isMassMode ? 'Masse skann' : 'Skann QR-kode'}</h1>

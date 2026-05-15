@@ -132,9 +132,7 @@ export default function ApiariesPage() {
 
   const formatApiaryNumber = (raw: string, type?: string) => {
     const s = String(raw || '');
-    const t = String(type || '').toLowerCase();
-    if (t === 'bil' || s.toUpperCase().startsWith('BIL-')) return s.split('.')[0];
-    return s;
+    return s.split('.')[0];
   };
 
   const extractHiveDigits = (t: string): string | null => {
