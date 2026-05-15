@@ -928,14 +928,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       if (!ttsUnlockedRef.current) {
         unlockTtsFromGesture();
       }
-      const isiOS =
-        typeof navigator !== 'undefined' &&
-        /(iphone|ipad|ipod)/i.test(navigator.userAgent || '');
-      if (handsfreeReady && isiOS) {
-        try {
-          startListening();
-        } catch {}
-      }
     };
     try {
       window.addEventListener('pointerdown', onFirst, { once: true, passive: true } as any);
@@ -949,7 +941,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         window.removeEventListener('mousedown', onFirst as any);
       } catch {}
     };
-  }, [handsfreeReady, startListening]);
+  }, []);
   const speak = (text: string, opts?: { resume?: boolean }) => {
     try {
       if (typeof window === 'undefined') return;
@@ -1056,17 +1048,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       filePreviewRef.current.clear();
     };
   }, []);
-
-  // Sikre kontinuerlig lytting gjennom hele inspeksjonen
-  useEffect(() => {
-    if (!handsfreeReady) return;
-    const isiOS =
-      typeof navigator !== 'undefined' &&
-      /(iphone|ipad|ipod)/i.test(navigator.userAgent || '');
-    if (isiOS && !gestureUnlockedRef.current) return;
-    try { startListening(); } catch {}
-    return () => { try { stopListening(); } catch {} };
-  }, [handsfreeReady, startListening, stopListening]);
 
   useEffect(() => {
     if (isOffline) return;
