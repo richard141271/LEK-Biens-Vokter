@@ -413,40 +413,55 @@ export async function POST(request: Request) {
       if (!contact) {
         return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
       }
-      if (!isBeekeeper && isScopedAgreementToken && tokenContactId && String(contact.id) !== tokenContactId) {
-        return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
-      }
-      if (!isBeekeeper && !isScopedAgreementToken && contactEmail !== emailLower) {
-        return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
-      }
-
-      let agreementForTerms: any | null = null;
-      if (isScopedAgreementToken && tokenAgreementId) {
-        const res = await admin
-          .from('grunneier_agreements')
-          .select('id, status, apiary_id, contact_id, contact_signed_at, beekeeper_signed_at, created_by')
-          .eq('id', tokenAgreementId)
-          .maybeSingle();
-        agreementForTerms = (res as any)?.data || null;
-      } else {
-        const res = await admin
-          .from('grunneier_agreements')
-          .select('id, status, apiary_id, contact_id, contact_signed_at, beekeeper_signed_at, created_by')
-          .eq('contact_id', contactId)
-          .eq('created_by', apiaryOwnerId)
-          .order('updated_at', { ascending: false })
-          .limit(5);
-        const list = Array.isArray((res as any)?.data) ? (res as any).data : [];
-        agreementForTerms = list[0] || null;
+      const isAccountContact = Boolean(accountContactId && String(accountContactId) === String(contact.id));
+      if (!isBeekeeper) {
+        if (isScopedAgreementToken && tokenContactId && String(contact.id) !== tokenContactId && !isAccountContact) {
+          return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
+        }
+        if (!isScopedAgreementToken && !isAccountContact && contactEmail !== emailLower) {
+          return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
+        }
       }
 
-      const statusValue = String(agreementForTerms?.status || '').toLowerCase();
-      const bothSigned = Boolean(agreementForTerms?.contact_signed_at && agreementForTerms?.beekeeper_signed_at);
-      const hasActiveAgreement = statusValue === 'active' || (bothSigned && statusValue !== 'rejected' && statusValue !== 'terminated');
-      const createdBy = String(agreementForTerms?.created_by || '').trim();
+      if (!isBeekeeper) {
+        let agreementForTerms: any | null = null;
+        if (isScopedAgreementToken && tokenAgreementId) {
+          const res = await admin
+            .from('grunneier_agreements')
+            .select('id, status, apiary_id, contact_id, contact_signed_at, beekeeper_signed_at, created_by')
+            .eq('id', tokenAgreementId)
+            .maybeSingle();
+          agreementForTerms = (res as any)?.data || null;
+        } else {
+          const res = await admin
+            .from('grunneier_agreements')
+            .select('id, status, apiary_id, contact_id, contact_signed_at, beekeeper_signed_at, created_by')
+            .eq('contact_id', contactId)
+            .eq('created_by', apiaryOwnerId)
+            .order('updated_at', { ascending: false })
+            .limit(20);
+          const list = Array.isArray((res as any)?.data) ? (res as any).data : [];
+          const active = list.find((a: any) => String(a?.status || '').toLowerCase() === 'active');
+          const both = list.find((a: any) => {
+            const s = String(a?.status || '').toLowerCase();
+            return Boolean(a?.contact_signed_at && a?.beekeeper_signed_at) && s !== 'rejected' && s !== 'terminated';
+          });
+          const anySigned = list.find((a: any) => {
+            const s = String(a?.status || '').toLowerCase();
+            return Boolean(a?.contact_signed_at || a?.beekeeper_signed_at) && s !== 'rejected' && s !== 'terminated';
+          });
+          agreementForTerms = active || both || anySigned || null;
+        }
 
-      if (!agreementForTerms || !hasActiveAgreement || !createdBy || createdBy !== apiaryOwnerId) {
-        return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
+        const statusValue = String(agreementForTerms?.status || '').toLowerCase();
+        const signedAny = Boolean(agreementForTerms?.contact_signed_at || agreementForTerms?.beekeeper_signed_at);
+        const createdBy = String(agreementForTerms?.created_by || '').trim();
+        const okAgreement =
+          statusValue === 'active' || (signedAny && statusValue !== 'rejected' && statusValue !== 'terminated');
+
+        if (!agreementForTerms || !okAgreement || !createdBy || createdBy !== apiaryOwnerId) {
+          return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
+        }
       }
 
       const specialTerms = asString(body?.specialTerms);
@@ -536,42 +551,53 @@ export async function POST(request: Request) {
       }
 
       const contactEmail = normalizeEmail((contact as any)?.email);
+      const isAccountContact = Boolean(accountContactId && String(accountContactId) === String(contact.id));
       if (!isBeekeeper) {
-        if (isScopedAgreementToken && tokenContactId && String(contact.id) !== tokenContactId) {
+        if (isScopedAgreementToken && tokenContactId && String(contact.id) !== tokenContactId && !isAccountContact) {
           return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
         }
-        if (!isScopedAgreementToken && contactEmail !== emailLower) {
+        if (!isScopedAgreementToken && !isAccountContact && contactEmail !== emailLower) {
           return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
         }
-      }
 
-      let agreementForTerms: any | null = null;
-      if (isScopedAgreementToken && tokenAgreementId) {
-        const res = await admin
-          .from('grunneier_agreements')
-          .select('id, status, contact_id, created_by, contact_signed_at, beekeeper_signed_at')
-          .eq('id', tokenAgreementId)
-          .maybeSingle();
-        agreementForTerms = (res as any)?.data || null;
-      } else {
-        const res = await admin
-          .from('grunneier_agreements')
-          .select('id, status, contact_id, created_by, contact_signed_at, beekeeper_signed_at')
-          .eq('contact_id', contactId)
-          .eq('created_by', apiaryOwnerId)
-          .order('updated_at', { ascending: false })
-          .limit(5);
-        const list = Array.isArray((res as any)?.data) ? (res as any).data : [];
-        agreementForTerms = list[0] || null;
-      }
+        let agreementForTerms: any | null = null;
+        if (isScopedAgreementToken && tokenAgreementId) {
+          const res = await admin
+            .from('grunneier_agreements')
+            .select('id, status, contact_id, created_by, contact_signed_at, beekeeper_signed_at')
+            .eq('id', tokenAgreementId)
+            .maybeSingle();
+          agreementForTerms = (res as any)?.data || null;
+        } else {
+          const res = await admin
+            .from('grunneier_agreements')
+            .select('id, status, contact_id, created_by, contact_signed_at, beekeeper_signed_at')
+            .eq('contact_id', contactId)
+            .eq('created_by', apiaryOwnerId)
+            .order('updated_at', { ascending: false })
+            .limit(20);
+          const list = Array.isArray((res as any)?.data) ? (res as any).data : [];
+          const active = list.find((a: any) => String(a?.status || '').toLowerCase() === 'active');
+          const both = list.find((a: any) => {
+            const s = String(a?.status || '').toLowerCase();
+            return Boolean(a?.contact_signed_at && a?.beekeeper_signed_at) && s !== 'rejected' && s !== 'terminated';
+          });
+          const anySigned = list.find((a: any) => {
+            const s = String(a?.status || '').toLowerCase();
+            return Boolean(a?.contact_signed_at || a?.beekeeper_signed_at) && s !== 'rejected' && s !== 'terminated';
+          });
+          agreementForTerms = active || both || anySigned || null;
+        }
 
-      const statusValue = String(agreementForTerms?.status || '').toLowerCase();
-      const bothSigned = Boolean(agreementForTerms?.contact_signed_at && agreementForTerms?.beekeeper_signed_at);
-      const hasActiveAgreement = statusValue === 'active' || (bothSigned && statusValue !== 'rejected' && statusValue !== 'terminated');
-      const createdBy = String(agreementForTerms?.created_by || '').trim();
+        const statusValue = String(agreementForTerms?.status || '').toLowerCase();
+        const signedAny = Boolean(agreementForTerms?.contact_signed_at || agreementForTerms?.beekeeper_signed_at);
+        const createdBy = String(agreementForTerms?.created_by || '').trim();
+        const okAgreement =
+          statusValue === 'active' || (signedAny && statusValue !== 'rejected' && statusValue !== 'terminated');
 
-      if (!agreementForTerms || !hasActiveAgreement || !createdBy || createdBy !== apiaryOwnerId) {
-        return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
+        if (!agreementForTerms || !okAgreement || !createdBy || createdBy !== apiaryOwnerId) {
+          return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
+        }
       }
 
       const { data: link } = await admin

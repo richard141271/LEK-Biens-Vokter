@@ -10,7 +10,6 @@ import QRCode from 'qrcode';
 import { generateHiveLabelsPDF } from '@/utils/hive-labels-pdf';
 
 export default function ApiaryDetailsPage({ params }: { params: { id: string } }) {
-  const selectedContactStorageKey = `lek_apiary_selected_contact_${params.id}`;
   const [apiary, setApiary] = useState<any>(null);
   const [hives, setHives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,14 +30,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [isMoving, setIsMoving] = useState(false);
 
   const [apiaryContacts, setApiaryContacts] = useState<any[]>([]);
-  const [selectedContactId, setSelectedContactId] = useState<string>(() => {
-    if (typeof window === 'undefined') return '';
-    try {
-      return window.localStorage.getItem(selectedContactStorageKey) || '';
-    } catch {
-      return '';
-    }
-  });
+  const [selectedContactId, setSelectedContactId] = useState<string>('');
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteTab, setInviteTab] = useState<'existing' | 'new'>('existing');
   const [contactsList, setContactsList] = useState<any[]>([]);
@@ -140,14 +132,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     const s = String(raw || '').trim();
     return s ? s.split('.')[0] : '';
   };
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      if (selectedContactId) window.localStorage.setItem(selectedContactStorageKey, selectedContactId);
-      else window.localStorage.removeItem(selectedContactStorageKey);
-    } catch {}
-  }, [selectedContactId, selectedContactStorageKey]);
 
   useEffect(() => {
     fetchData();
@@ -424,9 +408,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     if (linksError || !links || links.length === 0) {
       setApiaryContacts([]);
       setSelectedContactId('');
-      try {
-        if (typeof window !== 'undefined') window.localStorage.removeItem(selectedContactStorageKey);
-      } catch {}
       return;
     }
 
@@ -451,17 +432,9 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       .filter((x: any) => !!x.contact);
 
     setApiaryContacts(combined);
-    const exists = (id: string) => combined.some((x: any) => String(x.contact_id) === String(id));
-    let nextSelected = selectedContactId;
-    if (nextSelected && !exists(nextSelected)) nextSelected = '';
-    if (!nextSelected && combined.length > 0) {
-      let stored = '';
-      try {
-        stored = typeof window !== 'undefined' ? window.localStorage.getItem(selectedContactStorageKey) || '' : '';
-      } catch {}
-      nextSelected = stored && exists(stored) ? stored : '';
+    if (selectedContactId && !combined.some((x: any) => String(x.contact_id) === String(selectedContactId))) {
+      setSelectedContactId('');
     }
-    if (nextSelected !== selectedContactId) setSelectedContactId(nextSelected);
   };
 
   const fetchAvailableApiaries = async () => {

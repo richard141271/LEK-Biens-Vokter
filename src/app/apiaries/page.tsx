@@ -278,39 +278,42 @@ export default function ApiariesPage() {
           }, 120);
         };
 
-        if (opts?.preferBrowser) {
+        const preferBrowser = opts?.preferBrowser !== false;
+        if (preferBrowser) {
           try {
             const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
-            if (!s) {
-              resume();
-              return;
+            if (s) {
+              let started = false;
+              try { s.cancel(); } catch {}
+              try { s.getVoices?.(); } catch {}
+              const u = new SpeechSynthesisUtterance(trimmed);
+              u.lang = 'nb-NO';
+              u.rate = 0.95;
+              u.onstart = () => {
+                started = true;
+              };
+              if (ttsSafetyRef.current) {
+                clearTimeout(ttsSafetyRef.current);
+                ttsSafetyRef.current = null;
+              }
+              const safety = setTimeout(() => resume(), 4500);
+              ttsSafetyRef.current = safety;
+              u.onend = () => {
+                clearTimeout(safety);
+                if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
+                resume();
+              };
+              u.onerror = () => {
+                clearTimeout(safety);
+                if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
+                resume();
+              };
+              s.speak(u);
+              await new Promise((r) => setTimeout(r, 650));
+              if (started) return;
+              try { s.cancel(); } catch {}
             }
-            try { s.cancel(); } catch {}
-            const u = new SpeechSynthesisUtterance(trimmed);
-            u.lang = 'nb-NO';
-            u.rate = 0.95;
-            if (ttsSafetyRef.current) {
-              clearTimeout(ttsSafetyRef.current);
-              ttsSafetyRef.current = null;
-            }
-            const safety = setTimeout(() => resume(), 4500);
-            ttsSafetyRef.current = safety;
-            u.onend = () => {
-              clearTimeout(safety);
-              if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
-              resume();
-            };
-            u.onerror = () => {
-              clearTimeout(safety);
-              if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
-              resume();
-            };
-            s.speak(u);
-            return;
-          } catch {
-            resume();
-            return;
-          }
+          } catch {}
         }
 
         const serverOk = await (async () => {

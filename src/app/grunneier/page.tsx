@@ -167,6 +167,7 @@ export default function GrunneierPage() {
       setAgreements(data?.agreements || []);
       setSessionEmail(data?.email || null);
       setSessionTokenPurpose(data?.tokenPurpose || null);
+      setStatus(null);
     } finally {
       setSessionLoading(false);
     }
@@ -1013,7 +1014,11 @@ export default function GrunneierPage() {
         )}
         {status && (
           <div className="bg-white border border-gray-200 rounded-xl p-3 text-sm text-gray-700 flex items-center justify-between gap-3">
-            <span>{status}</span>
+            <span>
+              {status === 'Ingen tilgang'
+                ? 'Ingen tilgang: Du har ikke en aktiv avtale som gir tilgang til bigårder, eller du er ikke knyttet til riktig kontakt/bigård. Be birøkteren sende portal-lenke på nytt fra riktig kontakt (eller knytt deg til bigården under Kontakter).'
+                : status}
+            </span>
             {!hasSession && status.toLowerCase().includes('utløpt') && (
               <button
                 onClick={() => (document.getElementById('grunneier-email') as HTMLInputElement | null)?.focus()}
