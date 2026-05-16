@@ -468,7 +468,7 @@ export async function POST(request: Request) {
 
       const { data: link } = await admin
         .from('apiary_contacts')
-        .select('id, special_terms_updated_at, special_terms_contact_signed_at, special_terms_beekeeper_signed_at')
+        .select('id, special_terms, special_terms_updated_at, special_terms_contact_signed_at, special_terms_beekeeper_signed_at')
         .eq('apiary_id', apiaryId)
         .eq('contact_id', contactId)
         .maybeSingle();
@@ -485,6 +485,13 @@ export async function POST(request: Request) {
         : 0;
       const signedAtMs = Math.max(contactSignedAtMs, beekeeperSignedAtMs);
       const isSigned = Number.isFinite(signedAtMs) && signedAtMs > 0;
+
+      const normalizeTerms = (v: unknown) => String(v || '').replace(/\r\n/g, '\n').trim();
+      const prevTerms = normalizeTerms((link as any)?.special_terms);
+      const nextTerms = normalizeTerms(specialTerms);
+      if (prevTerms === nextTerms) {
+        return NextResponse.json({ success: true });
+      }
 
       const lastChangedMs = (link as any)?.special_terms_updated_at
         ? new Date((link as any).special_terms_updated_at).getTime()

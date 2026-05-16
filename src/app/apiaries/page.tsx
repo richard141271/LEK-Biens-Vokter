@@ -49,6 +49,7 @@ export default function ApiariesPage() {
   const prevVoiceStepRef = useRef<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
   const apiariesRef = useRef<any[]>([]);
   const ttsSafetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const audioUnlockedRef = useRef<boolean>(false);
 
   useEffect(() => {
     fetchData();
@@ -283,15 +284,11 @@ export default function ApiariesPage() {
           try {
             const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
             if (s) {
-              let started = false;
               try { s.cancel(); } catch {}
               try { s.getVoices?.(); } catch {}
               const u = new SpeechSynthesisUtterance(trimmed);
               u.lang = 'nb-NO';
               u.rate = 0.95;
-              u.onstart = () => {
-                started = true;
-              };
               if (ttsSafetyRef.current) {
                 clearTimeout(ttsSafetyRef.current);
                 ttsSafetyRef.current = null;
@@ -309,9 +306,7 @@ export default function ApiariesPage() {
                 resume();
               };
               s.speak(u);
-              await new Promise((r) => setTimeout(r, 650));
-              if (started) return;
-              try { s.cancel(); } catch {}
+              return;
             }
           } catch {}
         }
@@ -1217,6 +1212,17 @@ export default function ApiariesPage() {
               } else {
                 isVoiceEnabledRef.current = true;
                 setIsVoiceEnabled(true);
+                try {
+                  if (!audioUnlockedRef.current) {
+                    const a = new Audio(
+                      'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+                    );
+                    a.volume = 0;
+                    const p = a.play();
+                    if (p && typeof (p as any).catch === 'function') void (p as any).catch(() => {});
+                    audioUnlockedRef.current = true;
+                  }
+                } catch {}
                 try { startListening(); } catch {}
                 setVoiceStep('armed');
                 setSelectedVoiceApiary(null);
