@@ -82,14 +82,65 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
     return s ? s.split('.')[0] : '';
   };
 
+  type PerformedAction = {
+    id: string;
+    meta?: {
+      feedType?: 'nodfor' | 'sukkerlake' | 'annet';
+    };
+  };
+
+  const performedActionDefs: Array<{ id: string; label: string }> = [
+    { id: 'FEED_GIVEN', label: 'Gitt fôr' },
+    { id: 'VARROA_TREATED', label: 'Behandlet varroa' },
+    { id: 'SUPER_ADDED', label: 'Satt på skattekasse' },
+    { id: 'HONEY_HARVESTED', label: 'Høstet honning' },
+    { id: 'QUEEN_REPLACED', label: 'Byttet dronning' },
+    { id: 'QUEEN_CELLS_REMOVED', label: 'Fjernet dronningceller' },
+    { id: 'SUPER_REMOVED', label: 'Fjernet skattekasse' },
+    { id: 'FRAMES_ADDED', label: 'Satt inn rammer' },
+    { id: 'FRAMES_REMOVED', label: 'Fjernet rammer' },
+    { id: 'WAX_REPLACED', label: 'Byttet voks' },
+    { id: 'SPLIT_MADE', label: 'Laget avlegger' },
+    { id: 'HIVE_SPLIT', label: 'Delt kube' },
+    { id: 'VARROA_TEST_DONE', label: 'Gjennomført varroatest' },
+  ];
+
+  const performedActionLabel = (a: PerformedAction) => {
+    const def = performedActionDefs.find((d) => d.id === a.id);
+    const base = def?.label || a.id;
+    if (a.id === 'FEED_GIVEN') {
+      const t = a.meta?.feedType;
+      if (t === 'nodfor') return `${base} (nødfôr)`;
+      if (t === 'sukkerlake') return `${base} (sukkerlake)`;
+      if (t === 'annet') return `${base} (annet)`;
+    }
+    return base;
+  };
+
   const parseInspectionNotes = (raw: any) => {
     const s = String(raw || '');
-    const m = s.match(/\[\[LEK_UTFORT_AV:([^\]]+)\]\](?:\r?\n)?/);
-    if (!m) return { performedBy: '', tag: '', cleanNotes: s };
-    const performedBy = String(m[1] || '').trim();
-    const tag = `[[LEK_UTFORT_AV:${performedBy}]]`;
-    const cleanNotes = s.replace(m[0], '');
-    return { performedBy, tag, cleanNotes };
+    const performedByMatch = s.match(/\[\[LEK_UTFORT_AV:([^\]]+)\]\](?:\r?\n)?/);
+    const actionsMatch = s.match(/\[\[LEK_PERFORMED_ACTIONS:([^\]]+)\]\](?:\r?\n)?/);
+
+    const performedBy = performedByMatch ? String(performedByMatch[1] || '').trim() : '';
+    const tag = performedBy ? `[[LEK_UTFORT_AV:${performedBy}]]` : '';
+
+    let performedActions: PerformedAction[] = [];
+    if (actionsMatch?.[1]) {
+      try {
+        const rawJson = decodeURIComponent(String(actionsMatch[1]));
+        const parsed = JSON.parse(rawJson);
+        if (Array.isArray(parsed)) {
+          performedActions = parsed.filter(Boolean) as any;
+        }
+      } catch {}
+    }
+
+    let cleanNotes = s;
+    if (performedByMatch?.[0]) cleanNotes = cleanNotes.replace(performedByMatch[0], '');
+    if (actionsMatch?.[0]) cleanNotes = cleanNotes.replace(actionsMatch[0], '');
+
+    return { performedBy, tag, performedActions, cleanNotes };
   };
 
   useEffect(() => {
@@ -1449,6 +1500,14 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                 const parsed = parseInspectionNotes(inspection?.notes);
                 const performedBy = String(parsed?.performedBy || '').trim();
                 const cleanNotes = String(parsed?.cleanNotes || '').trim();
+                const performedActionsFromNotes = Array.isArray(parsed?.performedActions) ? parsed.performedActions : [];
+                const performedActionsFromColumn = Array.isArray((inspection as any)?.performed_actions)
+                  ? ((inspection as any).performed_actions as any[])
+                  : [];
+                const performedActions: PerformedAction[] =
+                  performedActionsFromColumn.length > 0
+                    ? (performedActionsFromColumn as any)
+                    : (performedActionsFromNotes as any);
                 const rawNotes = String(inspection?.notes || '');
 
                 return (
@@ -1559,6 +1618,12 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                         <div className="mt-4 bg-white p-3 rounded border border-gray-200">
                           <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Handlinger</span>
                           <p className="text-gray-800">{inspection.actions.join(', ')}</p>
+                        </div>
+                      )}
+                      {performedActions.length > 0 && (
+                        <div className="mt-4 bg-white p-3 rounded border border-gray-200">
+                          <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Hva er utført i dag?</span>
+                          <p className="text-gray-800">{performedActions.map(performedActionLabel).join(', ')}</p>
                         </div>
                       )}
                       {performedBy ? (

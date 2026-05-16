@@ -258,7 +258,7 @@ export default function ApiariesPage() {
     isListeningRef.current = isListening;
   }, [isListening]);
 
-  const speak = useCallback((text: string) => {
+  const speak = useCallback((text: string, opts?: { preferBrowser?: boolean }) => {
     void (async () => {
       try {
         if (typeof window === 'undefined') return;
@@ -277,6 +277,41 @@ export default function ApiariesPage() {
             try { resumeListening(); } catch {}
           }, 120);
         };
+
+        if (opts?.preferBrowser) {
+          try {
+            const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
+            if (!s) {
+              resume();
+              return;
+            }
+            try { s.cancel(); } catch {}
+            const u = new SpeechSynthesisUtterance(trimmed);
+            u.lang = 'nb-NO';
+            u.rate = 0.95;
+            if (ttsSafetyRef.current) {
+              clearTimeout(ttsSafetyRef.current);
+              ttsSafetyRef.current = null;
+            }
+            const safety = setTimeout(() => resume(), 4500);
+            ttsSafetyRef.current = safety;
+            u.onend = () => {
+              clearTimeout(safety);
+              if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
+              resume();
+            };
+            u.onerror = () => {
+              clearTimeout(safety);
+              if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
+              resume();
+            };
+            s.speak(u);
+            return;
+          } catch {
+            resume();
+            return;
+          }
+        }
 
         const serverOk = await (async () => {
           try {
@@ -1183,7 +1218,20 @@ export default function ApiariesPage() {
                 setVoiceStep('armed');
                 setSelectedVoiceApiary(null);
                 setVoiceInfo('Si "start inspeksjon".');
-                speak('Si start inspeksjon.');
+                try {
+                  const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+                  if (Ctx) {
+                    const ctx = new Ctx();
+                    const o = ctx.createOscillator();
+                    const g = ctx.createGain();
+                    g.gain.value = 0;
+                    o.connect(g);
+                    g.connect(ctx.destination);
+                    o.start();
+                    o.stop(ctx.currentTime + 0.01);
+                  }
+                } catch {}
+                speak('Si start inspeksjon.', { preferBrowser: true });
               }
             }}
             className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 ${
