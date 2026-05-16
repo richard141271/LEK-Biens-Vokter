@@ -367,7 +367,7 @@ export async function POST(request: Request) {
             tokenAgreementId = magicAgreementId;
             tokenApiaryId = magicApiaryId;
           } else if (email && magicEmail && normalizeEmail(magicEmail) === normalizeEmail(email)) {
-            if (magicPurpose === 'agreement') tokenPurpose = 'agreement';
+            if (magicPurpose === 'agreement' && tokenPurpose !== 'account') tokenPurpose = 'agreement';
             if (!tokenContactId && magicContactId) tokenContactId = magicContactId;
             if (!tokenAgreementId && magicAgreementId) tokenAgreementId = magicAgreementId;
             if (!tokenApiaryId && magicApiaryId) tokenApiaryId = magicApiaryId;
@@ -388,9 +388,6 @@ export async function POST(request: Request) {
     if (action === 'update_special_terms') {
       if (!apiaryId || !contactId) {
         return NextResponse.json({ error: 'Mangler data' }, { status: 400 });
-      }
-      if (isScopedAgreementToken && tokenApiaryId && apiaryId !== tokenApiaryId) {
-        return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
       }
 
       const { data: apiary } = await admin
@@ -416,7 +413,7 @@ export async function POST(request: Request) {
       if (!contact) {
         return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
       }
-      if (isScopedAgreementToken && tokenContactId && String(contact.id) !== tokenContactId) {
+      if (!isBeekeeper && isScopedAgreementToken && tokenContactId && String(contact.id) !== tokenContactId) {
         return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
       }
       if (!isBeekeeper && !isScopedAgreementToken && contactEmail !== emailLower) {
@@ -768,7 +765,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Avtale-tekst mangler' }, { status: 500 });
       }
 
-      const nextStatus = 'awaiting_beekeeper_signature';
+      const nextStatus = agreement.beekeeper_signed_at ? 'active' : 'awaiting_beekeeper_signature';
 
       const { error } = await admin
         .from('grunneier_agreements')

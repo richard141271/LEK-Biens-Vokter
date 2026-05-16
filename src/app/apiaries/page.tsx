@@ -1161,6 +1161,7 @@ export default function ApiariesPage() {
           <button
             onClick={() => {
               if (isVoiceEnabledRef.current) {
+                isVoiceEnabledRef.current = false;
                 try { stopListening(); } catch {}
                 setVoiceStep('idle');
                 setSelectedVoiceApiary(null);
@@ -1176,6 +1177,7 @@ export default function ApiariesPage() {
                 }
                 setIsVoiceEnabled(false);
               } else {
+                isVoiceEnabledRef.current = true;
                 setIsVoiceEnabled(true);
                 try { startListening(); } catch {}
                 setVoiceStep('armed');

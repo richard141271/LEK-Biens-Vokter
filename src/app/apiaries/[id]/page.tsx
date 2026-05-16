@@ -2012,20 +2012,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                     Kopier portal-lenke
                   </button>
 
-                  {String(selectedAgreement.status || '').toLowerCase() !== 'active' &&
-                  String(selectedAgreement.status || '').toLowerCase() !== 'rejected' &&
-                  selectedAgreement.contact_signed_at &&
-                  selectedAgreement.beekeeper_signed_at ? (
-                    <button
-                      onClick={activateAgreement}
-                      disabled={isAgreementUpdating}
-                      className="w-full bg-white border border-green-200 hover:bg-green-50 text-green-700 font-bold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
-                      type="button"
-                    >
-                      Aktiver avtale
-                    </button>
-                  ) : null}
-
                   {String(selectedAgreement.status || '').toLowerCase() !== 'terminated' &&
                   String(selectedAgreement.status || '').toLowerCase() !== 'rejected' ? (
                     <button
@@ -2113,7 +2099,8 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
                     {selectedAgreement.status !== 'rejected' &&
                       selectedAgreement.status !== 'terminated' &&
-                      selectedAgreement.status !== 'active' && (
+                      selectedAgreement.status !== 'active' &&
+                      !selectedAgreement.beekeeper_signed_at && (
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <input
                           value={beekeeperSignatureName}
@@ -2126,7 +2113,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                           disabled={isAgreementUpdating || !beekeeperSignatureName.trim()}
                           className="w-full bg-honey-500 hover:bg-honey-600 text-white font-bold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
                         >
-                          {selectedAgreement.beekeeper_signed_at ? 'Signer på nytt' : 'Signer'}
+                          Signer
                         </button>
                       </div>
                     )}
@@ -2136,15 +2123,6 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                         Avtalen er aktiv. Grunneier får tilgang til portal.
                       </div>
                     )}
-
-                    {String(selectedAgreement.status || '').toLowerCase() !== 'active' &&
-                      String(selectedAgreement.status || '').toLowerCase() !== 'rejected' &&
-                      selectedAgreement.contact_signed_at &&
-                      selectedAgreement.beekeeper_signed_at && (
-                        <div className="border border-yellow-200 bg-yellow-50 text-yellow-900 rounded-lg p-3 text-sm">
-                          Begge parter har signert. Du kan aktivere avtalen når du ønsker.
-                        </div>
-                      )}
                   </div>
                 </>
               ) : (
