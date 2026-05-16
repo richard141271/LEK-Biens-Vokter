@@ -259,36 +259,105 @@ export default function ApiariesPage() {
   }, [isListening]);
 
   const speak = useCallback((text: string) => {
-    try {
-      if (typeof window === 'undefined') return;
-      if (!isVoiceEnabledRef.current) return;
-      const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
-      const wasListening = isListeningRef.current;
-      if (wasListening) {
-        try { pauseListening(); } catch {}
-      }
-      if (!s) return;
-      s.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'nb-NO';
-      u.rate = 0.95;
-      if (ttsSafetyRef.current) clearTimeout(ttsSafetyRef.current);
-      const safety = setTimeout(() => {
-        if (wasListening) { try { resumeListening(); } catch {} }
-      }, 2500);
-      ttsSafetyRef.current = safety;
-      u.onend = () => {
-        clearTimeout(safety);
-        if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
-        if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 120);
-      };
-      u.onerror = () => {
-        clearTimeout(safety);
-        if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
-        if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 120);
-      };
-      s.speak(u);
-    } catch {}
+    void (async () => {
+      try {
+        if (typeof window === 'undefined') return;
+        if (!isVoiceEnabledRef.current) return;
+        const trimmed = String(text || '').trim();
+        if (!trimmed) return;
+
+        const wasListening = isListeningRef.current;
+        if (wasListening) {
+          try { pauseListening(); } catch {}
+        }
+
+        const resume = () => {
+          if (!wasListening) return;
+          setTimeout(() => {
+            try { resumeListening(); } catch {}
+          }, 120);
+        };
+
+        const serverOk = await (async () => {
+          try {
+            const res = await fetch('/api/voice/tts', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: trimmed }),
+            });
+            if (!res.ok) return false;
+            const bytes = await res.arrayBuffer();
+            const blob = new Blob([bytes], { type: 'audio/wav' });
+            const url = URL.createObjectURL(blob);
+            const a = new Audio(url);
+            a.preload = 'auto';
+            (a as any).playsInline = true;
+            try { a.setAttribute?.('playsinline', 'true'); } catch {}
+
+            const done = () => {
+              try { URL.revokeObjectURL(url); } catch {}
+              resume();
+            };
+            a.onended = done;
+            a.onerror = done;
+
+            if (ttsSafetyRef.current) {
+              clearTimeout(ttsSafetyRef.current);
+              ttsSafetyRef.current = null;
+            }
+            const safety = setTimeout(() => done(), 4500);
+            ttsSafetyRef.current = safety;
+
+            try {
+              const p = a.play();
+              if (p && typeof (p as any).catch === 'function') await (p as any);
+            } catch {
+              clearTimeout(safety);
+              if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
+              done();
+              return false;
+            }
+
+            return true;
+          } catch {
+            return false;
+          }
+        })();
+
+        if (serverOk) return;
+
+        try {
+          const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
+          if (!s) {
+            resume();
+            return;
+          }
+          try { s.cancel(); } catch {}
+          const u = new SpeechSynthesisUtterance(trimmed);
+          u.lang = 'nb-NO';
+          u.rate = 0.95;
+          if (ttsSafetyRef.current) {
+            clearTimeout(ttsSafetyRef.current);
+            ttsSafetyRef.current = null;
+          }
+          const safety = setTimeout(() => resume(), 4500);
+          ttsSafetyRef.current = safety;
+          u.onend = () => {
+            clearTimeout(safety);
+            if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
+            resume();
+          };
+          u.onerror = () => {
+            clearTimeout(safety);
+            if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
+            resume();
+          };
+          s.speak(u);
+        } catch {
+          resume();
+        }
+      } catch {}
+    })();
   }, [pauseListening, resumeListening]);
 
   useEffect(() => {

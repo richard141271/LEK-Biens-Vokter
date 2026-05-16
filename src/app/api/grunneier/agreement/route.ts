@@ -110,7 +110,8 @@ export async function POST(request: Request) {
     if (!action) {
       return NextResponse.json({ error: 'Mangler data' }, { status: 400 });
     }
-    if (action !== 'update_special_terms' && !agreementId) {
+    const requiresAgreementId = action !== 'update_special_terms' && action !== 'sign_special_terms';
+    if (requiresAgreementId && !agreementId) {
       return NextResponse.json({ error: 'Mangler data' }, { status: 400 });
     }
 
@@ -392,6 +393,19 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
       }
 
+      const { data: apiary } = await admin
+        .from('apiaries')
+        .select('id, user_id')
+        .eq('id', apiaryId)
+        .maybeSingle();
+
+      if (!apiary?.id) {
+        return NextResponse.json({ error: 'Fant ikke bigård' }, { status: 404 });
+      }
+
+      const apiaryOwnerId = String((apiary as any)?.user_id || '').trim();
+      const isBeekeeper = Boolean(accountUserId && apiaryOwnerId && accountUserId === apiaryOwnerId);
+
       const { data: contact } = await admin
         .from('contacts')
         .select('id, email')
@@ -405,39 +419,36 @@ export async function POST(request: Request) {
       if (isScopedAgreementToken && tokenContactId && String(contact.id) !== tokenContactId) {
         return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
       }
-      if (!isScopedAgreementToken && contactEmail !== emailLower) {
+      if (!isBeekeeper && !isScopedAgreementToken && contactEmail !== emailLower) {
         return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
       }
 
-      let agreementRes;
+      let agreementForTerms: any | null = null;
       if (isScopedAgreementToken && tokenAgreementId) {
-        agreementRes = await admin
+        const res = await admin
           .from('grunneier_agreements')
-          .select('id, status, apiary_id, contact_id, contact_signed_at, beekeeper_signed_at')
+          .select('id, status, apiary_id, contact_id, contact_signed_at, beekeeper_signed_at, created_by')
           .eq('id', tokenAgreementId)
           .maybeSingle();
+        agreementForTerms = (res as any)?.data || null;
       } else {
-        agreementRes = await admin
+        const res = await admin
           .from('grunneier_agreements')
-          .select('id, status, apiary_id, contact_id, contact_signed_at, beekeeper_signed_at')
-          .eq('apiary_id', apiaryId)
+          .select('id, status, apiary_id, contact_id, contact_signed_at, beekeeper_signed_at, created_by')
           .eq('contact_id', contactId)
+          .eq('created_by', apiaryOwnerId)
           .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .limit(5);
+        const list = Array.isArray((res as any)?.data) ? (res as any).data : [];
+        agreementForTerms = list[0] || null;
       }
 
-      const agreementForTerms = (agreementRes as any)?.data || null;
       const statusValue = String(agreementForTerms?.status || '').toLowerCase();
       const bothSigned = Boolean(agreementForTerms?.contact_signed_at && agreementForTerms?.beekeeper_signed_at);
       const hasActiveAgreement = statusValue === 'active' || (bothSigned && statusValue !== 'rejected' && statusValue !== 'terminated');
+      const createdBy = String(agreementForTerms?.created_by || '').trim();
 
-      if (
-        !agreementForTerms ||
-        String(agreementForTerms.apiary_id || '') !== apiaryId ||
-        String(agreementForTerms.contact_id || '') !== contactId ||
-        !hasActiveAgreement
-      ) {
+      if (!agreementForTerms || !hasActiveAgreement || !createdBy || createdBy !== apiaryOwnerId) {
         return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
       }
 
@@ -445,7 +456,7 @@ export async function POST(request: Request) {
 
       const { data: link } = await admin
         .from('apiary_contacts')
-        .select('id, special_terms_updated_at')
+        .select('id, special_terms_updated_at, special_terms_contact_signed_at, special_terms_beekeeper_signed_at')
         .eq('apiary_id', apiaryId)
         .eq('contact_id', contactId)
         .maybeSingle();
@@ -454,11 +465,11 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Fant ikke kobling til bigård' }, { status: 404 });
       }
 
-      const contactSignedAtMs = agreementForTerms?.contact_signed_at
-        ? new Date(agreementForTerms.contact_signed_at).getTime()
+      const contactSignedAtMs = (link as any)?.special_terms_contact_signed_at
+        ? new Date((link as any).special_terms_contact_signed_at).getTime()
         : 0;
-      const beekeeperSignedAtMs = agreementForTerms?.beekeeper_signed_at
-        ? new Date(agreementForTerms.beekeeper_signed_at).getTime()
+      const beekeeperSignedAtMs = (link as any)?.special_terms_beekeeper_signed_at
+        ? new Date((link as any).special_terms_beekeeper_signed_at).getTime()
         : 0;
       const signedAtMs = Math.max(contactSignedAtMs, beekeeperSignedAtMs);
       const isSigned = Number.isFinite(signedAtMs) && signedAtMs > 0;
@@ -477,11 +488,114 @@ export async function POST(request: Request) {
 
       const { error } = await admin
         .from('apiary_contacts')
-        .update({ special_terms: specialTerms, special_terms_updated_at: new Date().toISOString() })
+        .update({
+          special_terms: specialTerms,
+          special_terms_updated_at: new Date().toISOString(),
+          special_terms_contact_signature_name: null,
+          special_terms_contact_signed_at: null,
+          special_terms_beekeeper_signature_name: null,
+          special_terms_beekeeper_signed_at: null,
+        })
         .eq('id', link.id);
 
       if (error) {
         return NextResponse.json({ error: 'Kunne ikke lagre vilkår', detail: error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'sign_special_terms') {
+      if (!apiaryId || !contactId) {
+        return NextResponse.json({ error: 'Mangler data' }, { status: 400 });
+      }
+
+      const signatureName = asString(body?.signatureName).trim();
+      if (!signatureName) {
+        return NextResponse.json({ error: 'Mangler signatur' }, { status: 400 });
+      }
+
+      const { data: apiary } = await admin
+        .from('apiaries')
+        .select('id, user_id')
+        .eq('id', apiaryId)
+        .maybeSingle();
+
+      if (!apiary?.id) {
+        return NextResponse.json({ error: 'Fant ikke bigård' }, { status: 404 });
+      }
+
+      const apiaryOwnerId = String((apiary as any)?.user_id || '').trim();
+      const isBeekeeper = Boolean(accountUserId && apiaryOwnerId && accountUserId === apiaryOwnerId);
+
+      const { data: contact } = await admin
+        .from('contacts')
+        .select('id, email')
+        .eq('id', contactId)
+        .maybeSingle();
+
+      if (!contact?.id) {
+        return NextResponse.json({ error: 'Fant ikke kontakt' }, { status: 404 });
+      }
+
+      const contactEmail = normalizeEmail((contact as any)?.email);
+      if (!isBeekeeper) {
+        if (isScopedAgreementToken && tokenContactId && String(contact.id) !== tokenContactId) {
+          return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
+        }
+        if (!isScopedAgreementToken && contactEmail !== emailLower) {
+          return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
+        }
+      }
+
+      let agreementForTerms: any | null = null;
+      if (isScopedAgreementToken && tokenAgreementId) {
+        const res = await admin
+          .from('grunneier_agreements')
+          .select('id, status, contact_id, created_by, contact_signed_at, beekeeper_signed_at')
+          .eq('id', tokenAgreementId)
+          .maybeSingle();
+        agreementForTerms = (res as any)?.data || null;
+      } else {
+        const res = await admin
+          .from('grunneier_agreements')
+          .select('id, status, contact_id, created_by, contact_signed_at, beekeeper_signed_at')
+          .eq('contact_id', contactId)
+          .eq('created_by', apiaryOwnerId)
+          .order('updated_at', { ascending: false })
+          .limit(5);
+        const list = Array.isArray((res as any)?.data) ? (res as any).data : [];
+        agreementForTerms = list[0] || null;
+      }
+
+      const statusValue = String(agreementForTerms?.status || '').toLowerCase();
+      const bothSigned = Boolean(agreementForTerms?.contact_signed_at && agreementForTerms?.beekeeper_signed_at);
+      const hasActiveAgreement = statusValue === 'active' || (bothSigned && statusValue !== 'rejected' && statusValue !== 'terminated');
+      const createdBy = String(agreementForTerms?.created_by || '').trim();
+
+      if (!agreementForTerms || !hasActiveAgreement || !createdBy || createdBy !== apiaryOwnerId) {
+        return NextResponse.json({ error: 'Ingen tilgang' }, { status: 403 });
+      }
+
+      const { data: link } = await admin
+        .from('apiary_contacts')
+        .select('id')
+        .eq('apiary_id', apiaryId)
+        .eq('contact_id', contactId)
+        .maybeSingle();
+
+      if (!link?.id) {
+        return NextResponse.json({ error: 'Fant ikke kobling til bigård' }, { status: 404 });
+      }
+
+      const now = new Date().toISOString();
+      const update = isBeekeeper
+        ? { special_terms_beekeeper_signature_name: signatureName, special_terms_beekeeper_signed_at: now }
+        : { special_terms_contact_signature_name: signatureName, special_terms_contact_signed_at: now };
+
+      const { error } = await admin.from('apiary_contacts').update(update).eq('id', link.id);
+      if (error) {
+        return NextResponse.json({ error: 'Kunne ikke signere vilkår', detail: error.message }, { status: 500 });
       }
 
       return NextResponse.json({ success: true });

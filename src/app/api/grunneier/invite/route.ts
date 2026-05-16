@@ -249,9 +249,9 @@ export async function POST(request: Request) {
       const beekeeperName = String(beekeeperProfile?.full_name || user.email || '').trim() || null;
 
       const baseText = standardAgreementText({
-        apiaryNumber: apiary?.apiary_number,
-        apiaryName: apiary?.name,
-        apiaryLocation: apiary?.location,
+        apiaryNumber: null,
+        apiaryName: null,
+        apiaryLocation: null,
         contactName: finalName,
         beekeeperName,
         role,
@@ -260,7 +260,7 @@ export async function POST(request: Request) {
       const { data: existingAgreement } = await supabase
         .from('grunneier_agreements')
         .select('id, status')
-        .eq('apiary_id', apiaryId)
+        .eq('created_by', user.id)
         .eq('contact_id', finalContactId)
         .order('updated_at', { ascending: false })
         .limit(1)
@@ -320,7 +320,7 @@ export async function POST(request: Request) {
       await admin
         .from('grunneier_agreements')
         .delete()
-        .eq('apiary_id', apiaryId)
+        .eq('created_by', user.id)
         .eq('contact_id', finalContactId)
         .neq('id', agreementId);
     }
@@ -368,7 +368,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const url = `${getBaseUrl(request)}/grunneier?token=${encodeURIComponent(token)}`;
+    const url = `${getBaseUrl(request)}/grunneier?token=${encodeURIComponent(token)}&apiaryId=${encodeURIComponent(
+      apiaryId
+    )}`;
 
     const mail = getMailService(admin);
     const mailProvider = String((mail as any)?.constructor?.name || '');

@@ -65,6 +65,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [specialTerms, setSpecialTerms] = useState('');
   const [specialTermsOriginal, setSpecialTermsOriginal] = useState('');
   const [isSavingSpecialTerms, setIsSavingSpecialTerms] = useState(false);
+  const [specialTermsSignatureName, setSpecialTermsSignatureName] = useState('');
 
   // Scan Modal State
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
@@ -187,13 +188,26 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     if (!apiary?.id || !selectedContactId) return;
     setIsSavingSpecialTerms(true);
     try {
-      const { error } = await supabase
-        .from('apiary_contacts')
-        .update({ special_terms: specialTerms })
-        .eq('apiary_id', apiary.id)
-        .eq('contact_id', selectedContactId);
-      if (error) {
-        alert(error.message);
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data?.session?.access_token || '';
+
+      const res = await fetch('/api/grunneier/agreement', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          action: 'update_special_terms',
+          apiaryId: apiary.id,
+          contactId: selectedContactId,
+          specialTerms,
+        }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(payload?.error || 'Kunne ikke lagre vilkår');
         return;
       }
       setSpecialTermsOriginal(specialTerms);
@@ -402,7 +416,9 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const fetchApiaryContacts = async () => {
     const { data: links, error: linksError } = await supabase
       .from('apiary_contacts')
-      .select('contact_id, role, special_terms')
+      .select(
+        'contact_id, role, special_terms, special_terms_contact_signature_name, special_terms_contact_signed_at, special_terms_beekeeper_signature_name, special_terms_beekeeper_signed_at'
+      )
       .eq('apiary_id', params.id);
 
     if (linksError || !links || links.length === 0) {
@@ -426,6 +442,10 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         contact_id: l.contact_id,
         role: l.role,
         special_terms: l.special_terms ?? null,
+        special_terms_contact_signature_name: l.special_terms_contact_signature_name ?? null,
+        special_terms_contact_signed_at: l.special_terms_contact_signed_at ?? null,
+        special_terms_beekeeper_signature_name: l.special_terms_beekeeper_signature_name ?? null,
+        special_terms_beekeeper_signed_at: l.special_terms_beekeeper_signed_at ?? null,
         contact: contactMap.get(l.contact_id) || null,
       }))
       .filter((x: any) => !!x.contact);
@@ -471,17 +491,43 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
     setAgreementLoading(true);
     try {
-      const { data } = await supabase
-        .from('grunneier_agreements')
-        .select(
-          'id, status, role, base_text, final_text, contact_proposal, beekeeper_decision, contact_signature_name, contact_signed_at, beekeeper_signature_name, beekeeper_signed_at, created_at, updated_at'
-        )
-        .eq('apiary_id', apiary.id)
-        .eq('contact_id', contactId)
-        .order('updated_at', { ascending: false })
-        .limit(12);
+      const fields =
+        'id, status, role, base_text, final_text, contact_proposal, beekeeper_decision, contact_signature_name, contact_signed_at, beekeeper_signature_name, beekeeper_signed_at, created_at, updated_at, apiary_id, created_by';
 
-      const list = Array.isArray(data) ? data : [];
+      const ownerId = String(apiary?.user_id || currentUser?.id || '').trim();
+
+      let list: any[] = [];
+      if (ownerId) {
+        const resOwner = await supabase
+          .from('grunneier_agreements')
+          .select(fields)
+          .eq('contact_id', contactId)
+          .eq('created_by', ownerId)
+          .order('updated_at', { ascending: false })
+          .limit(12);
+        list = Array.isArray(resOwner.data) ? resOwner.data : [];
+      }
+
+      if (list.length === 0) {
+        const resByApiary = await supabase
+          .from('grunneier_agreements')
+          .select(fields)
+          .eq('apiary_id', apiary.id)
+          .eq('contact_id', contactId)
+          .order('updated_at', { ascending: false })
+          .limit(12);
+        list = Array.isArray(resByApiary.data) ? resByApiary.data : [];
+      }
+
+      if (list.length === 0) {
+        const resAny = await supabase
+          .from('grunneier_agreements')
+          .select(fields)
+          .eq('contact_id', contactId)
+          .order('updated_at', { ascending: false })
+          .limit(12);
+        list = Array.isArray(resAny.data) ? resAny.data : [];
+      }
       const toTime = (a: any) => new Date(a?.updated_at || a?.created_at || 0).getTime();
       const descByTime = (a: any, b: any) => {
         const ta = toTime(a);
@@ -566,6 +612,41 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     if (r === 'kontaktperson') return 'Kontaktperson';
     if (r === 'samarbeidspartner') return 'Samarbeidspartner';
     return 'Grunneier';
+  };
+
+  const signSpecialTermsAsBeekeeper = async () => {
+    if (!apiary?.id || !selectedContactId) return;
+    if (!specialTermsSignatureName.trim()) return;
+    try {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data?.session?.access_token || '';
+
+      const res = await fetch('/api/grunneier/agreement', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          action: 'sign_special_terms',
+          apiaryId: apiary.id,
+          contactId: selectedContactId,
+          signatureName: specialTermsSignatureName.trim(),
+        }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(payload?.error || 'Kunne ikke signere vilkår');
+        return;
+      }
+
+      setSpecialTermsSignatureName('');
+      await fetchApiaryContacts();
+      alert('Spesielle vilkår signert.');
+    } catch {
+      alert('Kunne ikke signere vilkår');
+    }
   };
 
   useEffect(() => {
@@ -936,7 +1017,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       const res = await fetch('/api/grunneier/request-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, apiaryId: apiary?.id || params.id }),
       });
       const data = await res.json().catch(() => ({}));
       const inviteUrl = String(data?.inviteUrl || '');
@@ -1878,6 +1959,15 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
                   <div className="grid gap-2">
                     <div className="text-xs font-bold uppercase text-gray-700">Spesielle vilkår for denne bigården</div>
+                    {(!apiaryContacts.find((ac: any) => ac.contact_id === selectedContactId)?.special_terms_contact_signed_at ||
+                      !apiaryContacts.find((ac: any) => ac.contact_id === selectedContactId)?.special_terms_beekeeper_signed_at) && (
+                      <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-3 flex gap-2 text-sm text-yellow-900">
+                        <AlertCircle className="w-4 h-4 mt-0.5" />
+                        <div>
+                          Spesielle vilkår må signeres av både grunneier og birøkter. Hvis det ikke er noen spesielle vilkår, signer blankt.
+                        </div>
+                      </div>
+                    )}
                     <textarea
                       value={specialTerms}
                       onChange={(e) => setSpecialTerms(e.target.value)}
@@ -1892,6 +1982,26 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                     >
                       Lagre vilkår
                     </button>
+                    <div className="text-xs text-gray-600">
+                      Grunneier signert: {apiaryContacts.find((ac: any) => ac.contact_id === selectedContactId)?.special_terms_contact_signed_at ? 'Ja' : 'Nei'} • Birøkter signert:{' '}
+                      {apiaryContacts.find((ac: any) => ac.contact_id === selectedContactId)?.special_terms_beekeeper_signed_at ? 'Ja' : 'Nei'}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input
+                        value={specialTermsSignatureName}
+                        onChange={(e) => setSpecialTermsSignatureName(e.target.value)}
+                        className="sm:col-span-2 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        placeholder="Din signatur (navn)"
+                      />
+                      <button
+                        onClick={signSpecialTermsAsBeekeeper}
+                        disabled={!specialTermsSignatureName.trim()}
+                        className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 font-bold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
+                        type="button"
+                      >
+                        Signer vilkår
+                      </button>
+                    </div>
                   </div>
 
                   <button

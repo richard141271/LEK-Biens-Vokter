@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { ArrowLeft, Mail, MapPin } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Mail, MapPin } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 
 const Map = dynamic(() => import('@/components/Map'), {
@@ -38,6 +38,10 @@ type LinkedApiary = {
   };
   role: 'grunneier' | 'kontaktperson' | 'samarbeidspartner';
   special_terms: string | null;
+  special_terms_contact_signature_name?: string | null;
+  special_terms_contact_signed_at?: string | null;
+  special_terms_beekeeper_signature_name?: string | null;
+  special_terms_beekeeper_signed_at?: string | null;
 };
 
 type Agreement = {
@@ -78,6 +82,7 @@ export default function GrunneierPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
+  const apiaryIdFromUrl = searchParams.get('apiaryId');
   const supabase = useMemo(() => createClient(), []);
   const goBackToMinSide = useCallback(() => {
     try {
@@ -119,6 +124,7 @@ export default function GrunneierPage() {
   const [specialTerms, setSpecialTerms] = useState('');
   const [specialTermsOriginal, setSpecialTermsOriginal] = useState('');
   const [savingSpecialTerms, setSavingSpecialTerms] = useState(false);
+  const [specialTermsSignatureName, setSpecialTermsSignatureName] = useState('');
   const [authEmail, setAuthEmail] = useState<string | null>(null);
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [sessionTokenPurpose, setSessionTokenPurpose] = useState<string | null>(null);
@@ -194,6 +200,13 @@ export default function GrunneierPage() {
     );
     setSelectedApiaryId(firstWithCoords?.apiary.id || linkedApiaries[0]?.apiary.id || null);
   }, [linkedApiaries, selectedApiaryId]);
+
+  useEffect(() => {
+    const id = String(apiaryIdFromUrl || '').trim();
+    if (!id) return;
+    if (!linkedApiaries.some((i) => i.apiary.id === id)) return;
+    setSelectedApiaryId(id);
+  }, [apiaryIdFromUrl, linkedApiaries]);
 
   const selectedLink = useMemo(() => {
     if (!selectedApiaryId) return null;
@@ -444,9 +457,9 @@ export default function GrunneierPage() {
   }, [linkedApiaries]);
 
   const displayAgreements = useMemo(() => {
-    if (hasSession && activeAgreements.length > 0) return activeAgreements;
+    if (hasSession && activeAgreements.length > 0 && pendingAgreements.length === 0) return activeAgreements;
     return sortedAgreements;
-  }, [activeAgreements, hasSession, sortedAgreements]);
+  }, [activeAgreements, hasSession, pendingAgreements.length, sortedAgreements]);
 
   const currentAgreement = useMemo(() => {
     if (activeAgreementId) return displayAgreements.find((a) => a.id === activeAgreementId) || null;
@@ -723,6 +736,35 @@ export default function GrunneierPage() {
       await fetchSession();
     } finally {
       setSavingSpecialTerms(false);
+    }
+  };
+
+  const signSpecialTerms = async () => {
+    if (!selectedLink?.apiary?.id || !selectedLink?.contact?.id) return;
+    if (!specialTermsSignatureName.trim()) return;
+    setLoading(true);
+    setStatus(null);
+    try {
+      const res = await fetch('/api/grunneier/agreement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'sign_special_terms',
+          apiaryId: selectedLink.apiary.id,
+          contactId: selectedLink.contact.id,
+          signatureName: specialTermsSignatureName.trim(),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(data?.error || 'Kunne ikke signere vilkår');
+        return;
+      }
+      setSpecialTermsSignatureName('');
+      setStatus('Spesielle vilkår signert.');
+      await fetchSession();
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1217,12 +1259,24 @@ export default function GrunneierPage() {
                       {formatApiaryNumber(selectedLink.apiary.apiary_number) || 'Bigård'}
                       {selectedLink.apiary.name ? ` – ${selectedLink.apiary.name}` : ''}
                     </div>
+                    {(!selectedLink.special_terms_contact_signed_at || !selectedLink.special_terms_beekeeper_signed_at) && (
+                      <div className="border border-yellow-200 bg-yellow-50 rounded-lg p-3 flex gap-2 text-sm text-yellow-900">
+                        <AlertCircle className="w-4 h-4 mt-0.5" />
+                        <div>
+                          Spesielle vilkår må signeres av både grunneier og birøkter. Hvis det ikke er noen spesielle vilkår, signer blankt.
+                        </div>
+                      </div>
+                    )}
                     <textarea
                       value={specialTerms}
                       onChange={(e) => setSpecialTerms(e.target.value)}
                       className="border border-gray-300 rounded-lg px-3 py-2 text-sm min-h-[150px] resize-y"
                       placeholder="Skriv inn eventuelle spesielle vilkår/tillegg/endringer for denne bigården..."
                     />
+                    <div className="text-xs text-gray-600">
+                      Grunneier signert: {selectedLink.special_terms_contact_signed_at ? 'Ja' : 'Nei'} • Birøkter signert:{' '}
+                      {selectedLink.special_terms_beekeeper_signed_at ? 'Ja' : 'Nei'}
+                    </div>
                     <div className="flex items-center justify-end">
                       <button
                         disabled={savingSpecialTerms || specialTerms.trim() === specialTermsOriginal.trim()}
@@ -1230,6 +1284,21 @@ export default function GrunneierPage() {
                         className="inline-flex items-center justify-center bg-gray-900 text-white px-5 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50"
                       >
                         Lagre vilkår
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
+                      <input
+                        value={specialTermsSignatureName}
+                        onChange={(e) => setSpecialTermsSignatureName(e.target.value)}
+                        className="sm:col-span-2 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        placeholder="Din signatur (navn)"
+                      />
+                      <button
+                        disabled={loading || !specialTermsSignatureName.trim()}
+                        onClick={signSpecialTerms}
+                        className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-900 px-4 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                      >
+                        Signer vilkår
                       </button>
                     </div>
                   </div>

@@ -16,6 +16,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
     const email = String(body?.email || '').trim();
+    const apiaryId = body?.apiaryId != null ? String(body.apiaryId).trim() : '';
 
     if (!email) {
       return NextResponse.json({ error: 'Mangler e-post' }, { status: 400 });
@@ -24,6 +25,15 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
 
     const emailLower = email.toLowerCase();
+    const apiaryOwnerUserId = apiaryId
+      ? (
+          await admin
+            .from('apiaries')
+            .select('user_id')
+            .eq('id', apiaryId)
+            .maybeSingle()
+        )?.data?.user_id || null
+      : null;
     const { data: contacts } = await admin
       .from('contacts')
       .select('id, email, name, created_at')
@@ -59,7 +69,7 @@ export async function POST(request: Request) {
       .in('contact_id', contactIds)
       .limit(50);
 
-    const ownerUserId = (agreements || [])[0]?.created_by || (apiaries || [])[0]?.user_id || null;
+    const ownerUserId = apiaryOwnerUserId || (agreements || [])[0]?.created_by || (apiaries || [])[0]?.user_id || null;
 
     if (!ownerUserId) {
       return NextResponse.json({ success: true });
@@ -75,13 +85,16 @@ export async function POST(request: Request) {
       used: false,
       purpose: 'portal',
       contact_id: contactId || null,
+      apiary_id: apiaryId || null,
     });
 
     if (insertError) {
       return NextResponse.json({ error: 'Kunne ikke opprette lenke' }, { status: 500 });
     }
 
-    const url = `${getBaseUrl(request)}/grunneier?token=${encodeURIComponent(token)}`;
+    const url = `${getBaseUrl(request)}/grunneier?token=${encodeURIComponent(token)}${
+      apiaryId ? `&apiaryId=${encodeURIComponent(apiaryId)}` : ''
+    }`;
 
     const mail = getMailService(admin);
     const mailProvider = String((mail as any)?.constructor?.name || '');

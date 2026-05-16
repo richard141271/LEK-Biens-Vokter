@@ -190,7 +190,7 @@ export async function GET(request: Request) {
     let agreementsQuery = admin
       .from('grunneier_agreements')
       .select(
-        'id, status, base_text, final_text, contact_proposal, beekeeper_decision, apiary_id, contact_id, role, contact_signed_at, beekeeper_signed_at, created_at, updated_at'
+        'id, status, base_text, final_text, contact_proposal, beekeeper_decision, apiary_id, contact_id, role, contact_signed_at, beekeeper_signed_at, created_by, created_at, updated_at'
       )
       .in('contact_id', contactIds)
       .limit(500);
@@ -238,55 +238,40 @@ export async function GET(request: Request) {
     }
 
     const accessPairs = new Set<string>();
-    const activeAgreementApiaryIds = Array.from(
-      new Set(
-        (agreements || [])
-          .filter((a: any) => {
-            const status = String(a?.status || '').toLowerCase();
-            const hasAccess = status === 'active';
-            const apiaryId = String(a?.apiary_id || '').trim();
-            const contactId = String(a?.contact_id || '').trim();
-            if (hasAccess && apiaryId && contactId) {
-              accessPairs.add(`${apiaryId}:${contactId}`);
-              return true;
-            }
-            return false;
-          })
-          .map((a: any) => String(a?.apiary_id || '').trim())
-          .filter(Boolean)
-      )
-    );
+    const activeOwnerPairs = new Set<string>();
+    for (const a of agreements || []) {
+      const status = String(a?.status || '').toLowerCase();
+      const bothSigned = Boolean(a?.contact_signed_at && a?.beekeeper_signed_at);
+      const isActive =
+        status === 'active' || (bothSigned && status !== 'rejected' && status !== 'terminated');
+      if (!isActive) continue;
+      const contactId = String(a?.contact_id || '').trim();
+      const apiaryId = String(a?.apiary_id || '').trim();
+      const createdBy = String(a?.created_by || '').trim();
+      if (createdBy && contactId) activeOwnerPairs.add(`${createdBy}:${contactId}`);
+      if (apiaryId && contactId) accessPairs.add(`${apiaryId}:${contactId}`);
+    }
 
-    const { data: apiaryContactsRaw } = activeAgreementApiaryIds.length
+    const { data: apiaryContactsRaw } = contactIds.length
       ? await admin
           .from('apiary_contacts')
-          .select('apiary_id, contact_id, role, special_terms')
+          .select(
+            'apiary_id, contact_id, role, special_terms, special_terms_contact_signature_name, special_terms_contact_signed_at, special_terms_beekeeper_signature_name, special_terms_beekeeper_signed_at'
+          )
           .in('contact_id', contactIds)
-          .in('apiary_id', activeAgreementApiaryIds)
-          .limit(500)
+          .limit(5000)
       : { data: [] as any[] };
 
-    const apiaryContacts = (apiaryContactsRaw || []).filter((ac: any) => {
-      const apiaryId = String(ac?.apiary_id || '').trim();
-      const contactId = String(ac?.contact_id || '').trim();
-      if (!apiaryId || !contactId) return false;
-      return accessPairs.has(`${apiaryId}:${contactId}`);
-    });
+    const allApiaryContacts = Array.isArray(apiaryContactsRaw) ? apiaryContactsRaw : [];
 
-    const apiaryIds = Array.from(
-      new Set((apiaryContacts || []).map((ac: any) => ac.apiary_id))
-    );
-
-    const agreementApiaryIds = Array.from(
-      new Set((agreements || []).map((a: any) => a.apiary_id).filter(Boolean))
-    );
-
+    const apiaryIds = Array.from(new Set(allApiaryContacts.map((ac: any) => ac.apiary_id).filter(Boolean)));
+    const agreementApiaryIds = Array.from(new Set((agreements || []).map((a: any) => a.apiary_id).filter(Boolean)));
     const apiaryIdsForFetch = Array.from(new Set([...apiaryIds, ...agreementApiaryIds]));
 
     const { data: apiaries } = apiaryIdsForFetch.length
       ? await admin
           .from('apiaries')
-          .select('id, name, apiary_number, latitude, longitude, location, type')
+          .select('id, name, apiary_number, latitude, longitude, location, type, user_id')
           .in('id', apiaryIdsForFetch)
           .limit(500)
       : { data: [] as any[] };
@@ -318,11 +303,18 @@ export async function GET(request: Request) {
     const contactMap = new Map((contacts || []).map((c: any) => [c.id, c]));
 
     const linkedApiaries =
-      (apiaryContacts || [])
+      (allApiaryContacts || [])
         .map((ac: any) => {
           const apiary = apiaryMap.get(ac.apiary_id);
           const contact = contactMap.get(ac.contact_id);
           if (!apiary || !contact) return null;
+
+          const apiaryOwnerId = String((apiary as any)?.user_id || '').trim();
+          const canSee =
+            accessPairs.has(`${String(apiary.id)}:${String(contact.id)}`) ||
+            (apiaryOwnerId && activeOwnerPairs.has(`${apiaryOwnerId}:${String(contact.id)}`));
+          if (!canSee) return null;
+
           const activeProductionHiveCount = countByApiaryId.get(String(apiary.id)) || 0;
           const isActive = activeProductionHiveCount > 0;
           return {
@@ -348,6 +340,10 @@ export async function GET(request: Request) {
             },
             role: ac.role,
             special_terms: ac.special_terms ?? null,
+            special_terms_contact_signature_name: ac.special_terms_contact_signature_name ?? null,
+            special_terms_contact_signed_at: ac.special_terms_contact_signed_at ?? null,
+            special_terms_beekeeper_signature_name: ac.special_terms_beekeeper_signature_name ?? null,
+            special_terms_beekeeper_signed_at: ac.special_terms_beekeeper_signed_at ?? null,
           };
         })
         .filter(Boolean) || [];
