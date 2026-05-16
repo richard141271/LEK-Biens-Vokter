@@ -136,14 +136,20 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
              };
 
              let inspectionError: any = null;
-             {
-               const res = await supabase.from('inspections').insert(insertPayload);
+             const payloadToInsert: any = { ...insertPayload };
+             for (let i = 0; i < 4; i++) {
+               const res = await supabase.from('inspections').insert(payloadToInsert);
                inspectionError = res.error;
-             }
-             if (inspectionError && isMissingColumn(inspectionError, 'queen_side')) {
-               const { queen_side: _drop, ...rest } = insertPayload;
-               const res = await supabase.from('inspections').insert(rest);
-               inspectionError = res.error;
+               if (!inspectionError) break;
+               if (isMissingColumn(inspectionError, 'queen_side') && 'queen_side' in payloadToInsert) {
+                 try { delete payloadToInsert.queen_side; } catch {}
+                 continue;
+               }
+               if (isMissingColumn(inspectionError, 'performed_actions') && 'performed_actions' in payloadToInsert) {
+                 try { delete payloadToInsert.performed_actions; } catch {}
+                 continue;
+               }
+               break;
              }
              if (inspectionError) {
                const msg = String((inspectionError as any)?.message || '');

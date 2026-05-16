@@ -7,7 +7,7 @@ import { analyzeAndCorrect } from '@/utils/voice-diagnostics';
 import { loadAliases } from '@/utils/voice-alias';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, Image as ImageIcon, X, Mic, MicOff, Camera } from 'lucide-react';
+import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, ClipboardList, Image as ImageIcon, X, Mic, MicOff, Camera } from 'lucide-react';
 import { useOffline } from '@/context/OfflineContext';
 
 export default function NewInspectionPage({ params }: { params: { id: string } }) {
@@ -522,6 +522,59 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [temperament, setTemperament] = useState('rolig');
   const [notes, setNotes] = useState('');
   const [status, setStatus] = useState('OK');
+
+  type PerformedAction = {
+    id: string;
+    meta?: {
+      feedType?: 'nodfor' | 'sukkerlake' | 'annet';
+    };
+  };
+
+  const performedActionDefs: Array<{ id: string; label: string; group: string; quick?: boolean }> = [
+    { id: 'FEED_GIVEN', label: 'Gitt fôr', group: 'Fôr', quick: true },
+    { id: 'VARROA_TREATED', label: 'Behandlet varroa', group: 'Varroa', quick: true },
+    { id: 'SUPER_ADDED', label: 'Satt på skattekasse', group: 'Produksjon', quick: true },
+    { id: 'HONEY_HARVESTED', label: 'Høstet honning', group: 'Produksjon', quick: true },
+    { id: 'QUEEN_REPLACED', label: 'Byttet dronning', group: 'Dronning', quick: true },
+    { id: 'QUEEN_CELLS_REMOVED', label: 'Fjernet dronningceller', group: 'Dronning' },
+    { id: 'SUPER_REMOVED', label: 'Fjernet skattekasse', group: 'Produksjon' },
+    { id: 'FRAMES_ADDED', label: 'Satt inn rammer', group: 'Rammer' },
+    { id: 'FRAMES_REMOVED', label: 'Fjernet rammer', group: 'Rammer' },
+    { id: 'WAX_REPLACED', label: 'Byttet voks', group: 'Rammer' },
+    { id: 'SPLIT_MADE', label: 'Laget avlegger', group: 'Kube' },
+    { id: 'HIVE_SPLIT', label: 'Delt kube', group: 'Kube' },
+    { id: 'VARROA_TEST_DONE', label: 'Gjennomført varroatest', group: 'Varroa' },
+  ];
+
+  const performedActionLabel = (a: PerformedAction) => {
+    const def = performedActionDefs.find((d) => d.id === a.id);
+    const base = def?.label || a.id;
+    if (a.id === 'FEED_GIVEN') {
+      const t = a.meta?.feedType;
+      if (t === 'nodfor') return `${base} (nødfôr)`;
+      if (t === 'sukkerlake') return `${base} (sukkerlake)`;
+      if (t === 'annet') return `${base} (annet)`;
+    }
+    return base;
+  };
+
+  const [performedActions, setPerformedActions] = useState<PerformedAction[]>([]);
+  const [showAllPerformedActions, setShowAllPerformedActions] = useState(false);
+
+  const isPerformed = (id: string) => performedActions.some((a) => a.id === id);
+  const togglePerformedAction = (id: string) => {
+    setPerformedActions((prev) => {
+      const exists = prev.some((a) => a.id === id);
+      if (exists) return prev.filter((a) => a.id !== id);
+      return [...prev, { id }];
+    });
+  };
+
+  const setPerformedMeta = (id: string, meta: PerformedAction['meta']) => {
+    setPerformedActions((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, meta: { ...(a.meta || {}), ...(meta || {}) } } : a))
+    );
+  };
   
   // Weather State
   const [weather, setWeather] = useState('');
@@ -1696,7 +1749,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           id: opId,
           hiveId: params.id,
           action: 'FULL_INSPECTION',
-          details: `Inspeksjon utført (Offline).${isTwoQueen ? ` Dronning ${queenSide}.` : ''} Status: ${status}.`,
+          details: `Inspeksjon utført (Offline).${isTwoQueen ? ` Dronning ${queenSide}.` : ''} Status: ${status}.${performedActions.length ? ` Tiltak: ${performedActions.map(performedActionLabel).join(', ')}.` : ''}`,
           sharedWithMattilsynet: false,
           images: allFiles.length > 0 ? allFiles.map((f) => ({ name: f.name, type: f.type, blob: f })) : undefined,
           data: {
@@ -1713,6 +1766,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               brood_condition: broodConditionToSave,
               honey_stores: honeyStores,
               temperament: temperament,
+              performed_actions: performedActions,
               notes: notes,
               status: status,
               temperature: temperature ? parseFloat(temperature) : null,
@@ -1790,6 +1844,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               brood_condition: broodConditionToSave,
               honey_stores: honeyStores,
               temperament: temperament,
+              performed_actions: performedActions,
               notes: notesWithImages,
               status: status,
               temperature: temperature ? parseFloat(temperature) : null,
@@ -1874,6 +1929,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           brood_condition: broodConditionToSave,
           honey_stores: honeyStores,
           temperament: temperament,
+          performed_actions: performedActions,
           notes: allPhotos.length > 1 ? `${notes}\n${allPhotos.slice(1).map((u, i) => `Bilde ${i + 2}: ${u}`).join('\n')}` : notes,
           status: status, 
           temperature: temperature ? parseFloat(temperature) : null,
@@ -1883,17 +1939,23 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         };
 
       let inspectionError: any = null;
-      {
-        const res = await supabase.from('inspections').insert(insertPayload);
+      const payloadToInsert: any = { ...insertPayload };
+      for (let i = 0; i < 4; i++) {
+        const res = await supabase.from('inspections').insert(payloadToInsert);
         inspectionError = res.error;
-      }
-      if (inspectionError && isMissingColumn(inspectionError, 'queen_side')) {
-        setQueenSideDbSupported(false);
-        shouldUseQueenSide = false;
-        shouldSplit = false;
-        const { queen_side: _drop, ...rest } = insertPayload;
-        const res = await supabase.from('inspections').insert(rest);
-        inspectionError = res.error;
+        if (!inspectionError) break;
+        if (isMissingColumn(inspectionError, 'queen_side') && 'queen_side' in payloadToInsert) {
+          setQueenSideDbSupported(false);
+          shouldUseQueenSide = false;
+          shouldSplit = false;
+          try { delete payloadToInsert.queen_side; } catch {}
+          continue;
+        }
+        if (isMissingColumn(inspectionError, 'performed_actions') && 'performed_actions' in payloadToInsert) {
+          try { delete payloadToInsert.performed_actions; } catch {}
+          continue;
+        }
+        break;
       }
       if (inspectionError) throw inspectionError;
 
@@ -1914,7 +1976,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           hive_id: params.id,
           user_id: user.id,
           action: 'INSPEKSJON',
-          details: `Inspeksjon utført.${isTwoQueen ? ` Dronning ${queenSide}.` : ''} Status: ${status}. Temp: ${temperature}°C. ${notes ? 'Notater lagt til.' : ''}`
+          details: `Inspeksjon utført.${isTwoQueen ? ` Dronning ${queenSide}.` : ''} Status: ${status}. Temp: ${temperature}°C.${performedActions.length ? ` Tiltak: ${performedActions.map(performedActionLabel).join(', ')}.` : ''} ${notes ? 'Notater lagt til.' : ''}`
         });
 
       if (logError) throw logError;
@@ -1950,7 +2012,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             id: opId,
             hiveId: params.id,
             action: 'FULL_INSPECTION',
-            details: `Inspeksjon utført (Offline).${isTwoQueen ? ` Dronning ${queenSide}.` : ''} Status: ${status}.`,
+            details: `Inspeksjon utført (Offline).${isTwoQueen ? ` Dronning ${queenSide}.` : ''} Status: ${status}.${performedActions.length ? ` Tiltak: ${performedActions.map(performedActionLabel).join(', ')}.` : ''}`,
             sharedWithMattilsynet: false,
             images: allFiles.length > 0 ? allFiles.map((f) => ({ name: f.name, type: f.type, blob: f })) : undefined,
             data: {
@@ -1967,6 +2029,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 brood_condition: broodConditionToSave,
                 honey_stores: honeyStores,
                 temperament: temperament,
+                performed_actions: performedActions,
                 notes: notes,
                 status: status,
                 temperature: temperature ? parseFloat(temperature) : null,
@@ -2501,6 +2564,123 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 <option value="aggressiv">Aggressiv</option>
               </select>
             </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-3">
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              <ClipboardList className="w-4 h-4" />
+              Hva er utført i dag?
+            </h3>
+            <div className="text-xs text-gray-500">
+              Valgt: {performedActions.length || 0}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {performedActionDefs
+                .filter((d) => d.quick)
+                .map((d) => {
+                  const selected = isPerformed(d.id);
+                  const recommend = d.id === 'FEED_GIVEN' && honeyStores === 'lite';
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => togglePerformedAction(d.id)}
+                      className={`w-full text-left px-3 py-2.5 rounded-lg border font-semibold text-sm transition-colors active:scale-[0.99] ${
+                        selected
+                          ? 'bg-gray-900 text-white border-gray-900'
+                          : recommend
+                            ? 'bg-yellow-50 text-gray-900 border-yellow-300'
+                            : 'bg-white text-gray-900 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {d.label}
+                    </button>
+                  );
+                })}
+            </div>
+
+            {isPerformed('FEED_GIVEN') && (
+              <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-2">
+                <div className="text-xs font-bold text-gray-700 uppercase">Type fôr</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'nodfor' as const, label: 'Nødfôr' },
+                    { id: 'sukkerlake' as const, label: 'Sukkerlake' },
+                    { id: 'annet' as const, label: 'Annet' },
+                  ].map((opt) => {
+                    const current = performedActions.find((a) => a.id === 'FEED_GIVEN')?.meta?.feedType;
+                    const selected = current === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setPerformedMeta('FEED_GIVEN', { feedType: opt.id })}
+                        className={`px-3 py-2 rounded-lg border text-sm font-semibold ${
+                          selected
+                            ? 'bg-gray-900 text-white border-gray-900'
+                            : 'bg-white text-gray-900 border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setShowAllPerformedActions((v) => !v)}
+                className="text-sm font-semibold text-gray-900 underline underline-offset-2"
+              >
+                {showAllPerformedActions ? 'Skjul flere handlinger' : 'Vis flere handlinger'}
+              </button>
+              {performedActions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setPerformedActions([])}
+                  className="text-sm font-semibold text-gray-600 underline underline-offset-2"
+                >
+                  Nullstill
+                </button>
+              )}
+            </div>
+
+            {showAllPerformedActions && (
+              <div className="space-y-3">
+                {Array.from(new Set(performedActionDefs.map((d) => d.group))).map((group) => {
+                  const items = performedActionDefs.filter((d) => d.group === group && !d.quick);
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={group} className="space-y-2">
+                      <div className="text-xs font-bold text-gray-500 uppercase">{group}</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {items.map((d) => {
+                          const selected = isPerformed(d.id);
+                          return (
+                            <button
+                              key={d.id}
+                              type="button"
+                              onClick={() => togglePerformedAction(d.id)}
+                              className={`w-full text-left px-3 py-2.5 rounded-lg border font-semibold text-sm transition-colors active:scale-[0.99] ${
+                                selected
+                                  ? 'bg-gray-900 text-white border-gray-900'
+                                  : 'bg-white text-gray-900 border-gray-300 hover:bg-gray-50'
+                              }`}
+                            >
+                              {d.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Notes & Image */}
