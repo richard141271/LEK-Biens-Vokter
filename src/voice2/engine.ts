@@ -29,9 +29,7 @@ export class Voice2Engine {
   private starting = false;
   private listening = false;
   private lastStopAt = 0;
-  private restartTimer: ReturnType<typeof setTi
-  
-  meout> | null = null;
+  private restartTimer: ReturnType<typeof setTimeout> | null = null;
   private audioCtx: any | null = null;
   private ttsUnlocked = false;
   private ttsCache = new Map<string, ArrayBuffer>();
