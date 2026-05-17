@@ -26,6 +26,31 @@ export function parseVoice2Intent(text: string): Voice2Intent {
 
   if (/\b(ta bilde|knips|foto|bilde)\b/.test(t)) return { type: 'TAKE_PHOTO' };
 
+  const tempMatch =
+    t.match(/\b(temperatur)\s*(-?\d{1,2})\b/) ||
+    t.match(/\b(-?\d{1,2})\s*(grader|grad)\b/) ||
+    t.match(/\b(-?\d{1,2})\s*c\b/);
+  if (tempMatch) {
+    const raw = Number(tempMatch[2] ?? tempMatch[1]);
+    if (Number.isFinite(raw)) {
+      const celsius = Math.max(-30, Math.min(60, Math.round(raw)));
+      return { type: 'TEMPERATURE', celsius };
+    }
+  }
+
+  if (t.startsWith('vaer ') || t.startsWith('vær ') || /\b(vaer|vær)\b/.test(t)) {
+    const weatherText = t.replace(/\b(vaer|vær)\b/g, '').trim();
+    const w = weatherText || t;
+    if (hasAny(w, ['sol', 'sola', 'solen', 'klart', 'klarvaer', 'klarvær'])) return { type: 'WEATHER', weather: 'Sol' };
+    if (hasAny(w, ['delvis', 'lettskyet', 'lett skyet', 'delvis skyet'])) return { type: 'WEATHER', weather: 'Delvis skyet' };
+    if (hasAny(w, ['skyet', 'overskyet', 'skyer', 'gratt', 'grått'])) return { type: 'WEATHER', weather: 'Overskyet' };
+    if (hasAny(w, ['regn', 'regner', 'yr', 'dusj', 'byger'])) return { type: 'WEATHER', weather: 'Regn' };
+    if (hasAny(w, ['vind', 'blaser', 'blåser', 'kuling'])) return { type: 'WEATHER', weather: 'Vind' };
+    if (hasAny(w, ['toke', 'tåke', 'dis'])) return { type: 'WEATHER', weather: 'Tåke' };
+    if (hasAny(w, ['sno', 'snø', 'sludd'])) return { type: 'WEATHER', weather: 'Snø' };
+    if (weatherText) return { type: 'WEATHER', weather: weatherText };
+  }
+
   if (/\b(dronning)\b/.test(t) && /\b(ikke|ingen)\b/.test(t) && /\b(sett|funnet)\b/.test(t)) {
     return { type: 'QUEEN_NOT_SEEN' };
   }
@@ -115,6 +140,49 @@ export function parseVoice2Intent(text: string): Voice2Intent {
   }
   if (hasAny(t, ['ga', 'gitt', 'gir', 'gjev', 'gav']) && hasAny(t, ['for', 'fôr'])) {
     return { type: 'FEED_GIVEN', feedType: 'annet' };
+  }
+
+  if (hasAny(t, ['gitt for', 'gitt fôr', 'ga for', 'ga fôr', 'fôret', 'foret', 'foring', 'fôring', 'matet', 'mating'])) {
+    if (hasAny(t, ['sukkerlake', 'sukkervann', 'sukker vann'])) return { type: 'FEED_GIVEN', feedType: 'sukkerlake' };
+    if (hasAny(t, ['nodfor', 'nødfor', 'nodfôr', 'nødfôr'])) return { type: 'FEED_GIVEN', feedType: 'nodfor' };
+    return { type: 'FEED_GIVEN', feedType: 'annet' };
+  }
+
+  if (hasAny(t, ['behandlet varroa', 'varroa behandlet', 'varroabehandling', 'varroa behandling', 'behandla varroa'])) {
+    return { type: 'PERFORMED_ACTION', id: 'VARROA_TREATED' };
+  }
+  if (hasAny(t, ['satt pa skattekasse', 'satt på skattekasse', 'skattekasse pa', 'skattekasse på', 'la pa skattekasse', 'la på skattekasse'])) {
+    return { type: 'PERFORMED_ACTION', id: 'SUPER_ADDED' };
+  }
+  if (hasAny(t, ['fjernet skattekasse', 'tok av skattekasse', 'tatt av skattekasse', 'skattekasse av'])) {
+    return { type: 'PERFORMED_ACTION', id: 'SUPER_REMOVED' };
+  }
+  if (hasAny(t, ['hostet honning', 'høstet honning', 'honning hostet', 'honning høstet', 'slynget', 'honning slynget'])) {
+    return { type: 'PERFORMED_ACTION', id: 'HONEY_HARVESTED' };
+  }
+  if (hasAny(t, ['byttet dronning', 'bytta dronning', 'skiftet dronning'])) {
+    return { type: 'PERFORMED_ACTION', id: 'QUEEN_REPLACED' };
+  }
+  if (hasAny(t, ['fjernet dronningceller', 'fjerna dronningceller', 'dronningceller fjernet', 'dronningceller fjerna'])) {
+    return { type: 'PERFORMED_ACTION', id: 'QUEEN_CELLS_REMOVED' };
+  }
+  if (hasAny(t, ['satt inn rammer', 'satt inn ramme', 'satt i rammer', 'rammer satt inn', 'rammer inn'])) {
+    return { type: 'PERFORMED_ACTION', id: 'FRAMES_ADDED' };
+  }
+  if (hasAny(t, ['fjernet rammer', 'fjernet ramme', 'tatt ut rammer', 'tok ut rammer', 'rammer ut'])) {
+    return { type: 'PERFORMED_ACTION', id: 'FRAMES_REMOVED' };
+  }
+  if (hasAny(t, ['byttet voks', 'bytta voks', 'skiftet voks', 'ny voks', 'byttet ut voks'])) {
+    return { type: 'PERFORMED_ACTION', id: 'WAX_REPLACED' };
+  }
+  if (hasAny(t, ['laget avlegger', 'avlegger laget', 'lagde avlegger', 'avlegger'])) {
+    return { type: 'PERFORMED_ACTION', id: 'SPLIT_MADE' };
+  }
+  if (hasAny(t, ['delt kube', 'delte kube', 'kube delt', 'splittet kube', 'splitte kube'])) {
+    return { type: 'PERFORMED_ACTION', id: 'HIVE_SPLIT' };
+  }
+  if (hasAny(t, ['varroatest', 'varroa test', 'gjennomfort varroatest', 'gjennomført varroatest', 'gjort varroatest'])) {
+    return { type: 'PERFORMED_ACTION', id: 'VARROA_TEST_DONE' };
   }
 
   if (hasAny(t, ['varroa', 'varoa', 'varro', 'midd', 'mider'])) {

@@ -610,10 +610,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const handleVoice2Text = useCallback(async (text: string) => {
     const engine = voice2Ref.current;
     if (!engine) return;
-    const fromAlias = getVoice2AliasIntent(text);
+    const parsed = parseVoice2Intent(text) as any;
+    const fromAlias = parsed?.type === 'UNKNOWN' ? getVoice2AliasIntent(text) : null;
     const intent = (fromAlias && typeof fromAlias === 'object' && typeof (fromAlias as any).type === 'string'
       ? (fromAlias as any)
-      : parseVoice2Intent(text)) as any;
+      : parsed) as any;
 
     if (intent.type === 'UNKNOWN') {
       const now = Date.now();
@@ -623,6 +624,40 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         await engine.speak('Jeg forstod ikke. Prøv igjen.');
         setTimeout(() => setLastCommand(null), 2500);
       }
+      return;
+    }
+
+    if (intent.type === 'TEMPERATURE') {
+      const c = Number(intent.celsius);
+      if (Number.isFinite(c)) {
+        setTemperature(String(Math.round(c)));
+        setLastCommand(`Temperatur: ${Math.round(c)}°C`);
+        await engine.speak(`Temperatur: ${Math.round(c)} grader.`);
+        setTimeout(() => setLastCommand(null), 2500);
+      }
+      return;
+    }
+
+    if (intent.type === 'WEATHER') {
+      const w = String(intent.weather || '').trim();
+      if (w) {
+        setWeather(w);
+        setLastCommand(`Vær: ${w}`);
+        await engine.speak(`Vær: ${w}.`);
+        setTimeout(() => setLastCommand(null), 2500);
+      }
+      return;
+    }
+
+    if (intent.type === 'PERFORMED_ACTION') {
+      const id = String(intent.id || '').trim();
+      if (!id) return;
+      upsertPerformedAction(id, intent.meta);
+      const def = performedActionDefs.find((d) => d.id === id);
+      const label = def?.label || id;
+      setLastCommand(label);
+      await engine.speak(`${label}.`);
+      setTimeout(() => setLastCommand(null), 2500);
       return;
     }
 

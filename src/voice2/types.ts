@@ -4,6 +4,8 @@ export type Voice2Intent =
   | { type: 'QUEEN_COLOR'; color: 'hvit' | 'gul' | 'rod' | 'gronn' | 'bla' }
   | { type: 'EGGS_SEEN' }
   | { type: 'EGGS_NOT_SEEN' }
+  | { type: 'TEMPERATURE'; celsius: number }
+  | { type: 'WEATHER'; weather: string }
   | { type: 'BROOD_EGG'; amount: 'lite' | 'normal' | 'mye' }
   | { type: 'BROOD_LARVAE'; amount: 'lite' | 'normal' | 'mye' }
   | { type: 'BROOD_YNGEL'; amount: 'lite' | 'normal' | 'mye' }
@@ -13,6 +15,7 @@ export type Voice2Intent =
   | { type: 'STATUS'; status: string }
   | { type: 'FEED_LOW' }
   | { type: 'FEED_GIVEN'; feedType: 'sukkerlake' | 'nodfor' | 'annet' }
+  | { type: 'PERFORMED_ACTION'; id: string; meta?: Record<string, any> }
   | { type: 'VARROA_NONE' }
   | { type: 'VARROA_SUSPECT' }
   | { type: 'VARROA_TREATED' }

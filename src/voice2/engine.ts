@@ -33,6 +33,8 @@ export class Voice2Engine {
   private audioCtx: any | null = null;
   private ttsUnlocked = false;
   private ttsCache = new Map<string, ArrayBuffer>();
+  private ttsGain = 1.6;
+  private ttsPlaybackRate = 1.05;
 
   constructor(callbacks: Callbacks) {
     this.callbacks = callbacks;
@@ -346,7 +348,21 @@ export class Voice2Engine {
       await new Promise<void>((resolve) => {
         const src = ctx.createBufferSource();
         src.buffer = decoded;
-        src.connect(ctx.destination);
+        try {
+          if (src.playbackRate && typeof src.playbackRate.value === 'number') {
+            src.playbackRate.value = this.ttsPlaybackRate;
+          }
+        } catch {}
+        let node: any = src;
+        try {
+          const g = ctx.createGain();
+          g.gain.value = this.ttsGain;
+          src.connect(g);
+          g.connect(ctx.destination);
+          node = g;
+        } catch {
+          src.connect(ctx.destination);
+        }
         src.onended = () => resolve();
         src.start();
       });
@@ -364,6 +380,7 @@ export class Voice2Engine {
         const url = URL.createObjectURL(blob);
         const a = new Audio();
         a.preload = 'auto';
+        a.volume = 1.0;
         a.src = url;
         a.onended = () => {
           try {

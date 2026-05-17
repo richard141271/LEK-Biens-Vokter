@@ -16,6 +16,10 @@ export default function WordTraining({ onClose }: Props) {
   }, []);
   const phrases = useMemo(() => {
     return [
+      { group: 'TID & VÆR', text: 'Temperatur 18 grader.', expected: { type: 'TEMPERATURE', celsius: 18 } },
+      { group: 'TID & VÆR', text: 'Vær sol.', expected: { type: 'WEATHER', weather: 'Sol' } },
+      { group: 'TID & VÆR', text: 'Vær overskyet.', expected: { type: 'WEATHER', weather: 'Overskyet' } },
+      { group: 'TID & VÆR', text: 'Vær regn.', expected: { type: 'WEATHER', weather: 'Regn' } },
       { group: 'INSPEKSJON', text: 'Dronning sett.', expected: { type: 'QUEEN_SEEN' } },
       { group: 'INSPEKSJON', text: 'Ingen dronning sett.', expected: { type: 'QUEEN_NOT_SEEN' } },
       { group: 'INSPEKSJON', text: 'Dronningfarge gul.', expected: { type: 'QUEEN_COLOR', color: 'gul' } },
@@ -45,6 +49,18 @@ export default function WordTraining({ onClose }: Props) {
       { group: 'FÔR', text: 'Lite fôr.', expected: { type: 'FEED_LOW' } },
       { group: 'FÔR', text: 'Ga sukkerlake.', expected: { type: 'FEED_GIVEN', feedType: 'sukkerlake' } },
       { group: 'FÔR', text: 'Ga nødfôr.', expected: { type: 'FEED_GIVEN', feedType: 'nodfor' } },
+      { group: 'FÔR', text: 'Gitt fôr.', expected: { type: 'FEED_GIVEN', feedType: 'annet' } },
+      { group: 'UTFØRT I DAG', text: 'Satt på skattekasse.', expected: { type: 'PERFORMED_ACTION', id: 'SUPER_ADDED' } },
+      { group: 'UTFØRT I DAG', text: 'Fjernet skattekasse.', expected: { type: 'PERFORMED_ACTION', id: 'SUPER_REMOVED' } },
+      { group: 'UTFØRT I DAG', text: 'Høstet honning.', expected: { type: 'PERFORMED_ACTION', id: 'HONEY_HARVESTED' } },
+      { group: 'UTFØRT I DAG', text: 'Byttet dronning.', expected: { type: 'PERFORMED_ACTION', id: 'QUEEN_REPLACED' } },
+      { group: 'UTFØRT I DAG', text: 'Fjernet dronningceller.', expected: { type: 'PERFORMED_ACTION', id: 'QUEEN_CELLS_REMOVED' } },
+      { group: 'UTFØRT I DAG', text: 'Satt inn rammer.', expected: { type: 'PERFORMED_ACTION', id: 'FRAMES_ADDED' } },
+      { group: 'UTFØRT I DAG', text: 'Fjernet rammer.', expected: { type: 'PERFORMED_ACTION', id: 'FRAMES_REMOVED' } },
+      { group: 'UTFØRT I DAG', text: 'Byttet voks.', expected: { type: 'PERFORMED_ACTION', id: 'WAX_REPLACED' } },
+      { group: 'UTFØRT I DAG', text: 'Laget avlegger.', expected: { type: 'PERFORMED_ACTION', id: 'SPLIT_MADE' } },
+      { group: 'UTFØRT I DAG', text: 'Delt kube.', expected: { type: 'PERFORMED_ACTION', id: 'HIVE_SPLIT' } },
+      { group: 'UTFØRT I DAG', text: 'Gjennomført varroatest.', expected: { type: 'PERFORMED_ACTION', id: 'VARROA_TEST_DONE' } },
       { group: 'VARROA', text: 'Ingen varroa.', expected: { type: 'VARROA_NONE' } },
       { group: 'VARROA', text: 'Varroa mistanke.', expected: { type: 'VARROA_SUSPECT' } },
       { group: 'VARROA', text: 'Varroa behandlet.', expected: { type: 'VARROA_TREATED' } },
@@ -91,7 +107,7 @@ export default function WordTraining({ onClose }: Props) {
         };
         setFailures((prev) => [record, ...prev]);
         try {
-          void submitVoice2Alias(t, item.expected || {});
+          if ((p as any)?.type === 'UNKNOWN') void submitVoice2Alias(t, item.expected || {});
         } catch {}
         try {
           const share = typeof window !== 'undefined' && localStorage.getItem('voice_share') === '1';
