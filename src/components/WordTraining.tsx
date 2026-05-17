@@ -1,15 +1,19 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { Mic, MicOff, X, BookOpen, RotateCcw, ChevronLeft, ChevronRight, ClipboardList, ClipboardCopy, Download, Trash2 } from 'lucide-react';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { parseVoice2Intent } from '@/voice2/parse';
+import { loadVoice2Aliases, submitVoice2Alias } from '@/voice2/alias-store';
 
 type Props = {
   onClose: () => void;
 };
 
 export default function WordTraining({ onClose }: Props) {
+  useEffect(() => {
+    void loadVoice2Aliases();
+  }, []);
   const phrases = useMemo(() => {
     return [
       { group: 'INSPEKSJON', text: 'Dronning sett.', expected: { type: 'QUEEN_SEEN' } },
@@ -77,6 +81,9 @@ export default function WordTraining({ onClose }: Props) {
           parsed: p
         };
         setFailures((prev) => [record, ...prev]);
+        try {
+          void submitVoice2Alias(t, item.expected || {});
+        } catch {}
         try {
           const share = typeof window !== 'undefined' && localStorage.getItem('voice_share') === '1';
           if (share) {

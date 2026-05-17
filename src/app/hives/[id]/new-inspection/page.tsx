@@ -11,6 +11,7 @@ import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, ClipboardList, Ima
 import { useOffline } from '@/context/OfflineContext';
 import { Voice2Engine } from '@/voice2/engine';
 import { parseVoice2Intent } from '@/voice2/parse';
+import { getVoice2AliasIntent, loadVoice2Aliases } from '@/voice2/alias-store';
 
 export default function NewInspectionPage({ params }: { params: { id: string } }) {
   const [hive, setHive] = useState<any>(null);
@@ -609,7 +610,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const handleVoice2Text = useCallback(async (text: string) => {
     const engine = voice2Ref.current;
     if (!engine) return;
-    const intent = parseVoice2Intent(text);
+    const fromAlias = getVoice2AliasIntent(text);
+    const intent = (fromAlias && typeof fromAlias === 'object' && typeof (fromAlias as any).type === 'string'
+      ? (fromAlias as any)
+      : parseVoice2Intent(text)) as any;
 
     if (intent.type === 'UNKNOWN') {
       const now = Date.now();
@@ -813,6 +817,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     });
     voice2Ref.current = engine;
     setVoice2Supported(engine.isSupported());
+    void loadVoice2Aliases();
     return () => {
       try {
         engine.stop();
