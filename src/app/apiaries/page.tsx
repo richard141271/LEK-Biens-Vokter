@@ -52,6 +52,8 @@ export default function ApiariesPage() {
   const voiceInsideRef = useRef<boolean>(false);
   const lastSpokenRef = useRef<{ text: string; at: number }>({ text: '', at: 0 });
   const speakRef = useRef<(text: string) => void>(() => {});
+  const audioCtxRef = useRef<any | null>(null);
+  const ttsUnlockedRef = useRef<boolean>(false);
 
   const say = useCallback((message: string, opts?: { force?: boolean }) => {
     const msg = String(message || '').trim();
@@ -274,23 +276,101 @@ export default function ApiariesPage() {
     isListeningRef.current = isListening;
   }, [isListening]);
 
+  const unlockAudioSession = useCallback(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!Ctx) return;
+      if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+      try {
+        if (ctx.state === 'suspended' && typeof ctx.resume === 'function') void ctx.resume();
+      } catch {}
+      try {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        g.gain.value = 0;
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.start();
+        o.stop(ctx.currentTime + 0.05);
+      } catch {}
+    } catch {}
+  }, []);
+
+  const pickTtsVoice = useCallback((s: SpeechSynthesis): SpeechSynthesisVoice | null => {
+    try {
+      const voices = typeof s.getVoices === 'function' ? s.getVoices() : [];
+      const lc = (v: SpeechSynthesisVoice) => String(v?.lang || '').toLowerCase();
+      const nb = voices.find((v) => lc(v).startsWith('nb'));
+      const no = voices.find((v) => lc(v).startsWith('no'));
+      const nn = voices.find((v) => lc(v).includes('nor'));
+      return (nb || no || nn || voices[0] || null) as any;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const unlockTtsFromGesture = useCallback(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
+      if (!s) return;
+      if (ttsUnlockedRef.current) return;
+      try {
+        if (typeof s.getVoices === 'function') s.getVoices();
+      } catch {}
+      const u = new SpeechSynthesisUtterance('.');
+      u.lang = 'nb-NO';
+      u.rate = 1.0;
+      u.pitch = 1.0;
+      u.volume = 0.0;
+      try {
+        const v = pickTtsVoice(s);
+        if (v) u.voice = v;
+      } catch {}
+      u.onstart = () => {
+        ttsUnlockedRef.current = true;
+      };
+      try {
+        if (typeof s.resume === 'function') s.resume();
+      } catch {}
+      try {
+        if (s.speaking || s.pending) s.cancel();
+      } catch {}
+      try {
+        s.speak(u);
+      } catch {}
+    } catch {}
+  }, [pickTtsVoice]);
+
   const speak = useCallback((text: string) => {
     try {
       if (typeof window === 'undefined') return;
       if (!isVoiceEnabledRef.current) return;
       const trimmed = String(text || '').trim();
       if (!trimmed) return;
+      unlockAudioSession();
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
       const wasListening = isListeningRef.current;
       if (wasListening) {
         try { pauseListening(); } catch {}
       }
       if (!s) return;
+      try {
+        if (typeof s.getVoices === 'function') s.getVoices();
+      } catch {}
       try { s.cancel(); } catch {}
-      try { s.getVoices?.(); } catch {}
       const u = new SpeechSynthesisUtterance(trimmed);
       u.lang = 'nb-NO';
       u.rate = 0.95;
+      u.pitch = 1.0;
+      u.volume = 1.0;
+      try {
+        const v = pickTtsVoice(s);
+        if (v) u.voice = v;
+      } catch {}
       if (ttsSafetyRef.current) clearTimeout(ttsSafetyRef.current);
       const safety = setTimeout(() => {
         if (wasListening) {
@@ -298,6 +378,11 @@ export default function ApiariesPage() {
         }
       }, 2500);
       ttsSafetyRef.current = safety;
+      u.onstart = () => {
+        try {
+          if (typeof s.resume === 'function') s.resume();
+        } catch {}
+      };
       u.onend = () => {
         clearTimeout(safety);
         if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
@@ -308,9 +393,12 @@ export default function ApiariesPage() {
         if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
         if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 120);
       };
+      try {
+        if (typeof s.resume === 'function') s.resume();
+      } catch {}
       s.speak(u);
     } catch {}
-  }, [pauseListening, resumeListening]);
+  }, [pauseListening, pickTtsVoice, resumeListening, unlockAudioSession]);
 
   useEffect(() => {
     speakRef.current = speak;
@@ -1153,19 +1241,8 @@ export default function ApiariesPage() {
                 setVoiceStep('armed');
                 setSelectedVoiceApiary(null);
                 setVoiceInfo('Si "start inspeksjon".');
-                try {
-                  const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
-                  if (Ctx) {
-                    const ctx = new Ctx();
-                    const o = ctx.createOscillator();
-                    const g = ctx.createGain();
-                    g.gain.value = 0;
-                    o.connect(g);
-                    g.connect(ctx.destination);
-                    o.start();
-                    o.stop(ctx.currentTime + 0.01);
-                  }
-                } catch {}
+                unlockAudioSession();
+                unlockTtsFromGesture();
                 say('Si start inspeksjon.', { force: true });
               }
             }}
