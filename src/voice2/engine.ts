@@ -27,8 +27,11 @@ export class Voice2Engine {
   private paused = false;
   private speaking = false;
   private starting = false;
+  private listening = false;
   private lastStopAt = 0;
-  private restartTimer: ReturnType<typeof setTimeout> | null = null;
+  private restartTimer: ReturnType<typeof setTi
+  
+  meout> | null = null;
   private audioCtx: any | null = null;
   private ttsUnlocked = false;
   private ttsCache = new Map<string, ArrayBuffer>();
@@ -67,19 +70,22 @@ export class Voice2Engine {
     };
     r.onstart = () => {
       this.starting = false;
+      this.listening = true;
       this.callbacks.onState?.('listening');
     };
     r.onend = () => {
       this.starting = false;
+      this.listening = false;
       this.lastStopAt = Date.now();
       if (!this.keepAlive || this.paused || this.speaking) {
         this.callbacks.onState?.('idle');
         return;
       }
-      this.scheduleRestart(450);
+      this.scheduleRestart(260);
     };
     r.onerror = (event: any) => {
       this.starting = false;
+      this.listening = false;
       const e = String(event?.error || 'unknown').toLowerCase();
       this.callbacks.onError?.(e);
       if (e === 'not-allowed' || e === 'service-not-allowed') {
@@ -91,7 +97,7 @@ export class Voice2Engine {
         this.callbacks.onState?.('error');
         return;
       }
-      if (this.keepAlive && !this.paused && !this.speaking) this.scheduleRestart(700);
+      if (this.keepAlive && !this.paused && !this.speaking) this.scheduleRestart(420);
     };
     this.recognition = r;
   }
@@ -165,6 +171,8 @@ export class Voice2Engine {
   stop(): void {
     this.keepAlive = false;
     this.paused = false;
+    this.listening = false;
+    this.starting = false;
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);
       this.restartTimer = null;
@@ -185,10 +193,13 @@ export class Voice2Engine {
     if (!t) return;
     if (typeof window === 'undefined') return;
     const r = this.recognition;
-    const shouldResume = this.keepAlive && !this.paused;
+    const shouldResume = this.keepAlive;
     if (r) {
       try {
         this.paused = true;
+        this.starting = false;
+        this.listening = false;
+        this.lastStopAt = Date.now();
         if (typeof r.abort === 'function') r.abort();
       } catch {}
       try {
@@ -208,7 +219,7 @@ export class Voice2Engine {
     this.callbacks.onState?.(shouldResume ? 'listening' : 'idle');
     if (shouldResume) {
       this.paused = false;
-      this.scheduleRestart(250);
+      this.scheduleRestart(120);
     }
   }
 
@@ -217,9 +228,10 @@ export class Voice2Engine {
     if (!r) return;
     if (!this.keepAlive || this.paused || this.speaking) return;
     if (this.starting) return;
+    if (this.listening) return;
     const sinceStop = Date.now() - this.lastStopAt;
-    if (sinceStop < 450) {
-      this.scheduleRestart(450);
+    if (sinceStop < 180) {
+      this.scheduleRestart(220);
       return;
     }
     try {
@@ -227,7 +239,7 @@ export class Voice2Engine {
       r.start();
     } catch {
       this.starting = false;
-      this.scheduleRestart(900);
+      this.scheduleRestart(520);
     }
   }
 
@@ -237,7 +249,7 @@ export class Voice2Engine {
     this.restartTimer = setTimeout(() => {
       this.restartTimer = null;
       this.safeStart();
-    }, Math.max(250, delayMs));
+    }, Math.max(120, delayMs));
   }
 
   private pickVoice(s: SpeechSynthesis): SpeechSynthesisVoice | null {
@@ -270,7 +282,7 @@ export class Voice2Engine {
         } catch {}
         const u = new SpeechSynthesisUtterance(text);
         u.lang = 'nb-NO';
-        u.rate = 0.95;
+        u.rate = 1.08;
         u.pitch = 1.0;
         u.volume = 1.0;
         try {
@@ -377,4 +389,3 @@ export class Voice2Engine {
     });
   }
 }
-

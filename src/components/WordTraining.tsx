@@ -57,6 +57,15 @@ export default function WordTraining({ onClose }: Props) {
   const [recognized, setRecognized] = useState<string | null>(null);
   const [parsed, setParsed] = useState<any>(null);
   const [failures, setFailures] = useState<any[]>([]);
+  const reset = useCallback(() => {
+    setRecognized(null);
+    setParsed(null);
+  }, []);
+
+  const selectIndex = useCallback((idx: number) => {
+    setCurrentIndex(idx);
+    reset();
+  }, [reset]);
 
   const handleResult = useCallback((t: string) => {
     setRecognized(t);
@@ -108,12 +117,8 @@ export default function WordTraining({ onClose }: Props) {
 
   const { isListening, toggleListening, isSupported } = useVoiceRecognition(handleResult);
 
-  const next = () => setCurrentIndex((i) => (i + 1) % phrases.length);
-  const prev = () => setCurrentIndex((i) => (i - 1 + phrases.length) % phrases.length);
-  const reset = () => {
-    setRecognized(null);
-    setParsed(null);
-  };
+  const next = () => selectIndex((currentIndex + 1) % phrases.length);
+  const prev = () => selectIndex((currentIndex - 1 + phrases.length) % phrases.length);
 
   const item = phrases[currentIndex];
   const hasFailures = failures.length > 0;
@@ -149,6 +154,7 @@ export default function WordTraining({ onClose }: Props) {
         </div>
         <button
           onClick={onClose}
+          type="button"
           className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
         >
           <X className="w-5 h-5" />
@@ -167,6 +173,7 @@ export default function WordTraining({ onClose }: Props) {
             <button
               onClick={copyFailures}
               disabled={!hasFailures}
+              type="button"
               className="px-2 py-1.5 text-xs rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1"
               title="Kopier til utklippstavle"
             >
@@ -176,6 +183,7 @@ export default function WordTraining({ onClose }: Props) {
             <button
               onClick={downloadFailures}
               disabled={!hasFailures}
+              type="button"
               className="px-2 py-1.5 text-xs rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1"
               title="Last ned JSON"
             >
@@ -185,6 +193,7 @@ export default function WordTraining({ onClose }: Props) {
             <button
               onClick={() => setFailures([])}
               disabled={!hasFailures}
+              type="button"
               className="px-2 py-1.5 text-xs rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1"
               title="Tøm liste"
             >
@@ -199,6 +208,7 @@ export default function WordTraining({ onClose }: Props) {
           <div className="flex items-center gap-2">
             <button
               onClick={prev}
+              type="button"
               className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
               title="Forrige"
             >
@@ -206,6 +216,7 @@ export default function WordTraining({ onClose }: Props) {
             </button>
             <button
               onClick={next}
+              type="button"
               className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
               title="Neste"
             >
@@ -223,6 +234,7 @@ export default function WordTraining({ onClose }: Props) {
           <button
             onClick={toggleListening}
             disabled={!isSupported}
+            type="button"
             className={`flex-1 py-3 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 ${
               isListening
                 ? 'bg-red-600 text-white'
@@ -236,6 +248,7 @@ export default function WordTraining({ onClose }: Props) {
 
           <button
             onClick={reset}
+            type="button"
             className="px-4 py-3 rounded-lg font-bold border border-gray-200 text-gray-700 hover:bg-gray-50 flex items-center gap-2"
             title="Nullstill"
           >
@@ -291,12 +304,18 @@ export default function WordTraining({ onClose }: Props) {
             {phrases.map((p, idx) => (
               <button
                 key={idx}
-                onClick={() => setCurrentIndex(idx)}
+                type="button"
+                onPointerDown={(e) => {
+                  try {
+                    e.preventDefault();
+                  } catch {}
+                  selectIndex(idx);
+                }}
                 className={`px-3 py-1.5 rounded-full text-xs border ${
                   idx === currentIndex
                     ? 'bg-honey-500 border-honey-600 text-white'
                     : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                }`}
+                } touch-manipulation select-none`}
                 title={p.group}
               >
                 {p.text}
