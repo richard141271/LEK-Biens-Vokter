@@ -22,6 +22,20 @@ export function parseVoice2Intent(text: string): Voice2Intent {
   const t = normalize(text);
   if (!t) return { type: 'UNKNOWN' };
 
+  if (/\b(bekreft|bekreftet)\b/.test(t)) return { type: 'CONFIRM' };
+  if (/\b(avbryt|kanseller|stopp|avvis)\b/.test(t)) return { type: 'CANCEL' };
+  if (/\b(angre siste|avbryt siste|undo|angre)\b/.test(t)) return { type: 'UNDO_LAST' };
+
+  if (/\b(notat slutt|notater slutt|avslutt notat|stopp notat|notat avslutt)\b/.test(t)) return { type: 'NOTES_STOP' };
+  if (t === 'notat' || t === 'notater' || t.startsWith('notat ') || t.startsWith('notater ')) return { type: 'NOTES_START' };
+
+  if (/\bvis flere handlinger\b/.test(t)) return { type: 'SHOW_MORE_ACTIONS' };
+  if (/\bskjul flere handlinger\b/.test(t)) return { type: 'HIDE_MORE_ACTIONS' };
+  if (/\b(nullstill handlinger|nullstill utf[oø]rt|nullstill)\b/.test(t)) return { type: 'RESET_ACTIONS' };
+
+  if (/\b(neste bikube|neste kube|neste)\b/.test(t) && /\b(bikube|kube)\b/.test(t)) return { type: 'NEXT_HIVE' };
+  if (/\b(forrige bikube|forrige bikube|forrige kube|tilbake bikube)\b/.test(t)) return { type: 'PREV_HIVE' };
+
   if (/\b(lagre|lagre inspeksjon|save)\b/.test(t)) return { type: 'SAVE_INSPECTION' };
 
   if (/\b(ta bilde|knips|foto|bilde)\b/.test(t)) return { type: 'TAKE_PHOTO' };

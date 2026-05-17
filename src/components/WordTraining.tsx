@@ -66,6 +66,16 @@ export default function WordTraining({ onClose }: Props) {
       { group: 'VARROA', text: 'Varroa behandlet.', expected: { type: 'VARROA_TREATED' } },
       { group: 'KAMERA', text: 'Ta bilde.', expected: { type: 'TAKE_PHOTO' } },
       { group: 'LAGRING', text: 'Lagre inspeksjon.', expected: { type: 'SAVE_INSPECTION' } },
+      { group: 'STYRING', text: 'Vis flere handlinger.', expected: { type: 'SHOW_MORE_ACTIONS' } },
+      { group: 'STYRING', text: 'Skjul flere handlinger.', expected: { type: 'HIDE_MORE_ACTIONS' } },
+      { group: 'STYRING', text: 'Nullstill handlinger.', expected: { type: 'RESET_ACTIONS' } },
+      { group: 'STYRING', text: 'Neste bikube.', expected: { type: 'NEXT_HIVE' } },
+      { group: 'STYRING', text: 'Forrige bikube.', expected: { type: 'PREV_HIVE' } },
+      { group: 'NOTATER', text: 'Notater.', expected: { type: 'NOTES_START' } },
+      { group: 'NOTATER', text: 'Notat slutt.', expected: { type: 'NOTES_STOP' } },
+      { group: 'STYRING', text: 'Angre siste.', expected: { type: 'UNDO_LAST' } },
+      { group: 'STYRING', text: 'Bekreft.', expected: { type: 'CONFIRM' } },
+      { group: 'STYRING', text: 'Avbryt.', expected: { type: 'CANCEL' } },
     ];
   }, []);
 

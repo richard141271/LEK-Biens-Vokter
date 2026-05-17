@@ -77,6 +77,46 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   const supabase = createClient();
   const router = useRouter();
 
+  const openImagePopup = (src: string) => {
+    const url = String(src || '').trim();
+    if (!url) return;
+    try {
+      const w = window.open('', '_blank', 'noopener,noreferrer,width=1100,height=850');
+      if (!w) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      const safeUrl = url.replace(/"/g, '%22');
+      w.document.open();
+      w.document.write(`<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+  <title>Bilde</title>
+  <style>
+    html, body { margin: 0; padding: 0; background: #000; height: 100%; }
+    .wrap { height: 100%; overflow: auto; -webkit-overflow-scrolling: touch; }
+    img { display: block; max-width: 100%; height: auto; margin: 0 auto; background: #000; }
+    .hint { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 12px; color: rgba(255,255,255,.8); font: 12px system-ui, -apple-system, Segoe UI, Roboto, Arial; background: linear-gradient(transparent, rgba(0,0,0,.65)); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <img src="${safeUrl}" alt="Bilde" />
+  </div>
+  <div class="hint">Zoom med pinch / dobbel-tap</div>
+</body>
+</html>`);
+      w.document.close();
+      try {
+        w.focus();
+      } catch {}
+    } catch {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   const formatApiaryNumber = (raw: any, type?: any) => {
     const s = String(raw || '').trim();
     return s ? s.split('.')[0] : '';
@@ -121,6 +161,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
     const s = String(raw || '');
     const performedByMatch = s.match(/\[\[LEK_UTFORT_AV:([^\]]+)\]\](?:\r?\n)?/);
     const actionsMatch = s.match(/\[\[LEK_PERFORMED_ACTIONS:([^\]]+)\]\](?:\r?\n)?/);
+    const voiceLogMatch = s.match(/\[\[LEK_VOICE_LOG:([^\]]+)\]\](?:\r?\n)?/);
 
     const performedBy = performedByMatch ? String(performedByMatch[1] || '').trim() : '';
     const tag = performedBy ? `[[LEK_UTFORT_AV:${performedBy}]]` : '';
@@ -139,8 +180,23 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
     let cleanNotes = s;
     if (performedByMatch?.[0]) cleanNotes = cleanNotes.replace(performedByMatch[0], '');
     if (actionsMatch?.[0]) cleanNotes = cleanNotes.replace(actionsMatch[0], '');
+    if (voiceLogMatch?.[0]) cleanNotes = cleanNotes.replace(voiceLogMatch[0], '');
 
-    return { performedBy, tag, performedActions, cleanNotes };
+    let voiceLog: Array<{ ts: number; text: string }> = [];
+    if (voiceLogMatch?.[1]) {
+      try {
+        const rawJson = decodeURIComponent(String(voiceLogMatch[1]));
+        const parsed = JSON.parse(rawJson);
+        if (Array.isArray(parsed)) {
+          voiceLog = parsed
+            .filter(Boolean)
+            .map((x: any) => ({ ts: Number(x?.ts || 0), text: String(x?.text || '').trim() }))
+            .filter((x: any) => x.text);
+        }
+      } catch {}
+    }
+
+    return { performedBy, tag, performedActions, voiceLog, cleanNotes };
   };
 
   useEffect(() => {
@@ -1500,6 +1556,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                 const parsed = parseInspectionNotes(inspection?.notes);
                 const performedBy = String(parsed?.performedBy || '').trim();
                 const cleanNotes = String(parsed?.cleanNotes || '').trim();
+                const voiceLog = Array.isArray((parsed as any)?.voiceLog) ? ((parsed as any).voiceLog as any[]) : [];
                 const performedActionsFromNotes = Array.isArray(parsed?.performedActions) ? parsed.performedActions : [];
                 const performedActionsFromColumn = Array.isArray((inspection as any)?.performed_actions)
                   ? ((inspection as any).performed_actions as any[])
@@ -1638,6 +1695,23 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                           <p className="text-gray-800 whitespace-pre-wrap">{cleanNotes}</p>
                         </div>
                       ) : null}
+                      {voiceLog.length > 0 ? (
+                        <div className="mt-4 bg-white p-3 rounded border border-gray-200">
+                          <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Talelog</span>
+                          <div className="space-y-1 text-gray-800 text-sm">
+                            {voiceLog
+                              .slice(-25)
+                              .map((x, idx) => (
+                                <div key={`${x?.ts || 0}:${idx}`} className="whitespace-pre-wrap">
+                                  {String(x?.text || '').trim()}
+                                </div>
+                              ))}
+                          </div>
+                          {voiceLog.length > 25 ? (
+                            <div className="mt-2 text-xs text-gray-500">Viser siste 25 linjer</div>
+                          ) : null}
+                        </div>
+                      ) : null}
                       {(() => {
                         const images: string[] = [];
                         if (inspection.image_url) images.push(inspection.image_url);
@@ -1655,7 +1729,16 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
                             <div className="grid grid-cols-2 gap-3">
                               {uniq.map((src) => (
                                 <div key={src} className="rounded-lg overflow-hidden border border-gray-200">
-                                  <img src={src} alt="Inspeksjon" className="w-full h-auto object-cover" />
+                                  <button
+                                    type="button"
+                                    className="block w-full"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openImagePopup(src);
+                                    }}
+                                  >
+                                    <img src={src} alt="Inspeksjon" className="w-full h-auto object-cover cursor-zoom-in" />
+                                  </button>
                                 </div>
                               ))}
                             </div>

@@ -40,12 +40,22 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   // Voice State
   const [lastCommand, setLastCommand] = useState<string | null>(null);
   const [notesActive, setNotesActive] = useState(false);
+  const notesActiveRef = useRef(false);
   const [history, setHistory] = useState<Array<{ type: string; prev: any }>>([]);
+  const historyRef = useRef<Array<{ type: string; prev: any }>>([]);
+  const pendingVoiceActionRef = useRef<{ label: string; apply: () => void } | null>(null);
+  const [pendingVoiceLabel, setPendingVoiceLabel] = useState<string | null>(null);
   const lastUnknownAtRef = useRef<number>(0);
   const lastUnknownTextRef = useRef<string>('');
   const [queenSide, setQueenSide] = useState<1 | 2>(1);
   const [queenSideDbSupported, setQueenSideDbSupported] = useState<boolean | null>(null);
   useEffect(() => { loadAliases(); }, []);
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
+  useEffect(() => {
+    notesActiveRef.current = notesActive;
+  }, [notesActive]);
   const [voice2Enabled, setVoice2Enabled] = useState(false);
   const [voice2State, setVoice2State] = useState<'idle' | 'listening' | 'speaking' | 'error'>('idle');
   const [voice2Supported, setVoice2Supported] = useState(false);
@@ -53,6 +63,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const voice2EnabledRef = useRef<boolean>(false);
   const lastVoice2UnknownAtRef = useRef<number>(0);
   const submitInspectionRef = useRef<() => void>(() => {});
+  const goToRelativeHiveRef = useRef<(delta: 1 | -1, engine?: Voice2Engine) => Promise<void>>(async () => {});
 
   // Camera State
   const [cameraActive, setCameraActive] = useState(false);
@@ -531,6 +542,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [honeyStores, setHoneyStores] = useState('middels');
   const [temperament, setTemperament] = useState('rolig');
   const [notes, setNotes] = useState('');
+  const [speechLog, setSpeechLog] = useState<Array<{ ts: number; text: string }>>([]);
+  const speechLogRef = useRef<Array<{ ts: number; text: string }>>([]);
   const [status, setStatus] = useState('OK');
 
   type PerformedAction = {
@@ -590,10 +603,38 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     voice2EnabledRef.current = voice2Enabled;
   }, [voice2Enabled]);
 
+  useEffect(() => {
+    speechLogRef.current = speechLog;
+  }, [speechLog]);
+
   const appendNote = useCallback((line: string) => {
     const l = String(line || '').trim();
     if (!l) return;
     setNotes((prev) => (prev ? `${prev}\n${l}` : l));
+  }, []);
+
+  const appendSpeechLog = useCallback((text: string) => {
+    const t = String(text || '').trim();
+    if (!t) return;
+    const entry = { ts: Date.now(), text: t };
+    setSpeechLog((prev) => {
+      const next = [...prev, entry];
+      return next.length > 250 ? next.slice(next.length - 250) : next;
+    });
+  }, []);
+
+  const buildVoiceLogTag = useCallback((entries: Array<{ ts: number; text: string }>) => {
+    const safe = (entries || [])
+      .filter(Boolean)
+      .map((e) => ({ ts: Number(e.ts || 0), text: String(e.text || '').trim() }))
+      .filter((e) => e.text)
+      .slice(-200);
+    if (safe.length === 0) return '';
+    try {
+      return `[[LEK_VOICE_LOG:${encodeURIComponent(JSON.stringify(safe))}]]`;
+    } catch {
+      return '';
+    }
   }, []);
 
   const upsertPerformedAction = useCallback((id: string, meta?: PerformedAction['meta']) => {
@@ -610,27 +651,188 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const handleVoice2Text = useCallback(async (text: string) => {
     const engine = voice2Ref.current;
     if (!engine) return;
+    appendSpeechLog(text);
+    const rawText = String(text || '').trim();
     const parsed = parseVoice2Intent(text) as any;
     const fromAlias = parsed?.type === 'UNKNOWN' ? getVoice2AliasIntent(text) : null;
     const intent = (fromAlias && typeof fromAlias === 'object' && typeof (fromAlias as any).type === 'string'
       ? (fromAlias as any)
       : parsed) as any;
 
+    const clearPending = () => {
+      pendingVoiceActionRef.current = null;
+      setPendingVoiceLabel(null);
+    };
+
+    const requestConfirm = async (label: string, apply: () => void) => {
+      pendingVoiceActionRef.current = { label, apply };
+      setPendingVoiceLabel(label);
+      setLastCommand(`Bekreft: ${label}`);
+      await engine.speak(`${label}. Bekreft? Si bekreft eller avbryt.`);
+      setTimeout(() => setLastCommand(null), 4000);
+    };
+
+    if (intent.type === 'CONFIRM') {
+      const pending = pendingVoiceActionRef.current;
+      if (!pending) {
+        setLastCommand('Ingenting å bekrefte');
+        await engine.speak('Ingenting å bekrefte.');
+        setTimeout(() => setLastCommand(null), 2500);
+        return;
+      }
+      clearPending();
+      try {
+        pending.apply();
+      } catch {}
+      setLastCommand('Bekreftet');
+      await engine.speak('Bekreftet.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'CANCEL') {
+      if (pendingVoiceActionRef.current) {
+        clearPending();
+        setLastCommand('Avbrutt');
+        await engine.speak('Avbrutt.');
+        setTimeout(() => setLastCommand(null), 2500);
+        return;
+      }
+    }
+
+    if (intent.type === 'UNDO_LAST') {
+      const h = historyRef.current || [];
+      const last = h[h.length - 1];
+      if (!last) {
+        setLastCommand('Ingenting å angre');
+        await engine.speak('Ingenting å angre.');
+        setTimeout(() => setLastCommand(null), 2500);
+        return;
+      }
+      setHistory((prev) => prev.slice(0, -1));
+      if (last.type === 'queenSeen') setQueenSeen(last.prev);
+      if (last.type === 'queenColor') setQueenColor(last.prev);
+      if (last.type === 'queenYear') setQueenYear(last.prev);
+      if (last.type === 'eggsSeen') setEggsSeen(last.prev);
+      if (last.type === 'honeyStores') setHoneyStores(last.prev);
+      if (last.type === 'temperament') setTemperament(last.prev);
+      if (last.type === 'broodEgg') setBroodEgg(last.prev);
+      if (last.type === 'broodLarvae') setBroodLarvae(last.prev);
+      if (last.type === 'broodYngel') setBroodYngel(last.prev);
+      if (last.type === 'broodDrones') setBroodDrones(last.prev);
+      if (last.type === 'broodFrames') setBroodFrames(last.prev);
+      if (last.type === 'status') setStatus(last.prev);
+      if (last.type === 'temperature') setTemperature(last.prev);
+      if (last.type === 'weather') setWeather(last.prev);
+      if (last.type === 'notes') setNotes(last.prev);
+      if (last.type === 'performedActions') setPerformedActions(last.prev);
+      if (last.type === 'showAllPerformedActions') setShowAllPerformedActions(last.prev);
+      setLastCommand('Angret');
+      await engine.speak('Angret.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'NOTES_START') {
+      setNotesActive(true);
+      const stripped = rawText.replace(/^\s*notat(er)?[:\-\s]*/i, '').trim();
+      if (stripped) {
+        setNotes((prev) => {
+          setHistory((h) => [...h, { type: 'notes', prev }]);
+          return prev ? `${prev}\n${stripped}` : stripped;
+        });
+      }
+      setLastCommand('Notater');
+      await engine.speak('Notater. Si notat slutt når du er ferdig.');
+      setTimeout(() => setLastCommand(null), 3500);
+      return;
+    }
+
+    if (intent.type === 'NOTES_STOP') {
+      setNotesActive(false);
+      setLastCommand('Notat slutt');
+      await engine.speak('Notat slutt.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (pendingVoiceActionRef.current) {
+      setLastCommand(`Bekreft: ${pendingVoiceActionRef.current.label}`);
+      await engine.speak('Si bekreft eller avbryt.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
     if (intent.type === 'UNKNOWN') {
+      if (notesActiveRef.current && rawText) {
+        setNotes((prev) => {
+          setHistory((h) => [...h, { type: 'notes', prev }]);
+          return prev ? `${prev}\n${rawText}` : rawText;
+        });
+        setLastCommand('Notert');
+        setTimeout(() => setLastCommand(null), 1200);
+        return;
+      }
       const now = Date.now();
       if (now - lastVoice2UnknownAtRef.current > 9000) {
         lastVoice2UnknownAtRef.current = now;
-        setLastCommand(`Hørte: ${String(text || '').trim()}`);
+        setLastCommand(`Hørte: ${rawText}`);
         await engine.speak('Jeg forstod ikke. Prøv igjen.');
         setTimeout(() => setLastCommand(null), 2500);
       }
       return;
     }
 
+    if (intent.type === 'SHOW_MORE_ACTIONS') {
+      setShowAllPerformedActions((prev) => {
+        setHistory((h) => [...h, { type: 'showAllPerformedActions', prev }]);
+        return true;
+      });
+      setLastCommand('Viser flere handlinger');
+      await engine.speak('Viser flere handlinger.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'HIDE_MORE_ACTIONS') {
+      setShowAllPerformedActions((prev) => {
+        setHistory((h) => [...h, { type: 'showAllPerformedActions', prev }]);
+        return false;
+      });
+      setLastCommand('Skjuler flere handlinger');
+      await engine.speak('Skjuler flere handlinger.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'RESET_ACTIONS') {
+      setPerformedActions((prev) => {
+        setHistory((h) => [...h, { type: 'performedActions', prev }]);
+        return [];
+      });
+      setLastCommand('Handlinger nullstilt');
+      await engine.speak('Handlinger nullstilt.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'NEXT_HIVE') {
+      await goToRelativeHiveRef.current(1, engine);
+      return;
+    }
+
+    if (intent.type === 'PREV_HIVE') {
+      await goToRelativeHiveRef.current(-1, engine);
+      return;
+    }
+
     if (intent.type === 'TEMPERATURE') {
       const c = Number(intent.celsius);
       if (Number.isFinite(c)) {
-        setTemperature(String(Math.round(c)));
+        setTemperature((prev) => {
+          setHistory((h) => [...h, { type: 'temperature', prev }]);
+          return String(Math.round(c));
+        });
         setLastCommand(`Temperatur: ${Math.round(c)}°C`);
         await engine.speak(`Temperatur: ${Math.round(c)} grader.`);
         setTimeout(() => setLastCommand(null), 2500);
@@ -641,7 +843,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     if (intent.type === 'WEATHER') {
       const w = String(intent.weather || '').trim();
       if (w) {
-        setWeather(w);
+        setWeather((prev) => {
+          setHistory((h) => [...h, { type: 'weather', prev }]);
+          return w;
+        });
         setLastCommand(`Vær: ${w}`);
         await engine.speak(`Vær: ${w}.`);
         setTimeout(() => setLastCommand(null), 2500);
@@ -652,9 +857,23 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     if (intent.type === 'PERFORMED_ACTION') {
       const id = String(intent.id || '').trim();
       if (!id) return;
-      upsertPerformedAction(id, intent.meta);
       const def = performedActionDefs.find((d) => d.id === id);
       const label = def?.label || id;
+      const risky = new Set(['QUEEN_REPLACED', 'SPLIT_MADE', 'HIVE_SPLIT']);
+      const apply = () => {
+        setPerformedActions((prev) => {
+          setHistory((h) => [...h, { type: 'performedActions', prev }]);
+          const exists = prev.some((a) => a.id === id);
+          if (!exists) return [...prev, intent.meta ? { id, meta: intent.meta } : { id }];
+          if (!intent.meta) return prev;
+          return prev.map((a) => (a.id === id ? { ...a, meta: { ...(a.meta || {}), ...(intent.meta || {}) } } : a));
+        });
+      };
+      if (risky.has(id)) {
+        await requestConfirm(label, apply);
+        return;
+      }
+      apply();
       setLastCommand(label);
       await engine.speak(`${label}.`);
       setTimeout(() => setLastCommand(null), 2500);
@@ -662,7 +881,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     }
 
     if (intent.type === 'QUEEN_SEEN') {
-      setQueenSeen('ja');
+      setQueenSeen((prev) => {
+        setHistory((h) => [...h, { type: 'queenSeen', prev }]);
+        return 'ja';
+      });
       setLastCommand('Dronning sett');
       await engine.speak('Dronning sett.');
       setTimeout(() => setLastCommand(null), 2500);
@@ -670,7 +892,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     }
 
     if (intent.type === 'QUEEN_NOT_SEEN') {
-      setQueenSeen('nei');
+      setQueenSeen((prev) => {
+        setHistory((h) => [...h, { type: 'queenSeen', prev }]);
+        return 'nei';
+      });
       setLastCommand('Ingen dronning');
       await engine.speak('Ingen dronning.');
       setTimeout(() => setLastCommand(null), 2500);
@@ -688,7 +913,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               : intent.color === 'gronn'
                 ? 'Grønn'
                 : 'Blå';
-      setQueenColor(mapped);
+      setQueenColor((prev) => {
+        setHistory((h) => [...h, { type: 'queenColor', prev }]);
+        return mapped;
+      });
       setLastCommand(`Dronningfarge: ${mapped}`);
       await engine.speak(`Dronningfarge: ${mapped}.`);
       setTimeout(() => setLastCommand(null), 2500);
@@ -696,7 +924,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     }
 
     if (intent.type === 'EGGS_SEEN') {
-      setEggsSeen('ja');
+      setEggsSeen((prev) => {
+        setHistory((h) => [...h, { type: 'eggsSeen', prev }]);
+        return 'ja';
+      });
       setLastCommand('Egg sett');
       await engine.speak('Egg sett.');
       setTimeout(() => setLastCommand(null), 2500);
@@ -704,7 +935,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     }
 
     if (intent.type === 'EGGS_NOT_SEEN') {
-      setEggsSeen('nei');
+      setEggsSeen((prev) => {
+        setHistory((h) => [...h, { type: 'eggsSeen', prev }]);
+        return 'nei';
+      });
       setLastCommand('Ingen egg');
       await engine.speak('Ingen egg.');
       setTimeout(() => setLastCommand(null), 2500);
@@ -712,7 +946,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     }
 
     if (intent.type === 'BROOD_EGG') {
-      setBroodEgg(intent.amount);
+      setBroodEgg((prev) => {
+        setHistory((h) => [...h, { type: 'broodEgg', prev }]);
+        return intent.amount;
+      });
       setLastCommand(`Egg: ${intent.amount}`);
       await engine.speak(`Egg: ${intent.amount}.`);
       setTimeout(() => setLastCommand(null), 2500);
@@ -720,7 +957,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     }
 
     if (intent.type === 'BROOD_LARVAE') {
-      setBroodLarvae(intent.amount);
+      setBroodLarvae((prev) => {
+        setHistory((h) => [...h, { type: 'broodLarvae', prev }]);
+        return intent.amount;
+      });
       setLastCommand(`Larver: ${intent.amount}`);
       await engine.speak(`Larver: ${intent.amount}.`);
       setTimeout(() => setLastCommand(null), 2500);
@@ -728,7 +968,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     }
 
     if (intent.type === 'BROOD_YNGEL') {
-      setBroodYngel(intent.amount);
+      setBroodYngel((prev) => {
+        setHistory((h) => [...h, { type: 'broodYngel', prev }]);
+        return intent.amount;
+      });
       setLastCommand(`Yngel: ${intent.amount}`);
       await engine.speak(`Yngel: ${intent.amount}.`);
       setTimeout(() => setLastCommand(null), 2500);
@@ -736,7 +979,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     }
 
     if (intent.type === 'BROOD_DRONES') {
-      setBroodDrones(intent.amount);
+      setBroodDrones((prev) => {
+        setHistory((h) => [...h, { type: 'broodDrones', prev }]);
+        return intent.amount;
+      });
       setLastCommand(`Droner: ${intent.amount}`);
       await engine.speak(`Droner: ${intent.amount}.`);
       setTimeout(() => setLastCommand(null), 2500);
@@ -745,7 +991,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
     if (intent.type === 'HONEY_STORES') {
       const mapped = intent.level;
-      setHoneyStores(mapped);
+      setHoneyStores((prev) => {
+        setHistory((h) => [...h, { type: 'honeyStores', prev }]);
+        return mapped;
+      });
       setLastCommand(`Honning: ${mapped}`);
       await engine.speak(`Honning: ${mapped}.`);
       setTimeout(() => setLastCommand(null), 2500);
@@ -754,7 +1003,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
     if (intent.type === 'TEMPERAMENT') {
       const mapped = intent.temperament;
-      setTemperament(mapped);
+      setTemperament((prev) => {
+        setHistory((h) => [...h, { type: 'temperament', prev }]);
+        return mapped;
+      });
       setLastCommand(`Gemytt: ${mapped}`);
       await engine.speak(`Gemytt: ${mapped}.`);
       setTimeout(() => setLastCommand(null), 2500);
@@ -762,9 +1014,21 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     }
 
     if (intent.type === 'STATUS') {
-      setStatus(intent.status);
-      setLastCommand(`Status: ${intent.status}`);
-      await engine.speak(`Status: ${intent.status}.`);
+      const next = String(intent.status || '').trim();
+      const isRisky = /\bbytt\b/i.test(next) || /\bsykdom\b/i.test(next) || /\bdød\b/i.test(next);
+      const apply = () => {
+        setStatus((prev) => {
+          setHistory((h) => [...h, { type: 'status', prev }]);
+          return next || prev;
+        });
+      };
+      if (isRisky) {
+        await requestConfirm(`Status ${next}`, apply);
+        return;
+      }
+      apply();
+      setLastCommand(`Status: ${next}`);
+      await engine.speak(`Status: ${next}.`);
       setTimeout(() => setLastCommand(null), 2500);
       return;
     }
@@ -829,7 +1093,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       setTimeout(() => setLastCommand(null), 3000);
       return;
     }
-  }, [appendNote, upsertPerformedAction]);
+  }, [appendNote, appendSpeechLog, upsertPerformedAction]);
 
   const handleVoice2TextRef = useRef<(text: string) => void>(() => {});
   useEffect(() => {
@@ -878,6 +1142,98 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   const supabase = createClient();
   const router = useRouter();
+
+  const [apiaryHives, setApiaryHives] = useState<Array<{ id: string; hive_number: any; name: any }>>([]);
+  const apiaryHivesRef = useRef<Array<{ id: string; hive_number: any; name: any }>>([]);
+  useEffect(() => {
+    apiaryHivesRef.current = apiaryHives;
+  }, [apiaryHives]);
+
+  useEffect(() => {
+    const apiaryId = String((hive as any)?.apiary_id || '').trim();
+    if (!apiaryId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await supabase
+          .from('hives')
+          .select('id,hive_number,name')
+          .eq('apiary_id', apiaryId)
+          .order('hive_number', { ascending: true });
+        if (cancelled) return;
+        if (res.data && Array.isArray(res.data)) {
+          setApiaryHives(res.data as any);
+        }
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, (hive as any)?.apiary_id]);
+
+  const goToRelativeHive = useCallback(
+    async (delta: 1 | -1, engine?: Voice2Engine) => {
+      const list = apiaryHivesRef.current || [];
+      const currentId = String(params.id || '').trim();
+      const idx = list.findIndex((x) => String((x as any)?.id || '').trim() === currentId);
+      const next = idx >= 0 ? list[idx + delta] : null;
+      const nextId = String((next as any)?.id || '').trim();
+      if (!nextId) {
+        setLastCommand('Ingen flere bikuber');
+        if (engine) await engine.speak('Ingen flere bikuber.');
+        setTimeout(() => setLastCommand(null), 2500);
+        return;
+      }
+      const label = (next as any)?.hive_number ? `Bikube ${(next as any).hive_number}` : 'Neste bikube';
+      setLastCommand(label);
+      if (engine) await engine.speak(label);
+      setTimeout(() => {
+        try {
+          router.push(`/hives/${nextId}/new-inspection?autoVoice=1`);
+        } catch {}
+      }, 120);
+      setTimeout(() => setLastCommand(null), 3000);
+    },
+    [params.id, router]
+  );
+
+  useEffect(() => {
+    goToRelativeHiveRef.current = goToRelativeHive;
+  }, [goToRelativeHive]);
+
+  useEffect(() => {
+    const shouldHold = Boolean(voice2Enabled || handsfreeReady || cameraActive);
+    if (!shouldHold) return;
+    const navAny = navigator as any;
+    const lockApi = navAny?.wakeLock;
+    if (!lockApi?.request) return;
+    let lock: any = null;
+    let cancelled = false;
+    (async () => {
+      try {
+        lock = await lockApi.request('screen');
+      } catch {}
+    })();
+    const onVis = () => {
+      if (cancelled) return;
+      if (document.visibilityState !== 'visible') return;
+      if (lock) return;
+      (async () => {
+        try {
+          lock = await lockApi.request('screen');
+        } catch {}
+      })();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVis);
+      try {
+        lock?.release?.();
+      } catch {}
+      lock = null;
+    };
+  }, [voice2Enabled, handsfreeReady, cameraActive]);
 
   type StickyKey =
     | 'queenColor'
@@ -1966,6 +2322,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       String(status || '').trim().toLowerCase() === 'død' ||
       String(status || '').trim().toUpperCase() === 'DØD';
     const hiveStatusToSave = isDeadStatus ? 'Død' : status;
+    const voiceLogTag = buildVoiceLogTag(speechLogRef.current || []);
+    const notesWithVoiceLog = [String(notes || '').trimEnd(), voiceLogTag].filter(Boolean).join('\n');
 
     try {
       const isMissingColumn = (err: any, col: string) => {
@@ -2006,7 +2364,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               brood_condition: broodConditionToSave,
               honey_stores: honeyStores,
               temperament: temperament,
-              notes: notes,
+              notes: notesWithVoiceLog,
               status: status, 
               temperature: temperature ? parseFloat(temperature) : null,
               weather: weather,
@@ -2032,7 +2390,20 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
         }
         setTimeout(() => {
-          router.push(isDemoActive ? '/hives?demo=1' : '/hives');
+          try {
+            const list = apiaryHivesRef.current || [];
+            const currentId = String(params.id || '').trim();
+            const idx = list.findIndex((x) => String((x as any)?.id || '').trim() === currentId);
+            const next = idx >= 0 ? list[idx + 1] : null;
+            const nextId = String((next as any)?.id || '').trim();
+            if ((autoVoice === '1' || handsfreeReady) && nextId) {
+              router.push(`/hives/${nextId}/new-inspection?${isDemoActive ? 'demo=1&' : ''}autoVoice=1`);
+            } else {
+              router.push(isDemoActive ? '/hives?demo=1' : '/hives');
+            }
+          } catch {
+            router.push(isDemoActive ? '/hives?demo=1' : '/hives');
+          }
         }, 650);
         return;
       }
@@ -2065,7 +2436,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               honey_stores: honeyStores,
               temperament: temperament,
               performed_actions: performedActions,
-              notes: notes,
+              notes: notesWithVoiceLog,
               status: status,
               temperature: temperature ? parseFloat(temperature) : null,
               weather: weather,
@@ -2091,7 +2462,20 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
         }
         setTimeout(() => {
-          router.push(isDemoActive ? '/hives?demo=1' : '/hives');
+          try {
+            const list = apiaryHivesRef.current || [];
+            const currentId = String(params.id || '').trim();
+            const idx = list.findIndex((x) => String((x as any)?.id || '').trim() === currentId);
+            const next = idx >= 0 ? list[idx + 1] : null;
+            const nextId = String((next as any)?.id || '').trim();
+            if ((autoVoice === '1' || handsfreeReady) && nextId) {
+              router.push(`/hives/${nextId}/new-inspection?${isDemoActive ? 'demo=1&' : ''}autoVoice=1`);
+            } else {
+              router.push(isDemoActive ? '/hives?demo=1' : '/hives');
+            }
+          } catch {
+            router.push(isDemoActive ? '/hives?demo=1' : '/hives');
+          }
         }, 650);
         return;
       }
@@ -2122,7 +2506,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         }
 
         const notesWithImages =
-          allPhotos.length > 1 ? `${notes}\n${allPhotos.slice(1).map((u, i) => `Bilde ${i + 2}: ${u}`).join('\n')}` : notes;
+          allPhotos.length > 1
+            ? `${notesWithVoiceLog}${notesWithVoiceLog ? '\n' : ''}${allPhotos
+                .slice(1)
+                .map((u, i) => `Bilde ${i + 2}: ${u}`)
+                .join('\n')}`
+            : notesWithVoiceLog;
         const details = `Inspeksjon utført. Status: ${status}. Temp: ${temperature}°C. ${notes ? 'Notater lagt til.' : ''}`;
         const res = await fetch('/api/demo/write/inspection', {
           method: 'POST',
@@ -2213,6 +2602,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
 
       // 1. Insert Inspection
+      const baseNotes = notesWithVoiceLog;
+      const notesWithImages =
+        allPhotos.length > 1
+          ? `${baseNotes}${baseNotes ? '\n' : ''}${allPhotos
+              .slice(1)
+              .map((u, i) => `Bilde ${i + 2}: ${u}`)
+              .join('\n')}`
+          : baseNotes;
       const insertPayload: any = {
           id: opId,
           hive_id: params.id,
@@ -2228,7 +2625,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           honey_stores: honeyStores,
           temperament: temperament,
           performed_actions: performedActions,
-          notes: allPhotos.length > 1 ? `${notes}\n${allPhotos.slice(1).map((u, i) => `Bilde ${i + 2}: ${u}`).join('\n')}` : notes,
+          notes: notesWithImages,
           status: status, 
           temperature: temperature ? parseFloat(temperature) : null,
           weather: weather,
@@ -2289,7 +2686,20 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       setLastCommand('Inspeksjon lagret');
       announce('Inspeksjon lagret');
       setTimeout(() => {
-        router.push('/hives');
+        try {
+          const list = apiaryHivesRef.current || [];
+          const currentId = String(params.id || '').trim();
+          const idx = list.findIndex((x) => String((x as any)?.id || '').trim() === currentId);
+          const next = idx >= 0 ? list[idx + 1] : null;
+          const nextId = String((next as any)?.id || '').trim();
+          if ((autoVoice === '1' || handsfreeReady) && nextId) {
+            router.push(`/hives/${nextId}/new-inspection?autoVoice=1`);
+          } else {
+            router.push('/hives');
+          }
+        } catch {
+          router.push('/hives');
+        }
       }, 650);
     } catch (error: any) {
       try {
@@ -2328,7 +2738,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 honey_stores: honeyStores,
                 temperament: temperament,
                 performed_actions: performedActions,
-                notes: notes,
+                notes: notesWithVoiceLog,
                 status: status,
                 temperature: temperature ? parseFloat(temperature) : null,
                 weather: weather,
@@ -2354,7 +2764,20 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
           }
           setTimeout(() => {
-            router.push('/hives');
+            try {
+              const list = apiaryHivesRef.current || [];
+              const currentId = String(params.id || '').trim();
+              const idx = list.findIndex((x) => String((x as any)?.id || '').trim() === currentId);
+              const next = idx >= 0 ? list[idx + 1] : null;
+              const nextId = String((next as any)?.id || '').trim();
+              if ((autoVoice === '1' || handsfreeReady) && nextId) {
+                router.push(`/hives/${nextId}/new-inspection?autoVoice=1`);
+              } else {
+                router.push('/hives');
+              }
+            } catch {
+              router.push('/hives');
+            }
           }, 650);
           return;
         }
@@ -2485,6 +2908,13 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       </header>
 
       <main className="p-4">
+        {pendingVoiceLabel ? (
+          <div className="mb-4 rounded-xl border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-gray-900">
+            <div className="font-extrabold">Venter på bekreftelse</div>
+            <div className="mt-1">{pendingVoiceLabel}</div>
+            <div className="mt-1 text-xs text-gray-600">Si «Bekreft» eller «Avbryt»</div>
+          </div>
+        ) : null}
         {/* Camera Preview (Bodycam Mode) */}
         {cameraActive && (
             <div id="field-camera" className="mb-4 relative rounded-xl overflow-hidden shadow-lg bg-black aspect-video mx-auto max-w-lg border-2 border-blue-500">
