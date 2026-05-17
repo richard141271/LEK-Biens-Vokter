@@ -7,7 +7,7 @@ import { analyzeAndCorrect } from '@/utils/voice-diagnostics';
 import { loadAliases } from '@/utils/voice-alias';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, ClipboardList, Image as ImageIcon, X, Mic, MicOff, Camera } from 'lucide-react';
+import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, ClipboardList, Image as ImageIcon, X, Camera } from 'lucide-react';
 import { useOffline } from '@/context/OfflineContext';
 import { Voice2Engine } from '@/voice2/engine';
 import { parseVoice2Intent } from '@/voice2/parse';
@@ -514,7 +514,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
   };
 
-  const { isListening, startListening, stopListening, pauseListening, resumeListening, toggleListening, isSupported } = useVoiceRecognition(handleVoiceCommand);
+  const { isListening, pauseListening, resumeListening } = useVoiceRecognition(handleVoiceCommand);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(new Date().toTimeString().split(' ')[0].substring(0, 5));
   const [queenSeen, setQueenSeen] = useState<'' | 'ja' | 'nei'>('');
@@ -630,6 +630,106 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       return;
     }
 
+    if (intent.type === 'QUEEN_NOT_SEEN') {
+      setQueenSeen('nei');
+      setLastCommand('Ingen dronning');
+      await engine.speak('Ingen dronning.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'QUEEN_COLOR') {
+      const mapped =
+        intent.color === 'hvit'
+          ? 'Hvit'
+          : intent.color === 'gul'
+            ? 'Gul'
+            : intent.color === 'rod'
+              ? 'Rød'
+              : intent.color === 'gronn'
+                ? 'Grønn'
+                : 'Blå';
+      setQueenColor(mapped);
+      setLastCommand(`Dronningfarge: ${mapped}`);
+      await engine.speak(`Dronningfarge: ${mapped}.`);
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'EGGS_SEEN') {
+      setEggsSeen('ja');
+      setLastCommand('Egg sett');
+      await engine.speak('Egg sett.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'EGGS_NOT_SEEN') {
+      setEggsSeen('nei');
+      setLastCommand('Ingen egg');
+      await engine.speak('Ingen egg.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'BROOD_EGG') {
+      setBroodEgg(intent.amount);
+      setLastCommand(`Egg: ${intent.amount}`);
+      await engine.speak(`Egg: ${intent.amount}.`);
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'BROOD_LARVAE') {
+      setBroodLarvae(intent.amount);
+      setLastCommand(`Larver: ${intent.amount}`);
+      await engine.speak(`Larver: ${intent.amount}.`);
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'BROOD_YNGEL') {
+      setBroodYngel(intent.amount);
+      setLastCommand(`Yngel: ${intent.amount}`);
+      await engine.speak(`Yngel: ${intent.amount}.`);
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'BROOD_DRONES') {
+      setBroodDrones(intent.amount);
+      setLastCommand(`Droner: ${intent.amount}`);
+      await engine.speak(`Droner: ${intent.amount}.`);
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'HONEY_STORES') {
+      const mapped = intent.level;
+      setHoneyStores(mapped);
+      setLastCommand(`Honning: ${mapped}`);
+      await engine.speak(`Honning: ${mapped}.`);
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'TEMPERAMENT') {
+      const mapped = intent.temperament;
+      setTemperament(mapped);
+      setLastCommand(`Gemytt: ${mapped}`);
+      await engine.speak(`Gemytt: ${mapped}.`);
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'STATUS') {
+      setStatus(intent.status);
+      setLastCommand(`Status: ${intent.status}`);
+      await engine.speak(`Status: ${intent.status}.`);
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
     if (intent.type === 'FEED_LOW') {
       appendNote('Lite fôr.');
       setLastCommand('Lite fôr registrert');
@@ -650,6 +750,31 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       appendNote('Ingen varroa.');
       setLastCommand('Ingen varroa');
       await engine.speak('Ingen varroa registrert.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'VARROA_SUSPECT') {
+      setStatus('Varroa mistanke');
+      setLastCommand('Varroa mistanke');
+      await engine.speak('Varroa mistanke.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'VARROA_TREATED') {
+      upsertPerformedAction('VARROA_TREATED');
+      setLastCommand('Varroa behandlet');
+      await engine.speak('Varroa behandlet.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'TAKE_PHOTO') {
+      setCameraActive(true);
+      setPendingCapture(true);
+      setLastCommand('Tar bilde');
+      await engine.speak('Tar bilde.');
       setTimeout(() => setLastCommand(null), 2500);
       return;
     }
@@ -2291,11 +2416,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                     setVoice2State('idle');
                     return;
                   }
-                  if (isListening) {
-                    try {
-                      stopListening();
-                    } catch {}
-                  }
                   setHandsfreeReady(true);
                   setVoice2Enabled(true);
                   try {
@@ -2320,42 +2440,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 title={voice2Enabled ? 'Handsfree (ny) av' : 'Handsfree (ny) på'}
             >
               V2
-            </button>
-
-            <button
-                onClick={() => {
-                  if (isListening) {
-                    stopListening();
-                    return;
-                  }
-                  if (!gestureUnlockedRef.current) {
-                    gestureUnlockedRef.current = true;
-                    primeTts(false);
-                    unlockAudioSession();
-                    unlockHtmlAudioFromGesture();
-                    if (!ttsUnlockedRef.current) {
-                      unlockTtsFromGesture();
-                    }
-                    try {
-                      startListening();
-                    } catch {}
-                    setTimeout(() => {
-                      try {
-                        if (!isListening) startListening();
-                      } catch {}
-                    }, 350);
-                    return;
-                  }
-                  startListening();
-                }}
-                className={`p-3 rounded-full transition-all ${
-                    isListening 
-                    ? 'bg-red-500 text-white animate-pulse shadow-lg' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-                title="Start/Stopp Talestyring"
-            >
-                {isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
             </button>
         </div>
       </header>

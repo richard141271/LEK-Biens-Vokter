@@ -1,17 +1,53 @@
 'use client';
 
 import { useMemo, useState, useCallback } from 'react';
-import { Mic, MicOff, X, BookOpen, RotateCcw, ChevronLeft, ChevronRight, CheckCircle, ClipboardList, ClipboardCopy, Download, Trash2 } from 'lucide-react';
+import { Mic, MicOff, X, BookOpen, RotateCcw, ChevronLeft, ChevronRight, ClipboardList, ClipboardCopy, Download, Trash2 } from 'lucide-react';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
-import { parseVoiceCommand } from '@/utils/voice-parser';
-import { getCatalog } from '@/utils/voice-diagnostics';
+import { parseVoice2Intent } from '@/voice2/parse';
 
 type Props = {
   onClose: () => void;
 };
 
 export default function WordTraining({ onClose }: Props) {
-  const phrases = useMemo(() => getCatalog(), []);
+  const phrases = useMemo(() => {
+    return [
+      { group: 'INSPEKSJON', text: 'Dronning sett.', expected: { type: 'QUEEN_SEEN' } },
+      { group: 'INSPEKSJON', text: 'Ingen dronning sett.', expected: { type: 'QUEEN_NOT_SEEN' } },
+      { group: 'INSPEKSJON', text: 'Dronningfarge gul.', expected: { type: 'QUEEN_COLOR', color: 'gul' } },
+      { group: 'INSPEKSJON', text: 'Egg sett.', expected: { type: 'EGGS_SEEN' } },
+      { group: 'INSPEKSJON', text: 'Ingen egg sett.', expected: { type: 'EGGS_NOT_SEEN' } },
+      { group: 'YNGEL', text: 'Egg lite.', expected: { type: 'BROOD_EGG', amount: 'lite' } },
+      { group: 'YNGEL', text: 'Larver normal.', expected: { type: 'BROOD_LARVAE', amount: 'normal' } },
+      { group: 'YNGEL', text: 'Yngel mye.', expected: { type: 'BROOD_YNGEL', amount: 'mye' } },
+      { group: 'YNGEL', text: 'Droner lite.', expected: { type: 'BROOD_DRONES', amount: 'lite' } },
+      { group: 'HONNING', text: 'Honning lite.', expected: { type: 'HONEY_STORES', level: 'lite' } },
+      { group: 'HONNING', text: 'Honning middels.', expected: { type: 'HONEY_STORES', level: 'middels' } },
+      { group: 'HONNING', text: 'Honning mye.', expected: { type: 'HONEY_STORES', level: 'mye' } },
+      { group: 'GEMYTT', text: 'Gemytt rolig.', expected: { type: 'TEMPERAMENT', temperament: 'rolig' } },
+      { group: 'GEMYTT', text: 'Gemytt urolig.', expected: { type: 'TEMPERAMENT', temperament: 'urolig' } },
+      { group: 'GEMYTT', text: 'Gemytt aggressiv.', expected: { type: 'TEMPERAMENT', temperament: 'aggressiv' } },
+      { group: 'STATUS', text: 'Status OK.', expected: { type: 'STATUS', status: 'OK' } },
+      { group: 'STATUS', text: 'Status Sterk.', expected: { type: 'STATUS', status: 'Sterk' } },
+      { group: 'STATUS', text: 'Status Svak.', expected: { type: 'STATUS', status: 'Svak' } },
+      { group: 'STATUS', text: 'Status Død.', expected: { type: 'STATUS', status: 'Død' } },
+      { group: 'STATUS', text: 'Status Varroa mistanke.', expected: { type: 'STATUS', status: 'Varroa mistanke' } },
+      { group: 'STATUS', text: 'Status Sykdom.', expected: { type: 'STATUS', status: 'Sykdom' } },
+      { group: 'STATUS', text: 'Status Sverming.', expected: { type: 'STATUS', status: 'Sverming' } },
+      { group: 'STATUS', text: 'Status Mottatt fôr.', expected: { type: 'STATUS', status: 'Mottatt fôr' } },
+      { group: 'STATUS', text: 'Status Skiftet rammer.', expected: { type: 'STATUS', status: 'Skiftet rammer' } },
+      { group: 'STATUS', text: 'Status Byttet voks.', expected: { type: 'STATUS', status: 'Byttet voks' } },
+      { group: 'STATUS', text: 'Status Bytt Dronning.', expected: { type: 'STATUS', status: 'Bytt Dronning' } },
+      { group: 'FÔR', text: 'Lite fôr.', expected: { type: 'FEED_LOW' } },
+      { group: 'FÔR', text: 'Ga sukkerlake.', expected: { type: 'FEED_GIVEN', feedType: 'sukkerlake' } },
+      { group: 'FÔR', text: 'Ga nødfôr.', expected: { type: 'FEED_GIVEN', feedType: 'nodfor' } },
+      { group: 'VARROA', text: 'Ingen varroa.', expected: { type: 'VARROA_NONE' } },
+      { group: 'VARROA', text: 'Varroa mistanke.', expected: { type: 'VARROA_SUSPECT' } },
+      { group: 'VARROA', text: 'Varroa behandlet.', expected: { type: 'VARROA_TREATED' } },
+      { group: 'KAMERA', text: 'Ta bilde.', expected: { type: 'TAKE_PHOTO' } },
+      { group: 'LAGRING', text: 'Lagre inspeksjon.', expected: { type: 'SAVE_INSPECTION' } },
+    ];
+  }, []);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [recognized, setRecognized] = useState<string | null>(null);
@@ -20,7 +56,7 @@ export default function WordTraining({ onClose }: Props) {
 
   const handleResult = useCallback((t: string) => {
     setRecognized(t);
-    const p = parseVoiceCommand(t);
+    const p = parseVoice2Intent(t);
     setParsed(p);
     try {
       const item: any = phrases[currentIndex] as any;
@@ -29,12 +65,7 @@ export default function WordTraining({ onClose }: Props) {
       for (const k of Object.keys(exp)) {
         const ev = (exp as any)[k];
         const pv = (p as any)?.[k];
-        if (k === 'temperature') {
-          const pvStr = typeof pv === 'string' ? pv : pv != null ? String(pv) : '';
-          if (!pvStr.startsWith(String(ev))) ok = false;
-        } else {
-          if (pv !== ev) ok = false;
-        }
+        if (pv !== ev) ok = false;
       }
       if (!ok) {
         const record = {
@@ -221,47 +252,9 @@ export default function WordTraining({ onClose }: Props) {
 
             <div className="p-3 bg-white border border-gray-200 rounded-lg">
               <div className="text-xs text-gray-500 mb-2">Tolkning</div>
-              {parsed && Object.keys(parsed).length > 0 ? (
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  {'queenSeen' in parsed && (
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className={`w-4 h-4 ${parsed.queenSeen ? 'text-green-600' : 'text-gray-400'}`} />
-                      <span>Dronning: {parsed.queenSeen ? 'Sett' : 'Ikke sett'}</span>
-                    </div>
-                  )}
-                  {'queenColor' in parsed && (
-                    <div>Dronningfarge: {parsed.queenColor || '-'}</div>
-                  )}
-                  {'queenYear' in parsed && (
-                    <div>Årgang: {parsed.queenYear || '-'}</div>
-                  )}
-                  {'eggsSeen' in parsed && (
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className={`w-4 h-4 ${parsed.eggsSeen ? 'text-green-600' : 'text-gray-400'}`} />
-                      <span>Egg: {parsed.eggsSeen ? 'Sett' : 'Ikke sett'}</span>
-                    </div>
-                  )}
-                  {'honeyStores' in parsed && (
-                    <div>Honning: {parsed.honeyStores}</div>
-                  )}
-                  {'temperament' in parsed && (
-                    <div>Gemytt: {parsed.temperament}</div>
-                  )}
-                  {'broodCondition' in parsed && (
-                    <div>Yngel: {parsed.broodCondition}</div>
-                  )}
-                  {'status' in parsed && (
-                    <div>Status: {parsed.status}</div>
-                  )}
-                  {'temperature' in parsed && (
-                    <div>Temperatur: {parsed.temperature}°C</div>
-                  )}
-                  {'weather' in parsed && (
-                    <div>Vær: {parsed.weather}</div>
-                  )}
-                  {'action' in parsed && (
-                    <div>Handling: {parsed.action === 'TAKE_PHOTO' ? 'Ta bilde' : parsed.action === 'SAVE_INSPECTION' ? 'Lagre inspeksjon' : parsed.action}</div>
-                  )}
+              {parsed && (parsed as any).type ? (
+                <div className="text-sm text-gray-900">
+                  <div className="font-mono">{JSON.stringify(parsed)}</div>
                 </div>
               ) : (
                 <div className="text-gray-500 text-sm">Ingen tydelig tolkning.</div>
