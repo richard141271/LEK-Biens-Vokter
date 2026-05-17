@@ -216,10 +216,16 @@ export class Voice2Engine {
     }
 
     this.speaking = false;
-    this.callbacks.onState?.(shouldResume ? 'listening' : 'idle');
     if (shouldResume) {
       this.paused = false;
-      this.scheduleRestart(120);
+      if (this.restartTimer) {
+        clearTimeout(this.restartTimer);
+        this.restartTimer = null;
+      }
+      this.safeStart();
+      this.scheduleRestart(520);
+    } else {
+      this.callbacks.onState?.('idle');
     }
   }
 

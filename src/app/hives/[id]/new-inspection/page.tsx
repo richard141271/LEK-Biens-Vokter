@@ -64,6 +64,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const lastVoice2UnknownAtRef = useRef<number>(0);
   const submitInspectionRef = useRef<() => void>(() => {});
   const goToRelativeHiveRef = useRef<(delta: 1 | -1, engine?: Voice2Engine) => Promise<void>>(async () => {});
+  const autoStartedVoice2Ref = useRef(false);
 
   // Camera State
   const [cameraActive, setCameraActive] = useState(false);
@@ -923,6 +924,21 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       return;
     }
 
+    if (intent.type === 'QUEEN_YEAR') {
+      const y = Number((intent as any).year);
+      if (Number.isFinite(y)) {
+        const year = Math.max(2000, Math.min(2100, Math.round(y)));
+        setQueenYear((prev) => {
+          setHistory((h) => [...h, { type: 'queenYear', prev }]);
+          return String(year);
+        });
+        setLastCommand(`Årgang: ${year}`);
+        await engine.speak(`Årgang ${year}.`);
+        setTimeout(() => setLastCommand(null), 2500);
+      }
+      return;
+    }
+
     if (intent.type === 'EGGS_SEEN') {
       setEggsSeen((prev) => {
         setHistory((h) => [...h, { type: 'eggsSeen', prev }]);
@@ -986,6 +1002,21 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       setLastCommand(`Droner: ${intent.amount}`);
       await engine.speak(`Droner: ${intent.amount}.`);
       setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'BROOD_FRAMES') {
+      const n = Number((intent as any).count);
+      if (Number.isFinite(n)) {
+        const count = Math.max(0, Math.min(30, Math.round(n)));
+        setBroodFrames((prev) => {
+          setHistory((h) => [...h, { type: 'broodFrames', prev }]);
+          return String(count);
+        });
+        setLastCommand(`Rammer: ${count}`);
+        await engine.speak(`Rammer ${count}.`);
+        setTimeout(() => setLastCommand(null), 2500);
+      }
       return;
     }
 
@@ -1123,6 +1154,20 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       } catch {}
     };
   }, []);
+
+  useEffect(() => {
+    if (autoVoice !== '1') return;
+    if (autoStartedVoice2Ref.current) return;
+    if (!voice2Supported) return;
+    const engine = voice2Ref.current;
+    if (!engine) return;
+    autoStartedVoice2Ref.current = true;
+    setHandsfreeReady(true);
+    setVoice2Enabled(true);
+    try {
+      engine.start();
+    } catch {}
+  }, [autoVoice, voice2Supported]);
   
   // Weather State
   const [weather, setWeather] = useState('');
@@ -1161,8 +1206,25 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           .eq('apiary_id', apiaryId)
           .order('hive_number', { ascending: true });
         if (cancelled) return;
-        if (res.data && Array.isArray(res.data)) {
+        if (res.data && Array.isArray(res.data) && res.data.length > 0) {
           setApiaryHives(res.data as any);
+          return;
+        }
+      } catch {}
+      try {
+        if (typeof window === 'undefined') return;
+        const raw = window.localStorage.getItem('offline_data');
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        const all = Array.isArray(parsed?.hives) ? parsed.hives : [];
+        const filtered = all
+          .filter((x: any) => String(x?.apiary_id || '').trim() === apiaryId)
+          .map((x: any) => ({ id: x?.id, hive_number: x?.hive_number, name: x?.name }))
+          .filter((x: any) => String(x?.id || '').trim());
+        if (cancelled) return;
+        if (filtered.length > 0) {
+          filtered.sort((a: any, b: any) => Number(a?.hive_number || 0) - Number(b?.hive_number || 0));
+          setApiaryHives(filtered as any);
         }
       } catch {}
     })();
@@ -1173,7 +1235,28 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   const goToRelativeHive = useCallback(
     async (delta: 1 | -1, engine?: Voice2Engine) => {
-      const list = apiaryHivesRef.current || [];
+      let list = apiaryHivesRef.current || [];
+      if (list.length === 0) {
+        try {
+          if (typeof window !== 'undefined') {
+            const apiaryId = String((hive as any)?.apiary_id || '').trim();
+            const raw = window.localStorage.getItem('offline_data');
+            if (apiaryId && raw) {
+              const parsed = JSON.parse(raw);
+              const all = Array.isArray(parsed?.hives) ? parsed.hives : [];
+              const filtered = all
+                .filter((x: any) => String(x?.apiary_id || '').trim() === apiaryId)
+                .map((x: any) => ({ id: x?.id, hive_number: x?.hive_number, name: x?.name }))
+                .filter((x: any) => String(x?.id || '').trim());
+              filtered.sort((a: any, b: any) => Number(a?.hive_number || 0) - Number(b?.hive_number || 0));
+              if (filtered.length > 0) {
+                list = filtered as any;
+                setApiaryHives(filtered as any);
+              }
+            }
+          }
+        } catch {}
+      }
       const currentId = String(params.id || '').trim();
       const idx = list.findIndex((x) => String((x as any)?.id || '').trim() === currentId);
       const next = idx >= 0 ? list[idx + delta] : null;
@@ -1189,12 +1272,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       if (engine) await engine.speak(label);
       setTimeout(() => {
         try {
-          router.push(`/hives/${nextId}/new-inspection?autoVoice=1`);
+          router.push(`/hives/${nextId}/new-inspection?${isDemoActive ? 'demo=1&' : ''}autoVoice=1`);
         } catch {}
       }, 120);
       setTimeout(() => setLastCommand(null), 3000);
     },
-    [params.id, router]
+    [isDemoActive, params.id, router]
   );
 
   useEffect(() => {
@@ -3379,15 +3462,16 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               >
                 {showAllPerformedActions ? 'Skjul flere handlinger' : 'Vis flere handlinger'}
               </button>
-              {performedActions.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setPerformedActions([])}
-                  className="text-sm font-semibold text-gray-600 underline underline-offset-2"
-                >
-                  Nullstill
-                </button>
-              )}
+              <button
+                type="button"
+                disabled={performedActions.length === 0}
+                onClick={() => setPerformedActions([])}
+                className={`text-sm font-semibold underline underline-offset-2 ${
+                  performedActions.length === 0 ? 'text-gray-300' : 'text-gray-600'
+                }`}
+              >
+                Nullstill
+              </button>
             </div>
 
             {showAllPerformedActions && (

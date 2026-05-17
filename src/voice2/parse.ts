@@ -80,6 +80,17 @@ export function parseVoice2Intent(text: string): Voice2Intent {
     if (/\b(bla|blå)\b/.test(t)) return { type: 'QUEEN_COLOR', color: 'bla' };
   }
 
+  const yearMatch =
+    t.match(/\b(ar|år|argang|årgang|dronningar|dronningår|dronning ar|dronning år)\s*(20\d{2})\b/) ||
+    (/\b(20\d{2})\b/.test(t) && (/\b(ar|år|argang|årgang)\b/.test(t) ? t.match(/\b(20\d{2})\b/) : null));
+  if (yearMatch) {
+    const raw = Number(yearMatch[2] ?? yearMatch[1]);
+    if (Number.isFinite(raw)) {
+      const year = Math.max(1990, Math.min(2100, Math.round(raw)));
+      if (year >= 2000 && year <= 2100) return { type: 'QUEEN_YEAR', year };
+    }
+  }
+
   if (/\b(egg)\b/.test(t) && /\b(ikke|ingen)\b/.test(t) && /\b(sett|funnet)\b/.test(t)) return { type: 'EGGS_NOT_SEEN' };
   if (/\b(egg)\b/.test(t) && /\b(sett|funnet|har sett)\b/.test(t)) return { type: 'EGGS_SEEN' };
 
@@ -89,6 +100,17 @@ export function parseVoice2Intent(text: string): Voice2Intent {
     if (/\b(larve|larver)\b/.test(t)) return { type: 'BROOD_LARVAE', amount };
     if (/\b(yngel)\b/.test(t)) return { type: 'BROOD_YNGEL', amount };
     if (/\b(drone|droner)\b/.test(t)) return { type: 'BROOD_DRONES', amount };
+  }
+
+  const framesMatch =
+    t.match(/\b(rammer|yngelrammer|yngel rammer)\s*(\d{1,2})\b/) ||
+    t.match(/\b(\d{1,2})\s*(rammer|yngelrammer|yngel rammer)\b/);
+  if (framesMatch) {
+    const raw = Number(framesMatch[2] ?? framesMatch[1]);
+    if (Number.isFinite(raw)) {
+      const count = Math.max(0, Math.min(30, Math.round(raw)));
+      return { type: 'BROOD_FRAMES', count };
+    }
   }
 
   if (/\b(honning)\b/.test(t)) {

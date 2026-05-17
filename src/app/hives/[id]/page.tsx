@@ -81,37 +81,7 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
     const url = String(src || '').trim();
     if (!url) return;
     try {
-      const w = window.open('', '_blank', 'noopener,noreferrer,width=1100,height=850');
-      if (!w) {
-        window.open(url, '_blank', 'noopener,noreferrer');
-        return;
-      }
-      const safeUrl = url.replace(/"/g, '%22');
-      w.document.open();
-      w.document.write(`<!doctype html>
-<html lang="nb">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
-  <title>Bilde</title>
-  <style>
-    html, body { margin: 0; padding: 0; background: #000; height: 100%; }
-    .wrap { height: 100%; overflow: auto; -webkit-overflow-scrolling: touch; }
-    img { display: block; max-width: 100%; height: auto; margin: 0 auto; background: #000; }
-    .hint { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 12px; color: rgba(255,255,255,.8); font: 12px system-ui, -apple-system, Segoe UI, Roboto, Arial; background: linear-gradient(transparent, rgba(0,0,0,.65)); }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <img src="${safeUrl}" alt="Bilde" />
-  </div>
-  <div class="hint">Zoom med pinch / dobbel-tap</div>
-</body>
-</html>`);
-      w.document.close();
-      try {
-        w.focus();
-      } catch {}
+      window.open(url, '_blank', 'noopener,noreferrer');
     } catch {
       window.open(url, '_blank', 'noopener,noreferrer');
     }

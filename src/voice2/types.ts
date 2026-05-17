@@ -2,6 +2,7 @@ export type Voice2Intent =
   | { type: 'QUEEN_SEEN' }
   | { type: 'QUEEN_NOT_SEEN' }
   | { type: 'QUEEN_COLOR'; color: 'hvit' | 'gul' | 'rod' | 'gronn' | 'bla' }
+  | { type: 'QUEEN_YEAR'; year: number }
   | { type: 'EGGS_SEEN' }
   | { type: 'EGGS_NOT_SEEN' }
   | { type: 'TEMPERATURE'; celsius: number }
@@ -10,6 +11,7 @@ export type Voice2Intent =
   | { type: 'BROOD_LARVAE'; amount: 'lite' | 'normal' | 'mye' }
   | { type: 'BROOD_YNGEL'; amount: 'lite' | 'normal' | 'mye' }
   | { type: 'BROOD_DRONES'; amount: 'lite' | 'normal' | 'mye' }
+  | { type: 'BROOD_FRAMES'; count: number }
   | { type: 'HONEY_STORES'; level: 'lite' | 'middels' | 'mye' }
   | { type: 'TEMPERAMENT'; temperament: 'rolig' | 'urolig' | 'aggressiv' }
   | { type: 'STATUS'; status: string }
