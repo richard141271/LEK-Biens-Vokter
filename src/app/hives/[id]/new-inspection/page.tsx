@@ -9,6 +9,8 @@ import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, ClipboardList, Image as ImageIcon, X, Mic, MicOff, Camera } from 'lucide-react';
 import { useOffline } from '@/context/OfflineContext';
+import { Voice2Engine } from '@/voice2/engine';
+import { parseVoice2Intent } from '@/voice2/parse';
 
 export default function NewInspectionPage({ params }: { params: { id: string } }) {
   const [hive, setHive] = useState<any>(null);
@@ -43,6 +45,13 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const [queenSide, setQueenSide] = useState<1 | 2>(1);
   const [queenSideDbSupported, setQueenSideDbSupported] = useState<boolean | null>(null);
   useEffect(() => { loadAliases(); }, []);
+  const [voice2Enabled, setVoice2Enabled] = useState(false);
+  const [voice2State, setVoice2State] = useState<'idle' | 'listening' | 'speaking' | 'error'>('idle');
+  const [voice2Supported, setVoice2Supported] = useState(false);
+  const voice2Ref = useRef<Voice2Engine | null>(null);
+  const voice2EnabledRef = useRef<boolean>(false);
+  const lastVoice2UnknownAtRef = useRef<number>(0);
+  const submitInspectionRef = useRef<() => void>(() => {});
 
   // Camera State
   const [cameraActive, setCameraActive] = useState(false);
@@ -575,6 +584,116 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       prev.map((a) => (a.id === id ? { ...a, meta: { ...(a.meta || {}), ...(meta || {}) } } : a))
     );
   };
+
+  useEffect(() => {
+    voice2EnabledRef.current = voice2Enabled;
+  }, [voice2Enabled]);
+
+  const appendNote = useCallback((line: string) => {
+    const l = String(line || '').trim();
+    if (!l) return;
+    setNotes((prev) => (prev ? `${prev}\n${l}` : l));
+  }, []);
+
+  const upsertPerformedAction = useCallback((id: string, meta?: PerformedAction['meta']) => {
+    const mid = String(id || '').trim();
+    if (!mid) return;
+    setPerformedActions((prev) => {
+      const exists = prev.some((a) => a.id === mid);
+      if (!exists) return [...prev, meta ? { id: mid, meta } : { id: mid }];
+      if (!meta) return prev;
+      return prev.map((a) => (a.id === mid ? { ...a, meta: { ...(a.meta || {}), ...(meta || {}) } } : a));
+    });
+  }, []);
+
+  const handleVoice2Text = useCallback(async (text: string) => {
+    const engine = voice2Ref.current;
+    if (!engine) return;
+    const intent = parseVoice2Intent(text);
+
+    if (intent.type === 'UNKNOWN') {
+      const now = Date.now();
+      if (now - lastVoice2UnknownAtRef.current > 9000) {
+        lastVoice2UnknownAtRef.current = now;
+        setLastCommand(`Hørte: ${String(text || '').trim()}`);
+        await engine.speak('Jeg forstod ikke. Prøv igjen.');
+        setTimeout(() => setLastCommand(null), 2500);
+      }
+      return;
+    }
+
+    if (intent.type === 'QUEEN_SEEN') {
+      setQueenSeen('ja');
+      setLastCommand('Dronning sett');
+      await engine.speak('Dronning sett.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'FEED_LOW') {
+      appendNote('Lite fôr.');
+      setLastCommand('Lite fôr registrert');
+      await engine.speak('Lite fôr registrert.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'FEED_GIVEN') {
+      upsertPerformedAction('FEED_GIVEN', { feedType: intent.feedType });
+      setLastCommand(intent.feedType === 'sukkerlake' ? 'Ga sukkerlake' : 'Gitt fôr');
+      await engine.speak(intent.feedType === 'sukkerlake' ? 'Ga sukkerlake.' : 'Gitt fôr.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'VARROA_NONE') {
+      appendNote('Ingen varroa.');
+      setLastCommand('Ingen varroa');
+      await engine.speak('Ingen varroa registrert.');
+      setTimeout(() => setLastCommand(null), 2500);
+      return;
+    }
+
+    if (intent.type === 'SAVE_INSPECTION') {
+      setLastCommand('Lagrer inspeksjon');
+      await engine.speak('Lagrer inspeksjon.');
+      setTimeout(() => {
+        try {
+          submitInspectionRef.current();
+        } catch {}
+      }, 50);
+      setTimeout(() => setLastCommand(null), 3000);
+      return;
+    }
+  }, [appendNote, upsertPerformedAction]);
+
+  const handleVoice2TextRef = useRef<(text: string) => void>(() => {});
+  useEffect(() => {
+    handleVoice2TextRef.current = (t: string) => {
+      void handleVoice2Text(t);
+    };
+  }, [handleVoice2Text]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (voice2Ref.current) return;
+    const engine = new Voice2Engine({
+      onText: (t) => {
+        try {
+          handleVoice2TextRef.current(t);
+        } catch {}
+      },
+      onState: (s) => setVoice2State(s),
+      onError: () => setVoice2State('error'),
+    });
+    voice2Ref.current = engine;
+    setVoice2Supported(engine.isSupported());
+    return () => {
+      try {
+        engine.stop();
+      } catch {}
+    };
+  }, []);
   
   // Weather State
   const [weather, setWeather] = useState('');
@@ -1249,6 +1368,20 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     speakRef.current = speak;
   }, [speak]);
 
+  const announce = useCallback((text: string, opts?: { resume?: boolean }) => {
+    const trimmed = String(text || '').trim();
+    if (!trimmed) return;
+    if (voice2EnabledRef.current && voice2Ref.current) {
+      try {
+        void voice2Ref.current.speak(trimmed);
+      } catch {}
+      return;
+    }
+    try {
+      speak(trimmed, opts);
+    } catch {}
+  }, [speak]);
+
   useEffect(() => {
     selectedImageRef.current = selectedImage;
   }, [selectedImage]);
@@ -1724,12 +1857,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         if (shouldSplit && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
           const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
           setLastCommand(`Dronning ${queenSide} lagret offline`);
-          speak(`Dronning ${queenSide} lagret offline. Fortsett med dronning ${nextSide}`);
+          announce(`Dronning ${queenSide} lagret offline. Fortsett med dronning ${nextSide}`);
           setQueenSide(nextSide);
           return;
         }
         setLastCommand('Inspeksjon lagret offline');
-        speak('Inspeksjon lagret offline');
+        announce('Inspeksjon lagret offline');
         if (!handsfreeReady) {
           alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
         }
@@ -1783,12 +1916,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         if (shouldSplit && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
           const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
           setLastCommand(`Dronning ${queenSide} lagret offline`);
-          speak(`Dronning ${queenSide} lagret offline. Fortsett med dronning ${nextSide}`);
+          announce(`Dronning ${queenSide} lagret offline. Fortsett med dronning ${nextSide}`);
           setQueenSide(nextSide);
           return;
         }
         setLastCommand('Inspeksjon lagret offline');
-        speak('Inspeksjon lagret offline');
+        announce('Inspeksjon lagret offline');
         if (!handsfreeReady) {
           alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
         }
@@ -1862,12 +1995,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         if (shouldSplit && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
           const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
           setLastCommand(`Dronning ${queenSide} lagret`);
-          speak(`Dronning ${queenSide} lagret. Fortsett med dronning ${nextSide}`);
+        announce(`Dronning ${queenSide} lagret. Fortsett med dronning ${nextSide}`);
           setQueenSide(nextSide);
           return;
         }
         setLastCommand('Inspeksjon lagret');
-        speak('Inspeksjon lagret');
+      announce('Inspeksjon lagret');
         setTimeout(() => {
           router.push('/hives?demo=1');
         }, 650);
@@ -1984,12 +2117,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       if (shouldSplit && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
         const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
         setLastCommand(`Dronning ${queenSide} lagret`);
-        speak(`Dronning ${queenSide} lagret. Fortsett med dronning ${nextSide}`);
+        announce(`Dronning ${queenSide} lagret. Fortsett med dronning ${nextSide}`);
         setQueenSide(nextSide);
         return;
       }
       setLastCommand('Inspeksjon lagret');
-      speak('Inspeksjon lagret');
+      announce('Inspeksjon lagret');
       setTimeout(() => {
         router.push('/hives');
       }, 650);
@@ -2046,12 +2179,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           if (shouldSplit && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
             const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
             setLastCommand(`Dronning ${queenSide} lagret offline`);
-            speak(`Dronning ${queenSide} lagret offline. Fortsett med dronning ${nextSide}`);
+            announce(`Dronning ${queenSide} lagret offline. Fortsett med dronning ${nextSide}`);
             setQueenSide(nextSide);
             return;
           }
           setLastCommand('Inspeksjon lagret offline');
-          speak('Inspeksjon lagret offline');
+          announce('Inspeksjon lagret offline');
           if (!handsfreeReady) {
             alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
           }
@@ -2062,7 +2195,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         }
       } catch {}
       setLastCommand('Feil ved lagring');
-      speak('Feil ved lagring');
+      announce('Feil ved lagring');
       if (!handsfreeReady) {
         alert('Feil ved lagring: ' + (error?.message || 'Ukjent feil'));
       }
@@ -2070,6 +2203,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       setSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    submitInspectionRef.current = () => {
+      void submitInspection();
+    };
+  }, [submitInspection]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2133,6 +2272,54 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 title="Start/Stopp Bodycam"
             >
                 <Camera className="w-6 h-6" />
+            </button>
+
+            <button
+                disabled={!voice2Supported}
+                onClick={() => {
+                  const engine = voice2Ref.current;
+                  if (!engine || !voice2Supported) {
+                    alert('Denne enheten støtter ikke handsfree-stemme.');
+                    return;
+                  }
+                  if (voice2Enabled) {
+                    try {
+                      engine.stop();
+                    } catch {}
+                    setVoice2Enabled(false);
+                    setHandsfreeReady(false);
+                    setVoice2State('idle');
+                    return;
+                  }
+                  if (isListening) {
+                    try {
+                      stopListening();
+                    } catch {}
+                  }
+                  setHandsfreeReady(true);
+                  setVoice2Enabled(true);
+                  try {
+                    engine.unlockFromGesture();
+                  } catch {}
+                  try {
+                    engine.start();
+                  } catch {}
+                  void engine.speak('Klar.');
+                }}
+                className={`px-3 py-3 rounded-full transition-all font-bold text-xs tracking-wide ${
+                  !voice2Supported
+                    ? 'bg-gray-100 text-gray-300'
+                    : voice2Enabled
+                      ? voice2State === 'error'
+                        ? 'bg-red-600 text-white shadow-lg ring-2 ring-red-300'
+                        : voice2State === 'speaking'
+                          ? 'bg-honey-600 text-white shadow-lg ring-2 ring-honey-300'
+                          : 'bg-green-600 text-white shadow-lg ring-2 ring-green-300'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+                title={voice2Enabled ? 'Handsfree (ny) av' : 'Handsfree (ny) på'}
+            >
+              V2
             </button>
 
             <button
