@@ -49,7 +49,22 @@ export default function ApiariesPage() {
   const prevVoiceStepRef = useRef<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
   const apiariesRef = useRef<any[]>([]);
   const ttsSafetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const audioUnlockedRef = useRef<boolean>(false);
+  const voiceInsideRef = useRef<boolean>(false);
+  const lastSpokenRef = useRef<{ text: string; at: number }>({ text: '', at: 0 });
+  const speakRef = useRef<(text: string) => void>(() => {});
+
+  const say = useCallback((message: string, opts?: { force?: boolean }) => {
+    const msg = String(message || '').trim();
+    setVoiceInfo(msg);
+    if (!msg) return;
+    const now = Date.now();
+    if (!opts?.force) {
+      if (lastSpokenRef.current.text === msg && now - lastSpokenRef.current.at < 5000) return;
+      if (now - lastSpokenRef.current.at < 700 && lastSpokenRef.current.text) return;
+    }
+    lastSpokenRef.current = { text: msg, at: now };
+    try { speakRef.current(msg); } catch {}
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -182,7 +197,7 @@ export default function ApiariesPage() {
       if (voiceStepRef.current !== 'idle') {
         setVoiceStep('armed');
         setSelectedVoiceApiary(null);
-        setVoiceInfo('Avbrutt. Si "start inspeksjon" når du er klar.');
+        say('Avbrutt. Si "start inspeksjon" når du er klar.');
       }
       return;
     }
@@ -199,25 +214,25 @@ export default function ApiariesPage() {
       if (nearby) {
         setSelectedVoiceApiary(nearby);
         setVoiceStep('awaiting_hive');
-        setVoiceInfo('Hvilken kube nummer skal inspiseres?');
+        say('Hvilken kube nummer skal inspiseres?');
         return;
       }
 
       setSelectedVoiceApiary(null);
       setVoiceStep('awaiting_apiary');
-      setVoiceInfo('Hvilken bigård? Si navn eller nummer.');
+      say('Hvilken bigård? Si navn eller nummer.');
       return;
     }
 
     if (voiceStepRef.current === 'awaiting_apiary') {
       const picked = pickApiaryFromSpeech(t);
       if (!picked) {
-        setVoiceInfo('Jeg fant ikke bigården. Si navn eller nummer en gang til.');
+        say('Jeg fant ikke bigården. Si navn eller nummer en gang til.');
         return;
       }
       setSelectedVoiceApiary(picked);
       setVoiceStep('awaiting_hive');
-      setVoiceInfo(`Valgt ${picked.name}. Hvilken kube nummer skal inspiseres?`);
+      say(`Valgt ${picked.name}. Hvilken kube nummer skal inspiseres?`);
       return;
     }
 
@@ -226,13 +241,13 @@ export default function ApiariesPage() {
       if (!apiary) {
         setVoiceStep('armed');
         setSelectedVoiceApiary(null);
-        setVoiceInfo('Fant ingen bigård i nærheten. Si "start inspeksjon" når du er nær en bigård.');
+        say('Fant ingen bigård i nærheten. Si "start inspeksjon" når du er nær en bigård.');
         return;
       }
 
       const digits = extractHiveDigits(t);
       if (!digits) {
-        setVoiceInfo('Jeg oppfattet ikke kubenummeret. Si for eksempel "kube nummer 101".');
+        say('Jeg oppfattet ikke kubenummeret. Si for eksempel "kube nummer 101".');
         return;
       }
 
@@ -245,13 +260,13 @@ export default function ApiariesPage() {
       });
 
       if (!match?.id) {
-        setVoiceInfo(`Fant ikke kube ${digits} i ${apiary.name}. Prøv igjen.`);
+        say(`Fant ikke kube ${digits} i ${apiary.name}. Prøv igjen.`);
         return;
       }
 
       router.push(`/hives/${match.id}/new-inspection?autoVoice=1`);
     }
-  }, [router]);
+  }, [router, say]);
 
   const { isListening, startListening, stopListening, pauseListening, resumeListening, isSupported } = useVoiceRecognition(handleVoice);
 
@@ -259,139 +274,47 @@ export default function ApiariesPage() {
     isListeningRef.current = isListening;
   }, [isListening]);
 
-  const speak = useCallback((text: string, opts?: { preferBrowser?: boolean }) => {
-    void (async () => {
-      try {
-        if (typeof window === 'undefined') return;
-        if (!isVoiceEnabledRef.current) return;
-        const trimmed = String(text || '').trim();
-        if (!trimmed) return;
-
-        const wasListening = isListeningRef.current;
+  const speak = useCallback((text: string) => {
+    try {
+      if (typeof window === 'undefined') return;
+      if (!isVoiceEnabledRef.current) return;
+      const trimmed = String(text || '').trim();
+      if (!trimmed) return;
+      const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
+      const wasListening = isListeningRef.current;
+      if (wasListening) {
+        try { pauseListening(); } catch {}
+      }
+      if (!s) return;
+      try { s.cancel(); } catch {}
+      try { s.getVoices?.(); } catch {}
+      const u = new SpeechSynthesisUtterance(trimmed);
+      u.lang = 'nb-NO';
+      u.rate = 0.95;
+      if (ttsSafetyRef.current) clearTimeout(ttsSafetyRef.current);
+      const safety = setTimeout(() => {
         if (wasListening) {
-          try { pauseListening(); } catch {}
+          try { resumeListening(); } catch {}
         }
-
-        const resume = () => {
-          if (!wasListening) return;
-          setTimeout(() => {
-            try { resumeListening(); } catch {}
-          }, 120);
-        };
-
-        const preferBrowser = opts?.preferBrowser !== false;
-        if (preferBrowser) {
-          try {
-            const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
-            if (s) {
-              try { s.cancel(); } catch {}
-              try { s.getVoices?.(); } catch {}
-              const u = new SpeechSynthesisUtterance(trimmed);
-              u.lang = 'nb-NO';
-              u.rate = 0.95;
-              if (ttsSafetyRef.current) {
-                clearTimeout(ttsSafetyRef.current);
-                ttsSafetyRef.current = null;
-              }
-              const safety = setTimeout(() => resume(), 4500);
-              ttsSafetyRef.current = safety;
-              u.onend = () => {
-                clearTimeout(safety);
-                if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
-                resume();
-              };
-              u.onerror = () => {
-                clearTimeout(safety);
-                if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
-                resume();
-              };
-              s.speak(u);
-              return;
-            }
-          } catch {}
-        }
-
-        const serverOk = await (async () => {
-          try {
-            const res = await fetch('/api/voice/tts', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: trimmed }),
-            });
-            if (!res.ok) return false;
-            const bytes = await res.arrayBuffer();
-            const blob = new Blob([bytes], { type: 'audio/wav' });
-            const url = URL.createObjectURL(blob);
-            const a = new Audio(url);
-            a.preload = 'auto';
-            (a as any).playsInline = true;
-            try { a.setAttribute?.('playsinline', 'true'); } catch {}
-
-            const done = () => {
-              try { URL.revokeObjectURL(url); } catch {}
-              resume();
-            };
-            a.onended = done;
-            a.onerror = done;
-
-            if (ttsSafetyRef.current) {
-              clearTimeout(ttsSafetyRef.current);
-              ttsSafetyRef.current = null;
-            }
-            const safety = setTimeout(() => done(), 4500);
-            ttsSafetyRef.current = safety;
-
-            try {
-              const p = a.play();
-              if (p && typeof (p as any).catch === 'function') await (p as any);
-            } catch {
-              clearTimeout(safety);
-              if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
-              done();
-              return false;
-            }
-
-            return true;
-          } catch {
-            return false;
-          }
-        })();
-
-        if (serverOk) return;
-
-        try {
-          const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
-          if (!s) {
-            resume();
-            return;
-          }
-          try { s.cancel(); } catch {}
-          const u = new SpeechSynthesisUtterance(trimmed);
-          u.lang = 'nb-NO';
-          u.rate = 0.95;
-          if (ttsSafetyRef.current) {
-            clearTimeout(ttsSafetyRef.current);
-            ttsSafetyRef.current = null;
-          }
-          const safety = setTimeout(() => resume(), 4500);
-          ttsSafetyRef.current = safety;
-          u.onend = () => {
-            clearTimeout(safety);
-            if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
-            resume();
-          };
-          u.onerror = () => {
-            clearTimeout(safety);
-            if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
-            resume();
-          };
-          s.speak(u);
-        } catch {
-          resume();
-        }
-      } catch {}
-    })();
+      }, 2500);
+      ttsSafetyRef.current = safety;
+      u.onend = () => {
+        clearTimeout(safety);
+        if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
+        if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 120);
+      };
+      u.onerror = () => {
+        clearTimeout(safety);
+        if (ttsSafetyRef.current === safety) ttsSafetyRef.current = null;
+        if (wasListening) setTimeout(() => { try { resumeListening(); } catch {} }, 120);
+      };
+      s.speak(u);
+    } catch {}
   }, [pauseListening, resumeListening]);
+
+  useEffect(() => {
+    speakRef.current = speak;
+  }, [speak]);
 
   useEffect(() => {
     const prev = prevVoiceStepRef.current;
@@ -418,6 +341,7 @@ export default function ApiariesPage() {
     if (typeof window === 'undefined') return;
     if (isSelectionMode) return;
     if (!isVoiceEnabled) {
+      voiceInsideRef.current = false;
       setNearApiary(null);
       setVoiceStep('idle');
       setSelectedVoiceApiary(null);
@@ -427,11 +351,8 @@ export default function ApiariesPage() {
       }
       return;
     }
-    if (isSupported && !isListeningRef.current) {
-      try { startListening(); } catch {}
-    }
     if (!navigator?.geolocation) {
-      setVoiceInfo('GPS er ikke tilgjengelig på denne enheten.');
+      say('GPS er ikke tilgjengelig på denne enheten.');
       return;
     }
 
@@ -454,14 +375,20 @@ export default function ApiariesPage() {
         if (!best) return;
 
         const dist = Math.round(best.distance);
-        const inside = best.distance <= 20;
-        const outside = best.distance >= 35;
+        const inside = best.distance <= 5;
+        const outside = best.distance >= 8;
 
         if (inside) {
+          const entering = !voiceInsideRef.current;
+          voiceInsideRef.current = true;
           setNearApiary(best.apiary);
-          if (voiceStepRef.current === 'idle') setVoiceStep('armed');
 
-          setVoiceInfo(`Nær ${best.apiary.name} (${dist} m). Si "start inspeksjon".`);
+          if (voiceStepRef.current === 'idle' || voiceStepRef.current === 'armed') {
+            setSelectedVoiceApiary(best.apiary);
+            setVoiceStep('awaiting_hive');
+          }
+
+          setVoiceInfo(`Du er i ${best.apiary.name} (${dist} m). Si kube nummer (f.eks. 101).`);
 
           const now = Date.now();
           const shouldPrompt =
@@ -470,34 +397,44 @@ export default function ApiariesPage() {
           if (shouldPrompt) {
             lastPromptApiaryIdRef.current = best.apiary.id;
             lastPromptAtRef.current = now;
-            speak(`Du er nær ${best.apiary.name}. Si start inspeksjon.`);
+            say(`Du er i ${best.apiary.name}. Si kube nummer.`);
+          } else if (entering) {
+            say(`Du er i ${best.apiary.name}. Si kube nummer.`);
           }
 
-          if (isSupported && !isListeningRef.current) {
+          if (entering && isSupported) {
             try { startListening(); } catch {}
           }
         } else if (outside) {
-          if (nearApiaryRef.current?.id) {
+          if (voiceInsideRef.current) {
+            voiceInsideRef.current = false;
             setNearApiary(null);
-            if (voiceStepRef.current === 'awaiting_hive') setVoiceStep('armed');
-            setVoiceInfo('Gå nær en bigård for å starte inspeksjon med tale.');
+            setSelectedVoiceApiary(null);
+            if (voiceStepRef.current !== 'idle') setVoiceStep('idle');
+            setVoiceInfo('Utenfor bigård. Talestyring er ikke aktiv.');
+            if (isListeningRef.current) {
+              try { stopListening(); } catch {}
+            }
           }
         } else {
           if (voiceStepRef.current === 'idle') {
-            setVoiceInfo(`Nærmeste bigård: ${best.apiary.name} (${dist} m).`);
+            setVoiceInfo(
+              `Nærmeste bigård: ${best.apiary.name} (${dist} m). Gå nærmere (5 m) for talestyrt inspeksjon.`
+            );
           }
         }
       },
       () => {
-        setVoiceInfo('Gi tilgang til posisjon for å starte inspeksjon med tale.');
+        say('Gi tilgang til posisjon for å starte inspeksjon med tale.');
       },
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 8000 }
     );
 
     return () => {
+      voiceInsideRef.current = false;
       try { navigator.geolocation.clearWatch(watchId); } catch {}
     };
-  }, [apiariesWithCoords, isSelectionMode, isSupported, isVoiceEnabled, speak, startListening, stopListening]);
+  }, [apiariesWithCoords, isSelectionMode, isSupported, isVoiceEnabled, say, startListening, stopListening]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1212,17 +1149,6 @@ export default function ApiariesPage() {
               } else {
                 isVoiceEnabledRef.current = true;
                 setIsVoiceEnabled(true);
-                try {
-                  if (!audioUnlockedRef.current) {
-                    const a = new Audio(
-                      'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
-                    );
-                    a.volume = 0;
-                    const p = a.play();
-                    if (p && typeof (p as any).catch === 'function') void (p as any).catch(() => {});
-                    audioUnlockedRef.current = true;
-                  }
-                } catch {}
                 try { startListening(); } catch {}
                 setVoiceStep('armed');
                 setSelectedVoiceApiary(null);
@@ -1240,7 +1166,7 @@ export default function ApiariesPage() {
                     o.stop(ctx.currentTime + 0.01);
                   }
                 } catch {}
-                speak('Si start inspeksjon.', { preferBrowser: true });
+                say('Si start inspeksjon.', { force: true });
               }
             }}
             className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 ${
