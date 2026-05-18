@@ -501,6 +501,20 @@ export default function GrunneierPage() {
     setAuthFormPassword('');
   };
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (authEmail) return;
+    if (authModalOpen) return;
+    const mode = searchParams.get('auth');
+    if (mode !== 'signin' && mode !== 'signup') return;
+    openAuth(mode);
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.delete('auth');
+      router.replace(u.pathname + (u.search ? u.search : '') + (u.hash || ''));
+    } catch {}
+  }, [authEmail, authModalOpen, router, searchParams]);
+
   const setPasswordFromLink = async () => {
     const targetEmail = String(sessionEmail || '').trim().toLowerCase();
     if (!targetEmail) return;

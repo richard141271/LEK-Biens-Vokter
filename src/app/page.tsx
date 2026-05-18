@@ -108,6 +108,47 @@ export default function Home() {
               </div>
             </div>
           </div>
+
+          {/* Grunneier-kort */}
+          <div className="mt-8 bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 group relative">
+            <div className="h-48 bg-slate-50 flex items-center justify-center relative overflow-hidden p-4">
+              <Image src="/icon.png" alt="Biens Vokter Våpenskjold" fill sizes="600px" className="object-contain drop-shadow-lg group-hover:scale-110 transition-transform duration-500" />
+            </div>
+            <div className="p-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">Er du grunneier?</h2>
+              <p className="text-gray-600 mb-4">
+                Få oversikt og kontroll over bigårder på din eiendom med grunneierportalen.
+              </p>
+              <ul className="text-sm text-gray-600 space-y-1 mb-6">
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                  Se kart og status for bigårder du er knyttet til
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                  Godkjenn avtaler og oppdater kontaktinfo
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                  Enkel innlogging med engangslenke eller passord
+                </li>
+              </ul>
+              <div className="flex gap-3">
+                <Link
+                  href="/grunneier?auth=signin"
+                  className="flex-1 text-center bg-gray-900 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-xl transition-colors"
+                >
+                  Logg inn
+                </Link>
+                <Link
+                  href="/grunneier?auth=signup"
+                  className="flex-1 text-center bg-white border-2 border-gray-900 text-gray-900 hover:bg-gray-50 font-bold py-3 px-4 rounded-xl transition-colors"
+                >
+                  Opprett konto
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
