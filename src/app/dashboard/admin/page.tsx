@@ -420,6 +420,21 @@ export default function AdminDashboard() {
             Møtereferater, globale innstillinger og kobling til LEK-Honning™️.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Link href="/dashboard/admin/feedback" className="group">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-purple-500 hover:shadow-md transition-all h-full">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-purple-50 text-purple-600 rounded-lg group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                    <MessageSquare className="w-6 h-6" />
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-purple-500" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Tilbakemeldinger</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Se feil, ønsker og forslag fra brukerne. Oppdater status og skriv intern kommentar.
+                </p>
+              </div>
+            </Link>
+
             <Link href="/dashboard/admin/meeting-notes" className="group">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-honey-500 hover:shadow-md transition-all h-full">
                 <div className="flex items-center justify-between mb-4">
