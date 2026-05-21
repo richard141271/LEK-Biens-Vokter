@@ -130,11 +130,7 @@ export default function AdminFeedbackPage() {
         return matchesTab(updated, activeTab) ? next : next.filter((r) => r.id !== selected.id);
       });
 
-      if (matchesTab(updated, activeTab)) {
-        setSelected(updated);
-      } else {
-        setSelected(null);
-      }
+      setSelected(null);
     } catch (e: any) {
       alert(e?.message || 'Kunne ikke lagre');
     } finally {
