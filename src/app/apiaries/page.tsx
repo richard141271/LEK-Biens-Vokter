@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, MapPin, Warehouse, Store, Truck, LogOut, Box, Printer, CheckSquare, Square, X, Download, Mic, MicOff } from 'lucide-react';
+import { Plus, MapPin, Warehouse, Store, Truck, LogOut, Box, Printer, CheckSquare, Square, X, Mic, MicOff } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
@@ -19,18 +19,12 @@ export default function ApiariesPage() {
   const [activeOwnerId, setActiveOwnerId] = useState<string>('');
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const [isServiceWorkerControlling, setIsServiceWorkerControlling] = useState<boolean | null>(null);
-  const [offlineReady, setOfflineReady] = useState(false);
   const [voiceInfo, setVoiceInfo] = useState<string>('');
   const [nearApiary, setNearApiary] = useState<any | null>(null);
   const [voiceStep, setVoiceStep] = useState<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
   const [selectedVoiceApiary, setSelectedVoiceApiary] = useState<any | null>(null);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(true);
-  
-  // Offline Download State
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  
+
   // Selection State
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedApiaries, setSelectedApiaries] = useState<string[]>([]);
@@ -38,7 +32,6 @@ export default function ApiariesPage() {
 
   const supabase = createClient();
   const router = useRouter();
-  const didAutoDownloadRef = useRef(false);
   const voiceStepRef = useRef<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
   const nearApiaryRef = useRef<any | null>(null);
   const selectedVoiceApiaryRef = useRef<any | null>(null);
@@ -524,36 +517,6 @@ export default function ApiariesPage() {
     };
   }, [apiariesWithCoords, isSelectionMode, isSupported, isVoiceEnabled, say, startListening, stopListening]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!('serviceWorker' in navigator)) {
-      setIsServiceWorkerControlling(false);
-      return;
-    }
-
-    const update = () => {
-      setIsServiceWorkerControlling(!!navigator.serviceWorker.controller);
-    };
-
-    update();
-    navigator.serviceWorker.addEventListener('controllerchange', update);
-    navigator.serviceWorker.ready.then(update).catch(() => setIsServiceWorkerControlling(false));
-
-    return () => {
-      navigator.serviceWorker.removeEventListener('controllerchange', update);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const raw = localStorage.getItem('offline_data');
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if ((parsed?.hives?.length || 0) > 0 || (parsed?.apiaries?.length || 0) > 0) setOfflineReady(true);
-    } catch {}
-  }, []);
-
   const fetchData = async () => {
     try {
       // Offline fallback for list
@@ -711,7 +674,6 @@ export default function ApiariesPage() {
           timestamp: Date.now(),
         };
         localStorage.setItem('offline_data', JSON.stringify(offlineData));
-        setOfflineReady(true);
       } catch {}
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -870,122 +832,6 @@ export default function ApiariesPage() {
     }
   };
 
-  const handleOfflineDownload = async () => {
-    if (isDownloading) return;
-    setIsDownloading(true);
-    setDownloadProgress(0);
-    
-    try {
-        if (!navigator.onLine) {
-          alert('Slå på nett først, trykk «Last ned», og slå av nett etterpå.');
-          return;
-        }
-
-        try {
-          await navigator.serviceWorker?.register?.('/sw.js', { scope: '/' });
-        } catch {}
-
-        const existingRaw = localStorage.getItem('offline_data');
-        let existing: any = {};
-        if (existingRaw) {
-          try {
-            existing = JSON.parse(existingRaw);
-          } catch {}
-        }
-
-        const hives = apiaries.flatMap((a) => a.hives || []);
-        const hiveIds = hives.map((h: any) => h?.id).filter(Boolean);
-
-        const documentPaths: string[] = ['/dashboard', '/apiaries', '/hives', '/settings'];
-        apiaries.forEach((a) => documentPaths.push(`/apiaries/${a.id}`));
-        hiveIds.forEach((id: string) => documentPaths.push(`/hives/${id}`));
-        [
-          '/dashboard/smittevern/veileder',
-          '/dashboard/smittevern/sykdommer/varroa',
-          '/dashboard/smittevern/sykdommer/lukket-yngelrate',
-          '/dashboard/smittevern/sykdommer/apen-yngelrate',
-          '/dashboard/smittevern/sykdommer/kalkyngel',
-          '/dashboard/smittevern/sykdommer/nosema',
-          '/dashboard/smittevern/sykdommer/frisk-kube',
-        ].forEach((p) => documentPaths.push(p));
-
-        const assetUrls = [
-          '/images/sykdommer/sykdommer.png',
-          '/images/sykdommer/varroa.png',
-          '/images/sykdommer/lukket_yngelrate.png',
-          '/images/sykdommer/apen_yngelrate.png',
-          '/images/sykdommer/kalkyngel.png',
-          '/images/sykdommer/nosema.png',
-          '/images/sykdommer/frisk_kube.jpg',
-        ];
-
-        const totalSteps = 1 + 2 + 1 + documentPaths.length + assetUrls.length;
-
-        let completed = 0;
-        const bump = () => {
-          completed += 1;
-          setDownloadProgress(Math.min(100, Math.round((completed / totalSteps) * 100)));
-        };
-
-        const { data: inspectionsData } = await supabase
-          .from('inspections')
-          .select('*')
-          .in('hive_id', hiveIds)
-          .order('inspection_date', { ascending: false });
-        bump();
-
-        const { data: logsData } = await supabase
-          .from('hive_logs')
-          .select('*')
-          .in('hive_id', hiveIds)
-          .order('created_at', { ascending: false });
-        bump();
-
-        const offlineData = {
-          ...existing,
-          apiaries: apiaries,
-          hives,
-          inspections: inspectionsData || existing.inspections || [],
-          logs: logsData || existing.logs || [],
-          profile: profile || existing.profile || null,
-          timestamp: Date.now(),
-        };
-
-        localStorage.setItem('offline_data', JSON.stringify(offlineData));
-        bump();
-
-        for (const path of documentPaths) {
-          try {
-            await (router as any).prefetch?.(path);
-          } catch {}
-          bump();
-        }
-
-        for (const url of assetUrls) {
-          await fetch(url, { cache: 'reload' }).catch(() => {});
-          bump();
-        }
-
-        setOfflineReady(true);
-        alert('Offline er klart: bigårder, bikuber og inspeksjoner er lagret lokalt.');
-    } catch (e) {
-        console.error(e);
-        alert('❌ Noe gikk galt. Sjekk nettet ditt og prøv igjen.');
-    } finally {
-        setIsDownloading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (didAutoDownloadRef.current) return;
-    if (loading) return;
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('offline') !== '1') return;
-    didAutoDownloadRef.current = true;
-    void handleOfflineDownload();
-  }, [loading]);
-
   if (loading) return <div className="p-8 text-center">Laster bigårder...</div>;
 
   return (
@@ -1025,32 +871,6 @@ export default function ApiariesPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {profile?.role !== 'tenant' && (
-            <button
-              onClick={handleOfflineDownload}
-              disabled={isDownloading}
-              className={`p-2 rounded-full transition-all ${
-                isDownloading
-                  ? 'bg-blue-500 text-white ring-4 ring-blue-200'
-                  : 'bg-white text-gray-600 border border-gray-200 shadow-sm hover:text-blue-600 hover:bg-blue-50'
-              }`}
-              title="Last ned for offline bruk (v1.5)"
-            >
-              {isDownloading ? (
-                <span className="text-[10px] font-bold">{downloadProgress}%</span>
-              ) : (
-                <div className="relative">
-                  <Download className="w-5 h-5" />
-                  <span
-                    className={`absolute -top-1 -right-1 w-2 h-2 rounded-full ${
-                      offlineReady || isServiceWorkerControlling ? 'bg-green-500' : 'bg-yellow-500'
-                    }`}
-                  ></span>
-                </div>
-              )}
-            </button>
-          )}
-
           <button
             onClick={() => {
               setIsSelectionMode(!isSelectionMode);

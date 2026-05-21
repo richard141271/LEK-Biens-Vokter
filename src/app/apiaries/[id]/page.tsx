@@ -1822,11 +1822,11 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 flex-wrap justify-end">
+            <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:flex-wrap sm:items-center sm:justify-end">
               <select
                 value={selectedContactId}
                 onChange={(e) => setSelectedContactId(e.target.value)}
-                className="w-full sm:w-auto max-w-[240px] border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white"
+                className="col-span-2 sm:col-span-1 w-full sm:w-auto sm:max-w-[240px] border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white"
               >
                 <option value="">Kontakter</option>
                 {apiaryContacts.map((ac: any) => (
@@ -1839,7 +1839,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 type="button"
                 onClick={() => (isCertificationActive ? openCertificationOverview() : openCertificationModal())}
                 disabled={!isCertificationActive && (hives || []).length === 0}
-                className={`px-3 py-2 rounded-lg transition-colors text-sm font-bold whitespace-nowrap disabled:opacity-50 ${
+                className={`col-span-2 sm:col-span-1 w-full sm:w-auto px-3 py-2 rounded-lg transition-colors text-sm font-bold whitespace-nowrap disabled:opacity-50 ${
                   isCertificationActive
                     ? 'bg-green-600 hover:bg-green-700 text-white'
                     : 'bg-red-600 hover:bg-red-700 text-white'
@@ -1854,27 +1854,27 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
               </button>
               <button
                 onClick={() => setIsInviteModalOpen(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-honey-500 hover:bg-honey-600 text-white rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
+                className="col-span-2 sm:col-span-1 w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2 px-3 py-2 bg-honey-500 hover:bg-honey-600 text-white rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
               >
                 <UserPlus className="w-4 h-4" />
                 <span>Legg til kontakt</span>
               </button>
+              <Link
+                href={`/apiaries/${params.id}/edit`}
+                className="col-span-1 sm:col-span-1 w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm font-medium"
+                title="Rediger lokasjon"
+              >
+                <Edit className="w-4 h-4" />
+                <span>Rediger</span>
+              </Link>
+              <button
+                onClick={handleDeleteApiary}
+                className="col-span-1 sm:col-span-1 w-full sm:w-auto flex items-center justify-center px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
+                title="Slett lokasjon"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
             </div>
-            <Link
-              href={`/apiaries/${params.id}/edit`}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors text-sm font-medium"
-              title="Rediger lokasjon"
-            >
-              <Edit className="w-4 h-4" />
-              <span>Rediger</span>
-            </Link>
-            <button 
-              onClick={handleDeleteApiary}
-              className="p-2 hover:bg-red-50 text-red-500 rounded-full transition-colors"
-              title="Slett lokasjon"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
           </div>
         </div>
       </div>

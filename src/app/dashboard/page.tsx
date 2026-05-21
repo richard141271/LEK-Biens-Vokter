@@ -21,6 +21,10 @@ export default function DashboardPage() {
   const [isFranchiseOwner, setIsFranchiseOwner] = useState(false);
   const [honeyStatus, setHoneyStatus] = useState('Ikke klar');
   const [loading, setLoading] = useState(true);
+  const [isServiceWorkerControlling, setIsServiceWorkerControlling] = useState<boolean | null>(null);
+  const [offlineReady, setOfflineReady] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
   const [stats, setStats] = useState({
     apiaries: 0,
     hives: 0,
@@ -66,6 +70,165 @@ export default function DashboardPage() {
   const searchParams = useSearchParams();
   const isDemoParam = searchParams?.get('demo') === '1';
   const [isDemoActive, setIsDemoActive] = useState(isDemoParam);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!('serviceWorker' in navigator)) {
+      setIsServiceWorkerControlling(false);
+      return;
+    }
+
+    const update = () => {
+      setIsServiceWorkerControlling(!!navigator.serviceWorker.controller);
+    };
+
+    update();
+    navigator.serviceWorker.addEventListener('controllerchange', update);
+    navigator.serviceWorker.ready.then(update).catch(() => setIsServiceWorkerControlling(false));
+
+    return () => {
+      navigator.serviceWorker.removeEventListener('controllerchange', update);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem('offline_data');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if ((parsed?.hives?.length || 0) > 0 || (parsed?.apiaries?.length || 0) > 0) setOfflineReady(true);
+    } catch {}
+  }, []);
+
+  const handleOfflineDownload = async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    setDownloadProgress(0);
+
+    try {
+      if (!navigator.onLine) {
+        alert('Slå på nett først, trykk «Last ned», og slå av nett etterpå.');
+        return;
+      }
+
+      try {
+        await navigator.serviceWorker?.register?.('/sw.js', { scope: '/' });
+      } catch {}
+
+      const existingRaw = localStorage.getItem('offline_data');
+      let existing: any = {};
+      if (existingRaw) {
+        try {
+          existing = JSON.parse(existingRaw);
+        } catch {}
+      }
+
+      let demoSessionId: string | null = null;
+      if (isDemoActive) {
+        try {
+          demoSessionId = localStorage.getItem('lek_demo_session_id');
+        } catch {}
+      }
+
+      let apiaryQuery = supabase
+        .from('apiaries')
+        .select(
+          `
+          *,
+          hives (*)
+        `
+        )
+        .order('created_at', { ascending: false });
+
+      if (isDemoActive && demoSessionId) {
+        apiaryQuery = apiaryQuery.eq('demo_session_id', demoSessionId);
+      }
+
+      const { data: apiariesData } = await apiaryQuery;
+
+      const apiaries = Array.isArray(apiariesData) ? apiariesData : [];
+      const hives = apiaries.flatMap((a: any) => a?.hives || []);
+      const hiveIds = hives.map((h: any) => h?.id).filter(Boolean);
+
+      const documentPaths: string[] = ['/dashboard', '/apiaries', '/hives', '/settings'];
+      apiaries.forEach((a: any) => documentPaths.push(`/apiaries/${a.id}`));
+      hiveIds.forEach((id: string) => documentPaths.push(`/hives/${id}`));
+      [
+        '/dashboard/smittevern/veileder',
+        '/dashboard/smittevern/sykdommer/varroa',
+        '/dashboard/smittevern/sykdommer/lukket-yngelrate',
+        '/dashboard/smittevern/sykdommer/apen-yngelrate',
+        '/dashboard/smittevern/sykdommer/kalkyngel',
+        '/dashboard/smittevern/sykdommer/nosema',
+        '/dashboard/smittevern/sykdommer/frisk-kube',
+      ].forEach((p) => documentPaths.push(p));
+
+      const assetUrls = [
+        '/images/sykdommer/sykdommer.png',
+        '/images/sykdommer/varroa.png',
+        '/images/sykdommer/lukket_yngelrate.png',
+        '/images/sykdommer/apen_yngelrate.png',
+        '/images/sykdommer/kalkyngel.png',
+        '/images/sykdommer/nosema.png',
+        '/images/sykdommer/frisk_kube.jpg',
+      ];
+
+      const totalSteps = 1 + 2 + 1 + documentPaths.length + assetUrls.length;
+      let completed = 0;
+      const bump = () => {
+        completed += 1;
+        setDownloadProgress(Math.min(100, Math.round((completed / totalSteps) * 100)));
+      };
+
+      const { data: inspectionsData } = await supabase
+        .from('inspections')
+        .select('*')
+        .in('hive_id', hiveIds)
+        .order('inspection_date', { ascending: false });
+      bump();
+
+      const { data: logsData } = await supabase
+        .from('hive_logs')
+        .select('*')
+        .in('hive_id', hiveIds)
+        .order('created_at', { ascending: false });
+      bump();
+
+      const offlineData = {
+        ...existing,
+        apiaries,
+        hives,
+        inspections: inspectionsData || existing.inspections || [],
+        logs: logsData || existing.logs || [],
+        profile: profile || existing.profile || null,
+        timestamp: Date.now(),
+      };
+
+      localStorage.setItem('offline_data', JSON.stringify(offlineData));
+      bump();
+
+      for (const path of documentPaths) {
+        try {
+          await (router as any).prefetch?.(path);
+        } catch {}
+        bump();
+      }
+
+      for (const url of assetUrls) {
+        await fetch(url, { cache: 'reload' }).catch(() => {});
+        bump();
+      }
+
+      setOfflineReady(true);
+      alert('Offline er klart: bigårder, bikuber og inspeksjoner er lagret lokalt.');
+    } catch (e) {
+      console.error(e);
+      alert('❌ Noe gikk galt. Sjekk nettet ditt og prøv igjen.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1010,10 +1173,31 @@ export default function DashboardPage() {
                   <span className="font-bold text-[10px] text-center leading-tight">HELSE & AI</span>
               </Link>
 
-              <Link href="/apiaries?offline=1" className="bg-white border border-blue-100 hover:border-blue-500 text-blue-700 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20">
-                  <Download className="w-5 h-5 text-blue-500" />
-                  <span className="font-bold text-[10px] text-center leading-tight">OFFLINE</span>
-              </Link>
+              <button
+                type="button"
+                onClick={handleOfflineDownload}
+                disabled={isDownloading}
+                className={`border border-blue-100 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20 ${
+                  isDownloading
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white hover:border-blue-500 text-blue-700'
+                }`}
+                title="Last ned for offline"
+              >
+                {isDownloading ? (
+                  <span className="text-xs font-black">{downloadProgress}%</span>
+                ) : (
+                  <div className="relative">
+                    <Download className="w-5 h-5 text-blue-500" />
+                    <span
+                      className={`absolute -top-1 -right-1 w-2 h-2 rounded-full ${
+                        offlineReady || isServiceWorkerControlling ? 'bg-green-500' : 'bg-yellow-500'
+                      }`}
+                    ></span>
+                  </div>
+                )}
+                <span className="font-bold text-[10px] text-center leading-tight">OFFLINE</span>
+              </button>
           </div>
 
 
