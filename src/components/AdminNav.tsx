@@ -12,12 +12,13 @@ import {
   LogOut, 
   LayoutDashboard,
   MessageSquare,
+  ClipboardList,
   Mic,
   TrendingUp,
   GraduationCap
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getFounderFollowupStats } from '@/app/actions/founder';
 
 export default function AdminNav() {
@@ -25,12 +26,46 @@ export default function AdminNav() {
   const router = useRouter();
   const supabase = createClient();
   const [alertCount, setAlertCount] = useState(0);
+  const [feedbackNewCount, setFeedbackNewCount] = useState(0);
+  const lastNotifiedRef = useRef(0);
 
   useEffect(() => {
     getFounderFollowupStats().then(stats => {
       // Sum of actions needed and upcoming meetings
       setAlertCount((stats.actionNeeded || 0) + (stats.upcomingMeetings || 0));
     });
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/admin/feedback?mode=counts', { cache: 'no-store' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) return;
+        const next = Number(data?.counts?.new || 0) || 0;
+        if (!mounted) return;
+        setFeedbackNewCount(next);
+        const prev = lastNotifiedRef.current;
+        if (next > prev) {
+          lastNotifiedRef.current = next;
+          try {
+            if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+              new Notification(`🔴 ${next} nye tilbakemeldinger`, { body: 'Åpne Tilbakemeldinger i admin.' });
+            }
+          } catch {}
+        } else if (prev === 0) {
+          lastNotifiedRef.current = next;
+        }
+      } catch {}
+    };
+
+    void poll();
+    const timer = window.setInterval(() => void poll(), 30_000);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
   }, []);
 
   useEffect(() => {
@@ -143,6 +178,9 @@ export default function AdminNav() {
     { href: '/dashboard/admin/voice', label: 'Tale', icon: Mic },
     { href: '/dashboard/admin/shop', label: 'Nettbutikk', icon: ShoppingBag },
     { href: '/dashboard/admin/email', label: 'E-post', icon: Mail },
+    { href: '/dashboard/admin/pilot-interesser', label: 'Pilotprogram', icon: Activity },
+    { href: '/dashboard/admin/feedback', label: 'Tilbakemeldinger', icon: MessageSquare, badge: feedbackNewCount },
+    { href: '/dashboard/admin/meeting-notes', label: 'Referater', icon: ClipboardList },
     { href: 'https://aksjer.lekbie.no/aksjer/admin', label: 'Aksjeadmin', icon: TrendingUp },
     { href: '/dashboard/admin/temadag', label: 'Temadag', icon: GraduationCap },
   ];

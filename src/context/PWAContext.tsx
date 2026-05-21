@@ -42,6 +42,9 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
       if (typeof window === 'undefined') return;
       const prev = window.localStorage.getItem('lek_prev_pathname') || '';
       window.localStorage.setItem('lek_prev_pathname', pathname || '');
+      if (pathname && !pathname.startsWith('/feedback')) {
+        window.localStorage.setItem('lek_last_user_pathname', pathname);
+      }
 
       const isManaged = (p: string) =>
         p.startsWith('/apiaries') || p.startsWith('/hives') || p.startsWith('/scan');

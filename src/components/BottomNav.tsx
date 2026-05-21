@@ -30,6 +30,7 @@ export default function BottomNav() {
     pathname.startsWith('/admin') ||
     pathname.startsWith('/dashboard/admin') ||
     pathname.startsWith('/grunneier') ||
+    pathname.startsWith('/feedback') ||
     pathname === '/lei-en-kube' ||
     pathname.startsWith('/info/') ||
     pathname.startsWith('/survey')

@@ -6,12 +6,13 @@ import { getFounderMeeting } from '@/app/actions/founder';
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { jsPDF } from 'jspdf';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert, Mail, Building, HeartHandshake, Calendar, GraduationCap, Download } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert, Mail, Building, HeartHandshake, Calendar, GraduationCap, Download, MessageSquare } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import WeatherWidget from '@/components/WeatherWidget';
-import SicknessRegistrationModal from '@/components/SicknessRegistrationModal';
-import InspectionModal from '@/components/InspectionModal';
 import BeekeeperAlertsPoller from './components/BeekeeperAlertsPoller';
+
+const SicknessRegistrationModal = dynamic(() => import('@/components/SicknessRegistrationModal'), { ssr: false });
+const InspectionModal = dynamic(() => import('@/components/InspectionModal'), { ssr: false });
 
 
 
@@ -483,147 +484,117 @@ export default function DashboardPage() {
           localStorage.setItem(ACTIVE_OWNER_KEY, ownerIdForCreate);
         } catch {}
 
-        // Check if franchise owner (role or actual ownership)
-        const { count: franchiseCount } = await supabase
-            .from('franchise_units')
-            .select('*', { count: 'exact', head: true })
-            .eq('owner_id', user.id);
+        const [franchiseRes, apiaryCountRes, hivesRes] = await Promise.all([
+          supabase.from('franchise_units').select('*', { count: 'exact', head: true }).eq('owner_id', user.id),
+          supabase.from('apiaries').select('*', { count: 'exact', head: true }).eq('user_id', ownerIdForStats),
+          supabase.from('hives').select('id, hive_number, active').eq('user_id', ownerIdForStats),
+        ]);
 
-        if (profileData?.role === 'franchisee' || (franchiseCount || 0) > 0) {
-            setIsFranchiseOwner(true);
+        const franchiseCount = franchiseRes.count || 0;
+        const apiaryCount = apiaryCountRes.count || 0;
+        const hivesData = hivesRes.data || [];
+
+        if (profileData?.role === 'franchisee' || franchiseCount > 0) {
+          setIsFranchiseOwner(true);
         }
 
-        // Fetch Stats
-        const { count: apiaryCount } = await supabase
-        .from('apiaries')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', ownerIdForStats);
+        const totalHives = hivesData.length || 0;
+        const activeHives = hivesData.filter((h: any) => h.active).length || 0;
 
-        const { data: hivesData } = await supabase
-        .from('hives')
-        .select('id, hive_number, active')
-        .eq('user_id', ownerIdForStats);
-
-        const totalHives = hivesData?.length || 0;
-        const activeHives = hivesData?.filter(h => h.active).length || 0;
-        
-        if (hivesData) setAllHives(hivesData);
-
+        setAllHives(hivesData);
         setStats({
-        apiaries: apiaryCount || 0,
-        hives: totalHives,
-        activeHives: activeHives
+          apiaries: apiaryCount,
+          hives: totalHives,
+          activeHives: activeHives,
         });
 
-        // Fetch Pending Rentals (Missions)
-        if (profileData?.role === 'beekeeper' || profileData?.role === 'admin') {
-            const { count: pendingCount } = await supabase
-                .from('rentals')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', 'active')
-                .is('apiary_id', null);
-            
-            setPendingMissionsCount(pendingCount || 0);
+        await fetchApiariesForOwner(ownerIdForCreate);
+
+        if (apiaryCount === 0 && profileData?.role !== 'tenant') {
+          setIsWizardOpen(true);
         }
 
+        setLoading(false);
 
-        if (isDemoActive) {
-          if (demoSessionId) {
-            const { data: logs } = await supabase
-              .from('hive_logs')
-              .select('*, hives(hive_number)')
-              .eq('demo_session_id', demoSessionId)
-              .order('created_at', { ascending: false })
-              .limit(5);
-            if (logs) setRecentLogs(logs);
-          } else {
-            setRecentLogs([]);
-          }
-          setNearbyAlerts([]);
-          setLatestHiveLog(null);
-          setPendingMissionsCount(0);
-        } else {
-          // Fetch Recent Activity (Logs)
-          const { data: logs } = await supabase
-          .from('hive_logs')
-          .select('*, hives(hive_number)')
-          .order('created_at', { ascending: false })
-          .limit(5);
+        void (async () => {
+          try {
+            if (isDemoActive) {
+              if (demoSessionId) {
+                const { data: logs } = await supabase
+                  .from('hive_logs')
+                  .select('*, hives(hive_number)')
+                  .eq('demo_session_id', demoSessionId)
+                  .order('created_at', { ascending: false })
+                  .limit(5);
+                if (logs) setRecentLogs(logs);
+              } else {
+                setRecentLogs([]);
+              }
+              setNearbyAlerts([]);
+              setLatestHiveLog(null);
+              setPendingMissionsCount(0);
+              return;
+            }
 
-          if (logs) setRecentLogs(logs);
+            const role = profileData?.role || '';
+            const shouldFetchMissions = role === 'beekeeper' || role === 'admin';
 
-          // Fetch Nearby Alerts (Pilot: Just fetch recent SYKDOM logs generally)
-          const { data: alerts } = await supabase
-          .from('hive_logs')
-          .select('*, hives(apiaries(location))')
-          .eq('action', 'SYKDOM')
-          .order('created_at', { ascending: false })
-          .limit(10);
-
-          if (alerts) {
-              const activeAlerts = alerts
-                  .filter(a => a.admin_status !== 'resolved')
-                  .slice(0, 3);
-              setNearbyAlerts(activeAlerts);
-          }
-
-          const { data: rental } = await supabase
-              .from('rentals')
-              .select(`
+            const [logsRes2, alertsRes2, pendingRes, rentalRes] = await Promise.all([
+              supabase.from('hive_logs').select('*, hives(hive_number)').order('created_at', { ascending: false }).limit(5),
+              supabase
+                .from('hive_logs')
+                .select('*, hives(apiaries(location))')
+                .eq('action', 'SYKDOM')
+                .order('created_at', { ascending: false })
+                .limit(10),
+              shouldFetchMissions
+                ? supabase.from('rentals').select('*', { count: 'exact', head: true }).eq('status', 'active').is('apiary_id', null)
+                : Promise.resolve({ count: 0 } as any),
+              supabase
+                .from('rentals')
+                .select(
+                  `
                   *,
                   assigned_beekeeper:assigned_beekeeper_id (
                       full_name,
                       phone_number,
                       email
                   )
-              `)
-              .eq('user_id', user.id)
-              .in('status', ['pending', 'assigned', 'active'])
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-          
-          if (rental) {
-              if (rental.apiary_id) {
-                   const { data: hives } = await supabase
-                      .from('hives')
-                      .select('id')
-                      .eq('apiary_id', rental.apiary_id);
-                   
-                   if (hives && hives.length > 0) {
-                       const hiveIds = hives.map(h => h.id);
-                       const { data: log } = await supabase
-                          .from('hive_logs')
-                          .select('*')
-                          .in('hive_id', hiveIds)
-                          .eq('action', 'INSPEKSJON')
-                          .order('created_at', { ascending: false })
-                          .limit(1)
-                          .single();
-                      
-                      if (log) setLatestHiveLog(log);
-                   }
+              `
+                )
+                .eq('user_id', user.id)
+                .in('status', ['pending', 'assigned', 'active'])
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle(),
+            ]);
+
+            if (logsRes2.data) setRecentLogs(logsRes2.data);
+
+            const alerts = alertsRes2.data || [];
+            const activeAlerts = alerts.filter((a: any) => a.admin_status !== 'resolved').slice(0, 3);
+            setNearbyAlerts(activeAlerts);
+
+            setPendingMissionsCount(pendingRes?.count || 0);
+
+            const rental = rentalRes.data || null;
+            if (rental?.apiary_id) {
+              const { data: hives } = await supabase.from('hives').select('id').eq('apiary_id', rental.apiary_id);
+              if (hives && hives.length > 0) {
+                const hiveIds = hives.map((h: any) => h.id);
+                const { data: log } = await supabase
+                  .from('hive_logs')
+                  .select('*')
+                  .in('hive_id', hiveIds)
+                  .eq('action', 'INSPEKSJON')
+                  .order('created_at', { ascending: false })
+                  .limit(1)
+                  .single();
+                if (log) setLatestHiveLog(log);
               }
-          }
-
-          // Fetch Pending Missions (For Beekeepers)
-          if (profileData?.role === 'beekeeper' || profileData?.role === 'admin') {
-              const { count } = await supabase
-                  .from('rentals')
-                  .select('*', { count: 'exact', head: true })
-                  .eq('status', 'active')
-                  .is('apiary_id', null);
-              
-              setPendingMissionsCount(count || 0);
-          }
-        }
-
-        await fetchApiariesForOwner(ownerIdForCreate);
-
-        // Trigger Wizard if no apiaries (Only for Beekeepers)
-        if ((apiaryCount || 0) === 0 && profileData?.role !== 'tenant') {
-            setIsWizardOpen(true);
-        }
+            }
+          } catch {}
+        })();
     } catch (e) {
         console.error("Critical error in dashboard fetch:", e);
     } finally {
@@ -1139,6 +1110,30 @@ export default function DashboardPage() {
           
           {/* Weather Widget */}
           <WeatherWidget />
+
+          <Link href="/feedback" className="block">
+            <div className="rounded-2xl p-4 shadow-sm border border-indigo-100 bg-gradient-to-r from-indigo-50 via-blue-50 to-purple-50 hover:from-indigo-100 hover:via-blue-100 hover:to-purple-100 transition-colors">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-9 h-9 rounded-xl bg-white/80 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                      <MessageSquare className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-black text-gray-900 leading-tight">💬 Tilbakemelding</div>
+                      <div className="text-xs font-bold text-indigo-700 uppercase tracking-wide">Feil • Ønsker • Forslag</div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-700 mt-2">Hjelp oss gjøre LEK bedre</div>
+                </div>
+                <div className="shrink-0">
+                  <div className="px-4 py-2 rounded-xl bg-white text-indigo-700 font-black text-sm border border-indigo-100 shadow-sm">
+                    Send inn
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Link>
 
           {/* Quick Actions - Compact Grid */}
           <div className="grid grid-cols-2 gap-2">
