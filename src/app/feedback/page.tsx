@@ -154,10 +154,22 @@ export default function FeedbackPage() {
         const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
         const safeExt = ext.replace(/[^a-z0-9]/g, '').slice(0, 6) || 'jpg';
         const path = `feedback/${u.id}/${Date.now()}_${i}.${safeExt}`;
-        const { error: uploadError } = await supabase.storage.from('hive-images').upload(path, f);
-        if (uploadError) throw uploadError;
-        const { data } = supabase.storage.from('hive-images').getPublicUrl(path);
-        if (data?.publicUrl) uploadedUrls.push(data.publicUrl);
+        try {
+          const { error: uploadError } = await supabase.storage
+            .from('inspection-images')
+            .upload(path, f, { upsert: true });
+          if (uploadError) throw uploadError;
+          const { data } = supabase.storage.from('inspection-images').getPublicUrl(path);
+          if (data?.publicUrl) uploadedUrls.push(data.publicUrl);
+        } catch (e: any) {
+          const msg = String(e?.message || e?.error_description || e || '').toLowerCase();
+          const isBucketMissing = (msg.includes('bucket') && msg.includes('not found')) || msg.includes('bucket not found');
+          if (isBucketMissing) {
+            alert('Bilde-lagring er ikke satt opp (bucket mangler). Tilbakemeldingen sendes uten bilde.');
+            break;
+          }
+          throw e;
+        }
       }
 
       const payload = {
@@ -406,4 +418,3 @@ export default function FeedbackPage() {
     </div>
   );
 }
-

@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Bell, Bug, CheckCircle2, Flame, Lightbulb, Loader2, MessageSquare, Star, X } from 'lucide-react';
+import { ArrowLeft, Bell, Bug, CheckCircle2, Flame, Lightbulb, Loader2, MessageSquare, Star, X, Archive } from 'lucide-react';
 
-type AdminTab = 'new' | 'critical' | 'wish' | 'done';
+type AdminTab = 'inbox' | 'critical' | 'wish' | 'archive';
 
 type FeedbackReport = {
   id: string;
@@ -26,10 +26,10 @@ type FeedbackReport = {
 };
 
 const tabMeta: Array<{ key: AdminTab; label: string; icon: any }> = [
-  { key: 'new', label: '🆕 Nye', icon: MessageSquare },
+  { key: 'inbox', label: '📥 Innboks', icon: MessageSquare },
   { key: 'critical', label: '🔥 Kritiske', icon: Flame },
   { key: 'wish', label: '💡 Ønsker', icon: Lightbulb },
-  { key: 'done', label: '✅ Ferdig', icon: CheckCircle2 },
+  { key: 'archive', label: '📦 Arkiv', icon: Archive },
 ];
 
 const typeBadge = (t: FeedbackReport['type']) => {
@@ -46,16 +46,17 @@ const statusBadge = (s: FeedbackReport['status']) => {
 };
 
 export default function AdminFeedbackPage() {
-  const [activeTab, setActiveTab] = useState<AdminTab>('new');
+  const [activeTab, setActiveTab] = useState<AdminTab>('inbox');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reports, setReports] = useState<FeedbackReport[]>([]);
-  const [counts, setCounts] = useState<{ new: number; critical: number; wish: number; done: number }>({
+  const [counts, setCounts] = useState<{ new: number; inbox: number; critical: number; wish: number; archive: number }>({
     new: 0,
+    inbox: 0,
     critical: 0,
     wish: 0,
-    done: 0,
+    archive: 0,
   });
   const [selected, setSelected] = useState<FeedbackReport | null>(null);
   const [editStatus, setEditStatus] = useState<FeedbackReport['status']>('NY');
@@ -63,6 +64,14 @@ export default function AdminFeedbackPage() {
   const [editComment, setEditComment] = useState<string>('');
 
   const newCount = counts.new || 0;
+
+  const matchesTab = (r: FeedbackReport, tab: AdminTab) => {
+    const isArchived = r.status === 'LØST' || r.status === 'IGNORERT';
+    if (tab === 'archive') return isArchived;
+    if (tab === 'wish') return r.type === 'wish' && !isArchived;
+    if (tab === 'critical') return !isArchived && (r.priority === 'KRITISK' || (r.duplicate_count || 0) >= 3);
+    return !isArchived;
+  };
 
   const fetchReports = async (tab: AdminTab) => {
     setLoading(true);
@@ -109,14 +118,23 @@ export default function AdminFeedbackPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Kunne ikke lagre');
       if (data?.counts) setCounts(data.counts);
-      setReports((prev) =>
-        prev.map((r) =>
-          r.id === selected.id
-            ? { ...r, status: editStatus, priority: editPriority, admin_comment: editComment }
-            : r
-        )
-      );
-      setSelected((prev) => (prev ? { ...prev, status: editStatus, priority: editPriority, admin_comment: editComment } : prev));
+      const updated: FeedbackReport = {
+        ...selected,
+        status: editStatus,
+        priority: editPriority,
+        admin_comment: editComment,
+      };
+
+      setReports((prev) => {
+        const next = prev.map((r) => (r.id === selected.id ? updated : r));
+        return matchesTab(updated, activeTab) ? next : next.filter((r) => r.id !== selected.id);
+      });
+
+      if (matchesTab(updated, activeTab)) {
+        setSelected(updated);
+      } else {
+        setSelected(null);
+      }
     } catch (e: any) {
       alert(e?.message || 'Kunne ikke lagre');
     } finally {
@@ -158,10 +176,10 @@ export default function AdminFeedbackPage() {
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-2 flex flex-wrap gap-2 mb-6">
-          {tabMeta.map((t) => {
+            {tabMeta.map((t) => {
             const isActive = t.key === activeTab;
             const count =
-              t.key === 'new' ? counts.new : t.key === 'critical' ? counts.critical : t.key === 'wish' ? counts.wish : counts.done;
+              t.key === 'inbox' ? counts.inbox : t.key === 'critical' ? counts.critical : t.key === 'wish' ? counts.wish : counts.archive;
             const Icon = t.icon;
             return (
               <button
@@ -374,4 +392,3 @@ export default function AdminFeedbackPage() {
     </div>
   );
 }
-

@@ -46,26 +46,30 @@ async function requireAdmin() {
   return { user, isAdmin: true, errorResponse: null };
 }
 
-type AdminTab = 'new' | 'critical' | 'wish' | 'done';
+type AdminTab = 'inbox' | 'critical' | 'wish' | 'archive';
 
 function applyTabFilter(q: any, tab: AdminTab) {
-  if (tab === 'new') {
-    return q.eq('status', 'NY');
-  }
-  if (tab === 'done') {
+  if (tab === 'archive') {
     return q.in('status', ['LØST', 'IGNORERT']);
   }
   if (tab === 'wish') {
     return q.eq('type', 'wish').not('status', 'in', '("LØST","IGNORERT")');
   }
-  return q
-    .not('status', 'in', '("LØST","IGNORERT")')
-    .or('priority.eq.KRITISK,duplicate_count.gte.3');
+  if (tab === 'critical') {
+    return q
+      .not('status', 'in', '("LØST","IGNORERT")')
+      .or('priority.eq.KRITISK,duplicate_count.gte.3');
+  }
+  return q.not('status', 'in', '("LØST","IGNORERT")');
 }
 
 async function getCounts(adminClient: ReturnType<typeof createAdminClient>) {
-  const [newRes, critRes, wishRes, doneRes] = await Promise.all([
+  const [newRes, inboxRes, critRes, wishRes, archiveRes] = await Promise.all([
     adminClient.from('feedback_reports').select('*', { count: 'exact', head: true }).eq('status', 'NY'),
+    adminClient
+      .from('feedback_reports')
+      .select('*', { count: 'exact', head: true })
+      .not('status', 'in', '("LØST","IGNORERT")'),
     adminClient
       .from('feedback_reports')
       .select('*', { count: 'exact', head: true })
@@ -81,9 +85,10 @@ async function getCounts(adminClient: ReturnType<typeof createAdminClient>) {
 
   return {
     new: newRes.count || 0,
+    inbox: inboxRes.count || 0,
     critical: critRes.count || 0,
     wish: wishRes.count || 0,
-    done: doneRes.count || 0,
+    archive: archiveRes.count || 0,
   };
 }
 
@@ -102,7 +107,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ counts }, { status: 200 });
     }
 
-    const tab = (url.searchParams.get('tab') || 'new') as AdminTab;
+    const tab = (url.searchParams.get('tab') || 'inbox') as AdminTab;
 
     let q = adminClient
       .from('feedback_reports')
