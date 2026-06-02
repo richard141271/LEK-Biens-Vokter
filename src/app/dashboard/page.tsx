@@ -1135,6 +1135,33 @@ export default function DashboardPage() {
             </div>
           </Link>
 
+          <a
+            href="https://lek-varroa-scan.vercel.app/?source=biens-vokter&type=bunnbrett"
+            className="block"
+            rel="noreferrer"
+          >
+            <div className="rounded-2xl p-4 shadow-sm border border-emerald-100 bg-gradient-to-r from-emerald-50 via-cyan-50 to-sky-50 hover:from-emerald-100 hover:via-cyan-100 hover:to-sky-100 transition-colors">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <div className="w-9 h-9 rounded-xl bg-white/80 border border-emerald-100 flex items-center justify-center text-emerald-700">
+                      <Camera className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-black text-gray-900 leading-tight">LEK-VarroaScan ™️</div>
+                      <div className="text-xs font-bold text-emerald-800">Send inn bilder av midd på bunnbrett til trening av KI</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="shrink-0">
+                  <div className="px-4 py-2 rounded-xl bg-white text-emerald-800 font-black text-sm border border-emerald-100 shadow-sm">
+                    Åpne
+                  </div>
+                </div>
+              </div>
+            </div>
+          </a>
+
           {/* Quick Actions - Compact Grid */}
           <div className="grid grid-cols-2 gap-2">
               {profile?.role !== 'mattilsynet' && (
