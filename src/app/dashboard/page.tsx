@@ -26,6 +26,9 @@ export default function DashboardPage() {
   const [offlineReady, setOfflineReady] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
+  const [varroaScanHref, setVarroaScanHref] = useState(
+    'https://lek-varroa-scan.vercel.app/?source=biens-vokter&type=bunnbrett'
+  );
   const [stats, setStats] = useState({
     apiaries: 0,
     hives: 0,
@@ -100,6 +103,14 @@ export default function DashboardPage() {
       const parsed = JSON.parse(raw);
       if ((parsed?.hives?.length || 0) > 0 || (parsed?.apiaries?.length || 0) > 0) setOfflineReady(true);
     } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const returnTo = encodeURIComponent(`${window.location.origin}/dashboard`);
+    setVarroaScanHref(
+      `https://lek-varroa-scan.vercel.app/?source=biens-vokter&type=bunnbrett&returnTo=${returnTo}`
+    );
   }, []);
 
   const handleOfflineDownload = async () => {
@@ -1136,7 +1147,7 @@ export default function DashboardPage() {
           </Link>
 
           <a
-            href="https://lek-varroa-scan.vercel.app/?source=biens-vokter&type=bunnbrett"
+            href={varroaScanHref}
             className="block"
             rel="noreferrer"
           >
