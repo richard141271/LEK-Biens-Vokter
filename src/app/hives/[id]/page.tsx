@@ -57,6 +57,14 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
   const [targetApiaryId, setTargetApiaryId] = useState('');
   const [moving, setMoving] = useState(false);
 
+  // Split / Avlegger Modal State
+  const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
+  const [splitFramesCount, setSplitFramesCount] = useState<number>(3);
+  const [splitQueenChoice, setSplitQueenChoice] = useState<
+    'DRONNINGCELLE' | 'PARRET_DRONNING' | 'INGEN_DRONNING'
+  >('INGEN_DRONNING');
+  const [splitting, setSplitting] = useState(false);
+
   // Archive Modal State
   const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
   const [archiveType, setArchiveType] = useState<'SOLGT' | 'DESTRUERT' | null>(null);
@@ -430,6 +438,97 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
 
     setApiaries(otherApiaries);
     setIsMoveModalOpen(true);
+  };
+
+  const handleCreateSplitHive = async () => {
+    if (!hive?.apiary_id || !hive?.user_id) return;
+    if (isOffline) return;
+
+    setSplitting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert('Du må være logget inn.');
+        return;
+      }
+
+      const ownerId = String(hive.user_id || '').trim();
+      const apiaryId = String(hive.apiary_id || '').trim();
+      if (!ownerId || !apiaryId) {
+        alert('Mangler eier eller bigård på foreldrekuben.');
+        return;
+      }
+
+      const { data: hivesData, error: hivesError } = await supabase
+        .from('hives')
+        .select('hive_number')
+        .eq('user_id', ownerId);
+
+      if (hivesError) throw hivesError;
+
+      let maxNum = 0;
+      const list = Array.isArray(hivesData) ? hivesData : [];
+      for (const row of list) {
+        const value = String((row as any)?.hive_number || '');
+        const match = value.match(/KUBE-(\d+)/);
+        if (!match) continue;
+        const num = parseInt(match[1], 10);
+        if (!Number.isNaN(num) && num > maxNum) maxNum = num;
+      }
+
+      const nextNum = maxNum + 1;
+      const hiveNumber = `KUBE-${nextNum.toString().padStart(3, '0')}`;
+
+      const { data: createdHive, error: createError } = await supabase
+        .from('hives')
+        .insert({
+          user_id: ownerId,
+          apiary_id: apiaryId,
+          hive_number: hiveNumber,
+          status: 'aktiv',
+          type: 'AVLEGGER',
+        })
+        .select('id, apiary_id, hive_number')
+        .single();
+
+      if (createError) throw createError;
+      if (!createdHive?.id) throw new Error('Kunne ikke opprette kube');
+
+      try {
+        await fetch('/api/lek-core/create-hive', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiaryId, hiveLocalId: createdHive.id }),
+        });
+      } catch {}
+
+      const queenText =
+        splitQueenChoice === 'DRONNINGCELLE'
+          ? 'Dronningcelle'
+          : splitQueenChoice === 'PARRET_DRONNING'
+            ? 'Parret dronning'
+            : 'Ingen dronning';
+
+      const parentDetails = `Opprettet avlegger ${createdHive.hive_number || createdHive.id} (tavler: ${splitFramesCount}, dronning: ${queenText})`;
+      const childDetails = `Opprettet som avlegger fra ${hive.hive_number || hive.id} (tavler: ${splitFramesCount}, dronning: ${queenText})`;
+
+      try {
+        await supabase.from('hive_logs').insert([
+          { hive_id: hive.id, user_id: user.id, action: 'AVLEGGER', details: parentDetails },
+          { hive_id: createdHive.id, user_id: user.id, action: 'OPPRETTET', details: childDetails },
+        ]);
+      } catch {}
+
+      setIsSplitModalOpen(false);
+      setSplitFramesCount(3);
+      setSplitQueenChoice('INGEN_DRONNING');
+      alert(`Avlegger opprettet: ${createdHive.hive_number || createdHive.id}`);
+      router.push(`/hives/${createdHive.id}`);
+    } catch (error: any) {
+      alert('Feil ved opprettelse av avlegger: ' + (error?.message || 'Ukjent feil'));
+    } finally {
+      setSplitting(false);
+    }
   };
 
   const handleMoveSubmit = async () => {
@@ -1039,6 +1138,15 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
               <span className="font-medium text-gray-900">Ny inspeksjon</span>
             </Link>
           )}
+
+          <button
+            onClick={() => setIsSplitModalOpen(true)}
+            disabled={isOffline}
+            className="col-span-2 p-4 bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col items-center justify-center gap-2 hover:bg-gray-50 transition-colors"
+          >
+            <Plus className="w-8 h-8 text-green-600" />
+            <span className="font-medium text-gray-900">➕ Lag avlegger</span>
+          </button>
 
           <button 
             onClick={() => setIsArchiveModalOpen(true)}
@@ -1826,6 +1934,104 @@ export default function HiveDetailsPage({ params }: { params: { id: string } }) 
         )}
 
       </main>
+
+      {/* Split / Avlegger Modal */}
+      {isSplitModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 print:hidden">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-honey-50">
+              <h3 className="font-bold text-lg text-gray-900">Lag avlegger</h3>
+              <button
+                onClick={() => (splitting ? null : setIsSplitModalOpen(false))}
+                className="p-1 hover:bg-honey-100 rounded-full text-gray-500 disabled:opacity-50"
+                disabled={splitting}
+                type="button"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <p className="text-sm text-gray-700">
+                Opprett ny kube fra {hive?.hive_number || 'denne kuben'}?
+              </p>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Antall tavler</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={30}
+                  value={Number.isFinite(splitFramesCount) ? splitFramesCount : 0}
+                  onChange={(e) => setSplitFramesCount(parseInt(e.target.value || '0', 10))}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div>
+                <div className="block text-xs font-bold text-gray-500 uppercase mb-2">Dronning</div>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="splitQueen"
+                      checked={splitQueenChoice === 'DRONNINGCELLE'}
+                      onChange={() => setSplitQueenChoice('DRONNINGCELLE')}
+                      className="text-honey-600 focus:ring-honey-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Dronningcelle</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="splitQueen"
+                      checked={splitQueenChoice === 'PARRET_DRONNING'}
+                      onChange={() => setSplitQueenChoice('PARRET_DRONNING')}
+                      className="text-honey-600 focus:ring-honey-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Parret dronning</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="splitQueen"
+                      checked={splitQueenChoice === 'INGEN_DRONNING'}
+                      onChange={() => setSplitQueenChoice('INGEN_DRONNING')}
+                      className="text-honey-600 focus:ring-honey-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Ingen dronning</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSplitModalOpen(false)}
+                  className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
+                  disabled={splitting}
+                >
+                  Avbryt
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreateSplitHive}
+                  className="flex-1 px-4 py-2 rounded-lg bg-honey-500 text-white font-bold hover:bg-honey-600 disabled:opacity-60"
+                  disabled={splitting || isOffline}
+                >
+                  {splitting ? 'Oppretter…' : 'Opprett'}
+                </button>
+              </div>
+
+              {isOffline ? (
+                <div className="text-xs text-gray-500">
+                  Krever nettdekning.
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Move Hive Modal */}
       {isMoveModalOpen && (
