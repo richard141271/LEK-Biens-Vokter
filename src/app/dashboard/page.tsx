@@ -34,6 +34,9 @@ export default function DashboardPage() {
     activeHives: 0
   });
   const [recentLogs, setRecentLogs] = useState<any[]>([]);
+  const [apiaryTaskCards, setApiaryTaskCards] = useState<
+    Array<{ apiaryId: string; apiaryName: string; openCount: number; nextTaskTitle: string }>
+  >([]);
   
   // Create Hive State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -530,6 +533,69 @@ export default function DashboardPage() {
           hives: totalHives,
           activeHives: activeHives,
         });
+
+        try {
+          const { data: apiariesList } = await supabase
+            .from('apiaries')
+            .select('id, name')
+            .eq('user_id', ownerIdForStats);
+
+          const apiaryList = Array.isArray(apiariesList) ? apiariesList : [];
+          const apiaryIds = apiaryList.map((a: any) => String(a?.id || '')).filter(Boolean);
+
+          if (apiaryIds.length === 0) {
+            setApiaryTaskCards([]);
+          } else {
+            const { data: tasksData } = await supabase
+              .from('apiary_tasks')
+              .select('apiary_id, title, due_kind, due_date, created_at')
+              .in('apiary_id', apiaryIds)
+              .is('completed_at', null);
+
+            const tasks = Array.isArray(tasksData) ? tasksData : [];
+            const byApiary = new Map<string, any[]>();
+            for (const t of tasks) {
+              const apiaryId = String((t as any)?.apiary_id || '').trim();
+              if (!apiaryId) continue;
+              const list = byApiary.get(apiaryId) || [];
+              list.push(t);
+              byApiary.set(apiaryId, list);
+            }
+
+            const nameById = new Map<string, string>(
+              apiaryList.map((a: any) => [String(a?.id || ''), String(a?.name || 'Bigård')])
+            );
+
+            const cards = Array.from(byApiary.entries())
+              .map(([apiaryId, list]) => {
+                const sorted = list
+                  .slice()
+                  .sort((a, b) => {
+                    const aHasDate = Boolean((a as any)?.due_date);
+                    const bHasDate = Boolean((b as any)?.due_date);
+                    if (aHasDate !== bHasDate) return aHasDate ? -1 : 1;
+                    const aDue = (a as any)?.due_date ? new Date(String((a as any).due_date)).getTime() : 0;
+                    const bDue = (b as any)?.due_date ? new Date(String((b as any).due_date)).getTime() : 0;
+                    if (aDue !== bDue) return aDue - bDue;
+                    const aCreated = (a as any)?.created_at ? new Date(String((a as any).created_at)).getTime() : 0;
+                    const bCreated = (b as any)?.created_at ? new Date(String((b as any).created_at)).getTime() : 0;
+                    return aCreated - bCreated;
+                  });
+
+                return {
+                  apiaryId,
+                  apiaryName: nameById.get(apiaryId) || 'Bigård',
+                  openCount: list.length,
+                  nextTaskTitle: String((sorted[0] as any)?.title || 'Oppgave'),
+                };
+              })
+              .sort((a, b) => b.openCount - a.openCount);
+
+            setApiaryTaskCards(cards);
+          }
+        } catch {
+          setApiaryTaskCards([]);
+        }
 
         await fetchApiariesForOwner(ownerIdForCreate);
 
@@ -1129,6 +1195,39 @@ export default function DashboardPage() {
                       <span className="text-lg font-bold text-gray-900">{stats.apiaries}</span>
                   </div>
               </Link>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="font-black text-gray-900 leading-tight">📝 Bigårdsoppgaver</div>
+              <Link href="/apiaries" className="text-xs font-bold text-honey-700 hover:underline">
+                Se alle
+              </Link>
+            </div>
+
+            {apiaryTaskCards.length === 0 ? (
+              <div className="text-xs text-gray-500 mt-2">Ingen åpne oppgaver.</div>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {apiaryTaskCards.slice(0, 4).map((c) => (
+                  <Link
+                    key={c.apiaryId}
+                    href={`/apiaries/${c.apiaryId}`}
+                    className="block rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-bold text-sm text-gray-900 truncate">{c.apiaryName}</div>
+                        <div className="text-[11px] text-gray-700 mt-0.5 truncate">Neste: {c.nextTaskTitle}</div>
+                      </div>
+                      <div className="shrink-0 px-2 py-1 rounded-lg bg-honey-50 border border-honey-100 text-honey-800 font-black text-xs">
+                        {c.openCount}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
           
           {/* Weather Widget */}

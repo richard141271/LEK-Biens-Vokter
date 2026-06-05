@@ -18,6 +18,21 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [accountContextLabel, setAccountContextLabel] = useState<string>('');
   const [memberNumber, setMemberNumber] = useState<string>('');
+
+  const [apiaryNotes, setApiaryNotes] = useState<any[]>([]);
+  const [apiaryNoteDraft, setApiaryNoteDraft] = useState('');
+  const [savingApiaryNote, setSavingApiaryNote] = useState(false);
+
+  const [apiaryTasks, setApiaryTasks] = useState<any[]>([]);
+  const [taskDraftTitle, setTaskDraftTitle] = useState('');
+  const [taskDraftDueKind, setTaskDraftDueKind] = useState<'NEXT_VISIT' | 'TOMORROW' | 'DAYS_3' | 'NEXT_WEEK' | 'PICK_DATE'>(
+    'NEXT_VISIT'
+  );
+  const [taskDraftDueDate, setTaskDraftDueDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [showCompletedTasks, setShowCompletedTasks] = useState(false);
+
+  const [auroraSuggestions, setAuroraSuggestions] = useState<Array<{ key: string; title: string }>>([]);
   
   // Selection State
   const [selectedHiveIds, setSelectedHiveIds] = useState<Set<string>>(new Set());
@@ -131,6 +146,211 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const formatApiaryNumber = (raw: any, type?: any) => {
     const s = String(raw || '').trim();
     return s ? s.split('.')[0] : '';
+  };
+
+  const toDateOnly = (d: Date) => d.toISOString().slice(0, 10);
+
+  const dueLabel = (task: any) => {
+    const kind = String(task?.due_kind || '').trim();
+    const date = task?.due_date ? String(task.due_date).slice(0, 10) : '';
+    if (kind === 'NEXT_VISIT') return 'Neste besøk';
+    if (date) return new Date(date).toLocaleDateString();
+    return 'Neste besøk';
+  };
+
+  const computeDue = (kind: 'NEXT_VISIT' | 'TOMORROW' | 'DAYS_3' | 'NEXT_WEEK' | 'PICK_DATE', picked: string) => {
+    if (kind === 'NEXT_VISIT') return { due_kind: kind, due_date: null as string | null };
+    if (kind === 'PICK_DATE') return { due_kind: kind, due_date: picked || toDateOnly(new Date()) };
+
+    const base = new Date();
+    if (kind === 'TOMORROW') base.setDate(base.getDate() + 1);
+    if (kind === 'DAYS_3') base.setDate(base.getDate() + 3);
+    if (kind === 'NEXT_WEEK') base.setDate(base.getDate() + 7);
+    return { due_kind: kind, due_date: toDateOnly(base) };
+  };
+
+  const suggestTasksFromText = (raw: string) => {
+    const text = String(raw || '').toLowerCase();
+    const suggestions: Array<{ key: string; title: string }> = [];
+
+    const add = (key: string, title: string) => {
+      if (suggestions.some((s) => s.key === key)) return;
+      suggestions.push({ key, title });
+    };
+
+    if (text.includes('maur')) add('ants', 'Bekjemp maur');
+    if (text.includes('grind') || text.includes('gjerde')) add('gate', 'Reparer grind/gjerde');
+    if (text.includes('kratt') || text.includes('rydde') || text.includes('rydd')) add('brush', 'Rydd kratt');
+    if (text.includes('adkomst') || text.includes('vanskelig adkomst')) add('access', 'Forbedre adkomst');
+    if (text.includes('sverm')) add('swarm', 'Følg opp svermobservasjon');
+    if (text.includes('svermekasse') || text.includes('svermekasser')) add('swarm_box', 'Skaff svermekasse');
+    if (text.includes('pall') || text.includes('paller')) add('pallet', 'Flytt pall/paller');
+    if (text.includes('mangler utstyr') || (text.includes('mangler') && text.includes('utstyr'))) add('equipment', 'Skaff utstyr i bigården');
+
+    return suggestions;
+  };
+
+  const fetchApiaryLogData = async () => {
+    const [notesRes, tasksRes] = await Promise.all([
+      supabase
+        .from('apiary_notes')
+        .select('id, note, created_at, created_by')
+        .eq('apiary_id', params.id)
+        .order('created_at', { ascending: false })
+        .limit(50),
+      supabase
+        .from('apiary_tasks')
+        .select('id, title, source, due_kind, due_date, created_at, completed_at, calendar_event_id')
+        .eq('apiary_id', params.id)
+        .order('created_at', { ascending: false })
+        .limit(200),
+    ]);
+
+    if (!notesRes.error) setApiaryNotes(notesRes.data || []);
+    if (!tasksRes.error) setApiaryTasks(tasksRes.data || []);
+  };
+
+  const createTask = async (title: string, opts?: { source?: 'manual' | 'aurora'; dueKind?: typeof taskDraftDueKind; dueDate?: string }) => {
+    const cleanTitle = String(title || '').trim();
+    if (!cleanTitle) return;
+    if (!apiary?.id) return;
+
+    setCreatingTask(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const ownerId = String(apiary?.user_id || '').trim();
+      const dueKind = opts?.dueKind || taskDraftDueKind;
+      const pickedDate = opts?.dueDate || taskDraftDueDate;
+      const due = computeDue(dueKind, pickedDate);
+      const source = opts?.source || 'manual';
+
+      let calendarEventId: string | null = null;
+      const { data: createdEvent, error: eventError } = await supabase
+        .from('lek_calendar_events')
+        .insert({
+          owner_id: ownerId,
+          created_by: user.id,
+          apiary_id: apiary.id,
+          title: cleanTitle,
+          due_kind: due.due_kind,
+          due_date: due.due_date,
+          kind: 'APIARY_TASK',
+        })
+        .select('id')
+        .single();
+
+      if (!eventError && createdEvent?.id) calendarEventId = createdEvent.id;
+
+      const { data: createdTask, error: taskError } = await supabase
+        .from('apiary_tasks')
+        .insert({
+          apiary_id: apiary.id,
+          owner_id: ownerId,
+          created_by: user.id,
+          title: cleanTitle,
+          source,
+          due_kind: due.due_kind,
+          due_date: due.due_date,
+          calendar_event_id: calendarEventId,
+        })
+        .select('id, title, source, due_kind, due_date, created_at, completed_at, calendar_event_id')
+        .single();
+
+      if (taskError) throw taskError;
+
+      setApiaryTasks((prev) => [createdTask, ...prev]);
+      setTaskDraftTitle('');
+      setAuroraSuggestions((prev) => prev.filter((s) => s.title !== cleanTitle));
+    } catch (e: any) {
+      alert('Kunne ikke opprette oppgave: ' + (e?.message || 'ukjent feil'));
+    } finally {
+      setCreatingTask(false);
+    }
+  };
+
+  const toggleTaskCompleted = async (task: any) => {
+    if (!task?.id) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const isCompleted = Boolean(task.completed_at);
+      const nextCompletedAt = isCompleted ? null : new Date().toISOString();
+      const nextCompletedBy = isCompleted ? null : user.id;
+
+      const { error } = await supabase
+        .from('apiary_tasks')
+        .update({
+          completed_at: nextCompletedAt,
+          completed_by: nextCompletedBy,
+        })
+        .eq('id', task.id);
+
+      if (error) throw error;
+
+      if (task?.calendar_event_id) {
+        await supabase
+          .from('lek_calendar_events')
+          .update({
+            completed_at: nextCompletedAt,
+            completed_by: nextCompletedBy,
+          })
+          .eq('id', task.calendar_event_id);
+      }
+
+      setApiaryTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id
+            ? { ...t, completed_at: nextCompletedAt }
+            : t
+        )
+      );
+    } catch (e: any) {
+      alert('Kunne ikke oppdatere oppgave: ' + (e?.message || 'ukjent feil'));
+    }
+  };
+
+  const saveApiaryNote = async () => {
+    const note = String(apiaryNoteDraft || '').trim();
+    if (!note) return;
+    if (!apiary?.id) return;
+
+    setSavingApiaryNote(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const ownerId = String(apiary?.user_id || '').trim();
+
+      const { data: createdNote, error } = await supabase
+        .from('apiary_notes')
+        .insert({
+          apiary_id: apiary.id,
+          owner_id: ownerId,
+          created_by: user.id,
+          note,
+        })
+        .select('id, note, created_at, created_by')
+        .single();
+
+      if (error) throw error;
+
+      setApiaryNotes((prev) => [createdNote, ...prev]);
+      setApiaryNoteDraft('');
+
+      const openTitles = new Set(
+        apiaryTasks.filter((t) => !t?.completed_at).map((t) => String(t?.title || '').trim().toLowerCase())
+      );
+      const suggestions = suggestTasksFromText(note).filter((s) => !openTitles.has(s.title.toLowerCase()));
+      setAuroraSuggestions(suggestions);
+    } catch (e: any) {
+      alert('Kunne ikke lagre notat: ' + (e?.message || 'ukjent feil'));
+    } finally {
+      setSavingApiaryNote(false);
+    }
   };
 
   useEffect(() => {
@@ -394,6 +614,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       .maybeSingle();
     setLatestCertification(certData || null);
     await fetchApiaryContacts();
+    await fetchApiaryLogData();
     setLoading(false);
   };
 
@@ -2105,6 +2326,197 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
               )}
               </div>
             )}
+          </div>
+        )}
+
+        {apiary && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="bg-gray-50 px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-gray-700" />
+                <h2 className="font-bold text-gray-900">📝 Bigårdslogg</h2>
+              </div>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div className="space-y-2">
+                <div className="text-xs font-bold text-gray-500 uppercase">Notater</div>
+                <textarea
+                  value={apiaryNoteDraft}
+                  onChange={(e) => setApiaryNoteDraft(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm min-h-[90px]"
+                  placeholder="Skriv forhold som gjelder hele bigården…"
+                />
+                <button
+                  onClick={saveApiaryNote}
+                  disabled={savingApiaryNote || !apiaryNoteDraft.trim()}
+                  className="w-full bg-gray-900 text-white font-bold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
+                  type="button"
+                >
+                  {savingApiaryNote ? 'Lagrer…' : 'Lagre notat'}
+                </button>
+              </div>
+
+              {auroraSuggestions.length > 0 && (
+                <div className="border border-indigo-200 bg-indigo-50 rounded-lg p-3 space-y-2">
+                  <div className="text-xs font-bold uppercase text-indigo-800">Aurora oppdaget mulige oppgaver</div>
+                  <div className="space-y-2">
+                    {auroraSuggestions.map((s) => (
+                      <div
+                        key={s.key}
+                        className="bg-white border border-indigo-100 rounded-lg p-2 flex items-center justify-between gap-2"
+                      >
+                        <div className="text-sm font-semibold text-gray-900">☐ {s.title}</div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => createTask(s.title, { source: 'aurora', dueKind: 'NEXT_VISIT' })}
+                            disabled={creatingTask}
+                            className="text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded disabled:opacity-50"
+                          >
+                            Opprett
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAuroraSuggestions((prev) => prev.filter((x) => x.key !== s.key))}
+                            className="text-xs font-bold bg-white border border-indigo-200 text-indigo-800 px-2 py-1 rounded hover:bg-indigo-100"
+                          >
+                            Ignorer
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {apiaryNotes.length > 0 && (
+                <div className="space-y-2">
+                  {apiaryNotes.map((n) => (
+                    <div key={n.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                      <div className="text-xs text-gray-500 flex items-center justify-between gap-2">
+                        <span>
+                          {n?.created_at
+                            ? new Date(n.created_at).toLocaleString('no-NO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                            : ''}
+                        </span>
+                        <span className="font-mono">
+                          {String(n?.created_by || '') === String(currentUser?.id || '') ? 'Du' : String(n?.created_by || '').slice(0, 8)}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-900 whitespace-pre-line mt-1">{n.note}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="border-t border-gray-100 pt-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <ClipboardList className="w-5 h-5 text-gray-700" />
+                    <div className="text-xs font-bold text-gray-500 uppercase">Oppgaver</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowCompletedTasks((v) => !v)}
+                    className="text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded"
+                  >
+                    {showCompletedTasks ? 'Skjul fullførte' : 'Vis fullførte'}
+                  </button>
+                </div>
+
+                <div className="grid gap-2">
+                  <input
+                    value={taskDraftTitle}
+                    onChange={(e) => setTaskDraftTitle(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="Ny oppgave…"
+                  />
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="relative">
+                      <select
+                        value={taskDraftDueKind}
+                        onChange={(e) => setTaskDraftDueKind(e.target.value as any)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                      >
+                        <option value="NEXT_VISIT">Neste besøk</option>
+                        <option value="TOMORROW">I morgen</option>
+                        <option value="DAYS_3">Om 3 dager</option>
+                        <option value="NEXT_WEEK">Neste uke</option>
+                        <option value="PICK_DATE">Velg dato</option>
+                      </select>
+                    </div>
+                    {taskDraftDueKind === 'PICK_DATE' ? (
+                      <input
+                        type="date"
+                        value={taskDraftDueDate}
+                        onChange={(e) => setTaskDraftDueDate(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                      />
+                    ) : (
+                      <div className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-600 flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        <span>{taskDraftDueKind === 'NEXT_VISIT' ? 'Neste besøk' : 'Dato settes automatisk'}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => createTask(taskDraftTitle, { source: 'manual' })}
+                    disabled={creatingTask || !taskDraftTitle.trim()}
+                    className="w-full bg-honey-500 hover:bg-honey-600 text-white font-bold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {creatingTask ? 'Oppretter…' : 'Opprett oppgave'}
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {apiaryTasks
+                    .filter((t) => (showCompletedTasks ? true : !t?.completed_at))
+                    .sort((a, b) => {
+                      const aDone = a?.completed_at ? 1 : 0;
+                      const bDone = b?.completed_at ? 1 : 0;
+                      if (aDone !== bDone) return aDone - bDone;
+                      const aDue = a?.due_date ? new Date(String(a.due_date)).getTime() : 0;
+                      const bDue = b?.due_date ? new Date(String(b.due_date)).getTime() : 0;
+                      if (aDue !== bDue) return aDue - bDue;
+                      const aCreated = a?.created_at ? new Date(String(a.created_at)).getTime() : 0;
+                      const bCreated = b?.created_at ? new Date(String(b.created_at)).getTime() : 0;
+                      return bCreated - aCreated;
+                    })
+                    .map((t) => (
+                      <label
+                        key={t.id}
+                        className={`flex items-start gap-3 p-3 rounded-lg border ${
+                          t?.completed_at ? 'bg-gray-50 border-gray-200 opacity-80' : 'bg-white border-gray-200'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={Boolean(t?.completed_at)}
+                          onChange={() => toggleTaskCompleted(t)}
+                          className="mt-1 text-honey-600 focus:ring-honey-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className={`text-sm font-semibold ${t?.completed_at ? 'text-gray-600 line-through' : 'text-gray-900'}`}>
+                            {t.title}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
+                            <span>{dueLabel(t)}</span>
+                            {t?.source === 'aurora' ? <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 font-bold">Aurora</span> : null}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+
+                  {apiaryTasks.filter((t) => !t?.completed_at).length === 0 && (
+                    <div className="text-sm text-gray-500 italic">Ingen åpne oppgaver.</div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
