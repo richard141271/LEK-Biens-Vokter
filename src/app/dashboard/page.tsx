@@ -26,9 +26,8 @@ export default function DashboardPage() {
   const [offlineReady, setOfflineReady] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState(0);
-  const [varroaScanHref, setVarroaScanHref] = useState(
-    'https://lek-varroa-scan.vercel.app/?source=biens-vokter&type=bunnbrett'
-  );
+  const [isVarroaScanLinkReady, setIsVarroaScanLinkReady] = useState(false);
+  const [varroaScanHref, setVarroaScanHref] = useState('#');
   const [stats, setStats] = useState({
     apiaries: 0,
     hives: 0,
@@ -107,13 +106,23 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const returnTo = encodeURIComponent(`${window.location.origin}/dashboard`);
     const host = window.location.host || '';
-    const isStagingHost = host === 'staging.lekbie.no' || host.endsWith('.staging.lekbie.no');
-    const baseUrl = isStagingHost ? 'https://lek-varroa-scan-staging.vercel.app' : 'https://lek-varroa-scan.vercel.app';
-    setVarroaScanHref(
-      `${baseUrl}/?source=biens-vokter&type=bunnbrett&returnTo=${returnTo}`
-    );
+    const hostname = window.location.hostname || host;
+    const isStagingHost =
+      host === 'staging.lekbie.no' ||
+      host.endsWith('.staging.lekbie.no') ||
+      (hostname.includes('staging') && hostname.endsWith('.vercel.app'));
+
+    const configuredBaseUrl = (process.env.NEXT_PUBLIC_VARROASCAN_URL || '').trim();
+    const baseUrl = configuredBaseUrl
+      ? configuredBaseUrl
+      : isStagingHost
+        ? 'https://lek-varroa-scan-staging.vercel.app'
+        : 'https://lek-varroa-scan.vercel.app';
+
+    const returnTo = encodeURIComponent(`${window.location.origin}/dashboard`);
+    setVarroaScanHref(`${baseUrl}/?source=biens-vokter&type=bunnbrett&returnTo=${returnTo}`);
+    setIsVarroaScanLinkReady(true);
   }, []);
 
   const handleOfflineDownload = async () => {
@@ -1153,6 +1162,9 @@ export default function DashboardPage() {
             href={varroaScanHref}
             className="block"
             rel="noreferrer"
+            onClick={(e) => {
+              if (!isVarroaScanLinkReady) e.preventDefault();
+            }}
           >
             <div className="rounded-2xl p-4 shadow-sm border border-emerald-100 bg-gradient-to-r from-emerald-50 via-cyan-50 to-sky-50 hover:from-emerald-100 hover:via-cyan-100 hover:to-sky-100 transition-colors">
               <div className="flex items-center justify-between gap-3">
