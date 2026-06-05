@@ -3,7 +3,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Archive, Truck, Trash2, X, Check, ClipboardList, Edit, QrCode, Calendar, UserPlus, FileText, ExternalLink, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Archive, Truck, Trash2, X, Check, ClipboardList, Edit, QrCode, Calendar, UserPlus, FileText, ExternalLink, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store, MapPin } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -31,6 +31,13 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [taskDraftDueDate, setTaskDraftDueDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [creatingTask, setCreatingTask] = useState(false);
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
+  const [showNotesList, setShowNotesList] = useState(false);
+  const [isApiaryLogOpen, setIsApiaryLogOpen] = useState(false);
+  const [editingDueTaskId, setEditingDueTaskId] = useState<string | null>(null);
+  const [editingDueKind, setEditingDueKind] = useState<'NEXT_VISIT' | 'TOMORROW' | 'DAYS_3' | 'NEXT_WEEK' | 'PICK_DATE'>(
+    'NEXT_VISIT'
+  );
+  const [editingDueDate, setEditingDueDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   const [auroraSuggestions, setAuroraSuggestions] = useState<Array<{ key: string; title: string }>>([]);
   
@@ -170,22 +177,70 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   };
 
   const suggestTasksFromText = (raw: string) => {
-    const text = String(raw || '').toLowerCase();
-    const suggestions: Array<{ key: string; title: string }> = [];
+    const input = String(raw || '').trim();
+    if (!input) return [];
 
-    const add = (key: string, title: string) => {
-      if (suggestions.some((s) => s.key === key)) return;
-      suggestions.push({ key, title });
+    const chunks = input
+      .split('\n')
+      .flatMap((line) => line.split(/[.!?]/g))
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 12);
+
+    const normalizeTitle = (phrase: string) => {
+      let p = String(phrase || '').trim();
+      p = p.replace(/^[•*\-\u2022]\s+/, '').trim();
+      p = p.replace(/\s+/g, ' ').trim();
+      if (!p) return '';
+
+      const lower = p.toLowerCase();
+      const stripPrefixes = [
+        'må ',
+        'må ',
+        'trenger å ',
+        'trenger å ',
+        'bør ',
+        'burde ',
+        'skal ',
+        'måtte ',
+        'notat: ',
+      ];
+      for (const pref of stripPrefixes) {
+        if (lower.startsWith(pref)) {
+          p = p.slice(pref.length).trim();
+          break;
+        }
+      }
+
+      const lower2 = p.toLowerCase();
+      if (lower2.startsWith('mangler ')) {
+        const rest = p.slice('mangler '.length).trim();
+        return rest ? `Skaff ${rest}` : 'Skaff utstyr';
+      }
+
+      const startsWithVerb = /^(rydd|rydde|flytt|flytte|reparer|reparere|hent|hente|skaff|fiks|ordne|sjekk|rengjør|bekjemp|forbered|planlegg)\b/i.test(
+        p
+      );
+      if (startsWithVerb) {
+        return p.charAt(0).toUpperCase() + p.slice(1);
+      }
+
+      return `Følg opp: ${p}`;
     };
 
-    if (text.includes('maur')) add('ants', 'Bekjemp maur');
-    if (text.includes('grind') || text.includes('gjerde')) add('gate', 'Reparer grind/gjerde');
-    if (text.includes('kratt') || text.includes('rydde') || text.includes('rydd')) add('brush', 'Rydd kratt');
-    if (text.includes('adkomst') || text.includes('vanskelig adkomst')) add('access', 'Forbedre adkomst');
-    if (text.includes('sverm')) add('swarm', 'Følg opp svermobservasjon');
-    if (text.includes('svermekasse') || text.includes('svermekasser')) add('swarm_box', 'Skaff svermekasse');
-    if (text.includes('pall') || text.includes('paller')) add('pallet', 'Flytt pall/paller');
-    if (text.includes('mangler utstyr') || (text.includes('mangler') && text.includes('utstyr'))) add('equipment', 'Skaff utstyr i bigården');
+    const suggestions: Array<{ key: string; title: string }> = [];
+    for (let i = 0; i < chunks.length; i++) {
+      const title = normalizeTitle(chunks[i]);
+      if (!title) continue;
+      const key = `${i}-${title.toLowerCase()}`;
+      if (suggestions.some((s) => s.key === key)) continue;
+      suggestions.push({ key, title });
+    }
+
+    if (suggestions.length === 0) {
+      const fallback = normalizeTitle(input.split('\n')[0] || input);
+      if (fallback) suggestions.push({ key: `0-${fallback.toLowerCase()}`, title: fallback });
+    }
 
     return suggestions;
   };
@@ -267,6 +322,50 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       alert('Kunne ikke opprette oppgave: ' + (e?.message || 'ukjent feil'));
     } finally {
       setCreatingTask(false);
+    }
+  };
+
+  const updateTaskDue = async (task: any, dueKind: typeof taskDraftDueKind, dueDate: string) => {
+    if (!task?.id) return;
+    if (!apiary?.id) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const due = computeDue(dueKind, dueDate);
+
+      const { error } = await supabase
+        .from('apiary_tasks')
+        .update({
+          due_kind: due.due_kind,
+          due_date: due.due_date,
+        })
+        .eq('id', task.id);
+
+      if (error) throw error;
+
+      if (task?.calendar_event_id) {
+        await supabase
+          .from('lek_calendar_events')
+          .update({
+            due_kind: due.due_kind,
+            due_date: due.due_date,
+          })
+          .eq('id', task.calendar_event_id);
+      }
+
+      setApiaryTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id
+            ? { ...t, due_kind: due.due_kind, due_date: due.due_date }
+            : t
+        )
+      );
+
+      setEditingDueTaskId(null);
+    } catch (e: any) {
+      alert('Kunne ikke oppdatere påminnelse: ' + (e?.message || 'ukjent feil'));
     }
   };
 
@@ -2331,16 +2430,31 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
         {apiary && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="bg-gray-50 px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setIsApiaryLogOpen((v) => !v)}
+              className="w-full bg-gray-50 px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3 text-left"
+            >
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-gray-700" />
-                <h2 className="font-bold text-gray-900">📝 Bigårdslogg</h2>
+                <h2 className="font-bold text-gray-900">Bigårdslogg</h2>
               </div>
-            </div>
+              {isApiaryLogOpen ? <ChevronUp className="w-5 h-5 text-gray-500" /> : <ChevronDown className="w-5 h-5 text-gray-500" />}
+            </button>
 
+            {isApiaryLogOpen && (
             <div className="p-4 space-y-4">
               <div className="space-y-2">
-                <div className="text-xs font-bold text-gray-500 uppercase">Notater</div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs font-bold text-gray-500 uppercase">Notater</div>
+                  <button
+                    type="button"
+                    onClick={() => setShowNotesList((v) => !v)}
+                    className="text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded"
+                  >
+                    {showNotesList ? 'Skjul notater' : 'Vis notater'}
+                  </button>
+                </div>
                 <textarea
                   value={apiaryNoteDraft}
                   onChange={(e) => setApiaryNoteDraft(e.target.value)}
@@ -2370,7 +2484,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => createTask(s.title, { source: 'aurora', dueKind: 'NEXT_VISIT' })}
+                            onClick={() => createTask(s.title, { source: 'aurora' })}
                             disabled={creatingTask}
                             className="text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded disabled:opacity-50"
                           >
@@ -2390,7 +2504,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 </div>
               )}
 
-              {apiaryNotes.length > 0 && (
+              {showNotesList && apiaryNotes.length > 0 && (
                 <div className="space-y-2">
                   {apiaryNotes.map((n) => (
                     <div key={n.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
@@ -2504,9 +2618,85 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                             {t.title}
                           </div>
                           <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
-                            <span>{dueLabel(t)}</span>
+                            <button
+                              type="button"
+                              className="px-2 py-0.5 rounded border border-gray-200 bg-white hover:bg-gray-50"
+                              onClick={() => {
+                                setEditingDueTaskId((prev) => (prev === t.id ? null : t.id));
+                                const kind = String(t?.due_kind || 'NEXT_VISIT') as any;
+                                const normalizedKind =
+                                  kind === 'TOMORROW' || kind === 'DAYS_3' || kind === 'NEXT_WEEK' || kind === 'PICK_DATE' || kind === 'NEXT_VISIT'
+                                    ? kind
+                                    : 'NEXT_VISIT';
+                                setEditingDueKind(normalizedKind);
+                                setEditingDueDate(t?.due_date ? String(t.due_date).slice(0, 10) : new Date().toISOString().slice(0, 10));
+                              }}
+                            >
+                              {dueLabel(t)}
+                            </button>
                             {t?.source === 'aurora' ? <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 font-bold">Aurora</span> : null}
                           </div>
+
+                          {editingDueTaskId === t.id && (
+                            <div className="mt-2 grid gap-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <select
+                                  value={editingDueKind}
+                                  onChange={(e) => setEditingDueKind(e.target.value as any)}
+                                  className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white"
+                                >
+                                  <option value="NEXT_VISIT">Neste besøk</option>
+                                  <option value="TOMORROW">I morgen</option>
+                                  <option value="DAYS_3">Om 3 dager</option>
+                                  <option value="NEXT_WEEK">Neste uke</option>
+                                  <option value="PICK_DATE">Velg dato</option>
+                                </select>
+                                {editingDueKind === 'PICK_DATE' ? (
+                                  <input
+                                    type="date"
+                                    value={editingDueDate}
+                                    onChange={(e) => setEditingDueDate(e.target.value)}
+                                    className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white"
+                                  />
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => updateTaskDue(t, editingDueKind, editingDueDate)}
+                                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-900 text-white font-bold"
+                                  >
+                                    Lagre
+                                  </button>
+                                )}
+                              </div>
+
+                              {editingDueKind === 'PICK_DATE' ? (
+                                <div className="grid grid-cols-2 gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => updateTaskDue(t, editingDueKind, editingDueDate)}
+                                    className="w-full bg-gray-900 text-white font-bold py-2 px-3 rounded-lg"
+                                  >
+                                    Lagre
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingDueTaskId(null)}
+                                    className="w-full bg-white border border-gray-200 text-gray-700 font-bold py-2 px-3 rounded-lg"
+                                  >
+                                    Avbryt
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingDueTaskId(null)}
+                                  className="w-full bg-white border border-gray-200 text-gray-700 font-bold py-2 px-3 rounded-lg"
+                                >
+                                  Avbryt
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </label>
                     ))}
@@ -2517,6 +2707,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                 </div>
               </div>
             </div>
+            )}
           </div>
         )}
 
