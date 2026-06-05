@@ -108,8 +108,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const returnTo = encodeURIComponent(`${window.location.origin}/dashboard`);
+    const host = window.location.host || '';
+    const isStagingHost = host === 'staging.lekbie.no' || host.endsWith('.staging.lekbie.no');
+    const baseUrl = isStagingHost ? 'https://lek-varroa-scan-staging.vercel.app' : 'https://lek-varroa-scan.vercel.app';
     setVarroaScanHref(
-      `https://lek-varroa-scan.vercel.app/?source=biens-vokter&type=bunnbrett&returnTo=${returnTo}`
+      `${baseUrl}/?source=biens-vokter&type=bunnbrett&returnTo=${returnTo}`
     );
   }, []);
 
