@@ -40,6 +40,9 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [editingDueDate, setEditingDueDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   const [auroraSuggestions, setAuroraSuggestions] = useState<Array<{ key: string; title: string }>>([]);
+  const [auroraSuggestionMetaByKey, setAuroraSuggestionMetaByKey] = useState<
+    Record<string, { dueKind: 'NEXT_VISIT' | 'TOMORROW' | 'DAYS_3' | 'NEXT_WEEK' | 'PICK_DATE'; dueDate: string }>
+  >({});
   
   // Selection State
   const [selectedHiveIds, setSelectedHiveIds] = useState<Set<string>>(new Set());
@@ -161,7 +164,19 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     const kind = String(task?.due_kind || '').trim();
     const date = task?.due_date ? String(task.due_date).slice(0, 10) : '';
     if (kind === 'NEXT_VISIT') return 'Neste besøk';
+    if (kind === 'TOMORROW') return 'I morgen';
+    if (kind === 'DAYS_3') return 'Om 3 dager';
+    if (kind === 'NEXT_WEEK') return 'Neste uke';
     if (date) return new Date(date).toLocaleDateString();
+    return 'Neste besøk';
+  };
+
+  const dueKindLabel = (kind: string, date?: string) => {
+    if (kind === 'NEXT_VISIT') return 'Neste besøk';
+    if (kind === 'TOMORROW') return 'I morgen';
+    if (kind === 'DAYS_3') return 'Om 3 dager';
+    if (kind === 'NEXT_WEEK') return 'Neste uke';
+    if (kind === 'PICK_DATE') return date ? new Date(String(date).slice(0, 10)).toLocaleDateString() : 'Velg dato';
     return 'Neste besøk';
   };
 
@@ -445,6 +460,14 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       );
       const suggestions = suggestTasksFromText(note).filter((s) => !openTitles.has(s.title.toLowerCase()));
       setAuroraSuggestions(suggestions);
+      const initialMeta: Record<string, { dueKind: 'NEXT_VISIT' | 'TOMORROW' | 'DAYS_3' | 'NEXT_WEEK' | 'PICK_DATE'; dueDate: string }> = {};
+      for (const s of suggestions) {
+        initialMeta[s.key] = {
+          dueKind: taskDraftDueKind,
+          dueDate: taskDraftDueDate,
+        };
+      }
+      setAuroraSuggestionMetaByKey(initialMeta);
     } catch (e: any) {
       alert('Kunne ikke lagre notat: ' + (e?.message || 'ukjent feil'));
     } finally {
@@ -2480,11 +2503,66 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                         key={s.key}
                         className="bg-white border border-indigo-100 rounded-lg p-2 flex items-center justify-between gap-2"
                       >
-                        <div className="text-sm font-semibold text-gray-900">☐ {s.title}</div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-semibold text-gray-900 break-words">☐ {s.title}</div>
+                          <div className="mt-2 grid grid-cols-2 gap-2">
+                            <select
+                              value={auroraSuggestionMetaByKey[s.key]?.dueKind || 'NEXT_VISIT'}
+                              onChange={(e) => {
+                                const next = e.target.value as any;
+                                setAuroraSuggestionMetaByKey((prev) => ({
+                                  ...prev,
+                                  [s.key]: {
+                                    dueKind: next,
+                                    dueDate: prev[s.key]?.dueDate || taskDraftDueDate,
+                                  },
+                                }));
+                              }}
+                              className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white"
+                            >
+                              <option value="NEXT_VISIT">Neste besøk</option>
+                              <option value="TOMORROW">I morgen</option>
+                              <option value="DAYS_3">Om 3 dager</option>
+                              <option value="NEXT_WEEK">Neste uke</option>
+                              <option value="PICK_DATE">Velg dato</option>
+                            </select>
+
+                            {auroraSuggestionMetaByKey[s.key]?.dueKind === 'PICK_DATE' ? (
+                              <input
+                                type="date"
+                                value={auroraSuggestionMetaByKey[s.key]?.dueDate || taskDraftDueDate}
+                                onChange={(e) => {
+                                  const next = e.target.value;
+                                  setAuroraSuggestionMetaByKey((prev) => ({
+                                    ...prev,
+                                    [s.key]: {
+                                      dueKind: prev[s.key]?.dueKind || 'PICK_DATE',
+                                      dueDate: next,
+                                    },
+                                  }));
+                                }}
+                                className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white"
+                              />
+                            ) : (
+                              <div className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-700 flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-gray-500" />
+                                <span>
+                                  {dueKindLabel(
+                                    auroraSuggestionMetaByKey[s.key]?.dueKind || 'NEXT_VISIT',
+                                    auroraSuggestionMetaByKey[s.key]?.dueDate || taskDraftDueDate
+                                  )}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => createTask(s.title, { source: 'aurora' })}
+                            onClick={() => {
+                              const meta = auroraSuggestionMetaByKey[s.key] || { dueKind: taskDraftDueKind, dueDate: taskDraftDueDate };
+                              createTask(s.title, { source: 'aurora', dueKind: meta.dueKind, dueDate: meta.dueDate });
+                            }}
                             disabled={creatingTask}
                             className="text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded disabled:opacity-50"
                           >
@@ -2492,7 +2570,14 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                           </button>
                           <button
                             type="button"
-                            onClick={() => setAuroraSuggestions((prev) => prev.filter((x) => x.key !== s.key))}
+                            onClick={() => {
+                              setAuroraSuggestions((prev) => prev.filter((x) => x.key !== s.key));
+                              setAuroraSuggestionMetaByKey((prev) => {
+                                const next = { ...prev };
+                                delete next[s.key];
+                                return next;
+                              });
+                            }}
                             className="text-xs font-bold bg-white border border-indigo-200 text-indigo-800 px-2 py-1 rounded hover:bg-indigo-100"
                           >
                             Ignorer
