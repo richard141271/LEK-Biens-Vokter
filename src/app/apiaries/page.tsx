@@ -24,6 +24,8 @@ export default function ApiariesPage() {
   const [voiceStep, setVoiceStep] = useState<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
   const [selectedVoiceApiary, setSelectedVoiceApiary] = useState<any | null>(null);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(true);
+  const [apiaryTaskSummaryById, setApiaryTaskSummaryById] = useState<Record<string, { openCount: number; nextTaskTitle: string }>>({});
+  const [apiaryTasksUnavailable, setApiaryTasksUnavailable] = useState(false);
 
   // Selection State
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -140,6 +142,73 @@ export default function ApiariesPage() {
       .replace(/[.,;:!?]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
+
+  const computeNextTaskTitle = (tasks: any[]) => {
+    if (!tasks || tasks.length === 0) return '';
+    const sorted = tasks
+      .slice()
+      .sort((a, b) => {
+        const aHasDate = Boolean((a as any)?.due_date);
+        const bHasDate = Boolean((b as any)?.due_date);
+        if (aHasDate !== bHasDate) return aHasDate ? -1 : 1;
+        const aDue = (a as any)?.due_date ? new Date(String((a as any).due_date)).getTime() : 0;
+        const bDue = (b as any)?.due_date ? new Date(String((b as any).due_date)).getTime() : 0;
+        if (aDue !== bDue) return aDue - bDue;
+        const aCreated = (a as any)?.created_at ? new Date(String((a as any).created_at)).getTime() : 0;
+        const bCreated = (b as any)?.created_at ? new Date(String((b as any).created_at)).getTime() : 0;
+        return aCreated - bCreated;
+      });
+    return String((sorted[0] as any)?.title || '').trim();
+  };
+
+  const fetchApiaryTasksSummary = async (list: any[]) => {
+    const apiaryIds = (list || []).map((a: any) => String(a?.id || '').trim()).filter(Boolean);
+    if (apiaryIds.length === 0) {
+      setApiaryTaskSummaryById({});
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('apiary_tasks')
+        .select('apiary_id, title, due_date, created_at')
+        .in('apiary_id', apiaryIds)
+        .is('completed_at', null);
+
+      if (error) {
+        const msg = String((error as any)?.message || (error as any)?.details || '');
+        const missing = msg.toLowerCase().includes('apiary_tasks') && (msg.toLowerCase().includes('does not exist') || msg.toLowerCase().includes('schema cache'));
+        setApiaryTasksUnavailable(missing);
+        setApiaryTaskSummaryById({});
+        return;
+      }
+
+      setApiaryTasksUnavailable(false);
+
+      const tasks = Array.isArray(data) ? data : [];
+      const byApiary = new Map<string, any[]>();
+      for (const t of tasks) {
+        const apiaryId = String((t as any)?.apiary_id || '').trim();
+        if (!apiaryId) continue;
+        const existing = byApiary.get(apiaryId) || [];
+        existing.push(t);
+        byApiary.set(apiaryId, existing);
+      }
+
+      const summary: Record<string, { openCount: number; nextTaskTitle: string }> = {};
+      for (const id of apiaryIds) {
+        const list = byApiary.get(id) || [];
+        if (list.length === 0) continue;
+        summary[id] = {
+          openCount: list.length,
+          nextTaskTitle: computeNextTaskTitle(list),
+        };
+      }
+      setApiaryTaskSummaryById(summary);
+    } catch {
+      setApiaryTaskSummaryById({});
+    }
+  };
 
   const formatApiaryNumber = (raw: string, type?: string) => {
     const s = String(raw || '');
@@ -643,6 +712,7 @@ export default function ApiariesPage() {
       });
 
       setApiaries(normalizedApiaries);
+      await fetchApiaryTasksSummary(normalizedApiaries);
 
       try {
         const toFix = (apiariesData || []).filter((a: any) => {
@@ -914,6 +984,18 @@ export default function ApiariesPage() {
 
       {/* LIST VIEW (Screen) */}
       <main className="p-4 space-y-4 print:hidden">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3">
+          <div className="text-sm font-bold text-gray-900">📝 Bigårdslogg</div>
+          <div className="text-xs text-gray-600 mt-1">
+            Notater og oppgaver ligger inne på hver lokasjon. Trykk på en lokasjon for å åpne Bigårdslogg.
+          </div>
+          {apiaryTasksUnavailable ? (
+            <div className="text-xs text-red-700 mt-2">
+              Databasen mangler nye tabeller for Bigårdslogg. Kjør Supabase-migrasjonen 20260622_apiary_log_tasks_calendar.sql i staging og oppdater siden.
+            </div>
+          ) : null}
+        </div>
+
         {visibleApiaries.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <p className="mb-4">Du har ingen lokasjoner enda.</p>
@@ -1002,12 +1084,24 @@ export default function ApiariesPage() {
                               {activeHiveCount}
                             </span>
                           )}
+                          {apiaryTaskSummaryById[apiary.id]?.openCount ? (
+                            <span className="text-xs font-medium bg-indigo-50 text-indigo-800 px-2 py-1 rounded-full flex items-center gap-1 border border-indigo-100">
+                              <CheckSquare className="w-3 h-3" />
+                              {apiaryTaskSummaryById[apiary.id].openCount}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                       <div className="flex items-center gap-1 text-sm text-gray-500 min-w-0">
                         <MapPin className="w-4 h-4 shrink-0 text-honey-600" />
                         <span className="truncate">{apiary.location || 'Ingen adresse'}</span>
                       </div>
+                      {apiaryTaskSummaryById[apiary.id]?.openCount ? (
+                        <div className="text-xs text-gray-600 mt-1 truncate">
+                          Åpne oppgaver: {apiaryTaskSummaryById[apiary.id].openCount}
+                          {apiaryTaskSummaryById[apiary.id].nextTaskTitle ? ` • Neste: ${apiaryTaskSummaryById[apiary.id].nextTaskTitle}` : ''}
+                        </div>
+                      ) : null}
                       {apiary.registration_number && (
                         <p className="text-xs text-gray-400 mt-1">Skilt: {apiary.registration_number}</p>
                       )}
