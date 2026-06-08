@@ -191,6 +191,102 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     return { due_kind: kind, due_date: toDateOnly(base) };
   };
 
+  const extractDateISOFromText = (text: string) => {
+    const s = String(text || '');
+    const iso = s.match(/\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/);
+    if (iso) {
+      const y = Number(iso[1]);
+      const m = Number(iso[2]);
+      const d = Number(iso[3]);
+      const date = new Date(y, m - 1, d);
+      if (!Number.isNaN(date.getTime())) return toDateOnly(date);
+    }
+
+    const dot = s.match(/\b(\d{1,2})[./](\d{1,2})[./](20\d{2})\b/);
+    if (dot) {
+      const d = Number(dot[1]);
+      const m = Number(dot[2]);
+      const y = Number(dot[3]);
+      const date = new Date(y, m - 1, d);
+      if (!Number.isNaN(date.getTime())) return toDateOnly(date);
+    }
+
+    const dayMonth = s.match(/\b(\d{1,2})[./](\d{1,2})\b/);
+    if (dayMonth) {
+      const d = Number(dayMonth[1]);
+      const m = Number(dayMonth[2]);
+      const y = new Date().getFullYear();
+      const date = new Date(y, m - 1, d);
+      if (!Number.isNaN(date.getTime())) return toDateOnly(date);
+    }
+
+    return null;
+  };
+
+  const getNextPlannedInspectionDateISO = () => {
+    const list = Array.isArray(inspections) ? inspections : [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const upcoming = list
+      .map((x: any) => String(x?.planned_date || '').slice(0, 10))
+      .filter(Boolean)
+      .map((d) => new Date(d))
+      .filter((d) => !Number.isNaN(d.getTime()))
+      .filter((d) => d.getTime() >= today.getTime())
+      .sort((a, b) => a.getTime() - b.getTime());
+    if (upcoming.length === 0) return null;
+    return toDateOnly(upcoming[0]);
+  };
+
+  const getEarliestOpenTaskDueDateISO = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const list = (apiaryTasks || [])
+      .filter((t: any) => !t?.completed_at && t?.due_date)
+      .map((t: any) => String(t.due_date).slice(0, 10))
+      .filter(Boolean)
+      .map((d) => new Date(d))
+      .filter((d) => !Number.isNaN(d.getTime()))
+      .filter((d) => d.getTime() >= today.getTime())
+      .sort((a, b) => a.getTime() - b.getTime());
+    if (list.length === 0) return null;
+    return toDateOnly(list[0]);
+  };
+
+  const smartDefaultDueMetaForSuggestion = (noteText: string, suggestionTitle: string) => {
+    const note = String(noteText || '');
+    const title = String(suggestionTitle || '');
+    const combined = `${title}\n${note}`.toLowerCase();
+
+    const extracted = extractDateISOFromText(combined);
+    if (extracted) return { dueKind: 'PICK_DATE' as const, dueDate: extracted };
+
+    if (combined.includes('i morgen')) {
+      return { dueKind: 'TOMORROW' as const, dueDate: toDateOnly(new Date()) };
+    }
+    if (combined.match(/\bom\s*3\s*dager\b/)) {
+      return { dueKind: 'DAYS_3' as const, dueDate: toDateOnly(new Date()) };
+    }
+    if (combined.includes('neste uke')) {
+      return { dueKind: 'NEXT_WEEK' as const, dueDate: toDateOnly(new Date()) };
+    }
+    if (combined.includes('neste besøk')) {
+      return { dueKind: 'NEXT_VISIT' as const, dueDate: toDateOnly(new Date()) };
+    }
+
+    const nextInspection = getNextPlannedInspectionDateISO();
+    if (nextInspection) return { dueKind: 'PICK_DATE' as const, dueDate: nextInspection };
+
+    const earliestOpen = getEarliestOpenTaskDueDateISO();
+    if (earliestOpen) return { dueKind: 'PICK_DATE' as const, dueDate: earliestOpen };
+
+    if (taskDraftDueKind !== 'NEXT_VISIT') {
+      return { dueKind: taskDraftDueKind, dueDate: taskDraftDueDate };
+    }
+
+    return { dueKind: 'NEXT_VISIT' as const, dueDate: taskDraftDueDate };
+  };
+
   const suggestTasksFromText = (raw: string) => {
     const input = String(raw || '').trim();
     if (!input) return [];
@@ -462,10 +558,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       setAuroraSuggestions(suggestions);
       const initialMeta: Record<string, { dueKind: 'NEXT_VISIT' | 'TOMORROW' | 'DAYS_3' | 'NEXT_WEEK' | 'PICK_DATE'; dueDate: string }> = {};
       for (const s of suggestions) {
-        initialMeta[s.key] = {
-          dueKind: taskDraftDueKind,
-          dueDate: taskDraftDueDate,
-        };
+        initialMeta[s.key] = smartDefaultDueMetaForSuggestion(note, s.title);
       }
       setAuroraSuggestionMetaByKey(initialMeta);
     } catch (e: any) {
