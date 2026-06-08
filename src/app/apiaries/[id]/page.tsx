@@ -2594,11 +2594,11 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                     {auroraSuggestions.map((s) => (
                       <div
                         key={s.key}
-                        className="bg-white border border-indigo-100 rounded-lg p-2 flex items-center justify-between gap-2"
+                        className="bg-white border border-indigo-100 rounded-xl p-3"
                       >
-                        <div className="min-w-0 flex-1">
+                        <div className="flex flex-col gap-3">
                           <div className="text-sm font-semibold text-gray-900 break-words">☐ {s.title}</div>
-                          <div className="mt-2 grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <select
                               value={auroraSuggestionMetaByKey[s.key]?.dueKind || 'NEXT_VISIT'}
                               onChange={(e) => {
@@ -2611,7 +2611,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                                   },
                                 }));
                               }}
-                              className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white"
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white"
                             >
                               <option value="NEXT_VISIT">Neste besøk</option>
                               <option value="TOMORROW">I morgen</option>
@@ -2634,12 +2634,12 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                                     },
                                   }));
                                 }}
-                                className="w-full border border-gray-300 rounded-lg px-2 py-2 text-sm bg-white"
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white"
                               />
                             ) : (
-                              <div className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-700 flex items-center gap-2">
+                              <div className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 text-gray-700 flex items-center gap-2">
                                 <Calendar className="w-4 h-4 text-gray-500" />
-                                <span>
+                                <span className="min-w-0 truncate">
                                   {dueKindLabel(
                                     auroraSuggestionMetaByKey[s.key]?.dueKind || 'NEXT_VISIT',
                                     auroraSuggestionMetaByKey[s.key]?.dueDate || taskDraftDueDate
@@ -2648,33 +2648,34 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                               </div>
                             )}
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const meta = auroraSuggestionMetaByKey[s.key] || { dueKind: taskDraftDueKind, dueDate: taskDraftDueDate };
-                              createTask(s.title, { source: 'aurora', dueKind: meta.dueKind, dueDate: meta.dueDate });
-                            }}
-                            disabled={creatingTask}
-                            className="text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded disabled:opacity-50"
-                          >
-                            Opprett
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAuroraSuggestions((prev) => prev.filter((x) => x.key !== s.key));
-                              setAuroraSuggestionMetaByKey((prev) => {
-                                const next = { ...prev };
-                                delete next[s.key];
-                                return next;
-                              });
-                            }}
-                            className="text-xs font-bold bg-white border border-indigo-200 text-indigo-800 px-2 py-1 rounded hover:bg-indigo-100"
-                          >
-                            Ignorer
-                          </button>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const meta = auroraSuggestionMetaByKey[s.key] || { dueKind: taskDraftDueKind, dueDate: taskDraftDueDate };
+                                createTask(s.title, { source: 'aurora', dueKind: meta.dueKind, dueDate: meta.dueDate });
+                              }}
+                              disabled={creatingTask}
+                              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-3 rounded-lg transition-colors disabled:opacity-50"
+                            >
+                              Opprett
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAuroraSuggestions((prev) => prev.filter((x) => x.key !== s.key));
+                                setAuroraSuggestionMetaByKey((prev) => {
+                                  const next = { ...prev };
+                                  delete next[s.key];
+                                  return next;
+                                });
+                              }}
+                              className="w-full bg-white border border-indigo-200 text-indigo-800 font-bold py-2.5 px-3 rounded-lg hover:bg-indigo-50 transition-colors"
+                            >
+                              Ignorer
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
