@@ -7,8 +7,24 @@ import { createClient } from "@/utils/supabase/client";
 import InstallPrompt from "@/components/InstallPrompt";
 import Image from "next/image";
 
+const PRIORITY_FEATURES = [
+  'VarroaScan™',
+  'AI-inspeksjon',
+  'Stemmestyrt registrering',
+  'Sensornoder',
+  'Bigårdsovervåkning',
+] as const;
+
+const PRIORITY_VOTES_STORAGE_KEY = 'lek_priority_votes_selected';
+const PRIORITY_VISITOR_ID_STORAGE_KEY = 'lek_priority_votes_visitor_id';
+const MAX_PRIORITY_VOTES = 3;
+
 export default function Home() {
   const [user, setUser] = useState<any>(null);
+  const [priorityVotes, setPriorityVotes] = useState<string[]>([]);
+  const [priorityVisitorId, setPriorityVisitorId] = useState('');
+  const [prioritySubmitting, setPrioritySubmitting] = useState<string | null>(null);
+  const [priorityMessage, setPriorityMessage] = useState<string | null>(null);
   const supabase = useMemo(() => createClient(), []);
   const isStockHost = typeof window !== 'undefined' && window.location.hostname.toLowerCase().startsWith('aksjer.');
 
@@ -24,6 +40,84 @@ export default function Home() {
     };
     checkUser();
   }, [supabase, isStockHost]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const createVisitorId = () => {
+      if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
+    };
+
+    try {
+      const rawVotes = window.localStorage.getItem(PRIORITY_VOTES_STORAGE_KEY);
+      if (rawVotes) {
+        const parsed = JSON.parse(rawVotes);
+        if (Array.isArray(parsed)) {
+          setPriorityVotes(parsed.filter((item) => PRIORITY_FEATURES.includes(item)).slice(0, MAX_PRIORITY_VOTES));
+        }
+      }
+
+      let visitorId = window.localStorage.getItem(PRIORITY_VISITOR_ID_STORAGE_KEY) || '';
+      if (!visitorId) {
+        visitorId = createVisitorId();
+        window.localStorage.setItem(PRIORITY_VISITOR_ID_STORAGE_KEY, visitorId);
+      }
+      setPriorityVisitorId(visitorId);
+    } catch {}
+  }, []);
+
+  const registerPriorityVote = async (feature: string) => {
+    if (!priorityVisitorId || prioritySubmitting) return;
+    if (priorityVotes.includes(feature)) {
+      setPriorityMessage(`Du har allerede valgt ${feature}.`);
+      return;
+    }
+    if (priorityVotes.length >= MAX_PRIORITY_VOTES) {
+      setPriorityMessage('Du har brukt opp dine 3 stemmer. Takk for at du bidrar til utviklingen.');
+      return;
+    }
+
+    setPrioritySubmitting(feature);
+    setPriorityMessage(null);
+
+    try {
+      const res = await fetch('/api/feedback/priority-vote', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          feature,
+          visitorId: priorityVisitorId,
+          route: typeof window !== 'undefined' ? window.location.pathname : '/',
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || 'Kunne ikke registrere prioritering');
+      }
+
+      const nextVotes = [...priorityVotes, feature];
+      setPriorityVotes(nextVotes);
+      try {
+        window.localStorage.setItem(PRIORITY_VOTES_STORAGE_KEY, JSON.stringify(nextVotes));
+      } catch {}
+
+      if (nextVotes.length >= MAX_PRIORITY_VOTES) {
+        setPriorityMessage('Du har brukt opp dine 3 stemmer. Takk for at du bidrar til utviklingen.');
+      } else {
+        setPriorityMessage(`Takk. ${feature} er registrert som en prioritering.`);
+      }
+    } catch (e: any) {
+      setPriorityMessage(e?.message || 'Kunne ikke registrere prioritering akkurat na.');
+    } finally {
+      setPrioritySubmitting(null);
+    }
+  };
 
   if (isStockHost) {
     return (
@@ -200,21 +294,54 @@ export default function Home() {
           <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Under utvikling</h2>
             <p className="text-gray-600 mb-6">
-              Dette er neste steg i LEK-plattformen.
+              Klikk pa opptil 3 funksjoner du onsker at vi skal prioritere videre.
             </p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {[
-                'VarroaScan™',
-                'AI-inspeksjon',
-                'Stemmestyrt registrering',
-                'Sensornoder',
-                'Bigårdsovervåkning',
-              ].map((item) => (
-                <div key={item} className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-3">
-                  <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
-                  <span className="font-medium text-gray-900">{item}</span>
+              {PRIORITY_FEATURES.map((item) => {
+                const isSelected = priorityVotes.includes(item);
+                const isDisabled = !isSelected && priorityVotes.length >= MAX_PRIORITY_VOTES;
+                const isSaving = prioritySubmitting === item;
+
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => registerPriorityVote(item)}
+                    disabled={isDisabled || isSaving || !priorityVisitorId}
+                    className={`text-left rounded-xl px-4 py-4 border transition-all ${
+                      isSelected
+                        ? 'bg-green-50 border-green-300 shadow-sm'
+                        : isDisabled
+                          ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                          : 'bg-white border-gray-200 hover:border-orange-300 hover:shadow-sm'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <CheckCircle className={`w-5 h-5 shrink-0 ${isSelected ? 'text-green-600' : 'text-gray-300'}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-gray-900">{item}</div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          {isSelected ? 'Valgt' : isSaving ? 'Registrerer...' : 'Klikk for a prioritere'}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-4 flex flex-col gap-2">
+              <div className="text-sm text-gray-600">
+                Valgt: <span className="font-bold text-gray-900">{priorityVotes.length}</span> / {MAX_PRIORITY_VOTES}
+              </div>
+              {priorityMessage ? (
+                <div className={`text-sm rounded-xl px-4 py-3 border ${
+                  priorityVotes.length >= MAX_PRIORITY_VOTES
+                    ? 'bg-green-50 text-green-800 border-green-200'
+                    : 'bg-blue-50 text-blue-800 border-blue-200'
+                }`}>
+                  {priorityMessage}
                 </div>
-              ))}
+              ) : null}
             </div>
           </div>
         </div>

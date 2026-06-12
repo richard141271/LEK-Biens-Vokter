@@ -4,14 +4,15 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Bell, Bug, CheckCircle2, Flame, Lightbulb, Loader2, MessageSquare, Star, X, Archive } from 'lucide-react';
 
-type AdminTab = 'inbox' | 'critical' | 'wish' | 'archive';
+type AdminTab = 'inbox' | 'critical' | 'wish' | 'priorities' | 'archive';
 
 type FeedbackReport = {
   id: string;
   created_at: string;
   user_id: string;
   user_name: string | null;
-  type: 'bug' | 'wish' | 'feedback';
+  type: 'bug' | 'wish' | 'feedback' | 'vote';
+  category?: string | null;
   title: string;
   description: string;
   image_urls: string[] | null;
@@ -29,12 +30,14 @@ const tabMeta: Array<{ key: AdminTab; label: string; icon: any }> = [
   { key: 'inbox', label: '📥 Innboks', icon: MessageSquare },
   { key: 'critical', label: '🔥 Kritiske', icon: Flame },
   { key: 'wish', label: '💡 Ønsker', icon: Lightbulb },
+  { key: 'priorities', label: '🗳 Prioriteringer', icon: CheckCircle2 },
   { key: 'archive', label: '📦 Arkiv', icon: Archive },
 ];
 
 const typeBadge = (t: FeedbackReport['type']) => {
   if (t === 'bug') return { label: '🐞 Feil', cls: 'bg-red-50 text-red-700 border-red-200', Icon: Bug };
   if (t === 'wish') return { label: '💡 Ønske', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200', Icon: Lightbulb };
+  if (t === 'vote') return { label: '🗳 Prioritering', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', Icon: CheckCircle2 };
   return { label: '⭐ Tilbakemelding', cls: 'bg-gray-50 text-gray-700 border-gray-200', Icon: Star };
 };
 
@@ -51,14 +54,16 @@ export default function AdminFeedbackPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reports, setReports] = useState<FeedbackReport[]>([]);
-  const [counts, setCounts] = useState<{ new: number; inbox: number; critical: number; wish: number; archive: number }>({
+  const [counts, setCounts] = useState<{ new: number; inbox: number; critical: number; wish: number; priorities: number; archive: number }>({
     new: 0,
     inbox: 0,
     critical: 0,
     wish: 0,
+    priorities: 0,
     archive: 0,
   });
   const [selected, setSelected] = useState<FeedbackReport | null>(null);
+  const [selectedPriorityGroup, setSelectedPriorityGroup] = useState<{ feature: string; reports: FeedbackReport[] } | null>(null);
   const [editStatus, setEditStatus] = useState<FeedbackReport['status']>('NY');
   const [editPriority, setEditPriority] = useState<FeedbackReport['priority']>('NORMAL');
   const [editComment, setEditComment] = useState<string>('');
@@ -68,6 +73,7 @@ export default function AdminFeedbackPage() {
   const matchesTab = (r: FeedbackReport, tab: AdminTab) => {
     const isArchived = r.status === 'LØST' || r.status === 'IGNORERT';
     if (tab === 'archive') return isArchived;
+    if (tab === 'priorities') return r.type === 'vote' && r.category === 'PRIORITERING';
     if (tab === 'wish') return r.type === 'wish' && !isArchived;
     if (tab === 'critical') return !isArchived && (r.priority === 'KRITISK' || (r.duplicate_count || 0) >= 3);
     return !isArchived;
@@ -143,6 +149,30 @@ export default function AdminFeedbackPage() {
     return meta ? meta.label : 'Tilbakemeldinger';
   }, [activeTab]);
 
+  const groupedPriorities = useMemo(() => {
+    const groups = new Map<string, FeedbackReport[]>();
+    for (const report of reports) {
+      const feature =
+        String(report?.device_info?.priorityFeature || '').trim() ||
+        String(report.title || '').replace(/^Prioritering:\s*/i, '').trim() ||
+        'Ukjent';
+      const existing = groups.get(feature) || [];
+      existing.push(report);
+      groups.set(feature, existing);
+    }
+
+    return Array.from(groups.entries())
+      .map(([feature, items]) => ({
+        feature,
+        count: items.length,
+        reports: items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+      }))
+      .sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count;
+        return a.feature.localeCompare(b.feature, 'no');
+      });
+  }, [reports]);
+
   return (
     <div className="p-6">
       <div className="max-w-6xl mx-auto">
@@ -175,7 +205,15 @@ export default function AdminFeedbackPage() {
             {tabMeta.map((t) => {
             const isActive = t.key === activeTab;
             const count =
-              t.key === 'inbox' ? counts.inbox : t.key === 'critical' ? counts.critical : t.key === 'wish' ? counts.wish : counts.archive;
+              t.key === 'inbox'
+                ? counts.inbox
+                : t.key === 'critical'
+                  ? counts.critical
+                  : t.key === 'wish'
+                    ? counts.wish
+                    : t.key === 'priorities'
+                      ? counts.priorities
+                      : counts.archive;
             const Icon = t.icon;
             return (
               <button
@@ -218,6 +256,29 @@ export default function AdminFeedbackPage() {
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 text-gray-600">
             <div className="font-black text-gray-900 mb-1">Tomt her</div>
             <div className="text-sm">Ingen tilbakemeldinger i denne fanen akkurat nå.</div>
+          </div>
+        ) : activeTab === 'priorities' ? (
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            {groupedPriorities.map((group, index) => (
+              <button
+                key={group.feature}
+                type="button"
+                onClick={() => setSelectedPriorityGroup({ feature: group.feature, reports: group.reports })}
+                className={`w-full px-5 py-4 text-left hover:bg-gray-50 transition-colors ${
+                  index !== groupedPriorities.length - 1 ? 'border-b border-gray-100' : ''
+                }`}
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="font-black text-gray-900 break-words">{group.feature}</div>
+                    <div className="text-sm text-gray-500 mt-1">Klikk for å se de individuelle stemmene</div>
+                  </div>
+                  <div className="shrink-0 text-lg font-black text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                    {group.count}
+                  </div>
+                </div>
+              </button>
+            ))}
           </div>
         ) : (
           <div className="grid md:grid-cols-2 gap-3">
@@ -275,6 +336,39 @@ export default function AdminFeedbackPage() {
           </div>
         )}
       </div>
+
+      {selectedPriorityGroup && (
+        <div className="fixed inset-0 z-[190] bg-black/50 flex items-end md:items-center justify-center p-3">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <div className="font-black text-gray-900">{selectedPriorityGroup.feature}</div>
+                <div className="text-sm text-gray-500 mt-1">{selectedPriorityGroup.reports.length} stemmer registrert</div>
+              </div>
+              <button type="button" onClick={() => setSelectedPriorityGroup(null)} className="p-2 rounded-full hover:bg-gray-100">
+                <X className="w-5 h-5 text-gray-700" />
+              </button>
+            </div>
+            <div className="p-4 space-y-2 max-h-[75vh] overflow-auto">
+              {selectedPriorityGroup.reports.map((report) => (
+                <button
+                  key={report.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedPriorityGroup(null);
+                    setSelected(report);
+                  }}
+                  className="w-full text-left rounded-2xl border border-gray-200 hover:border-purple-300 hover:bg-purple-50/40 p-4 transition-colors"
+                >
+                  <div className="font-bold text-gray-900">{report.user_name || report.user_id?.slice(0, 8) || 'Anonym'}</div>
+                  <div className="text-sm text-gray-600 mt-1">{new Date(report.created_at).toLocaleString('no-NO')}</div>
+                  <div className="text-sm text-gray-500 mt-2 line-clamp-2">{report.description}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {selected && (
         <div className="fixed inset-0 z-[200] bg-black/50 flex items-end md:items-center justify-center p-3">

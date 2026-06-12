@@ -46,11 +46,14 @@ async function requireAdmin() {
   return { user, isAdmin: true, errorResponse: null };
 }
 
-type AdminTab = 'inbox' | 'critical' | 'wish' | 'archive';
+type AdminTab = 'inbox' | 'critical' | 'wish' | 'priorities' | 'archive';
 
 function applyTabFilter(q: any, tab: AdminTab) {
   if (tab === 'archive') {
     return q.in('status', ['LØST', 'IGNORERT']);
+  }
+  if (tab === 'priorities') {
+    return q.eq('type', 'vote').eq('category', 'PRIORITERING');
   }
   if (tab === 'wish') {
     return q.eq('type', 'wish').not('status', 'in', '("LØST","IGNORERT")');
@@ -64,7 +67,7 @@ function applyTabFilter(q: any, tab: AdminTab) {
 }
 
 async function getCounts(adminClient: ReturnType<typeof createAdminClient>) {
-  const [newRes, inboxRes, critRes, wishRes, archiveRes] = await Promise.all([
+  const [newRes, inboxRes, critRes, wishRes, prioritiesRes, archiveRes] = await Promise.all([
     adminClient.from('feedback_reports').select('*', { count: 'exact', head: true }).eq('status', 'NY'),
     adminClient
       .from('feedback_reports')
@@ -80,6 +83,11 @@ async function getCounts(adminClient: ReturnType<typeof createAdminClient>) {
       .select('*', { count: 'exact', head: true })
       .eq('type', 'wish')
       .not('status', 'in', '("LØST","IGNORERT")'),
+    adminClient
+      .from('feedback_reports')
+      .select('*', { count: 'exact', head: true })
+      .eq('type', 'vote')
+      .eq('category', 'PRIORITERING'),
     adminClient.from('feedback_reports').select('*', { count: 'exact', head: true }).in('status', ['LØST', 'IGNORERT']),
   ]);
 
@@ -88,6 +96,7 @@ async function getCounts(adminClient: ReturnType<typeof createAdminClient>) {
     inbox: inboxRes.count || 0,
     critical: critRes.count || 0,
     wish: wishRes.count || 0,
+    priorities: prioritiesRes.count || 0,
     archive: archiveRes.count || 0,
   };
 }
