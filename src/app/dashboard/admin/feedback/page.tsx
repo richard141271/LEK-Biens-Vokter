@@ -26,6 +26,18 @@ type FeedbackReport = {
   duplicate_count: number;
 };
 
+type InboxItem =
+  | { kind: 'report'; report: FeedbackReport }
+  | {
+      kind: 'priority-group';
+      feature: string;
+      reports: FeedbackReport[];
+      latest: FeedbackReport;
+      priority: FeedbackReport['priority'];
+      status: FeedbackReport['status'];
+      count: number;
+    };
+
 const tabMeta: Array<{ key: AdminTab; label: string; icon: any }> = [
   { key: 'inbox', label: '📥 Innboks', icon: MessageSquare },
   { key: 'critical', label: '🔥 Kritiske', icon: Flame },
@@ -46,6 +58,24 @@ const statusBadge = (s: FeedbackReport['status']) => {
   if (s === 'UNDER_ARBEID') return { label: 'Under arbeid', cls: 'bg-yellow-50 text-yellow-800 border-yellow-200' };
   if (s === 'LØST') return { label: 'Løst', cls: 'bg-green-50 text-green-700 border-green-200' };
   return { label: 'Ignorert', cls: 'bg-gray-100 text-gray-700 border-gray-200' };
+};
+
+const getPriorityFeature = (report: FeedbackReport) =>
+  String(report?.device_info?.priorityFeature || '').trim() ||
+  String(report.title || '').replace(/^Prioritering:\s*/i, '').trim() ||
+  'Ukjent';
+
+const priorityWeight: Record<FeedbackReport['priority'], number> = {
+  KRITISK: 3,
+  NORMAL: 2,
+  LAV: 1,
+};
+
+const statusWeight: Record<FeedbackReport['status'], number> = {
+  UNDER_ARBEID: 4,
+  NY: 3,
+  LØST: 2,
+  IGNORERT: 1,
 };
 
 export default function AdminFeedbackPage() {
@@ -152,10 +182,7 @@ export default function AdminFeedbackPage() {
   const groupedPriorities = useMemo(() => {
     const groups = new Map<string, FeedbackReport[]>();
     for (const report of reports) {
-      const feature =
-        String(report?.device_info?.priorityFeature || '').trim() ||
-        String(report.title || '').replace(/^Prioritering:\s*/i, '').trim() ||
-        'Ukjent';
+      const feature = getPriorityFeature(report);
       const existing = groups.get(feature) || [];
       existing.push(report);
       groups.set(feature, existing);
@@ -177,6 +204,50 @@ export default function AdminFeedbackPage() {
         if (b.count !== a.count) return b.count - a.count;
         return a.feature.localeCompare(b.feature, 'no');
       });
+  }, [reports]);
+
+  const inboxItems = useMemo<InboxItem[]>(() => {
+    const items: InboxItem[] = [];
+    const priorityGroups = new Map<string, FeedbackReport[]>();
+
+    for (const report of reports) {
+      if (report.type === 'vote' && getPriorityFeature(report)) {
+        const feature = getPriorityFeature(report);
+        const existing = priorityGroups.get(feature) || [];
+        existing.push(report);
+        priorityGroups.set(feature, existing);
+        continue;
+      }
+
+      items.push({ kind: 'report', report });
+    }
+
+    for (const [feature, groupedReports] of Array.from(priorityGroups.entries())) {
+      const sortedReports = [...groupedReports].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      const latest = sortedReports[0];
+      const priority =
+        [...groupedReports].sort((a: FeedbackReport, b: FeedbackReport) => priorityWeight[b.priority] - priorityWeight[a.priority])[0]?.priority ||
+        latest.priority;
+      const status =
+        [...groupedReports].sort((a: FeedbackReport, b: FeedbackReport) => statusWeight[b.status] - statusWeight[a.status])[0]?.status ||
+        latest.status;
+
+      items.push({
+        kind: 'priority-group',
+        feature,
+        reports: sortedReports,
+        latest,
+        priority,
+        status,
+        count: sortedReports.length,
+      });
+    }
+
+    return items.sort((a, b) => {
+      const aTime = new Date(a.kind === 'report' ? a.report.created_at : a.latest.created_at).getTime();
+      const bTime = new Date(b.kind === 'report' ? b.report.created_at : b.latest.created_at).getTime();
+      return bTime - aTime;
+    });
   }, [reports]);
 
   return (
@@ -288,15 +359,27 @@ export default function AdminFeedbackPage() {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 gap-3">
-            {reports.map((r) => {
+            {(activeTab === 'inbox' ? inboxItems : reports.map((report) => ({ kind: 'report', report } as InboxItem))).map((item) => {
+              const r = item.kind === 'report' ? item.report : item.latest;
               const tb = typeBadge(r.type);
-              const sb = statusBadge(r.status);
-              const firstImage = (r.image_urls && r.image_urls[0]) || r.auto_screenshot_url || '';
+              const sb = statusBadge(item.kind === 'report' ? r.status : item.status);
+              const firstImage = item.kind === 'report' ? (r.image_urls && r.image_urls[0]) || r.auto_screenshot_url || '' : '';
+              const priorityLabel = item.kind === 'report' ? r.priority : item.priority;
+              const metaText =
+                item.kind === 'priority-group'
+                  ? `${item.count} ${item.count === 1 ? 'stk ønsker' : 'stk ønsker'} denne prioriteringen`
+                  : `${r.user_name || r.user_id?.slice(0, 8)} • ${new Date(r.created_at).toLocaleString('no-NO')}`;
               return (
                 <button
-                  key={r.id}
+                  key={item.kind === 'report' ? r.id : `priority-${item.feature}`}
                   type="button"
-                  onClick={() => setSelected(r)}
+                  onClick={() => {
+                    if (item.kind === 'priority-group') {
+                      setSelectedPriorityGroup({ feature: item.feature, reports: item.reports });
+                      return;
+                    }
+                    setSelected(r);
+                  }}
                   className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 text-left hover:border-purple-300 hover:shadow-md transition-all"
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -304,9 +387,18 @@ export default function AdminFeedbackPage() {
                       <div className={`inline-flex items-center gap-2 text-xs font-black px-2 py-1 rounded-full border ${tb.cls}`}>
                         <tb.Icon className="w-4 h-4" />
                         {tb.label}
+                        {item.kind === 'priority-group' && (
+                          <span className="text-[11px] font-black text-emerald-700 bg-white/70 border border-emerald-200 px-2 py-0.5 rounded-full">
+                            {item.count} stk
+                          </span>
+                        )}
                       </div>
-                      <div className="font-black text-gray-900 mt-2 break-words">{r.title}</div>
-                      <div className="text-sm text-gray-600 mt-1 line-clamp-2 break-words">{r.description}</div>
+                      <div className="font-black text-gray-900 mt-2 break-words">
+                        {item.kind === 'priority-group' ? `Prioritering: ${item.feature}` : r.title}
+                      </div>
+                      <div className="text-sm text-gray-600 mt-1 line-clamp-2 break-words">
+                        {item.kind === 'priority-group' ? `${item.count} stk ønsker denne prioriteringen.` : r.description}
+                      </div>
                     </div>
                     {firstImage ? (
                       <img
@@ -324,17 +416,15 @@ export default function AdminFeedbackPage() {
                   <div className="flex flex-wrap items-center gap-2 mt-3">
                     <div className={`text-[11px] font-black px-2 py-1 rounded-full border ${sb.cls}`}>{sb.label}</div>
                     <div className="text-[11px] font-bold text-gray-700 bg-gray-50 border border-gray-200 px-2 py-1 rounded-full">
-                      {r.priority}
+                      {priorityLabel}
                     </div>
-                    {r.duplicate_count > 0 && (
+                    {item.kind === 'report' && r.duplicate_count > 0 && (
                       <div className="text-[11px] font-black text-purple-700 bg-purple-50 border border-purple-200 px-2 py-1 rounded-full">
                         👍 {r.duplicate_count}
                       </div>
                     )}
-                    <div className="text-[11px] text-gray-500">
-                      {r.user_name || r.user_id?.slice(0, 8)} • {new Date(r.created_at).toLocaleString('no-NO')}
-                    </div>
-                    {r.route ? <div className="text-[11px] text-gray-500 break-all">{r.route}</div> : null}
+                    <div className="text-[11px] text-gray-500">{metaText}</div>
+                    {item.kind === 'report' && r.route ? <div className="text-[11px] text-gray-500 break-all">{r.route}</div> : null}
                   </div>
                 </button>
               );
