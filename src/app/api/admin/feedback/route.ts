@@ -48,6 +48,59 @@ async function requireAdmin() {
 
 type AdminTab = 'inbox' | 'critical' | 'wish' | 'priorities' | 'archive';
 
+function isPriorityVote(report: any) {
+  const title = String(report?.title || '');
+  return (
+    report?.type === 'vote' &&
+    (report?.category === 'PRIORITERING' ||
+      Boolean(report?.device_info?.priorityFeature) ||
+      /^Prioritering:\s*/i.test(title))
+  );
+}
+
+function normalizePriorityReports(reports: any[]) {
+  const groupedByUser = new Map<string, any[]>();
+
+  for (const report of reports) {
+    if (!isPriorityVote(report)) continue;
+    const userKey = String(report?.user_id || '').trim();
+    if (!userKey) continue;
+    const existing = groupedByUser.get(userKey) || [];
+    existing.push(report);
+    groupedByUser.set(userKey, existing);
+  }
+
+  const normalized = new Map<string, { priority: 'KRITISK' | 'NORMAL' | 'LAV'; priorityRank: number }>();
+
+  for (const [, votes] of Array.from(groupedByUser.entries())) {
+    const sortedVotes = [...votes].sort((a, b) => {
+      const timeDiff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return String(a.id).localeCompare(String(b.id));
+    });
+
+    sortedVotes.forEach((vote, index) => {
+      const priorityRank = Math.min(index + 1, 3);
+      const priority = priorityRank === 1 ? 'KRITISK' : priorityRank === 2 ? 'NORMAL' : 'LAV';
+      normalized.set(String(vote.id), { priority, priorityRank });
+    });
+  }
+
+  return reports.map((report) => {
+    const next = normalized.get(String(report?.id));
+    if (!next) return report;
+
+    return {
+      ...report,
+      priority: next.priority,
+      device_info: {
+        ...(report?.device_info || {}),
+        priorityRank: next.priorityRank,
+      },
+    };
+  });
+}
+
 function applyTabFilter(q: any, tab: AdminTab) {
   if (tab === 'archive') {
     return q.in('status', ['LØST', 'IGNORERT']);
@@ -130,7 +183,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Kunne ikke hente tilbakemeldinger' }, { status: 500 });
     }
 
-    return NextResponse.json({ reports: reports || [], counts }, { status: 200 });
+    return NextResponse.json({ reports: normalizePriorityReports(reports || []), counts }, { status: 200 });
   } catch {
     return NextResponse.json({ error: 'Uventet feil ved henting av tilbakemeldinger' }, { status: 500 });
   }
@@ -144,8 +197,12 @@ export async function PATCH(req: Request) {
 
   try {
     const body = await req.json().catch(() => ({}));
+    const ids = Array.isArray(body?.ids)
+      ? body.ids.map((value: unknown) => String(value || '').trim()).filter(Boolean)
+      : [];
     const id = String(body?.id || '').trim();
-    if (!id) return NextResponse.json({ error: 'Mangler id' }, { status: 400 });
+    const targetIds = ids.length > 0 ? ids : id ? [id] : [];
+    if (targetIds.length === 0) return NextResponse.json({ error: 'Mangler id' }, { status: 400 });
 
     const next: any = {};
     const status = body?.status ? String(body.status).trim() : '';
@@ -170,7 +227,10 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ ok: true }, { status: 200 });
     }
 
-    const { error } = await adminClient.from('feedback_reports').update(next).eq('id', id);
+    const { error } =
+      targetIds.length === 1
+        ? await adminClient.from('feedback_reports').update(next).eq('id', targetIds[0])
+        : await adminClient.from('feedback_reports').update(next).in('id', targetIds);
     if (error) return NextResponse.json({ error: 'Kunne ikke oppdatere' }, { status: 500 });
 
     const counts = await getCounts(adminClient);

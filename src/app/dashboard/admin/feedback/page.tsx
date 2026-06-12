@@ -38,6 +38,11 @@ type InboxItem =
       count: number;
     };
 
+type PriorityGroupSelection = {
+  feature: string;
+  reports: FeedbackReport[];
+};
+
 const tabMeta: Array<{ key: AdminTab; label: string; icon: any }> = [
   { key: 'inbox', label: '📥 Innboks', icon: MessageSquare },
   { key: 'critical', label: '🔥 Kritiske', icon: Flame },
@@ -78,6 +83,15 @@ const statusWeight: Record<FeedbackReport['status'], number> = {
   IGNORERT: 1,
 };
 
+const sortReportsByNewest = (reports: FeedbackReport[]) =>
+  [...reports].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+const getGroupPriority = (reports: FeedbackReport[]) =>
+  [...reports].sort((a, b) => priorityWeight[b.priority] - priorityWeight[a.priority])[0]?.priority || 'LAV';
+
+const getGroupStatus = (reports: FeedbackReport[]) =>
+  [...reports].sort((a, b) => statusWeight[b.status] - statusWeight[a.status])[0]?.status || 'NY';
+
 export default function AdminFeedbackPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>('inbox');
   const [loading, setLoading] = useState(true);
@@ -93,7 +107,7 @@ export default function AdminFeedbackPage() {
     archive: 0,
   });
   const [selected, setSelected] = useState<FeedbackReport | null>(null);
-  const [selectedPriorityGroup, setSelectedPriorityGroup] = useState<{ feature: string; reports: FeedbackReport[] } | null>(null);
+  const [selectedPriorityGroup, setSelectedPriorityGroup] = useState<PriorityGroupSelection | null>(null);
   const [editStatus, setEditStatus] = useState<FeedbackReport['status']>('NY');
   const [editPriority, setEditPriority] = useState<FeedbackReport['priority']>('NORMAL');
   const [editComment, setEditComment] = useState<string>('');
@@ -137,15 +151,29 @@ export default function AdminFeedbackPage() {
     setEditComment(selected.admin_comment || '');
   }, [selected]);
 
+  useEffect(() => {
+    if (!selectedPriorityGroup) return;
+    const sortedReports = sortReportsByNewest(selectedPriorityGroup.reports);
+    const latestComment = sortedReports.find((report) => report.admin_comment?.trim())?.admin_comment || '';
+    setEditStatus(getGroupStatus(selectedPriorityGroup.reports));
+    setEditPriority(getGroupPriority(selectedPriorityGroup.reports));
+    setEditComment(latestComment);
+  }, [selectedPriorityGroup]);
+
   const save = async () => {
-    if (!selected) return;
+    if (!selected && !selectedPriorityGroup) return;
     setSaving(true);
     try {
+      const targetIds = selectedPriorityGroup
+        ? selectedPriorityGroup.reports.map((report) => report.id)
+        : selected
+          ? [selected.id]
+          : [];
       const res = await fetch('/api/admin/feedback', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          id: selected.id,
+          ...(targetIds.length === 1 ? { id: targetIds[0] } : { ids: targetIds }),
           status: editStatus,
           priority: editPriority,
           adminComment: editComment,
@@ -154,19 +182,30 @@ export default function AdminFeedbackPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Kunne ikke lagre');
       if (data?.counts) setCounts(data.counts);
-      const updated: FeedbackReport = {
-        ...selected,
-        status: editStatus,
-        priority: editPriority,
-        admin_comment: editComment,
-      };
+      const targetIdSet = new Set(targetIds);
 
       setReports((prev) => {
-        const next = prev.map((r) => (r.id === selected.id ? updated : r));
-        return matchesTab(updated, activeTab) ? next : next.filter((r) => r.id !== selected.id);
+        const next = prev.map((report) =>
+          targetIdSet.has(report.id)
+            ? {
+                ...report,
+                status: editStatus,
+                priority: editPriority,
+                admin_comment: editComment,
+              }
+            : report,
+        );
+
+        if (selectedPriorityGroup) {
+          return next.filter((report) => !targetIdSet.has(report.id) || matchesTab(report, activeTab));
+        }
+
+        const updated = next.find((report) => targetIdSet.has(report.id));
+        return updated && matchesTab(updated, activeTab) ? next : next.filter((report) => !targetIdSet.has(report.id));
       });
 
       setSelected(null);
+      setSelectedPriorityGroup(null);
     } catch (e: any) {
       alert(e?.message || 'Kunne ikke lagre');
     } finally {
@@ -249,6 +288,14 @@ export default function AdminFeedbackPage() {
       return bTime - aTime;
     });
   }, [reports]);
+
+  const detailMode = selectedPriorityGroup ? 'group' : selected ? 'single' : null;
+  const detailReports = selectedPriorityGroup ? sortReportsByNewest(selectedPriorityGroup.reports) : selected ? [selected] : [];
+  const detailPrimary = detailReports[0] || null;
+  const detailTitle = selectedPriorityGroup ? `Prioritering: ${selectedPriorityGroup.feature}` : selected?.title || '';
+  const detailDescription = selectedPriorityGroup
+    ? `${selectedPriorityGroup.reports.length} stk ønsker denne prioriteringen.`
+    : selected?.description || '';
 
   return (
     <div className="p-6">
@@ -433,65 +480,39 @@ export default function AdminFeedbackPage() {
         )}
       </div>
 
-      {selectedPriorityGroup && (
-        <div className="fixed inset-0 z-[190] bg-black/50 flex items-end md:items-center justify-center p-3">
-          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden">
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-              <div>
-                <div className="font-black text-gray-900">{selectedPriorityGroup.feature}</div>
-                <div className="text-sm text-gray-500 mt-1">{selectedPriorityGroup.reports.length} stemmer registrert</div>
-              </div>
-              <button type="button" onClick={() => setSelectedPriorityGroup(null)} className="p-2 rounded-full hover:bg-gray-100">
-                <X className="w-5 h-5 text-gray-700" />
-              </button>
-            </div>
-            <div className="p-4 space-y-2 max-h-[75vh] overflow-auto">
-              {selectedPriorityGroup.reports.map((report) => (
-                <button
-                  key={report.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedPriorityGroup(null);
-                    setSelected(report);
-                  }}
-                  className="w-full text-left rounded-2xl border border-gray-200 hover:border-purple-300 hover:bg-purple-50/40 p-4 transition-colors"
-                >
-                  <div className="font-bold text-gray-900">{report.user_name || report.user_id?.slice(0, 8) || 'Anonym'}</div>
-                  <div className="text-sm text-gray-600 mt-1">{new Date(report.created_at).toLocaleString('no-NO')}</div>
-                  <div className="text-sm text-gray-500 mt-2 line-clamp-2">{report.description}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {selected && (
+      {detailMode && detailPrimary && (
         <div className="fixed inset-0 z-[200] bg-black/50 flex items-end md:items-center justify-center p-3">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
               <div className="font-black text-gray-900">Detaljer</div>
-              <button type="button" onClick={() => setSelected(null)} className="p-2 rounded-full hover:bg-gray-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelected(null);
+                  setSelectedPriorityGroup(null);
+                }}
+                className="p-2 rounded-full hover:bg-gray-100"
+              >
                 <X className="w-5 h-5 text-gray-700" />
               </button>
             </div>
             <div className="p-4 space-y-4 max-h-[75vh] overflow-auto">
               <div>
-                <div className="font-black text-gray-900 text-lg break-words">{selected.title}</div>
-                <div className="text-sm text-gray-600 mt-1 break-words whitespace-pre-wrap">{selected.description}</div>
+                <div className="font-black text-gray-900 text-lg break-words">{detailTitle}</div>
+                <div className="text-sm text-gray-600 mt-1 break-words whitespace-pre-wrap">{detailDescription}</div>
               </div>
 
-              {(selected.image_urls?.length || selected.auto_screenshot_url) && (
+              {detailMode === 'single' && (detailPrimary.image_urls?.length || detailPrimary.auto_screenshot_url) && (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {(selected.image_urls || []).map((u) => (
+                  {(detailPrimary.image_urls || []).map((u) => (
                     <a key={u} href={u} target="_blank" rel="noreferrer">
                       <img src={u} alt="" className="w-full h-28 rounded-xl object-cover border border-gray-200" />
                     </a>
                   ))}
-                  {selected.auto_screenshot_url && (
-                    <a href={selected.auto_screenshot_url} target="_blank" rel="noreferrer">
+                  {detailPrimary.auto_screenshot_url && (
+                    <a href={detailPrimary.auto_screenshot_url} target="_blank" rel="noreferrer">
                       <img
-                        src={selected.auto_screenshot_url}
+                        src={detailPrimary.auto_screenshot_url}
                         alt=""
                         className="w-full h-28 rounded-xl object-cover border border-gray-200"
                       />
@@ -502,18 +523,40 @@ export default function AdminFeedbackPage() {
 
               <div className="grid md:grid-cols-3 gap-2">
                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-                  <div className="text-xs font-black text-gray-500 uppercase">Bruker</div>
-                  <div className="text-sm font-bold text-gray-900 mt-1">{selected.user_name || selected.user_id}</div>
+                  <div className="text-xs font-black text-gray-500 uppercase">{detailMode === 'group' ? 'Stemmer' : 'Bruker'}</div>
+                  <div className="text-sm font-bold text-gray-900 mt-1">
+                    {detailMode === 'group' ? detailReports.length : detailPrimary.user_name || detailPrimary.user_id}
+                  </div>
                 </div>
                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-                  <div className="text-xs font-black text-gray-500 uppercase">Tid</div>
-                  <div className="text-sm font-bold text-gray-900 mt-1">{new Date(selected.created_at).toLocaleString('no-NO')}</div>
+                  <div className="text-xs font-black text-gray-500 uppercase">{detailMode === 'group' ? 'Siste stemme' : 'Tid'}</div>
+                  <div className="text-sm font-bold text-gray-900 mt-1">{new Date(detailPrimary.created_at).toLocaleString('no-NO')}</div>
                 </div>
                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-                  <div className="text-xs font-black text-gray-500 uppercase">Side</div>
-                  <div className="text-sm font-bold text-gray-900 mt-1 break-all">{selected.route || '-'}</div>
+                  <div className="text-xs font-black text-gray-500 uppercase">{detailMode === 'group' ? 'Kilde' : 'Side'}</div>
+                  <div className="text-sm font-bold text-gray-900 mt-1 break-all">{detailPrimary.route || '-'}</div>
                 </div>
               </div>
+
+              {detailMode === 'group' && (
+                <div>
+                  <div className="text-xs font-black text-gray-500 uppercase mb-2">Registrerte ønsker</div>
+                  <div className="space-y-2 max-h-56 overflow-auto">
+                    {detailReports.map((report) => (
+                      <div key={report.id} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                          <span className="font-bold text-gray-900">{report.user_name || report.user_id?.slice(0, 8) || 'Anonym'}</span>
+                          <span className="text-gray-500">•</span>
+                          <span className="text-gray-600">{new Date(report.created_at).toLocaleString('no-NO')}</span>
+                          <span className="text-gray-500">•</span>
+                          <span className="text-gray-600">{report.priority}</span>
+                        </div>
+                        {report.admin_comment ? <div className="text-sm text-gray-500 mt-1 break-words">{report.admin_comment}</div> : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="grid md:grid-cols-2 gap-2">
                 <div>
@@ -557,7 +600,10 @@ export default function AdminFeedbackPage() {
             <div className="p-4 border-t border-gray-100 flex gap-2">
               <button
                 type="button"
-                onClick={() => setSelected(null)}
+                onClick={() => {
+                  setSelected(null);
+                  setSelectedPriorityGroup(null);
+                }}
                 className="flex-1 bg-white border border-gray-200 hover:bg-gray-50 text-gray-900 font-black px-4 py-3 rounded-xl"
               >
                 Lukk
