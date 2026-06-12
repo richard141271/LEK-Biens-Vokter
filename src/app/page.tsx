@@ -113,7 +113,7 @@ export default function Home() {
         setPriorityMessage(`Takk. ${feature} er registrert som en prioritering.`);
       }
     } catch (e: any) {
-      setPriorityMessage(e?.message || 'Kunne ikke registrere prioritering akkurat na.');
+      setPriorityMessage(e?.message || 'Kunne ikke registrere prioritering akkurat nå.');
     } finally {
       setPrioritySubmitting(null);
     }
@@ -294,11 +294,12 @@ export default function Home() {
           <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Under utvikling</h2>
             <p className="text-gray-600 mb-6">
-              Klikk pa opptil 3 funksjoner du onsker at vi skal prioritere videre.
+              Klikk på opptil 3 funksjoner du ønsker at vi skal prioritere videre.
             </p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {PRIORITY_FEATURES.map((item) => {
                 const isSelected = priorityVotes.includes(item);
+                const selectedRank = isSelected ? priorityVotes.indexOf(item) + 1 : null;
                 const isDisabled = !isSelected && priorityVotes.length >= MAX_PRIORITY_VOTES;
                 const isSaving = prioritySubmitting === item;
 
@@ -317,11 +318,18 @@ export default function Home() {
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <CheckCircle className={`w-5 h-5 shrink-0 ${isSelected ? 'text-green-600' : 'text-gray-300'}`} />
+                      <div className="relative shrink-0">
+                        <CheckCircle className={`w-5 h-5 ${isSelected ? 'text-green-600' : 'text-gray-300'}`} />
+                        {selectedRank ? (
+                          <span className="absolute -top-2 -right-2 bg-green-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">
+                            {selectedRank}
+                          </span>
+                        ) : null}
+                      </div>
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold text-gray-900">{item}</div>
                         <div className="text-sm text-gray-500 mt-1">
-                          {isSelected ? 'Valgt' : isSaving ? 'Registrerer...' : 'Klikk for a prioritere'}
+                          {isSelected ? `Valgt (#${selectedRank})` : isSaving ? 'Registrerer…' : 'Klikk for å prioritere'}
                         </div>
                       </div>
                     </div>

@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     }
 
     if (!/^[0-9a-fA-F-]{36}$/.test(visitorId)) {
-      return NextResponse.json({ error: 'Ugyldig besoks-id' }, { status: 400 });
+      return NextResponse.json({ error: 'Ugyldig besøks-id' }, { status: 400 });
     }
 
     const admin = createAdminClient();
@@ -45,6 +45,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Du har brukt opp dine 3 stemmer.' }, { status: 409 });
     }
 
+    const computedRank = Math.min((existingCount || 0) + 1, MAX_VOTES_PER_VISITOR);
+    const computedPriority = computedRank === 1 ? 'KRITISK' : computedRank === 2 ? 'NORMAL' : 'LAV';
+
     const { count: duplicateCount, error: duplicateError } = await admin
       .from('feedback_reports')
       .select('*', { count: 'exact', head: true })
@@ -58,16 +61,16 @@ export async function POST(req: Request) {
     }
 
     if ((duplicateCount || 0) > 0) {
-      return NextResponse.json({ error: 'Du har allerede stemt pa denne funksjonen.' }, { status: 409 });
+      return NextResponse.json({ error: 'Du har allerede stemt på denne funksjonen.' }, { status: 409 });
     }
 
     const payload = {
       user_id: visitorId,
-      user_name: 'Anonym besokende',
+      user_name: 'Anonym besøkende',
       type: 'vote',
       category: 'PRIORITERING',
       title: `Prioritering: ${feature}`,
-      description: `Bruker har stemt pa ${feature} fra forsiden.`,
+      description: `Bruker har stemt på ${feature} fra forsiden.`,
       image_urls: [],
       auto_screenshot_url: null,
       app_version: null,
@@ -75,11 +78,12 @@ export async function POST(req: Request) {
         source: 'landing-page',
         voteCategory: 'PRIORITERING',
         priorityFeature: feature,
+        priorityRank: computedRank,
         visitorId,
       },
       route,
       status: 'NY',
-      priority: 'LAV',
+      priority: computedPriority,
       duplicate_count: 0,
     };
 

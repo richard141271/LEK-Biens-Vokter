@@ -165,9 +165,15 @@ export default function AdminFeedbackPage() {
       .map(([feature, items]) => ({
         feature,
         count: items.length,
+        rank1: items.filter((r) => r.priority === 'KRITISK').length,
+        rank2: items.filter((r) => r.priority === 'NORMAL').length,
+        rank3: items.filter((r) => r.priority === 'LAV').length,
         reports: items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
       }))
       .sort((a, b) => {
+        if (b.rank1 !== a.rank1) return b.rank1 - a.rank1;
+        if (b.rank2 !== a.rank2) return b.rank2 - a.rank2;
+        if (b.rank3 !== a.rank3) return b.rank3 - a.rank3;
         if (b.count !== a.count) return b.count - a.count;
         return a.feature.localeCompare(b.feature, 'no');
       });
@@ -271,7 +277,7 @@ export default function AdminFeedbackPage() {
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <div className="font-black text-gray-900 break-words">{group.feature}</div>
-                    <div className="text-sm text-gray-500 mt-1">Klikk for å se de individuelle stemmene</div>
+                    <div className="text-sm text-gray-500 mt-1">1.: {group.rank1} • 2.: {group.rank2} • 3.: {group.rank3}</div>
                   </div>
                   <div className="shrink-0 text-lg font-black text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
                     {group.count}
