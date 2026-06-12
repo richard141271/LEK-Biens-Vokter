@@ -1,7 +1,7 @@
 'use client';
 
 import Link from "next/link";
-import { ArrowRight, Zap, ShieldCheck, CheckCircle, Heart, Users, Search } from "lucide-react";
+import { Zap, CheckCircle, Heart, Users, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import InstallPrompt from "@/components/InstallPrompt";
@@ -70,7 +70,7 @@ export default function Home() {
           </h1>
           <p className="text-xl text-gray-700 mb-12 max-w-2xl mx-auto leading-relaxed">
             Enten du driver birøkt, utvikler bigårder eller jobber med mattrygghet 
-            – vi gir deg verktøyene du trenger.
+            – vi gir deg verktøyene du trenger. AI-drevet analyse av bigårder, sensordata og inspeksjoner, samlet på ett sted.
           </p>
         </div>
       </section>
@@ -158,7 +158,7 @@ export default function Home() {
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Hvorfor velge Biens Vokter?</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Vi kobler teknologi med tradisjon for å sikre bienes fremtid.
+              Vi kobler teknologi med tradisjon for å sikre bienes fremtid – med AI-innsikt, historikk og bedre flyt i inspeksjonene.
             </p>
           </div>
 
@@ -190,6 +190,31 @@ export default function Home() {
               </div>
               <h3 className="font-bold text-lg mb-2">Fellesskap</h3>
               <p className="text-sm text-gray-600">Koble deg til lokale birøktere og lær av hverandre.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16 px-4 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Under utvikling</h2>
+            <p className="text-gray-600 mb-6">
+              Dette er neste steg i LEK-plattformen.
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[
+                'VarroaScan™',
+                'AI-inspeksjon',
+                'Stemmestyrt registrering',
+                'Sensornoder',
+                'Bigårdsovervåkning',
+              ].map((item) => (
+                <div key={item} className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-3">
+                  <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
+                  <span className="font-medium text-gray-900">{item}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
