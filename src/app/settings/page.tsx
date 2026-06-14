@@ -61,7 +61,12 @@ export default function SettingsPage() {
   
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
-  const { hasAttention: hasSigningAttention, count: signingAttentionCount } = useSigningAttention();
+  const {
+    hasAttention: hasSigningAttention,
+    count: signingAttentionCount,
+    hasCompletedEmailAttention,
+    completedEmailCount,
+  } = useSigningAttention();
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -860,8 +865,18 @@ export default function SettingsPage() {
                         className="w-full bg-white text-gray-700 font-bold py-3 rounded-xl border border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-between px-4"
                       >
                         <div className="flex items-center gap-3">
-                            <Archive className="w-5 h-5 text-gray-500" />
+                            <div className="relative">
+                              <Archive className="w-5 h-5 text-gray-500" />
+                              {hasCompletedEmailAttention && (
+                                <span className="w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full absolute -top-1 -right-1 animate-pulse" />
+                              )}
+                            </div>
                             <span>Arkiv</span>
+                            {hasCompletedEmailAttention && (
+                              <span className="text-[11px] font-black px-2 py-1 rounded-full bg-red-50 text-red-700 border border-red-200">
+                                {completedEmailCount}
+                              </span>
+                            )}
                         </div>
                         <ChevronRight className="w-4 h-4 text-gray-400" />
                       </button>

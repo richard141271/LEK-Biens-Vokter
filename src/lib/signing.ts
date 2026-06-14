@@ -6,6 +6,7 @@ export type SignRequestStatus =
   | 'CANCELLED';
 
 export type CompletedEmailDeliveryStatus = 'NOT_SENT' | 'SENT' | 'FAILED';
+const NORWAY_TIME_ZONE = 'Europe/Oslo';
 
 type SignRequestLike = {
   status?: string | null;
@@ -115,6 +116,16 @@ export function hasSigningAttention(request: SignRequestLike | null | undefined)
   return false;
 }
 
+export function needsCompletedEmailAttention(request: SignRequestLike | null | undefined) {
+  const normalizedStatus = normalizeSignRequestStatus(request);
+  if (normalizedStatus !== 'COMPLETED') {
+    return false;
+  }
+
+  const completedEmailStatus = String(request?.completed_email_delivery_status || 'NOT_SENT').trim().toUpperCase();
+  return completedEmailStatus !== 'SENT';
+}
+
 export function getBaseUrlFromHeaders(headers: Headers) {
   const proto = headers.get('x-forwarded-proto') || 'https';
   const host = headers.get('x-forwarded-host') || headers.get('host') || 'localhost:3000';
@@ -146,5 +157,19 @@ export function formatSigningTimestamp(value?: string | null) {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('nb-NO', { dateStyle: 'medium', timeStyle: 'short' });
+  return date.toLocaleString('nb-NO', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: NORWAY_TIME_ZONE,
+  });
+}
+
+export function formatSigningDate(value?: string | null) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('nb-NO', {
+    dateStyle: 'medium',
+    timeZone: NORWAY_TIME_ZONE,
+  });
 }

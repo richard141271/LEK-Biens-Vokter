@@ -394,7 +394,7 @@ export default function SigneringDetailPage() {
                 </div>
 
                 <div className="text-xs font-black text-gray-500 uppercase">Signeringskvittering</div>
-                <div className="grid sm:grid-cols-2 gap-2">
+                <div className="grid sm:grid-cols-3 gap-2">
                   {receiptPdfUrl ? (
                     <a
                       href={receiptPdfUrl}
@@ -406,16 +406,17 @@ export default function SigneringDetailPage() {
                       Last ned kvittering
                     </a>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={generateReceipt}
-                      disabled={actionLoading}
-                      className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold disabled:opacity-50"
-                    >
-                      <ShieldCheck className="w-4 h-4" />
-                      Generer kvittering
-                    </button>
+                    <div />
                   )}
+                  <button
+                    type="button"
+                    onClick={generateReceipt}
+                    disabled={actionLoading}
+                    className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold disabled:opacity-50"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    {receiptPdfUrl ? 'Generer på nytt' : 'Generer kvittering'}
+                  </button>
                   <a
                     href={publicCompletedUrl}
                     target="_blank"

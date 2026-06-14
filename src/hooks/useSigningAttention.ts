@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { hasSigningAttention } from '@/lib/signing';
+import { hasSigningAttention, needsCompletedEmailAttention, normalizeSignRequestStatus } from '@/lib/signing';
 
 type SigningAttentionRequest = {
   status?: string | null;
@@ -11,7 +11,9 @@ type SigningAttentionRequest = {
 };
 
 export function useSigningAttention() {
-  const [count, setCount] = useState(0);
+  const [attentionCount, setAttentionCount] = useState(0);
+  const [signatureCount, setSignatureCount] = useState(0);
+  const [completedEmailCount, setCompletedEmailCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -23,13 +25,19 @@ export function useSigningAttention() {
         if (!res.ok || cancelled) return;
 
         const requests = Array.isArray(data?.requests) ? (data.requests as SigningAttentionRequest[]) : [];
-        const nextCount = requests.filter((item) => hasSigningAttention(item)).length;
+        const nextAttentionCount = requests.filter((item) => hasSigningAttention(item)).length;
+        const nextSignatureCount = requests.filter((item) => normalizeSignRequestStatus(item) === 'SIGNED_BY_RECIPIENT').length;
+        const nextCompletedEmailCount = requests.filter((item) => needsCompletedEmailAttention(item)).length;
         if (!cancelled) {
-          setCount(nextCount);
+          setAttentionCount(nextAttentionCount);
+          setSignatureCount(nextSignatureCount);
+          setCompletedEmailCount(nextCompletedEmailCount);
         }
       } catch {
         if (!cancelled) {
-          setCount(0);
+          setAttentionCount(0);
+          setSignatureCount(0);
+          setCompletedEmailCount(0);
         }
       }
     };
@@ -42,7 +50,11 @@ export function useSigningAttention() {
   }, []);
 
   return {
-    count,
-    hasAttention: count > 0,
+    count: attentionCount,
+    signatureCount,
+    completedEmailCount,
+    hasAttention: attentionCount > 0,
+    hasSignatureAttention: signatureCount > 0,
+    hasCompletedEmailAttention: completedEmailCount > 0,
   };
 }

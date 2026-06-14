@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, Archive, ArrowLeft, Bell, CheckCircle2, ChevronRight, CircleDot, FileText, MailCheck, MailWarning, Plus } from 'lucide-react';
-import { getCompletedEmailDeliveryMeta, getSignStatusMeta, formatSigningTimestamp, hasSigningAttention } from '@/lib/signing';
+import { getCompletedEmailDeliveryMeta, getSignStatusMeta, formatSigningTimestamp, hasSigningAttention, needsCompletedEmailAttention } from '@/lib/signing';
+import { useSigningAttention } from '@/hooks/useSigningAttention';
 
 type SignRequest = {
   id: string;
@@ -30,6 +31,7 @@ function isStagingHost() {
 
 export default function SigneringPage() {
   const router = useRouter();
+  const { hasCompletedEmailAttention, completedEmailCount } = useSigningAttention();
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<SignRequest[]>([]);
   const [senderName, setSenderName] = useState('');
@@ -200,8 +202,18 @@ export default function SigneringPage() {
                 <div className="text-xs font-black text-gray-500 uppercase">Arkiv</div>
                 <div className="text-lg font-black text-gray-900 mt-1">Se fullførte avtaler</div>
               </div>
-              <Archive className="w-5 h-5 text-gray-500" />
+              <div className="relative">
+                <Archive className="w-5 h-5 text-gray-500" />
+                {hasCompletedEmailAttention && (
+                  <span className="w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full absolute -top-1 -right-1 animate-pulse" />
+                )}
+              </div>
             </div>
+            {hasCompletedEmailAttention && (
+              <div className="mt-3 inline-flex items-center gap-2 text-[11px] font-black px-2 py-1 rounded-full bg-red-50 text-red-700 border border-red-200">
+                {completedEmailCount} kvittering{completedEmailCount === 1 ? '' : 'er'} krever oppfølging
+              </div>
+            )}
           </Link>
         </div>
 
@@ -258,6 +270,7 @@ export default function SigneringPage() {
                 const completedEmailMeta = item.status === 'COMPLETED'
                   ? getCompletedEmailDeliveryMeta(item.completed_email_delivery_status, item.completed_email_delivery_source)
                   : null;
+                const needsCompletedEmail = needsCompletedEmailAttention(item);
                 return (
                   <Link key={item.id} href={`/signering/${item.id}`} className="block px-4 py-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-start justify-between gap-3">
@@ -293,6 +306,9 @@ export default function SigneringPage() {
                       <div className="shrink-0 flex items-center gap-2">
                         {item.status === 'COMPLETED' ? (
                           <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        ) : null}
+                        {needsCompletedEmail ? (
+                          <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" aria-hidden="true" />
                         ) : null}
                         <ChevronRight className="w-4 h-4 text-gray-400" />
                       </div>

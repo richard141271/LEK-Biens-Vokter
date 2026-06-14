@@ -14,7 +14,7 @@ export default function DesktopNav() {
   const router = useRouter();
   const supabase = createClient();
   const [hasMeeting, setHasMeeting] = useState(false);
-  const { hasAttention: hasSigningAttention } = useSigningAttention();
+  const { hasAttention: hasSigningAttention, count: signingAttentionCount } = useSigningAttention();
 
   useEffect(() => {
     getFounderMeeting().then(date => {
@@ -85,7 +85,9 @@ export default function DesktopNav() {
                 <span className="w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full absolute top-3 left-7 animate-pulse" />
               )}
               {item.label === 'Innstillinger' && hasSigningAttention && (
-                <span className="w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full absolute top-3 left-7 animate-pulse" />
+                <span className="min-w-[20px] h-5 px-1 bg-red-500 text-white border-2 border-white rounded-full absolute top-2 left-6 inline-flex items-center justify-center text-[11px] font-black leading-none animate-pulse">
+                  {signingAttentionCount > 99 ? '99+' : signingAttentionCount}
+                </span>
               )}
             </Link>
           );

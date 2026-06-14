@@ -1,3 +1,5 @@
+import { formatSigningTimestamp } from '@/lib/signing';
+
 export type SigningReceiptPayload = {
   title: string;
   description?: string | null;
@@ -22,13 +24,6 @@ function escapeHtml(value: string) {
     .replaceAll("'", '&#039;');
 }
 
-function formatTs(value?: string | null) {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('nb-NO', { dateStyle: 'medium', timeStyle: 'short' });
-}
-
 export function generateSigningReceiptHtml(payload: SigningReceiptPayload) {
   const title = escapeHtml(payload.title);
   const description = escapeHtml(String(payload.description || ''));
@@ -36,9 +31,9 @@ export function generateSigningReceiptHtml(payload: SigningReceiptPayload) {
   const recipientName = escapeHtml(payload.recipientSignatureName || payload.recipientName);
   const recipientEmail = escapeHtml(String(payload.recipientEmail || ''));
   const senderName = escapeHtml(payload.senderSignatureName || payload.senderName);
-  const recipientSignedAt = escapeHtml(formatTs(payload.recipientSignedAt));
-  const senderSignedAt = escapeHtml(formatTs(payload.senderSignedAt));
-  const generatedAt = escapeHtml(formatTs(payload.generatedAt));
+  const recipientSignedAt = escapeHtml(formatSigningTimestamp(payload.recipientSignedAt));
+  const senderSignedAt = escapeHtml(formatSigningTimestamp(payload.senderSignedAt));
+  const generatedAt = escapeHtml(formatSigningTimestamp(payload.generatedAt));
   const completedUrl = escapeHtml(payload.publicCompletedUrl);
 
   return `<!doctype html>
@@ -119,4 +114,3 @@ export function generateSigningReceiptHtml(payload: SigningReceiptPayload) {
   </body>
 </html>`;
 }
-

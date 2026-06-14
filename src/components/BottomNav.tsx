@@ -10,7 +10,7 @@ import { useSigningAttention } from '@/hooks/useSigningAttention';
 export default function BottomNav() {
   const pathname = usePathname();
   const [hasMeeting, setHasMeeting] = useState(false);
-  const { hasAttention: hasSigningAttention } = useSigningAttention();
+  const { hasAttention: hasSigningAttention, count: signingAttentionCount } = useSigningAttention();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -81,7 +81,9 @@ export default function BottomNav() {
           <div className="relative">
             <Settings className="w-6 h-6 mb-1" />
             {hasSigningAttention && (
-              <span className="w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full absolute -top-0.5 -right-0.5 animate-pulse" />
+              <span className="min-w-[18px] h-[18px] px-1 bg-red-500 text-white border-2 border-white rounded-full absolute -top-1.5 -right-2 inline-flex items-center justify-center text-[10px] font-black leading-none animate-pulse">
+                {signingAttentionCount > 99 ? '99+' : signingAttentionCount}
+              </span>
             )}
           </div>
           <span className="text-[10px] font-medium">Innstillinger</span>
