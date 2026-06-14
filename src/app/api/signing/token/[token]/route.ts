@@ -15,7 +15,7 @@ export async function GET(_request: Request, context: { params: { token: string 
     const { data: signRequest, error } = await admin
       .from('sign_requests')
       .select(
-        'id, title, description, pdf_path, recipient_name, status, recipient_signed_at, sender_signed_at, recipient_signature_name, sender_signature_name'
+        'id, title, description, pdf_path, completed_pdf_path, recipient_name, status, recipient_signed_at, sender_signed_at, recipient_signature_name, sender_signature_name'
       )
       .eq('token', token)
       .single();
@@ -24,9 +24,10 @@ export async function GET(_request: Request, context: { params: { token: string 
       return NextResponse.json({ error: 'Fant ikke signering' }, { status: 404 });
     }
 
+    const pdfPath = signRequest.completed_pdf_path || signRequest.pdf_path;
     const { data: signedData, error: signedError } = await admin.storage
       .from('sign-documents')
-      .createSignedUrl(signRequest.pdf_path, 60 * 60);
+      .createSignedUrl(pdfPath, 60 * 60);
 
     if (signedError || !signedData?.signedUrl) {
       return NextResponse.json({ error: 'Kunne ikke hente PDF' }, { status: 500 });

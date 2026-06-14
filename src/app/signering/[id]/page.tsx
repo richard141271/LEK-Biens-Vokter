@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { AlertCircle, ArrowLeft, Copy, ExternalLink, FileText, Loader2, Mail, MessageSquare, Phone, Send, XCircle } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Copy, ExternalLink, FileText, Loader2, Mail, Phone, Send, ShieldCheck, XCircle } from 'lucide-react';
 import { formatSigningTimestamp, getSignStatusMeta } from '@/lib/signing';
 
 type SignRequest = {
@@ -32,7 +32,8 @@ export default function SigneringDetailPage() {
   const [request, setRequest] = useState<SignRequest | null>(null);
   const [pdfUrl, setPdfUrl] = useState('');
   const [publicSignUrl, setPublicSignUrl] = useState('');
-  const [senderName, setSenderName] = useState('');
+  const [publicCompletedUrl, setPublicCompletedUrl] = useState('');
+  const [receiptPdfUrl, setReceiptPdfUrl] = useState<string | null>(null);
   const [signatureName, setSignatureName] = useState('');
 
   const fetchRequest = async () => {
@@ -47,8 +48,9 @@ export default function SigneringDetailPage() {
       setRequest(data.request || null);
       setPdfUrl(String(data?.pdfUrl || ''));
       setPublicSignUrl(String(data?.publicSignUrl || ''));
+      setPublicCompletedUrl(String(data?.publicCompletedUrl || ''));
+      setReceiptPdfUrl(data?.receiptPdfUrl ? String(data.receiptPdfUrl) : null);
       const nextSenderName = String(data?.senderName || '');
-      setSenderName(nextSenderName);
       setSignatureName((current) => current || nextSenderName);
     } catch (err: any) {
       setError(err?.message || 'Kunne ikke hente signering');
@@ -68,6 +70,12 @@ export default function SigneringDetailPage() {
     alert('Lenken er kopiert.');
   };
 
+  const copyCompletedLink = async () => {
+    if (!publicCompletedUrl) return;
+    await navigator.clipboard.writeText(publicCompletedUrl);
+    alert('Kvitteringslenken er kopiert.');
+  };
+
   const sendEmail = async () => {
     setActionLoading(true);
     setError(null);
@@ -81,6 +89,42 @@ export default function SigneringDetailPage() {
       alert('Signeringslenke sendt paa e-post.');
     } catch (err: any) {
       setError(err?.message || 'Kunne ikke sende e-post');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const sendCompletedEmail = async () => {
+    setActionLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/signing/${id}/send-completed-email`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || 'Kunne ikke sende e-post');
+      }
+      alert('Kvittering sendt paa e-post.');
+    } catch (err: any) {
+      setError(err?.message || 'Kunne ikke sende e-post');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const generateReceipt = async () => {
+    setActionLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/signing/${id}/generate-receipt`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || 'Kunne ikke generere kvittering');
+      }
+      setReceiptPdfUrl(data?.receiptPdfUrl ? String(data.receiptPdfUrl) : null);
+      setPublicCompletedUrl(String(data?.publicCompletedUrl || publicCompletedUrl));
+      alert('Signeringskvittering er generert.');
+    } catch (err: any) {
+      setError(err?.message || 'Kunne ikke generere kvittering');
     } finally {
       setActionLoading(false);
     }
@@ -135,6 +179,7 @@ export default function SigneringDetailPage() {
 
   const status = getSignStatusMeta(request.status);
   const isAwaitingSender = request.status === 'SIGNED_BY_RECIPIENT';
+  const isCompleted = request.status === 'COMPLETED';
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -212,32 +257,111 @@ export default function SigneringDetailPage() {
             </div>
 
             <div className="space-y-2">
-              <div className="text-xs font-black text-gray-500 uppercase">Signeringslenke</div>
-              <div className="border border-gray-200 rounded-xl px-3 py-3 text-sm text-gray-700 break-all bg-gray-50">{publicSignUrl}</div>
-              <div className="grid sm:grid-cols-3 gap-2">
-                <button type="button" onClick={copyLink} className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold">
-                  <Copy className="w-4 h-4" />
-                  Kopier lenke
-                </button>
-                <button
-                  type="button"
-                  onClick={sendEmail}
-                  disabled={actionLoading}
-                  className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold disabled:opacity-50"
-                >
-                  <Mail className="w-4 h-4" />
-                  Send via e-post
-                </button>
-                <button
-                  type="button"
-                  onClick={() => alert('SMS-stotte er klargjort for senere, men ikke aktiv i MVP enda.')}
-                  className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold"
-                >
-                  <Phone className="w-4 h-4" />
-                  Send via SMS
-                </button>
-              </div>
+              {!isCompleted ? (
+                <>
+                  <div className="text-xs font-black text-gray-500 uppercase">Signeringslenke</div>
+                  <div className="border border-gray-200 rounded-xl px-3 py-3 text-sm text-gray-700 break-all bg-gray-50">{publicSignUrl}</div>
+                  <div className="grid sm:grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={copyLink}
+                      className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold"
+                    >
+                      <Copy className="w-4 h-4" />
+                      Kopier lenke
+                    </button>
+                    <button
+                      type="button"
+                      onClick={sendEmail}
+                      disabled={actionLoading}
+                      className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold disabled:opacity-50"
+                    >
+                      <Mail className="w-4 h-4" />
+                      Send via e-post
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => alert('SMS-stotte er klargjort for senere, men ikke aktiv i MVP enda.')}
+                      className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold"
+                    >
+                      <Phone className="w-4 h-4" />
+                      Send via SMS
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-xs font-black text-gray-500 uppercase">Ferdig signert lenke</div>
+                  <div className="border border-gray-200 rounded-xl px-3 py-3 text-sm text-gray-700 break-all bg-gray-50">{publicCompletedUrl}</div>
+                  <div className="grid sm:grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={copyCompletedLink}
+                      className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold"
+                    >
+                      <Copy className="w-4 h-4" />
+                      Kopier lenke
+                    </button>
+                    <button
+                      type="button"
+                      onClick={sendCompletedEmail}
+                      disabled={actionLoading}
+                      className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold disabled:opacity-50"
+                    >
+                      <Mail className="w-4 h-4" />
+                      Send kvittering
+                    </button>
+                    <a
+                      href={publicCompletedUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-2 bg-gray-900 text-white py-3 rounded-xl text-sm font-bold"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Aapne
+                    </a>
+                  </div>
+                </>
+              )}
             </div>
+
+            {isCompleted ? (
+              <div className="space-y-2">
+                <div className="text-xs font-black text-gray-500 uppercase">Signeringskvittering</div>
+                <div className="grid sm:grid-cols-2 gap-2">
+                  {receiptPdfUrl ? (
+                    <a
+                      href={receiptPdfUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Last ned kvittering
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={generateReceipt}
+                      disabled={actionLoading}
+                      className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold disabled:opacity-50"
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                      Generer kvittering
+                    </button>
+                  )}
+                  <a
+                    href={publicCompletedUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Aapne ferdig side
+                  </a>
+                </div>
+              </div>
+            ) : null}
 
             <div className="space-y-2">
               <div className="text-xs font-black text-gray-500 uppercase">Signaturer</div>

@@ -138,6 +138,14 @@ export default function PublicSignPage() {
                   ) : (
                     <div className="text-sm text-emerald-900 mt-1">Avsender blir varslet og kan signere na.</div>
                   )}
+                  {completed ? (
+                    <a
+                      href={`/sign/ferdig/${encodeURIComponent(token)}`}
+                      className="inline-flex mt-3 bg-white border border-emerald-200 text-emerald-900 px-3 py-2 rounded-xl text-sm font-black"
+                    >
+                      Aapne ferdig dokument
+                    </a>
+                  ) : null}
                 </div>
               </div>
             </div>

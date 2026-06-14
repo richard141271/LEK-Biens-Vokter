@@ -30,6 +30,10 @@ export function buildPublicSigningUrl(baseUrl: string, token: string) {
   return `${baseUrl.replace(/\/$/, '')}/sign/${encodeURIComponent(token)}`;
 }
 
+export function buildPublicCompletedSigningUrl(baseUrl: string, token: string) {
+  return `${baseUrl.replace(/\/$/, '')}/sign/ferdig/${encodeURIComponent(token)}`;
+}
+
 export function isStagingLikeHost(host: string) {
   const normalized = String(host || '').trim().toLowerCase();
   return (

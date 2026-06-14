@@ -1,9 +1,43 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { buildPublicCompletedSigningUrl, getBaseUrlFromHeaders } from '@/lib/signing';
+import { generateSigningReceiptHtml } from '@/lib/signing-receipt';
+import { getMailService } from '@/services/mail';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+async function createPdfBufferFromHtml(html: string) {
+  let browser: any;
+
+  if (process.env.NODE_ENV === 'production') {
+    const chromium = require('@sparticuz/chromium');
+    const puppeteerCore = require('puppeteer-core');
+
+    browser = await puppeteerCore.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+    });
+  } else {
+    const puppeteer = require('puppeteer');
+    browser = await puppeteer.launch({ headless: 'new' });
+  }
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    return await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' },
+    });
+  } finally {
+    await browser.close();
+  }
+}
 
 export async function POST(request: Request, context: { params: { id: string } }) {
   try {
@@ -74,7 +108,61 @@ export async function POST(request: Request, context: { params: { id: string } }
       return NextResponse.json({ error: 'Kunne ikke fullfoere signering' }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true });
+    const publicCompletedUrl = buildPublicCompletedSigningUrl(getBaseUrlFromHeaders(new Headers(request.headers)), signRequest.token);
+    const receiptPdfPath = `${user.id}/signing-receipts/${signRequest.id}.pdf`;
+    let receiptGenerated = false;
+
+    try {
+      const html = generateSigningReceiptHtml({
+        title: String(signRequest.title || ''),
+        description: signRequest.description,
+        token: String(signRequest.token || ''),
+        recipientName: String(signRequest.recipient_name || ''),
+        recipientEmail: String(signRequest.recipient_email || ''),
+        recipientSignedAt: signRequest.recipient_signed_at,
+        recipientSignatureName: signRequest.recipient_signature_name,
+        senderName: signatureName,
+        senderSignedAt: now,
+        senderSignatureName: signatureName,
+        generatedAt: new Date().toISOString(),
+        publicCompletedUrl,
+      });
+
+      const pdfBuffer = await createPdfBufferFromHtml(html);
+      const { error: uploadError } = await admin.storage.from('sign-documents').upload(receiptPdfPath, pdfBuffer, {
+        contentType: 'application/pdf',
+        upsert: true,
+      });
+
+      if (!uploadError) {
+        await admin
+          .from('sign_requests')
+          .update({ receipt_pdf_path: receiptPdfPath, updated_at: new Date().toISOString() })
+          .eq('id', signRequest.id);
+        receiptGenerated = true;
+      }
+    } catch {}
+
+    try {
+      const mail = getMailService(admin);
+      await mail.sendMail(
+        'LEK-Signering',
+        String(signRequest.recipient_email || ''),
+        `Ferdig signert: ${signRequest.title}`,
+        [
+          `Hei ${signRequest.recipient_name},`,
+          '',
+          'Dokumentet er na ferdig signert av begge parter.',
+          '',
+          `Aapne ferdig signert dokument: ${publicCompletedUrl}`,
+          '',
+          `<a href="${publicCompletedUrl}" style="display:inline-block;background:#111827;color:#ffffff;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600">Aapne ferdig signert dokument</a>`,
+        ].join('\n'),
+        user.id,
+      );
+    } catch {}
+
+    return NextResponse.json({ ok: true, publicCompletedUrl, receiptGenerated });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || 'Ukjent feil' }, { status: 500 });
   }
