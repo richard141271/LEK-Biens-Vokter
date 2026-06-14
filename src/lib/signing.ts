@@ -11,6 +11,7 @@ type SignRequestLike = {
   status?: string | null;
   recipient_signed_at?: string | null;
   sender_signed_at?: string | null;
+  completed_email_delivery_status?: string | null;
 };
 
 export function normalizeSignRequestStatus(request: SignRequestLike | null | undefined): SignRequestStatus {
@@ -98,6 +99,20 @@ export function getCompletedEmailDeliveryMeta(status?: string | null, source?: s
     cls: 'bg-gray-100 text-gray-700 border-gray-200',
     description: 'Kvitteringen har ikke blitt sendt ennå.',
   };
+}
+
+export function hasSigningAttention(request: SignRequestLike | null | undefined) {
+  const normalizedStatus = normalizeSignRequestStatus(request);
+  if (normalizedStatus === 'SIGNED_BY_RECIPIENT') {
+    return true;
+  }
+
+  if (normalizedStatus === 'COMPLETED') {
+    const completedEmailStatus = String(request?.completed_email_delivery_status || 'NOT_SENT').trim().toUpperCase();
+    return completedEmailStatus !== 'SENT';
+  }
+
+  return false;
 }
 
 export function getBaseUrlFromHeaders(headers: Headers) {

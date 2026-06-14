@@ -7,12 +7,14 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { getFounderMeeting } from '@/app/actions/founder';
 import Image from 'next/image';
+import { useSigningAttention } from '@/hooks/useSigningAttention';
 
 export default function DesktopNav() {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
   const [hasMeeting, setHasMeeting] = useState(false);
+  const { hasAttention: hasSigningAttention } = useSigningAttention();
 
   useEffect(() => {
     getFounderMeeting().then(date => {
@@ -80,6 +82,9 @@ export default function DesktopNav() {
               <Icon className={`w-5 h-5 ${active ? 'text-honey-600' : 'text-gray-400'}`} />
               {item.label}
               {item.label === 'Min side' && hasMeeting && (
+                <span className="w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full absolute top-3 left-7 animate-pulse" />
+              )}
+              {item.label === 'Innstillinger' && hasSigningAttention && (
                 <span className="w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full absolute top-3 left-7 animate-pulse" />
               )}
             </Link>

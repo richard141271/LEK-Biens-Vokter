@@ -5,10 +5,12 @@ import { usePathname } from 'next/navigation';
 import { Home, Map, Box, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getFounderMeeting } from '@/app/actions/founder';
+import { useSigningAttention } from '@/hooks/useSigningAttention';
 
 export default function BottomNav() {
   const pathname = usePathname();
   const [hasMeeting, setHasMeeting] = useState(false);
+  const { hasAttention: hasSigningAttention } = useSigningAttention();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -76,7 +78,12 @@ export default function BottomNav() {
           href="/settings" 
           className={`flex flex-col items-center justify-center w-full h-full ${isActive('/settings') ? 'text-honey-600' : 'text-gray-400 hover:text-gray-600'}`}
         >
-          <Settings className="w-6 h-6 mb-1" />
+          <div className="relative">
+            <Settings className="w-6 h-6 mb-1" />
+            {hasSigningAttention && (
+              <span className="w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full absolute -top-0.5 -right-0.5 animate-pulse" />
+            )}
+          </div>
           <span className="text-[10px] font-medium">Innstillinger</span>
         </Link>
       </div>
