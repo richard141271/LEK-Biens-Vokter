@@ -36,7 +36,8 @@ export class DomeneshopMailService implements MailService {
         }
 
         try {
-            const fromAddress = process.env.SMTP_FROM || (fromAlias && fromAlias.includes('@') ? fromAlias : user);
+            const defaultFromAddress = 'post@leksystem.no';
+            const fromAddress = process.env.SMTP_FROM || (fromAlias && fromAlias.includes('@') ? fromAlias : user || defaultFromAddress);
             await this.transporter.sendMail({
                 from: `"${fromAlias || 'Biens Vokter'}" <${fromAddress}>`,
                 to: toAlias,

@@ -15,9 +15,9 @@ Minstekrav:
 ```env
 SMTP_HOST=smtp.dittdomene.no
 SMTP_PORT=587
-SMTP_USER=no-reply@lekbie.no
+SMTP_USER=post@leksystem.no
 SMTP_PASS=superhemmeligpassord
-SMTP_FROM=no-reply@lekbie.no
+SMTP_FROM=post@leksystem.no
 SMTP_SECURE=false
 ```
 
@@ -31,14 +31,14 @@ For Domeneshop kan disse også brukes:
 
 ```env
 DOMENESHOP_SMTP_HOST=smtp.domeneshop.no
-DOMENESHOP_SMTP_USER=no-reply@lekbie.no
+DOMENESHOP_SMTP_USER=post@leksystem.no
 DOMENESHOP_SMTP_PASS=superhemmeligpassord
-SMTP_FROM=no-reply@lekbie.no
+SMTP_FROM=post@leksystem.no
 ```
 
 ## Anbefalt oppsett
 
-- Opprett `no-reply@lekbie.no` eller `signering@lekbie.no`.
+- Bruk `post@leksystem.no` som fast avsenderadresse.
 - Bruk den samme adressen som `SMTP_FROM`.
 - Sett opp SPF og DKIM på domenet, slik at e-post ikke havner i søppelpost.
 - Hvis leverandøren støtter det, bruk `587` med TLS.
@@ -55,4 +55,3 @@ SMTP_FROM=no-reply@lekbie.no
 - Sjekk at `SMTP_USER` og `SMTP_PASS` stemmer.
 - Sjekk SPF/DKIM.
 - Test med en ekstern mottaker som Gmail og se i søppelpost.
-

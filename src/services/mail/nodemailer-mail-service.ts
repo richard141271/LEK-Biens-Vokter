@@ -25,8 +25,9 @@ export class NodemailerMailService implements MailService {
     async sendMail(fromAlias: string, toAlias: string, subject: string, body: string, userId: string, attachments?: MailAttachment[]): Promise<{ success?: boolean; error?: string }> {
         try {
             const smtpUser = process.env.SMTP_USER;
+            const defaultFromAddress = 'post@leksystem.no';
             const fromAddress =
-              process.env.SMTP_FROM || (fromAlias && fromAlias.includes('@') ? fromAlias : smtpUser);
+              process.env.SMTP_FROM || (fromAlias && fromAlias.includes('@') ? fromAlias : smtpUser || defaultFromAddress);
 
             if (!fromAddress) {
               return { error: 'E-post er ikke konfigurert (mangler SMTP_FROM/SMTP_USER)' };
