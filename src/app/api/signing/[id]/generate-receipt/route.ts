@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { buildPublicCompletedSigningUrl, getBaseUrlFromHeaders } from '@/lib/signing';
+import { buildPublicCompletedSigningUrl, getBaseUrlFromHeaders, normalizeSignRequestStatus } from '@/lib/signing';
 import { generateSigningReceiptHtml } from '@/lib/signing-receipt';
 
 export const dynamic = 'force-dynamic';
@@ -65,8 +65,8 @@ export async function POST(request: Request, context: { params: { id: string } }
       return NextResponse.json({ error: 'Fant ikke signering' }, { status: 404 });
     }
 
-    if (signRequest.status !== 'COMPLETED') {
-      return NextResponse.json({ error: 'Kvittering kan genereres når begge har signert' }, { status: 400 });
+    if (normalizeSignRequestStatus(signRequest as any) !== 'COMPLETED') {
+      return NextResponse.json({ error: 'Kvittering kan genereres når begge har signert' }, { status: 400 });
     }
 
     const publicCompletedUrl = buildPublicCompletedSigningUrl(getBaseUrlFromHeaders(new Headers(request.headers)), signRequest.token);
@@ -108,4 +108,3 @@ export async function POST(request: Request, context: { params: { id: string } }
     return NextResponse.json({ error: error?.message || 'Ukjent feil' }, { status: 500 });
   }
 }
-

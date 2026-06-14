@@ -49,9 +49,9 @@ export async function POST(request: Request, context: { params: { id: string } }
         `Tittel: ${signRequest.title}`,
         signRequest.description ? `Beskrivelse: ${signRequest.description}` : '',
         '',
-        `Aapne og signer: ${publicSignUrl}`,
+        `Åpne og signer: ${publicSignUrl}`,
         '',
-        `<a href="${publicSignUrl}" style="display:inline-block;background:#111827;color:#ffffff;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600">Aapne signering</a>`,
+        `<a href="${publicSignUrl}" style="display:inline-block;background:#111827;color:#ffffff;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600">Åpne signering</a>`,
       ]
         .filter(Boolean)
         .join('\n'),

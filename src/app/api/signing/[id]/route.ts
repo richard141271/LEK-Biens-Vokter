@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { buildPublicCompletedSigningUrl, buildPublicSigningUrl, getBaseUrlFromHeaders } from '@/lib/signing';
+import { buildPublicCompletedSigningUrl, buildPublicSigningUrl, getBaseUrlFromHeaders, normalizeSignRequestRecord } from '@/lib/signing';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -47,7 +47,7 @@ export async function GET(_request: Request, context: { params: { id: string } }
     }
 
     return NextResponse.json({
-      request,
+      request: normalizeSignRequestRecord(request as any),
       pdfUrl: signedData.signedUrl,
       publicSignUrl: buildPublicSigningUrl(getBaseUrlFromHeaders(new Headers(_request.headers)), request.token),
       publicCompletedUrl: buildPublicCompletedSigningUrl(getBaseUrlFromHeaders(new Headers(_request.headers)), request.token),

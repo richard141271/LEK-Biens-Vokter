@@ -136,14 +136,14 @@ export default function PublicSignPage() {
                       Avsender signerte {formatSigningTimestamp(request.sender_signed_at)}
                     </div>
                   ) : (
-                    <div className="text-sm text-emerald-900 mt-1">Avsender blir varslet og kan signere na.</div>
+                      <div className="text-sm text-emerald-900 mt-1">Avsender blir varslet og kan signere nå.</div>
                   )}
                   {completed ? (
                     <a
                       href={`/sign/ferdig/${encodeURIComponent(token)}`}
                       className="inline-flex mt-3 bg-white border border-emerald-200 text-emerald-900 px-3 py-2 rounded-xl text-sm font-black"
                     >
-                      Aapne ferdig dokument
+                      Åpne ferdig dokument
                     </a>
                   ) : null}
                 </div>
@@ -155,7 +155,7 @@ export default function PublicSignPage() {
             <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5 space-y-4">
               <label className="flex items-start gap-3 rounded-xl border border-gray-200 p-4 bg-gray-50">
                 <input type="checkbox" checked={hasRead} onChange={(e) => setHasRead(e.target.checked)} className="mt-1 w-4 h-4" />
-                <span className="text-sm text-gray-700">Jeg har lest dokumentet og er klar til aa signere.</span>
+                <span className="text-sm text-gray-700">Jeg har lest dokumentet og er klar til å signere.</span>
               </label>
 
               <div>

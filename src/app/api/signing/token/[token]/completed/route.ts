@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { normalizeSignRequestRecord, normalizeSignRequestStatus } from '@/lib/signing';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -24,7 +25,8 @@ export async function GET(_request: Request, context: { params: { token: string 
       return NextResponse.json({ error: 'Fant ikke signering' }, { status: 404 });
     }
 
-    if (signRequest.status !== 'COMPLETED') {
+    const normalizedStatus = normalizeSignRequestStatus(signRequest as any);
+    if (normalizedStatus !== 'COMPLETED') {
       return NextResponse.json({ error: 'Dokumentet er ikke ferdig signert enda' }, { status: 400 });
     }
 
@@ -41,7 +43,7 @@ export async function GET(_request: Request, context: { params: { token: string 
     }
 
     return NextResponse.json({
-      request: signRequest,
+      request: normalizeSignRequestRecord(signRequest as any),
       completedPdfUrl: completedSigned.data.signedUrl,
       receiptPdfUrl: receiptSigned.data?.signedUrl || null,
     });
@@ -49,4 +51,3 @@ export async function GET(_request: Request, context: { params: { token: string 
     return NextResponse.json({ error: error?.message || 'Ukjent feil' }, { status: 500 });
   }
 }
-

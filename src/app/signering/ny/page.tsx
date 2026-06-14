@@ -25,7 +25,7 @@ export default function NySigneringPage() {
   const pickFile = (nextFile: File | null) => {
     if (!nextFile) return;
     if (nextFile.type !== 'application/pdf' && !nextFile.name.toLowerCase().endsWith('.pdf')) {
-      setError('Kun PDF-filer stoettes i MVP.');
+      setError('Kun PDF-filer støttes i MVP.');
       return;
     }
     setError(null);
@@ -49,7 +49,7 @@ export default function NySigneringPage() {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!file) {
-      setError('Du maa laste opp en PDF foerst.');
+      setError('Du må laste opp en PDF først.');
       return;
     }
 
@@ -133,7 +133,7 @@ export default function NySigneringPage() {
               value={form.description}
               onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
               className="w-full border border-gray-300 rounded-xl px-3 py-3 text-sm min-h-[120px]"
-              placeholder="Kort forklaring paa hva dokumentet gjelder"
+                placeholder="Kort forklaring på hva dokumentet gjelder"
             />
           </div>
 
@@ -208,7 +208,7 @@ export default function NySigneringPage() {
                 <Upload className="w-5 h-5 text-gray-500" />
               </div>
               <div className="font-bold text-gray-900">{isDragging ? 'Slipp PDF her' : 'Klikk eller dra inn PDF'}</div>
-              <div className="text-sm text-gray-500 mt-1">Kun PDF-filer stoettes i MVP.</div>
+              <div className="text-sm text-gray-500 mt-1">Kun PDF-filer støttes i MVP.</div>
               {file && (
                 <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-gray-100 border border-gray-200 px-3 py-2 text-sm font-bold text-gray-700">
                   <FileText className="w-4 h-4" />

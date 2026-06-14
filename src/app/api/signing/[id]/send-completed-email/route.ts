@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { buildPublicCompletedSigningUrl, getBaseUrlFromHeaders } from '@/lib/signing';
+import { buildPublicCompletedSigningUrl, getBaseUrlFromHeaders, normalizeSignRequestStatus } from '@/lib/signing';
 import { getMailService } from '@/services/mail';
 
 export const dynamic = 'force-dynamic';
@@ -35,7 +35,7 @@ export async function POST(request: Request, context: { params: { id: string } }
       return NextResponse.json({ error: 'Fant ikke signering' }, { status: 404 });
     }
 
-    if (signRequest.status !== 'COMPLETED') {
+    if (normalizeSignRequestStatus(signRequest as any) !== 'COMPLETED') {
       return NextResponse.json({ error: 'Dokumentet er ikke ferdig signert enda' }, { status: 400 });
     }
 
@@ -48,11 +48,11 @@ export async function POST(request: Request, context: { params: { id: string } }
       [
         `Hei ${signRequest.recipient_name},`,
         '',
-        'Dokumentet er na ferdig signert av begge parter.',
+        'Dokumentet er nå ferdig signert av begge parter.',
         '',
-        `Aapne ferdig signert dokument og signeringskvittering: ${publicCompletedUrl}`,
+        `Åpne ferdig signert dokument og signeringskvittering: ${publicCompletedUrl}`,
         '',
-        `<a href="${publicCompletedUrl}" style="display:inline-block;background:#111827;color:#ffffff;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600">Aapne ferdig signert dokument</a>`,
+        `<a href="${publicCompletedUrl}" style="display:inline-block;background:#111827;color:#ffffff;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600">Åpne ferdig signert dokument</a>`,
       ].join('\n'),
       user.id,
     );
@@ -66,4 +66,3 @@ export async function POST(request: Request, context: { params: { id: string } }
     return NextResponse.json({ error: error?.message || 'Ukjent feil' }, { status: 500 });
   }
 }
-

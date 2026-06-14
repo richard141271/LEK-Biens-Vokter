@@ -5,6 +5,41 @@ export type SignRequestStatus =
   | 'COMPLETED'
   | 'CANCELLED';
 
+type SignRequestLike = {
+  status?: string | null;
+  recipient_signed_at?: string | null;
+  sender_signed_at?: string | null;
+};
+
+export function normalizeSignRequestStatus(request: SignRequestLike | null | undefined): SignRequestStatus {
+  if (!request) return 'DRAFT';
+
+  if (request.status === 'CANCELLED') {
+    return 'CANCELLED';
+  }
+
+  if (request.sender_signed_at) {
+    return 'COMPLETED';
+  }
+
+  if (request.recipient_signed_at) {
+    return 'SIGNED_BY_RECIPIENT';
+  }
+
+  if (request.status === 'DRAFT') {
+    return 'DRAFT';
+  }
+
+  return 'SENT';
+}
+
+export function normalizeSignRequestRecord<T extends SignRequestLike>(request: T): T & { status: SignRequestStatus } {
+  return {
+    ...request,
+    status: normalizeSignRequestStatus(request),
+  };
+}
+
 export function getSignStatusMeta(status: string) {
   switch (status) {
     case 'DRAFT':
@@ -12,7 +47,7 @@ export function getSignStatusMeta(status: string) {
     case 'SIGNED_BY_RECIPIENT':
       return { label: 'Signert av mottaker', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
     case 'COMPLETED':
-      return { label: 'Fullfort', cls: 'bg-green-50 text-green-700 border-green-200' };
+      return { label: 'Fullført', cls: 'bg-green-50 text-green-700 border-green-200' };
     case 'CANCELLED':
       return { label: 'Avbrutt', cls: 'bg-red-50 text-red-700 border-red-200' };
     default:

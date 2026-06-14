@@ -86,7 +86,7 @@ export default function SigneringDetailPage() {
         throw new Error(data?.error || 'Kunne ikke sende e-post');
       }
       await fetchRequest();
-      alert('Signeringslenke sendt paa e-post.');
+      alert('Signeringslenke sendt på e-post.');
     } catch (err: any) {
       setError(err?.message || 'Kunne ikke sende e-post');
     } finally {
@@ -103,12 +103,27 @@ export default function SigneringDetailPage() {
       if (!res.ok) {
         throw new Error(data?.error || 'Kunne ikke sende e-post');
       }
-      alert('Kvittering sendt paa e-post.');
+      alert('Kvittering sendt på e-post.');
     } catch (err: any) {
       setError(err?.message || 'Kunne ikke sende e-post');
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const sendSms = (url: string, mode: 'sign' | 'completed') => {
+    if (!request?.recipient_phone) {
+      alert('Legg inn telefonnummer på mottaker for å sende via SMS.');
+      return;
+    }
+
+    const intro =
+      mode === 'completed'
+        ? `Hei ${request.recipient_name}, her er ferdig signert dokument i LEK-Signering: `
+        : `Hei ${request.recipient_name}, her er signeringslenken din i LEK-Signering: `;
+
+    const smsUrl = `sms:${request.recipient_phone}?&body=${encodeURIComponent(`${intro}${url}`)}`;
+    window.location.href = smsUrl;
   };
 
   const generateReceipt = async () => {
@@ -198,7 +213,7 @@ export default function SigneringDetailPage() {
       <main className="max-w-5xl mx-auto p-4 grid lg:grid-cols-[1.1fr_0.9fr] gap-4">
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
-            <div className="font-black text-gray-900">PDF-forhaandsvisning</div>
+            <div className="font-black text-gray-900">PDF-forhåndsvisning</div>
             {pdfUrl ? (
               <a
                 href={pdfUrl}
@@ -207,7 +222,7 @@ export default function SigneringDetailPage() {
                 className="inline-flex items-center gap-2 text-sm font-bold px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200"
               >
                 <ExternalLink className="w-4 h-4" />
-                Aapne PDF
+                Åpne PDF
               </a>
             ) : null}
           </div>
@@ -281,7 +296,7 @@ export default function SigneringDetailPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => alert('SMS-stotte er klargjort for senere, men ikke aktiv i MVP enda.')}
+                      onClick={() => sendSms(publicSignUrl, 'sign')}
                       className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold"
                     >
                       <Phone className="w-4 h-4" />
@@ -311,15 +326,14 @@ export default function SigneringDetailPage() {
                       <Mail className="w-4 h-4" />
                       Send kvittering
                     </button>
-                    <a
-                      href={publicCompletedUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center justify-center gap-2 bg-gray-900 text-white py-3 rounded-xl text-sm font-bold"
+                    <button
+                      type="button"
+                      onClick={() => sendSms(publicCompletedUrl, 'completed')}
+                      className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold"
                     >
-                      <ExternalLink className="w-4 h-4" />
-                      Aapne
-                    </a>
+                      <Phone className="w-4 h-4" />
+                      Send via SMS
+                    </button>
                   </div>
                 </>
               )}
@@ -357,7 +371,7 @@ export default function SigneringDetailPage() {
                     className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold"
                   >
                     <ExternalLink className="w-4 h-4" />
-                    Aapne ferdig side
+                    Åpne ferdig side
                   </a>
                 </div>
               </div>
@@ -397,7 +411,7 @@ export default function SigneringDetailPage() {
                 Signer som avsender
               </button>
               {!isAwaitingSender ? (
-                <div className="text-xs text-gray-500">Avsender kan signere naar mottaker har signert.</div>
+                <div className="text-xs text-gray-500">Avsender kan signere når mottaker har signert.</div>
               ) : null}
             </div>
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { normalizeSignRequestRecord } from '@/lib/signing';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -33,7 +34,7 @@ export async function GET(_request: Request, context: { params: { token: string 
       return NextResponse.json({ error: 'Kunne ikke hente PDF' }, { status: 500 });
     }
 
-    return NextResponse.json({ request: signRequest, pdfUrl: signedData.signedUrl });
+    return NextResponse.json({ request: normalizeSignRequestRecord(signRequest as any), pdfUrl: signedData.signedUrl });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || 'Ukjent feil' }, { status: 500 });
   }

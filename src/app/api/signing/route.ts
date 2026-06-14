@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { buildPublicSigningUrl, getBaseUrlFromHeaders } from '@/lib/signing';
+import { buildPublicSigningUrl, getBaseUrlFromHeaders, normalizeSignRequestRecord } from '@/lib/signing';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -25,17 +25,11 @@ export async function GET(request: Request) {
 
     const scope = normalizeScope(new URL(request.url).searchParams.get('scope') || 'active');
 
-    let query = supabase
+    const query = supabase
       .from('sign_requests')
       .select('*')
       .eq('created_by_user_id', user.id)
       .order('updated_at', { ascending: false });
-
-    if (scope === 'archive') {
-      query = query.eq('status', 'COMPLETED');
-    } else if (scope === 'active') {
-      query = query.not('status', 'in', '("COMPLETED","CANCELLED")');
-    }
 
     const [{ data: requests, error }, { data: profile }] = await Promise.all([
       query,
@@ -46,8 +40,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Kunne ikke hente signeringer' }, { status: 500 });
     }
 
+    const normalizedRequests = (requests || []).map((item) => normalizeSignRequestRecord(item as any));
+    const filteredRequests =
+      scope === 'archive'
+        ? normalizedRequests.filter((item) => item.status === 'COMPLETED')
+        : scope === 'active'
+          ? normalizedRequests.filter((item) => item.status !== 'COMPLETED' && item.status !== 'CANCELLED')
+          : normalizedRequests;
+
     return NextResponse.json({
-      requests: requests || [],
+      requests: filteredRequests,
       senderName: String(profile?.full_name || user.user_metadata?.full_name || user.email || '').trim(),
     });
   } catch (error: any) {

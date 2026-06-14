@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     const demoItems = [
       {
         title: 'Studentavtale sommer 2026',
-        description: 'Demoavtale som allerede er signert av mottaker og venter paa avsender.',
+        description: 'Demoavtale som allerede er signert av mottaker og venter på avsender.',
         recipient_name: 'Torgeir Gran Fjereide',
         recipient_email: 'torgeir.demo@example.com',
         recipient_phone: '900 00 001',
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
         recipient_signed_at: null,
       },
       {
-        title: 'Fullfort demoavtale',
+        title: 'Fullført demoavtale',
         description: 'Demoavtale som er ferdig signert og ligger klar i arkiv.',
         recipient_name: 'Vidar Demo',
         recipient_email: 'vidar.demo@example.com',

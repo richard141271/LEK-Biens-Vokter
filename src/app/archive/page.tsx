@@ -4,7 +4,8 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Archive, AlertCircle, ArrowRight, Calendar, ArrowLeft, Download, CheckCircle2 } from 'lucide-react';
+import { Search, Archive, Calendar, ArrowLeft, Download, CheckCircle2 } from 'lucide-react';
+import { normalizeSignRequestRecord } from '@/lib/signing';
 
 type ArchivedSignRequest = {
   id: string;
@@ -44,10 +45,9 @@ export default function ArchivePage() {
         .order('updated_at', { ascending: false }),
       supabase
         .from('sign_requests')
-        .select('id, title, status, created_at, sender_signed_at, recipient_signature_name, sender_signature_name, pdf_path, completed_pdf_path')
+        .select('id, title, status, created_at, sender_signed_at, recipient_signed_at, recipient_signature_name, sender_signature_name, pdf_path, completed_pdf_path')
         .eq('created_by_user_id', user.id)
-        .eq('status', 'COMPLETED')
-        .order('sender_signed_at', { ascending: false }),
+        .order('updated_at', { ascending: false }),
     ]);
 
     if (hiveError) {
@@ -63,7 +63,9 @@ export default function ArchivePage() {
     if (signingError) {
       console.error('Error fetching sign requests:', signingError);
     } else {
-      const requests = Array.isArray(signingData) ? signingData : [];
+      const requests = (Array.isArray(signingData) ? signingData : [])
+        .map((item) => normalizeSignRequestRecord(item as any))
+        .filter((item) => item.status === 'COMPLETED');
       const withUrls = await Promise.all(
         requests.map(async (item) => {
           const path = item.completed_pdf_path || item.pdf_path;
@@ -129,7 +131,7 @@ export default function ArchivePage() {
             </div>
             <div>
                 <h1 className="text-xl font-bold text-gray-900">Arkiv & Historikk</h1>
-                <p className="text-sm text-gray-500">Oversikt over inaktive kuber</p>
+                <p className="text-sm text-gray-500">Oversikt over arkiverte avtaler og inaktive kuber</p>
             </div>
         </div>
 

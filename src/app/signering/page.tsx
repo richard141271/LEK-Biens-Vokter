@@ -135,14 +135,14 @@ export default function SigneringPage() {
             <div className="text-3xl font-black text-gray-900 mt-1">{activeRequests.length}</div>
           </div>
           <div className="bg-white rounded-2xl border border-gray-200 p-4">
-            <div className="text-xs font-black text-gray-500 uppercase">Venter paa deg</div>
+            <div className="text-xs font-black text-gray-500 uppercase">Venter på deg</div>
             <div className="text-3xl font-black text-emerald-700 mt-1">{alerts.length}</div>
           </div>
           <Link href="/archive" className="bg-white rounded-2xl border border-gray-200 p-4 hover:border-gray-300 transition-colors">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-xs font-black text-gray-500 uppercase">Arkiv</div>
-                <div className="text-lg font-black text-gray-900 mt-1">Se fullforte avtaler</div>
+                <div className="text-lg font-black text-gray-900 mt-1">Se fullførte avtaler</div>
               </div>
               <Archive className="w-5 h-5 text-gray-500" />
             </div>
@@ -190,7 +190,7 @@ export default function SigneringPage() {
                 <FileText className="w-7 h-7 text-gray-400" />
               </div>
               <div className="font-black text-gray-900 mt-4">Ingen signeringer enda</div>
-              <div className="text-sm text-gray-500 mt-1">Last opp en PDF og send ut din foerste signeringslenke.</div>
+              <div className="text-sm text-gray-500 mt-1">Last opp en PDF og send ut din første signeringslenke.</div>
               <Link href="/signering/ny" className="inline-flex mt-4 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-bold">
                 Opprett signering
               </Link>

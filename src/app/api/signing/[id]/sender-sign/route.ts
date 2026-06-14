@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { buildPublicCompletedSigningUrl, getBaseUrlFromHeaders } from '@/lib/signing';
+import { buildPublicCompletedSigningUrl, getBaseUrlFromHeaders, normalizeSignRequestStatus } from '@/lib/signing';
 import { generateSigningReceiptHtml } from '@/lib/signing-receipt';
 import { getMailService } from '@/services/mail';
 
@@ -70,12 +70,14 @@ export async function POST(request: Request, context: { params: { id: string } }
       return NextResponse.json({ error: 'Fant ikke signering' }, { status: 404 });
     }
 
-    if (!signRequest.recipient_signed_at) {
-      return NextResponse.json({ error: 'Mottaker maa signere foerst' }, { status: 400 });
+    const normalizedStatus = normalizeSignRequestStatus(signRequest as any);
+
+    if (!signRequest.recipient_signed_at && normalizedStatus !== 'SIGNED_BY_RECIPIENT' && normalizedStatus !== 'COMPLETED') {
+      return NextResponse.json({ error: 'Mottaker må signere først' }, { status: 400 });
     }
 
-    if (signRequest.status === 'COMPLETED') {
-      return NextResponse.json({ error: 'Signeringen er allerede fullfoert' }, { status: 400 });
+    if (normalizedStatus === 'COMPLETED') {
+      return NextResponse.json({ ok: true });
     }
 
     if (signRequest.status === 'CANCELLED') {
@@ -152,11 +154,11 @@ export async function POST(request: Request, context: { params: { id: string } }
         [
           `Hei ${signRequest.recipient_name},`,
           '',
-          'Dokumentet er na ferdig signert av begge parter.',
+          'Dokumentet er nå ferdig signert av begge parter.',
           '',
-          `Aapne ferdig signert dokument: ${publicCompletedUrl}`,
+          `Åpne ferdig signert dokument: ${publicCompletedUrl}`,
           '',
-          `<a href="${publicCompletedUrl}" style="display:inline-block;background:#111827;color:#ffffff;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600">Aapne ferdig signert dokument</a>`,
+          `<a href="${publicCompletedUrl}" style="display:inline-block;background:#111827;color:#ffffff;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600">Åpne ferdig signert dokument</a>`,
         ].join('\n'),
         user.id,
       );
