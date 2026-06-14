@@ -1,0 +1,238 @@
+'use client';
+
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { AlertCircle, Archive, ArrowLeft, Bell, CheckCircle2, ChevronRight, FileText, Plus } from 'lucide-react';
+import { getSignStatusMeta, formatSigningTimestamp } from '@/lib/signing';
+
+type SignRequest = {
+  id: string;
+  title: string;
+  description: string | null;
+  recipient_name: string;
+  recipient_email: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  recipient_signed_at: string | null;
+  recipient_signature_name: string | null;
+  sender_signed_at: string | null;
+};
+
+function isStagingHost() {
+  if (typeof window === 'undefined') return false;
+  const host = window.location.host.toLowerCase();
+  return host.includes('staging') || host.includes('localhost');
+}
+
+export default function SigneringPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [requests, setRequests] = useState<SignRequest[]>([]);
+  const [senderName, setSenderName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [creatingDemo, setCreatingDemo] = useState(false);
+
+  const fetchRequests = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/signing?scope=all', { cache: 'no-store' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || 'Kunne ikke hente signeringer');
+      }
+      setRequests(Array.isArray(data?.requests) ? data.requests : []);
+      setSenderName(String(data?.senderName || ''));
+    } catch (err: any) {
+      setError(err?.message || 'Kunne ikke hente signeringer');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchRequests();
+  }, []);
+
+  const alerts = useMemo(
+    () => requests.filter((item) => item.status === 'SIGNED_BY_RECIPIENT').sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at)),
+    [requests],
+  );
+
+  const activeRequests = useMemo(
+    () => requests.filter((item) => item.status !== 'COMPLETED' && item.status !== 'CANCELLED'),
+    [requests],
+  );
+
+  const createDemoData = async () => {
+    setCreatingDemo(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/signing/demo', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || 'Kunne ikke opprette demo-data');
+      }
+      await fetchRequests();
+    } catch (err: any) {
+      setError(err?.message || 'Kunne ikke opprette demo-data');
+    } finally {
+      setCreatingDemo(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-24">
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.push('/settings')} className="p-2 -ml-2 hover:bg-gray-100 rounded-full">
+              <ArrowLeft className="w-5 h-5 text-gray-700" />
+            </button>
+            <div>
+              <h1 className="text-xl font-black text-gray-900">LEK-Signering</h1>
+              <p className="text-xs text-gray-500">Digital signering av PDF-avtaler mellom brukere.</p>
+            </div>
+          </div>
+          <Link
+            href="/signering/ny"
+            className="inline-flex items-center gap-2 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-bold"
+          >
+            <Plus className="w-4 h-4" />
+            Ny signering
+          </Link>
+        </div>
+      </div>
+
+      <main className="max-w-4xl mx-auto p-4 space-y-4">
+        {alerts.map((item) => (
+          <Link
+            key={`alert-${item.id}`}
+            href={`/signering/${item.id}`}
+            className="block bg-emerald-50 border border-emerald-200 rounded-2xl p-4"
+          >
+            <div className="flex items-start gap-3">
+              <div className="bg-white rounded-full p-2 border border-emerald-200">
+                <Bell className="w-5 h-5 text-emerald-700" />
+              </div>
+              <div>
+                <div className="font-black text-emerald-900">Ny signering mottatt</div>
+                <div className="text-sm font-bold text-gray-900 mt-1">{item.title}</div>
+                <div className="text-sm text-emerald-900 mt-1">
+                  Signert av: {item.recipient_signature_name || item.recipient_name}
+                </div>
+                <div className="text-xs text-emerald-800 mt-1">{formatSigningTimestamp(item.recipient_signed_at)}</div>
+              </div>
+            </div>
+          </Link>
+        ))}
+
+        <div className="grid md:grid-cols-3 gap-3">
+          <div className="bg-white rounded-2xl border border-gray-200 p-4">
+            <div className="text-xs font-black text-gray-500 uppercase">Aktive</div>
+            <div className="text-3xl font-black text-gray-900 mt-1">{activeRequests.length}</div>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-200 p-4">
+            <div className="text-xs font-black text-gray-500 uppercase">Venter paa deg</div>
+            <div className="text-3xl font-black text-emerald-700 mt-1">{alerts.length}</div>
+          </div>
+          <Link href="/archive" className="bg-white rounded-2xl border border-gray-200 p-4 hover:border-gray-300 transition-colors">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-black text-gray-500 uppercase">Arkiv</div>
+                <div className="text-lg font-black text-gray-900 mt-1">Se fullforte avtaler</div>
+              </div>
+              <Archive className="w-5 h-5 text-gray-500" />
+            </div>
+          </Link>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {isStagingHost() && !loading && requests.length === 0 && (
+          <div className="bg-white border border-dashed border-gray-300 rounded-2xl p-5">
+            <div className="font-black text-gray-900">Demo-data for staging</div>
+            <div className="text-sm text-gray-600 mt-1">Opprett noen demo-signeringer slik at modulen kan testes med en gang.</div>
+            <button
+              type="button"
+              onClick={createDemoData}
+              disabled={creatingDemo}
+              className="mt-4 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50"
+            >
+              {creatingDemo ? 'Oppretter demo-data...' : 'Legg inn demo-data'}
+            </button>
+          </div>
+        )}
+
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+            <div>
+              <div className="font-black text-gray-900">Mine signeringer</div>
+              <div className="text-xs text-gray-500">Avsender: {senderName || 'Ikke satt'}</div>
+            </div>
+            <button onClick={() => void fetchRequests()} className="text-sm font-bold px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200">
+              Oppdater
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="p-6 text-sm text-gray-500">Laster signeringer...</div>
+          ) : requests.length === 0 ? (
+            <div className="p-8 text-center">
+              <div className="w-14 h-14 rounded-full bg-gray-100 mx-auto flex items-center justify-center">
+                <FileText className="w-7 h-7 text-gray-400" />
+              </div>
+              <div className="font-black text-gray-900 mt-4">Ingen signeringer enda</div>
+              <div className="text-sm text-gray-500 mt-1">Last opp en PDF og send ut din foerste signeringslenke.</div>
+              <Link href="/signering/ny" className="inline-flex mt-4 bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-bold">
+                Opprett signering
+              </Link>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {requests.map((item) => {
+                const status = getSignStatusMeta(item.status);
+                return (
+                  <Link key={item.id} href={`/signering/${item.id}`} className="block px-4 py-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className={`text-[11px] font-black px-2 py-1 rounded-full border ${status.cls}`}>{status.label}</div>
+                          {item.status === 'SIGNED_BY_RECIPIENT' && (
+                            <div className="text-[11px] font-black px-2 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
+                              Klar for din signatur
+                            </div>
+                          )}
+                        </div>
+                        <div className="font-black text-gray-900 mt-2 break-words">{item.title}</div>
+                        <div className="text-sm text-gray-600 mt-1 break-words">
+                          {item.description || `${item.recipient_name} • ${item.recipient_email}`}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-2">
+                          Opprettet {formatSigningTimestamp(item.created_at)} • Sist oppdatert {formatSigningTimestamp(item.updated_at)}
+                        </div>
+                      </div>
+                      <div className="shrink-0 flex items-center gap-2">
+                        {item.status === 'COMPLETED' ? (
+                          <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        ) : null}
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}

@@ -8,7 +8,7 @@ import Image from 'next/image';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import { generateHiveLabelsPDF } from '@/utils/hive-labels-pdf';
-import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight, Archive, Briefcase, Printer, Link as LinkIcon, X, CreditCard, List, QrCode, FileText, ClipboardCheck, ChevronDown, Mic } from 'lucide-react';
+import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight, Archive, Briefcase, Printer, Link as LinkIcon, X, CreditCard, List, QrCode, FileText, ClipboardCheck, ChevronDown, Mic, Check } from 'lucide-react';
 import WordTraining from '@/components/WordTraining';
 import { getAutoCorrectEnabled, setAutoCorrectEnabled, getShareEnabled, setShareEnabled } from '@/utils/voice-diagnostics';
 
@@ -828,6 +828,17 @@ export default function SettingsPage() {
                         <div className="flex items-center gap-3">
                             <FileText className="w-5 h-5 text-gray-500" />
                             <span>Referater</span>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                      </button>
+
+                      <button 
+                        onClick={() => router.push('/signering')}
+                        className="w-full bg-white text-gray-700 font-bold py-3 rounded-xl border border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-between px-4"
+                      >
+                        <div className="flex items-center gap-3">
+                            <Check className="w-5 h-5 text-gray-500" />
+                            <span>Signering</span>
                         </div>
                         <ChevronRight className="w-4 h-4 text-gray-400" />
                       </button>
