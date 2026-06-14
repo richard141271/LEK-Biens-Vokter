@@ -38,7 +38,7 @@ export async function POST(request: Request, context: { params: { id: string } }
     const publicSignUrl = buildPublicSigningUrl(getBaseUrlFromHeaders(new Headers(request.headers)), signRequest.token);
     const mail = getMailService(admin);
     const result = await mail.sendMail(
-      'Biens Vokter',
+      'LEK-Signering',
       signRequest.recipient_email,
       `Signering: ${signRequest.title}`,
       [

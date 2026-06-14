@@ -10,6 +10,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                       pathname === '/' || 
                       pathname === '/about' || 
                       pathname === '/signin' || 
+                      pathname === '/sign' ||
+                      pathname.startsWith('/sign/') ||
                       pathname === '/lei-en-kube' || 
                       pathname.startsWith('/info/') ||
                       pathname.startsWith('/survey') ||

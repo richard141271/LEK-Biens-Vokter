@@ -24,10 +24,16 @@ export class NodemailerMailService implements MailService {
 
     async sendMail(fromAlias: string, toAlias: string, subject: string, body: string, userId: string, attachments?: MailAttachment[]): Promise<{ success?: boolean; error?: string }> {
         try {
-            const from = process.env.SMTP_FROM || fromAlias || process.env.SMTP_USER;
+            const smtpUser = process.env.SMTP_USER;
+            const fromAddress =
+              process.env.SMTP_FROM || (fromAlias && fromAlias.includes('@') ? fromAlias : smtpUser);
+
+            if (!fromAddress) {
+              return { error: 'E-post er ikke konfigurert (mangler SMTP_FROM/SMTP_USER)' };
+            }
             
             await this.transporter.sendMail({
-                from: `"${fromAlias || 'Biens Vokter'}" <${from}>`,
+                from: `"${fromAlias || 'Biens Vokter'}" <${fromAddress}>`,
                 to: toAlias,
                 subject: subject,
                 text: body, // Fallback

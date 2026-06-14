@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Map, Box, Settings, LogOut, Archive, ShoppingBag, ShieldAlert, FileText } from 'lucide-react';
+import { Home, Map, Box, Settings, LogOut } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { getFounderMeeting } from '@/app/actions/founder';
@@ -26,6 +26,8 @@ export default function DesktopNav() {
       pathname === '/' || 
       pathname === '/about' || 
       pathname === '/signin' || 
+      pathname === '/sign' ||
+      pathname.startsWith('/sign/') ||
       pathname.startsWith('/grunneier') ||
       pathname === '/lei-en-kube' || 
       pathname.startsWith('/info/') ||

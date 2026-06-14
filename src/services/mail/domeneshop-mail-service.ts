@@ -36,9 +36,9 @@ export class DomeneshopMailService implements MailService {
         }
 
         try {
-            const from = process.env.SMTP_FROM || fromAlias || user;
+            const fromAddress = process.env.SMTP_FROM || (fromAlias && fromAlias.includes('@') ? fromAlias : user);
             await this.transporter.sendMail({
-                from: `"${fromAlias || 'Biens Vokter'}" <${from}>`,
+                from: `"${fromAlias || 'Biens Vokter'}" <${fromAddress}>`,
                 to: toAlias,
                 subject,
                 text: body,

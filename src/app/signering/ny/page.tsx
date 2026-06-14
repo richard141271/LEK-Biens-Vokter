@@ -13,6 +13,7 @@ export default function NySigneringPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -20,6 +21,16 @@ export default function NySigneringPage() {
     recipientEmail: '',
     recipientPhone: '',
   });
+
+  const pickFile = (nextFile: File | null) => {
+    if (!nextFile) return;
+    if (nextFile.type !== 'application/pdf' && !nextFile.name.toLowerCase().endsWith('.pdf')) {
+      setError('Kun PDF-filer stoettes i MVP.');
+      return;
+    }
+    setError(null);
+    setFile(nextFile);
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -56,7 +67,7 @@ export default function NySigneringPage() {
       const safeName = file.name.toLowerCase().replace(/[^a-z0-9.]+/g, '-');
       const pdfPath = `${user.id}/signing/${Date.now()}-${safeName}`;
       const { error: uploadError } = await supabase.storage.from('sign-documents').upload(pdfPath, file, {
-        contentType: file.type || 'application/pdf',
+        contentType: 'application/pdf',
         upsert: false,
       });
 
@@ -160,17 +171,43 @@ export default function NySigneringPage() {
 
           <div>
             <label className="block text-xs font-black text-gray-500 uppercase mb-2">Last opp PDF</label>
-            <label className="block border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center hover:border-gray-400 cursor-pointer">
+            <label
+              className={`block border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-colors ${
+                isDragging ? 'border-gray-500 bg-gray-50' : 'border-gray-300 hover:border-gray-400'
+              }`}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(true);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDragging(false);
+                const dropped = e.dataTransfer?.files?.[0] || null;
+                pickFile(dropped);
+              }}
+            >
               <input
                 type="file"
                 accept="application/pdf"
                 className="hidden"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                onChange={(e) => pickFile(e.target.files?.[0] || null)}
               />
               <div className="w-12 h-12 rounded-full bg-gray-100 mx-auto flex items-center justify-center mb-3">
                 <Upload className="w-5 h-5 text-gray-500" />
               </div>
-              <div className="font-bold text-gray-900">Klikk for aa velge PDF</div>
+              <div className="font-bold text-gray-900">{isDragging ? 'Slipp PDF her' : 'Klikk eller dra inn PDF'}</div>
               <div className="text-sm text-gray-500 mt-1">Kun PDF-filer stoettes i MVP.</div>
               {file && (
                 <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-gray-100 border border-gray-200 px-3 py-2 text-sm font-bold text-gray-700">

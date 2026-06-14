@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Map, Box, Settings, Archive, ShoppingBag, FileText } from 'lucide-react';
+import { Home, Map, Box, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getFounderMeeting } from '@/app/actions/founder';
 
@@ -27,6 +27,8 @@ export default function BottomNav() {
     pathname === '/' ||
     pathname === '/about' ||
     pathname === '/signin' ||
+    pathname === '/sign' ||
+    pathname.startsWith('/sign/') ||
     pathname.startsWith('/admin') ||
     pathname.startsWith('/dashboard/admin') ||
     pathname.startsWith('/grunneier') ||
