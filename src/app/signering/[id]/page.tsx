@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AlertCircle, ArrowLeft, Copy, ExternalLink, FileText, Loader2, Mail, Phone, Send, ShieldCheck, XCircle } from 'lucide-react';
-import { formatSigningTimestamp, getSignStatusMeta } from '@/lib/signing';
+import { formatSigningTimestamp, getCompletedEmailDeliveryMeta, getSignStatusMeta } from '@/lib/signing';
 
 type SignRequest = {
   id: string;
@@ -20,6 +20,11 @@ type SignRequest = {
   sender_signed_at: string | null;
   recipient_signature_name: string | null;
   sender_signature_name: string | null;
+  completed_email_delivery_status?: string | null;
+  completed_email_delivery_source?: string | null;
+  completed_email_last_attempt_at?: string | null;
+  completed_email_sent_at?: string | null;
+  completed_email_error?: string | null;
 };
 
 export default function SigneringDetailPage() {
@@ -106,7 +111,8 @@ export default function SigneringDetailPage() {
       if (!res.ok) {
         throw new Error(data?.error || 'Kunne ikke sende e-post');
       }
-      alert('Kvittering sendt på e-post.');
+      setNotice('Kvittering sendt på e-post.');
+      await fetchRequest();
     } catch (err: any) {
       setError(err?.message || 'Kunne ikke sende e-post');
     } finally {
@@ -209,6 +215,10 @@ export default function SigneringDetailPage() {
   const status = getSignStatusMeta(request.status);
   const isAwaitingSender = request.status === 'SIGNED_BY_RECIPIENT';
   const isCompleted = request.status === 'COMPLETED';
+  const completedEmailStatusMeta = getCompletedEmailDeliveryMeta(
+    request.completed_email_delivery_status,
+    request.completed_email_delivery_source,
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
@@ -362,6 +372,27 @@ export default function SigneringDetailPage() {
 
             {isCompleted ? (
               <div className="space-y-2">
+                <div className={`rounded-xl border p-3 ${completedEmailStatusMeta.cls}`}>
+                  <div className="text-xs font-black uppercase opacity-80">Leveringsstatus</div>
+                  <div className="font-black mt-1">{completedEmailStatusMeta.label}</div>
+                  <div className="text-sm mt-1">{completedEmailStatusMeta.description}</div>
+                  {request.completed_email_last_attempt_at ? (
+                    <div className="text-xs mt-2">
+                      Sist forsøk: {formatSigningTimestamp(request.completed_email_last_attempt_at)}
+                    </div>
+                  ) : null}
+                  {request.completed_email_sent_at ? (
+                    <div className="text-xs mt-1">
+                      Sist sendt: {formatSigningTimestamp(request.completed_email_sent_at)}
+                    </div>
+                  ) : null}
+                  {request.completed_email_error ? (
+                    <div className="text-xs mt-2 break-words">
+                      Feilmelding: {request.completed_email_error}
+                    </div>
+                  ) : null}
+                </div>
+
                 <div className="text-xs font-black text-gray-500 uppercase">Signeringskvittering</div>
                 <div className="grid sm:grid-cols-2 gap-2">
                   {receiptPdfUrl ? (

@@ -7,6 +7,38 @@ import { getMailService } from '@/services/mail';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+async function persistCompletedEmailStatus(
+  admin: ReturnType<typeof createAdminClient>,
+  signRequestId: string,
+  payload: {
+    status: 'NOT_SENT' | 'SENT' | 'FAILED';
+    source: 'automatic' | 'manual';
+    attemptedAt: string;
+    sentAt?: string | null;
+    error?: string | null;
+  },
+) {
+  const { error } = await admin
+    .from('sign_requests')
+    .update({
+      completed_email_delivery_status: payload.status,
+      completed_email_delivery_source: payload.source,
+      completed_email_last_attempt_at: payload.attemptedAt,
+      completed_email_sent_at: payload.sentAt || null,
+      completed_email_error: payload.error || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', signRequestId);
+
+  if (error) {
+    console.error('[Signing] Kunne ikke lagre manuell leveringsstatus for kvitteringsmail', {
+      signRequestId,
+      payload,
+      error: error.message,
+    });
+  }
+}
+
 export async function POST(request: Request, context: { params: { id: string } }) {
   try {
     const id = String(context.params.id || '').trim();
@@ -41,6 +73,7 @@ export async function POST(request: Request, context: { params: { id: string } }
 
     const publicCompletedUrl = buildPublicCompletedSigningUrl(getBaseUrlFromHeaders(new Headers(request.headers)), signRequest.token);
     const mail = getMailService(admin);
+    const attemptedAt = new Date().toISOString();
     const result = await mail.sendMail(
       'LEK-Signering',
       String(signRequest.recipient_email || ''),
@@ -58,8 +91,28 @@ export async function POST(request: Request, context: { params: { id: string } }
     );
 
     if ((result as any)?.error) {
+      await persistCompletedEmailStatus(admin, signRequest.id, {
+        status: 'FAILED',
+        source: 'manual',
+        attemptedAt,
+        error: (result as any).error,
+      });
+      console.error('[Signing] Manuell kvitteringsmail feilet', {
+        signRequestId: signRequest.id,
+        recipientEmail: signRequest.recipient_email,
+        userId: user.id,
+        error: (result as any).error,
+      });
       return NextResponse.json({ error: (result as any).error }, { status: 500 });
     }
+
+    await persistCompletedEmailStatus(admin, signRequest.id, {
+      status: 'SENT',
+      source: 'manual',
+      attemptedAt,
+      sentAt: attemptedAt,
+      error: null,
+    });
 
     return NextResponse.json({ ok: true, publicCompletedUrl });
   } catch (error: any) {

@@ -8,6 +8,38 @@ import { getMailService } from '@/services/mail';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+async function persistCompletedEmailStatus(
+  admin: ReturnType<typeof createAdminClient>,
+  signRequestId: string,
+  payload: {
+    status: 'NOT_SENT' | 'SENT' | 'FAILED';
+    source: 'automatic' | 'manual';
+    attemptedAt: string;
+    sentAt?: string | null;
+    error?: string | null;
+  },
+) {
+  const { error } = await admin
+    .from('sign_requests')
+    .update({
+      completed_email_delivery_status: payload.status,
+      completed_email_delivery_source: payload.source,
+      completed_email_last_attempt_at: payload.attemptedAt,
+      completed_email_sent_at: payload.sentAt || null,
+      completed_email_error: payload.error || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', signRequestId);
+
+  if (error) {
+    console.error('[Signing] Kunne ikke lagre leveringsstatus for kvitteringsmail', {
+      signRequestId,
+      payload,
+      error: error.message,
+    });
+  }
+}
+
 async function createPdfBufferFromHtml(html: string) {
   let browser: any;
 
@@ -149,6 +181,7 @@ export async function POST(request: Request, context: { params: { id: string } }
 
     try {
       const mail = getMailService(admin);
+      const attemptedAt = new Date().toISOString();
       const result = await mail.sendMail(
         'LEK-Signering',
         String(signRequest.recipient_email || ''),
@@ -166,6 +199,12 @@ export async function POST(request: Request, context: { params: { id: string } }
       );
       if (result?.error) {
         completedEmailError = result.error;
+        await persistCompletedEmailStatus(admin, signRequest.id, {
+          status: 'FAILED',
+          source: 'automatic',
+          attemptedAt,
+          error: result.error,
+        });
         console.error('[Signing] Automatisk kvitteringsmail feilet', {
           signRequestId: signRequest.id,
           recipientEmail: signRequest.recipient_email,
@@ -174,9 +213,22 @@ export async function POST(request: Request, context: { params: { id: string } }
         });
       } else {
         completedEmailSent = true;
+        await persistCompletedEmailStatus(admin, signRequest.id, {
+          status: 'SENT',
+          source: 'automatic',
+          attemptedAt,
+          sentAt: attemptedAt,
+          error: null,
+        });
       }
     } catch (emailError: any) {
       completedEmailError = emailError?.message || 'Ukjent feil ved automatisk kvitteringsmail';
+      await persistCompletedEmailStatus(admin, signRequest.id, {
+        status: 'FAILED',
+        source: 'automatic',
+        attemptedAt: new Date().toISOString(),
+        error: completedEmailError,
+      });
       console.error('[Signing] Automatisk kvitteringsmail kastet feil', {
         signRequestId: signRequest.id,
         recipientEmail: signRequest.recipient_email,

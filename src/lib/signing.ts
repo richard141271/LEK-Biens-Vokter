@@ -5,6 +5,8 @@ export type SignRequestStatus =
   | 'COMPLETED'
   | 'CANCELLED';
 
+export type CompletedEmailDeliveryStatus = 'NOT_SENT' | 'SENT' | 'FAILED';
+
 type SignRequestLike = {
   status?: string | null;
   recipient_signed_at?: string | null;
@@ -53,6 +55,49 @@ export function getSignStatusMeta(status: string) {
     default:
       return { label: 'Sendt', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
   }
+}
+
+export function getCompletedEmailDeliveryMeta(status?: string | null, source?: string | null) {
+  const normalizedStatus = String(status || 'NOT_SENT').trim().toUpperCase() as CompletedEmailDeliveryStatus;
+  const normalizedSource = String(source || '').trim().toLowerCase();
+
+  if (normalizedStatus === 'SENT') {
+    if (normalizedSource === 'manual') {
+      return {
+        label: 'Sendt manuelt',
+        cls: 'bg-green-50 text-green-700 border-green-200',
+        description: 'Kvitteringen er sendt manuelt fra signeringssiden.',
+      };
+    }
+
+    return {
+      label: 'Sendt automatisk',
+      cls: 'bg-green-50 text-green-700 border-green-200',
+      description: 'Kvitteringen ble sendt automatisk da dokumentet ble fullført.',
+    };
+  }
+
+  if (normalizedStatus === 'FAILED') {
+    if (normalizedSource === 'manual') {
+      return {
+        label: 'Manuell sending feilet',
+        cls: 'bg-red-50 text-red-700 border-red-200',
+        description: 'Siste manuelle forsøk på å sende kvitteringen feilet.',
+      };
+    }
+
+    return {
+      label: 'Automatisk sending feilet',
+      cls: 'bg-red-50 text-red-700 border-red-200',
+      description: 'Det automatiske forsøket på å sende kvitteringen feilet.',
+    };
+  }
+
+  return {
+    label: 'Ikke sendt ennå',
+    cls: 'bg-gray-100 text-gray-700 border-gray-200',
+    description: 'Kvitteringen har ikke blitt sendt ennå.',
+  };
 }
 
 export function getBaseUrlFromHeaders(headers: Headers) {
