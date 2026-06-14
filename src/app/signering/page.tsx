@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Archive, ArrowLeft, Bell, CheckCircle2, ChevronRight, CircleDot, FileText, MailCheck, MailWarning, Plus } from 'lucide-react';
+import { AlertCircle, Archive, ArrowLeft, Bell, CheckCircle2, ChevronRight, CircleDot, FileText, MailCheck, MailWarning, Plus, Trash2 } from 'lucide-react';
 import { getCompletedEmailDeliveryMeta, getSignStatusMeta, formatSigningTimestamp, hasSigningAttention, needsCompletedEmailAttention } from '@/lib/signing';
 import { useSigningAttention } from '@/hooks/useSigningAttention';
 
@@ -35,8 +35,10 @@ export default function SigneringPage() {
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<SignRequest[]>([]);
   const [senderName, setSenderName] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creatingDemo, setCreatingDemo] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -49,6 +51,7 @@ export default function SigneringPage() {
       }
       setRequests(Array.isArray(data?.requests) ? data.requests : []);
       setSenderName(String(data?.senderName || ''));
+      setIsAdmin(Boolean(data?.isAdmin));
     } catch (err: any) {
       setError(err?.message || 'Kunne ikke hente signeringer');
     } finally {
@@ -84,6 +87,27 @@ export default function SigneringPage() {
       setError(err?.message || 'Kunne ikke opprette demo-data');
     } finally {
       setCreatingDemo(false);
+    }
+  };
+
+  const deleteRequest = async (id: string, title: string) => {
+    if (!isAdmin) return;
+    if (!window.confirm(`Vil du slette signeringen "${title}"? Dette kan ikke angres.`)) return;
+
+    setDeletingId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/signing/${id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || 'Kunne ikke slette signering');
+      }
+      await fetchRequests();
+      window.dispatchEvent(new Event('signing-attention-changed'));
+    } catch (err: any) {
+      setError(err?.message || 'Kunne ikke slette signering');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -272,11 +296,24 @@ export default function SigneringPage() {
                   : null;
                 const needsCompletedEmail = needsCompletedEmailAttention(item);
                 return (
-                  <Link key={item.id} href={`/signering/${item.id}`} className="block px-4 py-4 hover:bg-gray-50 transition-colors">
+                  <div key={item.id} className="px-4 py-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <div className={`text-[11px] font-black px-2 py-1 rounded-full border ${status.cls}`}>{status.label}</div>
+                          <Link href={`/signering/${item.id}`} className={`text-[11px] font-black px-2 py-1 rounded-full border ${status.cls}`}>
+                            {status.label}
+                          </Link>
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => void deleteRequest(item.id, item.title)}
+                              disabled={deletingId === item.id}
+                              className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-1 rounded-full border bg-red-50 text-red-700 border-red-200 disabled:opacity-50"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              {deletingId === item.id ? 'Sletter...' : 'Slett'}
+                            </button>
+                          )}
                           {item.status === 'SIGNED_BY_RECIPIENT' && (
                             <div className="text-[11px] font-black px-2 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
                               Klar for din signatur
@@ -295,15 +332,17 @@ export default function SigneringPage() {
                             </div>
                           )}
                         </div>
-                        <div className="font-black text-gray-900 mt-2 break-words">{item.title}</div>
-                        <div className="text-sm text-gray-600 mt-1 break-words">
-                          {item.description || `${item.recipient_name} • ${item.recipient_email}`}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-2">
-                          Opprettet {formatSigningTimestamp(item.created_at)} • Sist oppdatert {formatSigningTimestamp(item.updated_at)}
-                        </div>
+                        <Link href={`/signering/${item.id}`} className="block">
+                          <div className="font-black text-gray-900 mt-2 break-words">{item.title}</div>
+                          <div className="text-sm text-gray-600 mt-1 break-words">
+                            {item.description || `${item.recipient_name} • ${item.recipient_email}`}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-2">
+                            Opprettet {formatSigningTimestamp(item.created_at)} • Sist oppdatert {formatSigningTimestamp(item.updated_at)}
+                          </div>
+                        </Link>
                       </div>
-                      <div className="shrink-0 flex items-center gap-2">
+                      <Link href={`/signering/${item.id}`} className="shrink-0 flex items-center gap-2">
                         {item.status === 'COMPLETED' ? (
                           <CheckCircle2 className="w-5 h-5 text-green-600" />
                         ) : null}
@@ -311,9 +350,9 @@ export default function SigneringPage() {
                           <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" aria-hidden="true" />
                         ) : null}
                         <ChevronRight className="w-4 h-4 text-gray-400" />
-                      </div>
+                      </Link>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>

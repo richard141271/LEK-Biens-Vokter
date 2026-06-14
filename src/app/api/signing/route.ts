@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
     const [{ data: requests, error }, { data: profile }] = await Promise.all([
       query,
-      supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
+      supabase.from('profiles').select('full_name, role').eq('id', user.id).maybeSingle(),
     ]);
 
     if (error) {
@@ -51,6 +51,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       requests: filteredRequests,
       senderName: String(profile?.full_name || user.user_metadata?.full_name || user.email || '').trim(),
+      isAdmin: String(profile?.role || '').trim().toLowerCase() === 'admin',
     });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || 'Ukjent feil' }, { status: 500 });
