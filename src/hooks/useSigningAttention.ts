@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { hasSigningAttention, needsCompletedEmailAttention, normalizeSignRequestStatus } from '@/lib/signing';
 
 type SigningAttentionRequest = {
@@ -11,6 +12,7 @@ type SigningAttentionRequest = {
 };
 
 export function useSigningAttention() {
+  const pathname = usePathname();
   const [attentionCount, setAttentionCount] = useState(0);
   const [signatureCount, setSignatureCount] = useState(0);
   const [completedEmailCount, setCompletedEmailCount] = useState(0);
@@ -44,10 +46,21 @@ export function useSigningAttention() {
 
     void fetchAttention();
 
+    const refreshAttention = () => {
+      void fetchAttention();
+    };
+
+    window.addEventListener('focus', refreshAttention);
+    window.addEventListener('signing-attention-changed', refreshAttention as EventListener);
+    document.addEventListener('visibilitychange', refreshAttention);
+
     return () => {
       cancelled = true;
+      window.removeEventListener('focus', refreshAttention);
+      window.removeEventListener('signing-attention-changed', refreshAttention as EventListener);
+      document.removeEventListener('visibilitychange', refreshAttention);
     };
-  }, []);
+  }, [pathname]);
 
   return {
     count: attentionCount,

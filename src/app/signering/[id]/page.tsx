@@ -65,6 +65,10 @@ export default function SigneringDetailPage() {
     }
   };
 
+  const notifySigningAttentionChanged = () => {
+    window.dispatchEvent(new Event('signing-attention-changed'));
+  };
+
   useEffect(() => {
     if (!id) return;
     void fetchRequest();
@@ -113,6 +117,7 @@ export default function SigneringDetailPage() {
       }
       setNotice('Kvittering sendt på e-post.');
       await fetchRequest();
+      notifySigningAttentionChanged();
     } catch (err: any) {
       setError(err?.message || 'Kunne ikke sende e-post');
     } finally {
@@ -148,6 +153,8 @@ export default function SigneringDetailPage() {
       setReceiptPdfUrl(data?.receiptPdfUrl ? String(data.receiptPdfUrl) : null);
       setPublicCompletedUrl(String(data?.publicCompletedUrl || publicCompletedUrl));
       alert('Signeringskvittering er generert.');
+      await fetchRequest();
+      notifySigningAttentionChanged();
     } catch (err: any) {
       setError(err?.message || 'Kunne ikke generere kvittering');
     } finally {
@@ -179,6 +186,7 @@ export default function SigneringDetailPage() {
         setNotice('Dokumentet er fullført.');
       }
       await fetchRequest();
+      notifySigningAttentionChanged();
     } catch (err: any) {
       setError(err?.message || 'Kunne ikke signere som avsender');
     } finally {
@@ -197,6 +205,7 @@ export default function SigneringDetailPage() {
         throw new Error(data?.error || 'Kunne ikke avbryte signeringen');
       }
       await fetchRequest();
+      notifySigningAttentionChanged();
     } catch (err: any) {
       setError(err?.message || 'Kunne ikke avbryte signeringen');
     } finally {
@@ -394,7 +403,7 @@ export default function SigneringDetailPage() {
                 </div>
 
                 <div className="text-xs font-black text-gray-500 uppercase">Signeringskvittering</div>
-                <div className="grid sm:grid-cols-3 gap-2">
+                <div className="grid sm:grid-cols-2 gap-2">
                   {receiptPdfUrl ? (
                     <a
                       href={receiptPdfUrl}
@@ -406,17 +415,16 @@ export default function SigneringDetailPage() {
                       Last ned kvittering
                     </a>
                   ) : (
-                    <div />
+                    <button
+                      type="button"
+                      onClick={generateReceipt}
+                      disabled={actionLoading}
+                      className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold disabled:opacity-50"
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                      Generer kvittering
+                    </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={generateReceipt}
-                    disabled={actionLoading}
-                    className="inline-flex items-center justify-center gap-2 bg-white border border-gray-300 py-3 rounded-xl text-sm font-bold disabled:opacity-50"
-                  >
-                    <ShieldCheck className="w-4 h-4" />
-                    {receiptPdfUrl ? 'Generer på nytt' : 'Generer kvittering'}
-                  </button>
                   <a
                     href={publicCompletedUrl}
                     target="_blank"
