@@ -76,23 +76,18 @@ export async function DELETE(_request: Request, context: { params: { id: string 
     }
 
     const admin = createAdminClient();
-    const { data: profile, error: profileError } = await admin.from('profiles').select('role').eq('id', user.id).single();
-    if (profileError) {
-      return NextResponse.json({ error: 'Kunne ikke verifisere tilgang' }, { status: 500 });
-    }
-
-    if (String(profile?.role || '').trim().toLowerCase() !== 'admin') {
-      return NextResponse.json({ error: 'Kun superbruker kan slette signeringer' }, { status: 403 });
-    }
-
     const { data: signRequest, error: requestError } = await admin
       .from('sign_requests')
-      .select('id, pdf_path, completed_pdf_path, receipt_pdf_path')
+      .select('id, created_by_user_id, pdf_path, completed_pdf_path, receipt_pdf_path')
       .eq('id', id)
       .single();
 
     if (requestError || !signRequest) {
       return NextResponse.json({ error: 'Fant ikke signering' }, { status: 404 });
+    }
+
+    if (String(signRequest.created_by_user_id || '').trim() !== String(user.id || '').trim()) {
+      return NextResponse.json({ error: 'Du kan bare slette dine egne signeringer' }, { status: 403 });
     }
 
     const filePaths = Array.from(

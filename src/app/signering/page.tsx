@@ -35,7 +35,6 @@ export default function SigneringPage() {
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<SignRequest[]>([]);
   const [senderName, setSenderName] = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creatingDemo, setCreatingDemo] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -51,7 +50,6 @@ export default function SigneringPage() {
       }
       setRequests(Array.isArray(data?.requests) ? data.requests : []);
       setSenderName(String(data?.senderName || ''));
-      setIsAdmin(Boolean(data?.isAdmin));
     } catch (err: any) {
       setError(err?.message || 'Kunne ikke hente signeringer');
     } finally {
@@ -91,7 +89,6 @@ export default function SigneringPage() {
   };
 
   const deleteRequest = async (id: string, title: string) => {
-    if (!isAdmin) return;
     if (!window.confirm(`Vil du slette signeringen "${title}"? Dette kan ikke angres.`)) return;
 
     setDeletingId(id);
@@ -303,17 +300,15 @@ export default function SigneringPage() {
                           <Link href={`/signering/${item.id}`} className={`text-[11px] font-black px-2 py-1 rounded-full border ${status.cls}`}>
                             {status.label}
                           </Link>
-                          {isAdmin && (
-                            <button
-                              type="button"
-                              onClick={() => void deleteRequest(item.id, item.title)}
-                              disabled={deletingId === item.id}
-                              className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-1 rounded-full border bg-red-50 text-red-700 border-red-200 disabled:opacity-50"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              {deletingId === item.id ? 'Sletter...' : 'Slett'}
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => void deleteRequest(item.id, item.title)}
+                            disabled={deletingId === item.id}
+                            className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-1 rounded-full border bg-red-50 text-red-700 border-red-200 disabled:opacity-50"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            {deletingId === item.id ? 'Sletter...' : 'Slett'}
+                          </button>
                           {item.status === 'SIGNED_BY_RECIPIENT' && (
                             <div className="text-[11px] font-black px-2 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
                               Klar for din signatur
