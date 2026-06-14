@@ -1,11 +1,14 @@
-
 import { MailService, MailMessage, MailFolder, MailAttachment } from './types';
+import { createClient } from '@/utils/supabase/server';
+import { SupabaseClient } from '@supabase/supabase-js';
 import nodemailer from 'nodemailer';
+import { MockMailService } from './mock-mail-service';
 
 export class NodemailerMailService implements MailService {
     private transporter: nodemailer.Transporter;
+    private readonly fallbackStore: MockMailService;
 
-    constructor() {
+    constructor(client?: SupabaseClient) {
         this.transporter = nodemailer.createTransport({
             host: process.env.SMTP_HOST || 'smtp.gmail.com',
             port: parseInt(process.env.SMTP_PORT || '587'),
@@ -15,19 +18,17 @@ export class NodemailerMailService implements MailService {
                 pass: process.env.SMTP_PASS,
             },
         });
+        this.fallbackStore = new MockMailService(client || createClient());
     }
 
     async getInbox(emailAlias: string, folder: string = 'inbox'): Promise<{ data?: MailMessage[]; error?: string }> {
-        console.warn('NodemailerMailService.getInbox not implemented (SMTP only)');
-        return { data: [] };
+        return this.fallbackStore.getInbox(emailAlias, folder);
     }
 
     async sendMail(fromAlias: string, toAlias: string, subject: string, body: string, userId: string, attachments?: MailAttachment[]): Promise<{ success?: boolean; error?: string }> {
         try {
-            const smtpUser = process.env.SMTP_USER;
             const defaultFromAddress = 'post@leksystem.no';
-            const fromAddress =
-              process.env.SMTP_FROM || (fromAlias && fromAlias.includes('@') ? fromAlias : smtpUser || defaultFromAddress);
+            const fromAddress = process.env.SMTP_FROM || defaultFromAddress;
 
             if (!fromAddress) {
               return { error: 'E-post er ikke konfigurert (mangler SMTP_FROM/SMTP_USER)' };
@@ -44,40 +45,59 @@ export class NodemailerMailService implements MailService {
                     path: att.url
                 }))
             });
-            
-            console.log(`[MailService] Sent email to ${toAlias}: ${subject}`);
+
+            const stored = await this.fallbackStore.sendMail(fromAlias, toAlias, subject, body, userId, attachments);
+            if (stored.error) {
+                console.warn('[MailService][SMTP] E-posten ble sendt, men kunne ikke lagres internt', {
+                    toAlias,
+                    subject,
+                    userId,
+                    error: stored.error,
+                });
+            }
+
+            console.log('[MailService][SMTP] E-post sendt', {
+                toAlias,
+                subject,
+                userId,
+            });
             return { success: true };
         } catch (error: any) {
-            console.error('[MailService] Error sending email:', error);
+            console.error('[MailService][SMTP] Utsending feilet', {
+                toAlias,
+                subject,
+                userId,
+                error: error?.message || error,
+            });
             return { error: error.message };
         }
     }
 
     async markAsRead(messageId: string): Promise<{ success?: boolean; error?: string }> {
-        return { success: true };
+        return this.fallbackStore.markAsRead(messageId);
     }
 
     async deleteMessage(messageId: string): Promise<{ success?: boolean; error?: string }> {
-        return { success: true };
+        return this.fallbackStore.deleteMessage(messageId);
     }
 
     async getFolders(userId: string): Promise<{ data?: MailFolder[]; error?: string }> {
-        return { data: [] };
+        return this.fallbackStore.getFolders(userId);
     }
 
     async createFolder(userId: string, name: string): Promise<{ data?: MailFolder; error?: string }> {
-        return { error: 'Not implemented' };
+        return this.fallbackStore.createFolder(userId, name);
     }
 
     async deleteFolder(userId: string, folderId: string): Promise<{ success?: boolean; error?: string }> {
-        return { success: false, error: 'Not implemented' };
+        return this.fallbackStore.deleteFolder(userId, folderId);
     }
 
     async getSignature(userId: string): Promise<{ data?: string; error?: string }> {
-        return { data: '' };
+        return this.fallbackStore.getSignature(userId);
     }
 
     async updateSignature(userId: string, signature: string): Promise<{ success?: boolean; error?: string }> {
-        return { success: false, error: 'Not implemented' };
+        return this.fallbackStore.updateSignature(userId, signature);
     }
 }

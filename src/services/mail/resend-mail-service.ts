@@ -24,6 +24,10 @@ export class ResendMailService implements MailService {
     return String(process.env.RESEND_FROM || process.env.SMTP_FROM || 'post@leksystem.no').trim();
   }
 
+  private getSenderName() {
+    return 'LEK-Biens Vokter';
+  }
+
   private buildHtml(body: string) {
     return body.includes('<a ') || body.includes('<br') ? body.replace(/\n/g, '<br>') : body.replace(/\n/g, '<br>');
   }
@@ -57,16 +61,20 @@ export class ResendMailService implements MailService {
   async sendMail(fromAlias: string, toAlias: string, subject: string, body: string, userId: string, attachments?: MailAttachment[]): Promise<{ success?: boolean; error?: string }> {
     const apiKey = this.getApiKey();
     if (!apiKey) {
+      console.error('[MailService][Resend] Mangler RESEND_API_KEY', {
+        toAlias,
+        subject,
+        userId,
+      });
       return { error: 'E-post er ikke konfigurert (mangler RESEND_API_KEY)' };
     }
 
     try {
       const fromAddress = this.getFromAddress();
-      const displayName = String(fromAlias || 'LEK-System').trim() || 'LEK-System';
       const attachmentPayload = await this.buildAttachments(attachments);
 
       const payload: Record<string, unknown> = {
-        from: `"${displayName}" <${fromAddress}>`,
+        from: `"${this.getSenderName()}" <${fromAddress}>`,
         to: [toAlias],
         subject,
         text: body,
@@ -92,16 +100,39 @@ export class ResendMailService implements MailService {
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
+        console.error('[MailService][Resend] Utsending feilet', {
+          toAlias,
+          subject,
+          userId,
+          status: response.status,
+          response: data,
+        });
         return { error: String(data?.message || data?.error || 'Kunne ikke sende e-post via Resend') };
       }
 
       const stored = await this.fallbackStore.sendMail(fromAlias, toAlias, subject, body, userId, attachments);
       if (stored.error) {
-        return { error: stored.error };
+        console.warn('[MailService][Resend] E-posten ble sendt, men kunne ikke lagres internt', {
+          toAlias,
+          subject,
+          userId,
+          error: stored.error,
+        });
       }
 
+      console.log('[MailService][Resend] E-post sendt', {
+        toAlias,
+        subject,
+        userId,
+      });
       return { success: true };
     } catch (error: any) {
+      console.error('[MailService][Resend] Utsending kastet feil', {
+        toAlias,
+        subject,
+        userId,
+        error: error?.message || error,
+      });
       return { error: error?.message || 'Kunne ikke sende e-post via Resend' };
     }
   }
@@ -134,4 +165,3 @@ export class ResendMailService implements MailService {
     return this.fallbackStore.updateSignature(userId, signature);
   }
 }
-

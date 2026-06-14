@@ -1,6 +1,6 @@
 # LEK-Signering: oppsett for e-post
 
-LEK-Signering sender e-post direkte fra appen via Resend.
+LEK-Signering sender e-post direkte fra appen via Resend når `RESEND_API_KEY` finnes. Hvis nøkkelen mangler, faller systemet tilbake til vanlig SMTP.
 
 ## Hvordan det virker
 
@@ -13,7 +13,6 @@ LEK-Signering sender e-post direkte fra appen via Resend.
 Minstekrav:
 
 ```env
-MAIL_PROVIDER=resend
 RESEND_API_KEY=re_xxxxxxxxx
 RESEND_FROM=post@leksystem.no
 SMTP_FROM=post@leksystem.no
@@ -24,7 +23,6 @@ Samme oppsett brukes i både staging og production, men med egne miljøvariabler
 Anbefalt:
 
 ```env
-MAIL_PROVIDER=resend
 RESEND_FROM=post@leksystem.no
 SMTP_FROM=post@leksystem.no
 ```
@@ -32,7 +30,6 @@ SMTP_FROM=post@leksystem.no
 For staging:
 
 ```env
-MAIL_PROVIDER=resend
 RESEND_API_KEY=re_staging_xxxxxxxxx
 RESEND_FROM=post@leksystem.no
 SMTP_FROM=post@leksystem.no
@@ -41,7 +38,6 @@ SMTP_FROM=post@leksystem.no
 For production:
 
 ```env
-MAIL_PROVIDER=resend
 RESEND_API_KEY=re_prod_xxxxxxxxx
 RESEND_FROM=post@leksystem.no
 SMTP_FROM=post@leksystem.no
@@ -57,9 +53,24 @@ SMTP_FROM=post@leksystem.no
 ## Anbefalt oppsett
 
 - Bruk `post@leksystem.no` som fast avsenderadresse.
+- Systemet sender som `LEK-Biens Vokter <post@leksystem.no>`.
 - Bruk samme `RESEND_FROM` og `SMTP_FROM`.
 - Bruk egne API-nøkler for staging og production hvis du vil skille miljøene.
 - Verifiser domenet fullt ut før du tester utsending i production.
+
+## Test-endepunkt
+
+- Du kan sende en testmail via `POST /api/test-email`.
+- Endepunktet krever innlogging for å unngå åpen relay.
+- Eksempel:
+
+```json
+{
+  "to": "mottaker@example.no",
+  "subject": "Test fra LEK",
+  "message": "Dette er en test."
+}
+```
 
 ## Hva som allerede er klart i appen
 
