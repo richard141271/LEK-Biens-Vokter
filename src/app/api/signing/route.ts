@@ -12,6 +12,17 @@ function normalizeScope(value: string) {
   return 'active';
 }
 
+function getSigningSetupHint(message?: string | null) {
+  const text = String(message || '').toLowerCase();
+  if (text.includes('sign_requests')) {
+    return 'Signering er ikke satt opp i databasen ennå. Kjor signering-SQL i Supabase for production.';
+  }
+  if (text.includes('receipt_pdf_path') || text.includes('completed_email_delivery_')) {
+    return 'Signeringstabellen finnes, men mangler nye signeringskolonner. Kjor siste signering-SQL i Supabase.';
+  }
+  return null;
+}
+
 export async function GET(request: Request) {
   try {
     const supabase = createClient();
@@ -37,7 +48,13 @@ export async function GET(request: Request) {
     ]);
 
     if (error) {
-      return NextResponse.json({ error: 'Kunne ikke hente signeringer' }, { status: 500 });
+      const hint = getSigningSetupHint(error.message);
+      console.error('[Signing] Kunne ikke hente signeringer', {
+        userId: user.id,
+        error: error.message,
+        hint,
+      });
+      return NextResponse.json({ error: hint || 'Kunne ikke hente signeringer' }, { status: 500 });
     }
 
     const normalizedRequests = (requests || []).map((item) => normalizeSignRequestRecord(item as any));
@@ -99,7 +116,13 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabase.from('sign_requests').insert(payload).select('*').single();
     if (error || !data) {
-      return NextResponse.json({ error: 'Kunne ikke opprette signering' }, { status: 500 });
+      const hint = getSigningSetupHint(error?.message);
+      console.error('[Signing] Kunne ikke opprette signering', {
+        userId: user.id,
+        error: error?.message || 'Ukjent feil',
+        hint,
+      });
+      return NextResponse.json({ error: hint || 'Kunne ikke opprette signering' }, { status: 500 });
     }
 
     const publicSignUrl = buildPublicSigningUrl(getBaseUrlFromHeaders(new Headers(request.headers)), token);
