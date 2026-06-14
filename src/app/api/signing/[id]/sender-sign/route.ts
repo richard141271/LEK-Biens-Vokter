@@ -113,6 +113,8 @@ export async function POST(request: Request, context: { params: { id: string } }
     const publicCompletedUrl = buildPublicCompletedSigningUrl(getBaseUrlFromHeaders(new Headers(request.headers)), signRequest.token);
     const receiptPdfPath = `${user.id}/signing-receipts/${signRequest.id}.pdf`;
     let receiptGenerated = false;
+    let completedEmailSent = false;
+    let completedEmailError: string | null = null;
 
     try {
       const html = generateSigningReceiptHtml({
@@ -147,7 +149,7 @@ export async function POST(request: Request, context: { params: { id: string } }
 
     try {
       const mail = getMailService(admin);
-      await mail.sendMail(
+      const result = await mail.sendMail(
         'LEK-Signering',
         String(signRequest.recipient_email || ''),
         `Ferdig signert: ${signRequest.title}`,
@@ -156,15 +158,40 @@ export async function POST(request: Request, context: { params: { id: string } }
           '',
           'Dokumentet er nå ferdig signert av begge parter.',
           '',
-          `Åpne ferdig signert dokument: ${publicCompletedUrl}`,
+          `Åpne ferdig signert dokument og signeringskvittering: ${publicCompletedUrl}`,
           '',
           `<a href="${publicCompletedUrl}" style="display:inline-block;background:#111827;color:#ffffff;padding:10px 14px;border-radius:10px;text-decoration:none;font-weight:600">Åpne ferdig signert dokument</a>`,
         ].join('\n'),
         user.id,
       );
-    } catch {}
+      if (result?.error) {
+        completedEmailError = result.error;
+        console.error('[Signing] Automatisk kvitteringsmail feilet', {
+          signRequestId: signRequest.id,
+          recipientEmail: signRequest.recipient_email,
+          userId: user.id,
+          error: result.error,
+        });
+      } else {
+        completedEmailSent = true;
+      }
+    } catch (emailError: any) {
+      completedEmailError = emailError?.message || 'Ukjent feil ved automatisk kvitteringsmail';
+      console.error('[Signing] Automatisk kvitteringsmail kastet feil', {
+        signRequestId: signRequest.id,
+        recipientEmail: signRequest.recipient_email,
+        userId: user.id,
+        error: completedEmailError,
+      });
+    }
 
-    return NextResponse.json({ ok: true, publicCompletedUrl, receiptGenerated });
+    return NextResponse.json({
+      ok: true,
+      publicCompletedUrl,
+      receiptGenerated,
+      completedEmailSent,
+      completedEmailError,
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || 'Ukjent feil' }, { status: 500 });
   }

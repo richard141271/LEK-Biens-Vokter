@@ -29,6 +29,7 @@ export default function SigneringDetailPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [request, setRequest] = useState<SignRequest | null>(null);
   const [pdfUrl, setPdfUrl] = useState('');
   const [publicSignUrl, setPublicSignUrl] = useState('');
@@ -79,6 +80,7 @@ export default function SigneringDetailPage() {
   const sendEmail = async () => {
     setActionLoading(true);
     setError(null);
+    setNotice(null);
     try {
       const res = await fetch(`/api/signing/${id}/send-email`, { method: 'POST' });
       const data = await res.json().catch(() => ({}));
@@ -97,6 +99,7 @@ export default function SigneringDetailPage() {
   const sendCompletedEmail = async () => {
     setActionLoading(true);
     setError(null);
+    setNotice(null);
     try {
       const res = await fetch(`/api/signing/${id}/send-completed-email`, { method: 'POST' });
       const data = await res.json().catch(() => ({}));
@@ -129,6 +132,7 @@ export default function SigneringDetailPage() {
   const generateReceipt = async () => {
     setActionLoading(true);
     setError(null);
+    setNotice(null);
     try {
       const res = await fetch(`/api/signing/${id}/generate-receipt`, { method: 'POST' });
       const data = await res.json().catch(() => ({}));
@@ -148,6 +152,7 @@ export default function SigneringDetailPage() {
   const senderSign = async () => {
     setActionLoading(true);
     setError(null);
+    setNotice(null);
     try {
       const res = await fetch(`/api/signing/${id}/sender-sign`, {
         method: 'POST',
@@ -157,6 +162,15 @@ export default function SigneringDetailPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data?.error || 'Kunne ikke signere som avsender');
+      }
+      if (data?.completedEmailError) {
+        setNotice(
+          `Dokumentet er fullført, men automatisk kvittering på e-post feilet: ${String(data.completedEmailError)}`,
+        );
+      } else if (data?.completedEmailSent) {
+        setNotice('Dokumentet er fullført og kvittering er sendt automatisk på e-post.');
+      } else {
+        setNotice('Dokumentet er fullført.');
       }
       await fetchRequest();
     } catch (err: any) {
@@ -238,6 +252,13 @@ export default function SigneringDetailPage() {
             <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-700 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 mt-0.5" />
               <span>{error}</span>
+            </div>
+          )}
+
+          {notice && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-800 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 mt-0.5" />
+              <span>{notice}</span>
             </div>
           )}
 
