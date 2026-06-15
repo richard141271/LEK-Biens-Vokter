@@ -52,6 +52,14 @@ export const TOOLBOX_TOOLS: ToolboxTool[] = [
     defaultEnabled: true,
   },
   {
+    id: 'apiary_tasks',
+    name: '📝 Bigårdsoppgaver',
+    description: 'Oversikt over åpne oppgaver per bigård.',
+    category: 'active',
+    showOnDashboard: true,
+    defaultEnabled: true,
+  },
+  {
     id: 'voice_inspection_beta',
     name: '🎤 Stemmeinspeksjon (Beta)',
     description: 'Stemmefunksjoner og forbedringer av tale under inspeksjon.',
@@ -145,4 +153,3 @@ export function getToolById(toolId: string) {
 export function getDefaultToolEnabled(toolId: string) {
   return getToolById(toolId)?.defaultEnabled ?? false;
 }
-

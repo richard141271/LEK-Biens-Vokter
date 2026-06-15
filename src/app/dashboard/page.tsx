@@ -10,7 +10,7 @@ import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, 
 import dynamic from 'next/dynamic';
 import WeatherWidget from '@/components/WeatherWidget';
 import BeekeeperAlertsPoller from './components/BeekeeperAlertsPoller';
-import { getDefaultToolEnabled } from '@/lib/toolbox';
+import { TOOLBOX_TOOLS, getDefaultToolEnabled } from '@/lib/toolbox';
 
 const SicknessRegistrationModal = dynamic(() => import('@/components/SicknessRegistrationModal'), { ssr: false });
 const InspectionModal = dynamic(() => import('@/components/InspectionModal'), { ssr: false });
@@ -90,7 +90,7 @@ export default function DashboardPage() {
     if (!currentUserId) return;
 
     let cancelled = false;
-    const load = async () => {
+    const loadToolState = async () => {
       try {
         const { data, error } = await supabase
           .from('user_tools')
@@ -99,7 +99,7 @@ export default function DashboardPage() {
 
         if (error) {
           const message = String(error.message || '').toLowerCase();
-          if (message.includes('does not exist') || message.includes('relation') || message.includes('user_tools')) {
+          if (message.includes('does not exist') && (message.includes('relation') || message.includes('user_tools'))) {
             return;
           }
           return;
@@ -117,12 +117,23 @@ export default function DashboardPage() {
       }
     };
 
-    void load();
+    const refresh = () => {
+      void loadToolState();
+    };
+
+    refresh();
+
+    window.addEventListener('focus', refresh);
+    window.addEventListener('toolbox-changed', refresh as EventListener);
 
     return () => {
       cancelled = true;
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('toolbox-changed', refresh as EventListener);
     };
   }, [currentUserId, supabase]);
+
+  const pinnedExtraTools = TOOLBOX_TOOLS.filter((t) => t.category === 'extra' && isToolEnabled(t.id));
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1244,6 +1255,7 @@ export default function DashboardPage() {
               </Link>
           </div>
 
+          {isToolEnabled('apiary_tasks') && (
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="font-black text-gray-900 leading-tight">📝 Bigårdsoppgaver</div>
@@ -1276,9 +1288,33 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+          )}
           
           {/* Weather Widget */}
           <WeatherWidget />
+
+          {pinnedExtraTools.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-black text-gray-900 leading-tight">🧰 Verktøy</div>
+                <Link href="/settings#toolbox" className="text-xs font-bold text-honey-700 hover:underline">
+                  Verktøykasse
+                </Link>
+              </div>
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                {pinnedExtraTools.map((tool) => (
+                  <Link
+                    key={tool.id}
+                    href={`/settings?tool=${encodeURIComponent(tool.id)}#toolbox`}
+                    className="block rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors p-3"
+                  >
+                    <div className="font-bold text-sm text-gray-900">{tool.name}</div>
+                    <div className="text-[11px] text-gray-600 mt-0.5">{tool.description}</div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           <Link href="/feedback" className="block">
             <div className="rounded-2xl p-4 shadow-sm border border-indigo-100 bg-gradient-to-r from-indigo-50 via-blue-50 to-purple-50 hover:from-indigo-100 hover:via-blue-100 hover:to-purple-100 transition-colors">

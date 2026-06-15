@@ -3,7 +3,7 @@
 import { createClient, getUserWithSessionFallback, withTimeout } from '@/utils/supabase/client';
 import { ensureMemberNumber } from '@/app/actions/profile';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
@@ -62,9 +62,17 @@ export default function SettingsPage() {
   const [toolStateById, setToolStateById] = useState<Record<string, boolean>>({});
   const [toolStateLoaded, setToolStateLoaded] = useState(false);
   const [toolStateError, setToolStateError] = useState<string | null>(null);
+  const [toolUpdatingId, setToolUpdatingId] = useState<string | null>(null);
+  const [isToolboxOpen, setIsToolboxOpen] = useState(false);
+  const [expandedToolId, setExpandedToolId] = useState<string | null>(null);
+  const [toolboxApiaryTaskCards, setToolboxApiaryTaskCards] = useState<
+    Array<{ apiaryId: string; apiaryName: string; openCount: number; nextTaskTitle: string }>
+  >([]);
+  const [toolboxApiaryTasksLoading, setToolboxApiaryTasksLoading] = useState(false);
   
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     hasAttention: hasSigningAttention,
     count: signingAttentionCount,
@@ -199,7 +207,8 @@ export default function SettingsPage() {
   const updateToolEnabled = async (toolId: string, enabled: boolean) => {
     if (!currentUserId) return;
     setToolStateError(null);
-
+    const previousValue = isToolEnabled(toolId);
+    setToolUpdatingId(toolId);
     setToolStateById((prev) => ({ ...prev, [toolId]: enabled }));
 
     try {
@@ -208,10 +217,21 @@ export default function SettingsPage() {
         .upsert({ user_id: currentUserId, tool_id: toolId, enabled }, { onConflict: 'user_id,tool_id' });
 
       if (error) {
-        setToolStateError(error.message);
+        const message = String(error.message || '').toLowerCase();
+        if (message.includes('does not exist') && (message.includes('relation') || message.includes('user_tools'))) {
+          setToolStateError('Verktøykasse er ikke aktivert i databasen (mangler migrasjon).');
+        } else {
+          setToolStateError(error.message);
+        }
+        setToolStateById((prev) => ({ ...prev, [toolId]: previousValue }));
+        return;
       }
+      window.dispatchEvent(new Event('toolbox-changed'));
     } catch (e: any) {
       setToolStateError(e?.message || 'Kunne ikke oppdatere verktøy');
+      setToolStateById((prev) => ({ ...prev, [toolId]: previousValue }));
+    } finally {
+      setToolUpdatingId(null);
     }
   };
 
@@ -260,6 +280,88 @@ export default function SettingsPage() {
       cancelled = true;
     };
   }, [currentUserId, supabase]);
+
+  useEffect(() => {
+    const tool = (searchParams?.get('tool') || '').trim();
+    if (!tool) return;
+    setIsToolboxOpen(true);
+    setExpandedToolId(tool);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.location.hash !== '#toolbox') return;
+    setIsToolboxOpen(true);
+  }, []);
+
+  const fetchToolboxApiaryTasks = useCallback(async () => {
+    if (!currentUserId) return;
+    setToolboxApiaryTasksLoading(true);
+    try {
+      const { data: apiariesList } = await supabase.from('apiaries').select('id, name').eq('user_id', currentUserId);
+
+      const apiaryList = Array.isArray(apiariesList) ? apiariesList : [];
+      const apiaryIds = apiaryList.map((a: any) => String(a?.id || '')).filter(Boolean);
+
+      if (apiaryIds.length === 0) {
+        setToolboxApiaryTaskCards([]);
+        return;
+      }
+
+      const { data: tasksData } = await supabase
+        .from('apiary_tasks')
+        .select('apiary_id, title, due_kind, due_date, created_at')
+        .in('apiary_id', apiaryIds)
+        .is('completed_at', null);
+
+      const tasks = Array.isArray(tasksData) ? tasksData : [];
+      const byApiary = new Map<string, any[]>();
+      for (const t of tasks) {
+        const apiaryId = String((t as any)?.apiary_id || '').trim();
+        if (!apiaryId) continue;
+        const list = byApiary.get(apiaryId) || [];
+        list.push(t);
+        byApiary.set(apiaryId, list);
+      }
+
+      const nameById = new Map<string, string>(apiaryList.map((a: any) => [String(a?.id || ''), String(a?.name || 'Bigård')]));
+
+      const cards = Array.from(byApiary.entries())
+        .map(([apiaryId, list]) => {
+          const sorted = list.slice().sort((a, b) => {
+            const aHasDate = Boolean((a as any)?.due_date);
+            const bHasDate = Boolean((b as any)?.due_date);
+            if (aHasDate !== bHasDate) return aHasDate ? -1 : 1;
+            const aDue = (a as any)?.due_date ? new Date(String((a as any).due_date)).getTime() : 0;
+            const bDue = (b as any)?.due_date ? new Date(String((b as any).due_date)).getTime() : 0;
+            if (aDue !== bDue) return aDue - bDue;
+            const aCreated = (a as any)?.created_at ? new Date(String((a as any).created_at)).getTime() : 0;
+            const bCreated = (b as any)?.created_at ? new Date(String((b as any).created_at)).getTime() : 0;
+            return aCreated - bCreated;
+          });
+
+          return {
+            apiaryId,
+            apiaryName: nameById.get(apiaryId) || 'Bigård',
+            openCount: list.length,
+            nextTaskTitle: String((sorted[0] as any)?.title || 'Oppgave'),
+          };
+        })
+        .sort((a, b) => b.openCount - a.openCount);
+
+      setToolboxApiaryTaskCards(cards);
+    } catch {
+      setToolboxApiaryTaskCards([]);
+    } finally {
+      setToolboxApiaryTasksLoading(false);
+    }
+  }, [currentUserId, supabase]);
+
+  useEffect(() => {
+    if (!isToolboxOpen) return;
+    if (expandedToolId !== 'apiary_tasks') return;
+    void fetchToolboxApiaryTasks();
+  }, [expandedToolId, fetchToolboxApiaryTasks, isToolboxOpen]);
 
   // Auto-fetch City based on Postal Code (Bring API)
   useEffect(() => {
@@ -609,6 +711,8 @@ export default function SettingsPage() {
     router.push('/');
   };
 
+  const pinnedCount = TOOLBOX_TOOLS.filter((t) => isToolEnabled(t.id)).length;
+
   if (loading) return <div className="p-8 text-center">Laster innstillinger...</div>;
 
   return (
@@ -723,20 +827,29 @@ export default function SettingsPage() {
               </button>
 
               <div id="toolbox" className="mt-6 border-t border-gray-100 pt-4 scroll-mt-20">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <div className="font-bold text-gray-900 text-sm">🧰 Verktøykasse</div>
-                  <div className="text-[10px] font-bold text-gray-500 uppercase">
-                    {toolStateLoaded ? 'Klar' : currentUserId ? 'Laster…' : 'Ikke innlogget'}
+                <button
+                  type="button"
+                  onClick={() => setIsToolboxOpen((v) => !v)}
+                  className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-left shadow-sm flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <div className="font-bold text-gray-900 text-sm">🧰 Verktøykasse</div>
+                    <div className="text-[11px] font-bold text-gray-500">
+                      {pinnedCount} på Min Side • {toolStateLoaded ? 'Klar' : currentUserId ? 'Laster…' : 'Ikke innlogget'}
+                    </div>
                   </div>
-                </div>
+                  <ChevronRight className={`w-4 h-4 text-gray-400 ${isToolboxOpen ? 'rotate-90' : ''}`} />
+                </button>
 
-                {toolStateError && (
-                  <div className="mb-3 text-xs font-bold text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
-                    {toolStateError}
-                  </div>
-                )}
+                {isToolboxOpen && (
+                  <>
+                    {toolStateError && (
+                      <div className="mt-3 text-xs font-bold text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+                        {toolStateError}
+                      </div>
+                    )}
 
-                <div className="space-y-6">
+                    <div className="space-y-6 mt-4">
                   <div>
                     <h5 className="font-bold text-gray-900 text-sm mb-3">Aktive verktøy</h5>
                     <div className="grid grid-cols-1 gap-3">
@@ -749,48 +862,104 @@ export default function SettingsPage() {
                                 <div className="font-bold text-gray-900">{tool.name}</div>
                                 <div className="text-sm text-gray-600 mt-1">{tool.description}</div>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => void updateToolEnabled(tool.id, !enabled)}
-                                className={`shrink-0 text-[11px] font-black px-3 py-1 rounded-full border ${
-                                  enabled
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : 'bg-gray-50 text-gray-700 border-gray-200'
-                                }`}
-                              >
-                                {enabled ? 'Aktiv' : 'Av'}
-                              </button>
+                              <div className="shrink-0 flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedToolId((prev) => (prev === tool.id ? null : tool.id))}
+                                  className="text-[11px] font-black px-3 py-1 rounded-full border bg-white text-gray-700 border-gray-200"
+                                >
+                                  {expandedToolId === tool.id ? 'Lukk' : 'Åpne'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void updateToolEnabled(tool.id, !enabled)}
+                                  disabled={toolUpdatingId === tool.id}
+                                  className={`text-[11px] font-black px-3 py-1 rounded-full border disabled:opacity-50 ${
+                                    enabled
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : 'bg-gray-50 text-gray-700 border-gray-200'
+                                  }`}
+                                >
+                                  {enabled ? 'På Min Side' : 'Skjult'}
+                                </button>
+                              </div>
                             </div>
 
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {tool.id === 'health_ai' && (
-                                <button
-                                  type="button"
-                                  onClick={() => router.push('/dashboard/smittevern')}
-                                  className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1"
-                                >
-                                  Åpne <ArrowRight className="w-3 h-3" />
-                                </button>
-                              )}
-                              {tool.id === 'disease_guide' && (
-                                <button
-                                  type="button"
-                                  onClick={() => router.push('/dashboard/smittevern/veileder')}
-                                  className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1"
-                                >
-                                  Åpne <ArrowRight className="w-3 h-3" />
-                                </button>
-                              )}
-                              {(tool.id === 'aurora' || tool.id === 'varroascan' || tool.id === 'offline') && (
-                                <button
-                                  type="button"
-                                  onClick={() => router.push('/dashboard')}
-                                  className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1"
-                                >
-                                  Åpne på Min Side <ArrowRight className="w-3 h-3" />
-                                </button>
-                              )}
-                            </div>
+                            {expandedToolId === tool.id && (
+                              <div className="mt-4 flex flex-wrap gap-2">
+                                {tool.id === 'health_ai' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => router.push('/dashboard/smittevern')}
+                                    className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1"
+                                  >
+                                    Åpne <ArrowRight className="w-3 h-3" />
+                                  </button>
+                                )}
+                                {tool.id === 'disease_guide' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => router.push('/dashboard/smittevern/veileder')}
+                                    className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1"
+                                  >
+                                    Åpne <ArrowRight className="w-3 h-3" />
+                                  </button>
+                                )}
+                                {(tool.id === 'aurora' ||
+                                  tool.id === 'varroascan' ||
+                                  tool.id === 'offline' ||
+                                  tool.id === 'apiary_tasks') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => router.push('/dashboard')}
+                                    className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1"
+                                  >
+                                    Åpne på Min Side <ArrowRight className="w-3 h-3" />
+                                  </button>
+                                )}
+                                {tool.id === 'apiary_tasks' && (
+                                  <div className="w-full mt-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div className="text-xs font-bold text-gray-700">Åpne oppgaver</div>
+                                      <button
+                                        type="button"
+                                        onClick={() => void fetchToolboxApiaryTasks()}
+                                        disabled={toolboxApiaryTasksLoading}
+                                        className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                                      >
+                                        {toolboxApiaryTasksLoading ? 'Oppdaterer…' : 'Oppdater'}
+                                      </button>
+                                    </div>
+                                    {toolboxApiaryTaskCards.length === 0 ? (
+                                      <div className="text-xs text-gray-500 mt-2">Ingen åpne oppgaver.</div>
+                                    ) : (
+                                      <div className="mt-3 space-y-2">
+                                        {toolboxApiaryTaskCards.slice(0, 6).map((c) => (
+                                          <button
+                                            key={c.apiaryId}
+                                            type="button"
+                                            onClick={() => router.push(`/apiaries/${c.apiaryId}`)}
+                                            className="w-full text-left rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors p-3"
+                                          >
+                                            <div className="flex items-start justify-between gap-3">
+                                              <div className="min-w-0">
+                                                <div className="font-bold text-sm text-gray-900 truncate">{c.apiaryName}</div>
+                                                <div className="text-[11px] text-gray-700 mt-0.5 truncate">
+                                                  Neste: {c.nextTaskTitle}
+                                                </div>
+                                              </div>
+                                              <div className="shrink-0 px-2 py-1 rounded-lg bg-honey-50 border border-honey-100 text-honey-800 font-black text-xs">
+                                                {c.openCount}
+                                              </div>
+                                            </div>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -811,22 +980,30 @@ export default function SettingsPage() {
                                 <div className="font-bold text-gray-900">{tool.name}</div>
                                 <div className="text-sm text-gray-600 mt-1">{tool.description}</div>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => void updateToolEnabled(tool.id, !enabled)}
-                                className={`shrink-0 text-[11px] font-black px-3 py-1 rounded-full border ${
-                                  enabled
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : 'bg-gray-50 text-gray-700 border-gray-200'
-                                }`}
-                              >
-                                {enabled ? 'Aktiv' : 'Av'}
-                              </button>
+                              <div className="shrink-0 flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedToolId((prev) => (prev === tool.id ? null : tool.id))}
+                                  className="text-[11px] font-black px-3 py-1 rounded-full border bg-white text-gray-700 border-gray-200"
+                                >
+                                  {expandedToolId === tool.id ? 'Lukk' : 'Åpne'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void updateToolEnabled(tool.id, !enabled)}
+                                  disabled={toolUpdatingId === tool.id}
+                                  className={`text-[11px] font-black px-3 py-1 rounded-full border disabled:opacity-50 ${
+                                    enabled
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : 'bg-gray-50 text-gray-700 border-gray-200'
+                                  }`}
+                                >
+                                  {enabled ? 'På Min Side' : 'Skjult'}
+                                </button>
+                              </div>
                             </div>
 
-                            {!enabled ? (
-                              <div className="text-xs text-gray-500 mt-3">Aktiver for å vise og bruke verktøyet.</div>
-                            ) : (
+                            {expandedToolId === tool.id && (
                               <>
                                 <p className="text-sm text-gray-600 mt-3 mb-4">
                                   Last ned og skriv ut profesjonelle etiketter til din honning. Designet passer til standard
@@ -887,22 +1064,30 @@ export default function SettingsPage() {
                                 <div className="font-bold text-gray-900">{tool.name}</div>
                                 <div className="text-sm text-gray-600 mt-1">{tool.description}</div>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => void updateToolEnabled(tool.id, !enabled)}
-                                className={`shrink-0 text-[11px] font-black px-3 py-1 rounded-full border ${
-                                  enabled
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : 'bg-gray-50 text-gray-700 border-gray-200'
-                                }`}
-                              >
-                                {enabled ? 'Aktiv' : 'Av'}
-                              </button>
+                              <div className="shrink-0 flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedToolId((prev) => (prev === tool.id ? null : tool.id))}
+                                  className="text-[11px] font-black px-3 py-1 rounded-full border bg-white text-gray-700 border-gray-200"
+                                >
+                                  {expandedToolId === tool.id ? 'Lukk' : 'Åpne'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void updateToolEnabled(tool.id, !enabled)}
+                                  disabled={toolUpdatingId === tool.id}
+                                  className={`text-[11px] font-black px-3 py-1 rounded-full border disabled:opacity-50 ${
+                                    enabled
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : 'bg-gray-50 text-gray-700 border-gray-200'
+                                  }`}
+                                >
+                                  {enabled ? 'På Min Side' : 'Skjult'}
+                                </button>
+                              </div>
                             </div>
 
-                            {!enabled ? (
-                              <div className="text-xs text-gray-500 mt-3">Aktiver for å se utskrifter og ressurser.</div>
-                            ) : (
+                            {expandedToolId === tool.id && (
                               <div className="mt-4 space-y-3">
                                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                                   <div className="flex items-center gap-3">
@@ -938,22 +1123,30 @@ export default function SettingsPage() {
                                 <div className="font-bold text-gray-900">{tool.name}</div>
                                 <div className="text-sm text-gray-600 mt-1">{tool.description}</div>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => void updateToolEnabled(tool.id, !enabled)}
-                                className={`shrink-0 text-[11px] font-black px-3 py-1 rounded-full border ${
-                                  enabled
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : 'bg-gray-50 text-gray-700 border-gray-200'
-                                }`}
-                              >
-                                {enabled ? 'Aktiv' : 'Av'}
-                              </button>
+                              <div className="shrink-0 flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedToolId((prev) => (prev === tool.id ? null : tool.id))}
+                                  className="text-[11px] font-black px-3 py-1 rounded-full border bg-white text-gray-700 border-gray-200"
+                                >
+                                  {expandedToolId === tool.id ? 'Lukk' : 'Åpne'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void updateToolEnabled(tool.id, !enabled)}
+                                  disabled={toolUpdatingId === tool.id}
+                                  className={`text-[11px] font-black px-3 py-1 rounded-full border disabled:opacity-50 ${
+                                    enabled
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : 'bg-gray-50 text-gray-700 border-gray-200'
+                                  }`}
+                                >
+                                  {enabled ? 'På Min Side' : 'Skjult'}
+                                </button>
+                              </div>
                             </div>
 
-                            {!enabled ? (
-                              <div className="text-xs text-gray-500 mt-3">Aktiver for å åpne menyen for stamkort og QR.</div>
-                            ) : (
+                            {expandedToolId === tool.id && (
                               <div className="mt-3">
                                 <button
                                   type="button"
@@ -979,22 +1172,30 @@ export default function SettingsPage() {
                                 <div className="font-bold text-gray-900">{tool.name}</div>
                                 <div className="text-sm text-gray-600 mt-1">{tool.description}</div>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => void updateToolEnabled(tool.id, !enabled)}
-                                className={`shrink-0 text-[11px] font-black px-3 py-1 rounded-full border ${
-                                  enabled
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : 'bg-gray-50 text-gray-700 border-gray-200'
-                                }`}
-                              >
-                                {enabled ? 'Aktiv' : 'Av'}
-                              </button>
+                              <div className="shrink-0 flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedToolId((prev) => (prev === tool.id ? null : tool.id))}
+                                  className="text-[11px] font-black px-3 py-1 rounded-full border bg-white text-gray-700 border-gray-200"
+                                >
+                                  {expandedToolId === tool.id ? 'Lukk' : 'Åpne'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void updateToolEnabled(tool.id, !enabled)}
+                                  disabled={toolUpdatingId === tool.id}
+                                  className={`text-[11px] font-black px-3 py-1 rounded-full border disabled:opacity-50 ${
+                                    enabled
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : 'bg-gray-50 text-gray-700 border-gray-200'
+                                  }`}
+                                >
+                                  {enabled ? 'På Min Side' : 'Skjult'}
+                                </button>
+                              </div>
                             </div>
 
-                            {!enabled ? (
-                              <div className="text-xs text-gray-500 mt-3">Aktiver for å bruke ordtrening.</div>
-                            ) : (
+                            {expandedToolId === tool.id && (
                               <button
                                 onClick={() => setShowWordTraining(true)}
                                 className="w-full bg-black text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 mt-4"
@@ -1018,22 +1219,30 @@ export default function SettingsPage() {
                                 <div className="font-bold text-gray-900">{tool.name}</div>
                                 <div className="text-sm text-gray-600 mt-1">{tool.description}</div>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => void updateToolEnabled(tool.id, !enabled)}
-                                className={`shrink-0 text-[11px] font-black px-3 py-1 rounded-full border ${
-                                  enabled
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : 'bg-gray-50 text-gray-700 border-gray-200'
-                                }`}
-                              >
-                                {enabled ? 'Aktiv' : 'Av'}
-                              </button>
+                              <div className="shrink-0 flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedToolId((prev) => (prev === tool.id ? null : tool.id))}
+                                  className="text-[11px] font-black px-3 py-1 rounded-full border bg-white text-gray-700 border-gray-200"
+                                >
+                                  {expandedToolId === tool.id ? 'Lukk' : 'Åpne'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void updateToolEnabled(tool.id, !enabled)}
+                                  disabled={toolUpdatingId === tool.id}
+                                  className={`text-[11px] font-black px-3 py-1 rounded-full border disabled:opacity-50 ${
+                                    enabled
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : 'bg-gray-50 text-gray-700 border-gray-200'
+                                  }`}
+                                >
+                                  {enabled ? 'På Min Side' : 'Skjult'}
+                                </button>
+                              </div>
                             </div>
 
-                            {!enabled ? (
-                              <div className="text-xs text-gray-500 mt-3">Aktiver for å justere stemmefunksjoner.</div>
-                            ) : (
+                            {expandedToolId === tool.id && (
                               <>
                                 <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
                                   <div>
@@ -1109,6 +1318,8 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 </div>
+                  </>
+                )}
               </div>
               
               {/* Mine Dokumenter */}
