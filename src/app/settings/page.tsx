@@ -8,12 +8,11 @@ import Image from 'next/image';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import { generateHiveLabelsPDF } from '@/utils/hive-labels-pdf';
-import { LogOut, User, ShieldCheck, AlertCircle, Database, ArrowRight, Users, Wallet, ChevronRight, Archive, Briefcase, Printer, Link as LinkIcon, X, CreditCard, List, QrCode, FileText, ClipboardCheck, ChevronDown, Mic, Check } from 'lucide-react';
+import { LogOut, User, ShieldCheck, ArrowRight, Users, ChevronRight, Archive, Briefcase, Printer, Link as LinkIcon, X, CreditCard, List, QrCode, FileText, ClipboardCheck, Mic, Check } from 'lucide-react';
 import WordTraining from '@/components/WordTraining';
 import { getAutoCorrectEnabled, setAutoCorrectEnabled, getShareEnabled, setShareEnabled } from '@/utils/voice-diagnostics';
 import { useSigningAttention } from '@/hooks/useSigningAttention';
-
-const RENTAL_CONTRACT_TEXT = ``;
+import { TOOLBOX_TOOLS, getDefaultToolEnabled } from '@/lib/toolbox';
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -58,6 +57,11 @@ export default function SettingsPage() {
     wants_to_be_beekeeper: false,
     role: 'beekeeper' // Default
   });
+
+  const [currentUserId, setCurrentUserId] = useState('');
+  const [toolStateById, setToolStateById] = useState<Record<string, boolean>>({});
+  const [toolStateLoaded, setToolStateLoaded] = useState(false);
+  const [toolStateError, setToolStateError] = useState<string | null>(null);
   
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -96,6 +100,7 @@ export default function SettingsPage() {
         if (!hasOfflineProfile) router.push('/login');
         return;
       }
+      setCurrentUserId(user.id);
 
       try {
         if (navigator.onLine) {
@@ -183,6 +188,78 @@ export default function SettingsPage() {
       window.clearTimeout(timeoutId);
     };
   }, [fetchProfile]);
+
+  const isToolEnabled = (toolId: string) => {
+    if (Object.prototype.hasOwnProperty.call(toolStateById, toolId)) {
+      return Boolean(toolStateById[toolId]);
+    }
+    return getDefaultToolEnabled(toolId);
+  };
+
+  const updateToolEnabled = async (toolId: string, enabled: boolean) => {
+    if (!currentUserId) return;
+    setToolStateError(null);
+
+    setToolStateById((prev) => ({ ...prev, [toolId]: enabled }));
+
+    try {
+      const { error } = await supabase
+        .from('user_tools')
+        .upsert({ user_id: currentUserId, tool_id: toolId, enabled }, { onConflict: 'user_id,tool_id' });
+
+      if (error) {
+        setToolStateError(error.message);
+      }
+    } catch (e: any) {
+      setToolStateError(e?.message || 'Kunne ikke oppdatere verktøy');
+    }
+  };
+
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    let cancelled = false;
+    const load = async () => {
+      setToolStateError(null);
+      try {
+        const { data, error } = await supabase
+          .from('user_tools')
+          .select('tool_id, enabled')
+          .eq('user_id', currentUserId);
+
+        if (error) {
+          const message = String(error.message || '').toLowerCase();
+          if (message.includes('does not exist') && (message.includes('relation') || message.includes('user_tools'))) {
+            if (!cancelled) setToolStateLoaded(true);
+            return;
+          }
+          if (!cancelled) {
+            setToolStateError(error.message);
+            setToolStateLoaded(true);
+          }
+          return;
+        }
+
+        const nextMap: Record<string, boolean> = {};
+        (data || []).forEach((row: any) => {
+          if (row?.tool_id) nextMap[String(row.tool_id)] = Boolean(row.enabled);
+        });
+
+        if (!cancelled) {
+          setToolStateById(nextMap);
+          setToolStateLoaded(true);
+        }
+      } catch {
+        if (!cancelled) setToolStateLoaded(true);
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUserId, supabase]);
 
   // Auto-fetch City based on Postal Code (Bring API)
   useEffect(() => {
@@ -638,168 +715,401 @@ export default function SettingsPage() {
                 )}
               </div>
 
-              {/* ETIKETTER & UTSKRIFT */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 text-left shadow-sm">
-                  <div className="flex items-center gap-2 mb-3 border-b border-gray-100 pb-2">
-                      <Printer className="w-5 h-5 text-honey-600" />
-                      <h4 className="font-bold text-gray-900">Etiketter & Utskrift</h4>
-                  </div>
-                  
-                  <p className="text-sm text-gray-600 mb-4">
-                    Last ned og skriv ut profesjonelle etiketter til din honning. 
-                    Designet passer til standard etikettark (70x37mm, 24 per ark).
-                  </p>
-                  
-                  <a 
-                    href="https://www.google.com/search?q=etiketter+70x37mm+a4" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-xs text-blue-600 hover:underline mb-6"
-                  >
-                    <LinkIcon className="w-3 h-3" />
-                    Finn etikettpapir (Google Søk)
-                  </a>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Standard Etikett */}
-                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col justify-between">
-                          <div>
-                            <h5 className="font-bold text-gray-800 text-sm mb-1">Standard LEK-Etikett</h5>
-                            <p className="text-xs text-gray-500 mb-3">Med ditt navn og medlemsinfo.</p>
-                          </div>
-                          <button 
-                            onClick={() => generateLabelPDF('standard')}
-                            className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors"
-                          >
-                            Last ned PDF
-                          </button>
-                      </div>
-
-                      {/* Barne Etikett */}
-                      <div className="bg-honey-50 p-4 rounded-lg border border-honey-100 flex flex-col justify-between">
-                          <div>
-                              <h5 className="font-bold text-honey-800 text-sm mb-1">Barnas Etikett</h5>
-                            <p className="text-xs text-honey-600 mb-3">&quot;Honning fra min egen hage&quot;</p>
-                          </div>
-                          <button 
-                            onClick={() => setShowLabelModal(true)}
-                            className="w-full bg-honey-500 text-white font-bold py-2 rounded-lg text-sm hover:bg-honey-600 transition-colors"
-                          >
-                            Tilpass & Skriv ut
-                          </button>
-                      </div>
-                  </div>
-
-                  {/* Driftsmateriell Links */}
-                  <div className="mt-6 border-t border-gray-100 pt-4">
-                      <h5 className="font-bold text-gray-900 text-sm mb-3">Driftsmateriell</h5>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                          <div className="flex items-center gap-3">
-                             <div className="bg-white p-2 rounded-full border border-gray-200">
-                               <Printer className="w-4 h-4 text-gray-600" />
-                             </div>
-                             <div>
-                                <span className="font-bold text-gray-800 text-sm block">Bigårdsskilt</span>
-                                <span className="text-xs text-gray-500">Skriv ut varselskilt for dine bigårder</span>
-                             </div>
-                          </div>
-                          <button 
-                            onClick={() => router.push('/apiaries')} 
-                            className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1"
-                          >
-                            Gå til utskrift <ArrowRight className="w-3 h-3" />
-                          </button>
-                        </div>
-                        
-                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                          <div className="flex items-center gap-3">
-                             <div className="bg-white p-2 rounded-full border border-gray-200">
-                               <Printer className="w-4 h-4 text-gray-600" />
-                             </div>
-                             <div>
-                                <span className="font-bold text-gray-800 text-sm block">Bikubekort & QR</span>
-                                <span className="text-xs text-gray-500">Stamkort og merking (for alle kuber)</span>
-                             </div>
-                          </div>
-                          <button 
-                            onClick={() => setIsPrintModalOpen(true)}
-                            className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1"
-                          >
-                            Åpne meny <ArrowRight className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                  </div>
-              </div>
-
-              {/* ORDTRENING */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 text-left shadow-sm">
-                  <div className="flex items-center gap-2 mb-3 border-b border-gray-100 pb-2">
-                      <Mic className="w-5 h-5 text-honey-600" />
-                      <h4 className="font-bold text-gray-900">Stemme • ORDTRENING</h4>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Tren stemmegjenkjenningen med ord og setninger fra inspeksjonen.
-                  </p>
-                  <button
-                    onClick={() => setShowWordTraining(true)}
-                    className="w-full bg-black text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Mic className="w-4 h-4" />
-                    Start ORDTRENING
-                  </button>
-                  <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-bold text-gray-900">Forbedre tale (beta)</div>
-                      <div className="text-xs text-gray-500">
-                        Sammenligner i bakgrunnen og korrigerer forsiktig under ekte inspeksjoner.
-                      </div>
-                    </div>
-                    <label className="inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={autoCorrect}
-                        onChange={(e) => {
-                          const v = e.target.checked;
-                          setAutoCorrect(v);
-                          setAutoCorrectEnabled(v);
-                        }}
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:h-5 after:w-5 after:left-[2px] after:top-[2px] after:bg-white after:rounded-full after:transition-all peer-checked:bg-honey-500 relative"></div>
-                    </label>
-                  </div>
-
-              <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-bold text-gray-900">Del anonym feil til fellesbank</div>
-                  <div className="text-xs text-gray-500">
-                    Lagrer misgjenkjenninger i en felles database for forbedring. Kun innloggede brukere.
-                  </div>
-                </div>
-                <label className="inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={shareVoice}
-                    onChange={(e) => {
-                      const v = e.target.checked;
-                      setShareVoice(v);
-                      setShareEnabled(v);
-                    }}
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:h-5 after:w-5 after:left-[2px] after:top-[2px] after:bg-white after:rounded-full after:transition-all peer-checked:bg-honey-500 relative"></div>
-                </label>
-              </div>
-              </div>
-
-              <button 
+              <button
                 onClick={() => setIsEditing(true)}
                 className="w-full bg-black text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition-colors"
               >
                 Endre/oppdatere profil
               </button>
+
+              <div id="toolbox" className="mt-6 border-t border-gray-100 pt-4 scroll-mt-20">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div className="font-bold text-gray-900 text-sm">🧰 Verktøykasse</div>
+                  <div className="text-[10px] font-bold text-gray-500 uppercase">
+                    {toolStateLoaded ? 'Klar' : currentUserId ? 'Laster…' : 'Ikke innlogget'}
+                  </div>
+                </div>
+
+                {toolStateError && (
+                  <div className="mb-3 text-xs font-bold text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+                    {toolStateError}
+                  </div>
+                )}
+
+                <div className="space-y-6">
+                  <div>
+                    <h5 className="font-bold text-gray-900 text-sm mb-3">Aktive verktøy</h5>
+                    <div className="grid grid-cols-1 gap-3">
+                      {TOOLBOX_TOOLS.filter((t) => t.category === 'active').map((tool) => {
+                        const enabled = isToolEnabled(tool.id);
+                        return (
+                          <div key={tool.id} className="bg-white border border-gray-200 rounded-xl p-4 text-left shadow-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="font-bold text-gray-900">{tool.name}</div>
+                                <div className="text-sm text-gray-600 mt-1">{tool.description}</div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => void updateToolEnabled(tool.id, !enabled)}
+                                className={`shrink-0 text-[11px] font-black px-3 py-1 rounded-full border ${
+                                  enabled
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-gray-50 text-gray-700 border-gray-200'
+                                }`}
+                              >
+                                {enabled ? 'Aktiv' : 'Av'}
+                              </button>
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {tool.id === 'health_ai' && (
+                                <button
+                                  type="button"
+                                  onClick={() => router.push('/dashboard/smittevern')}
+                                  className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1"
+                                >
+                                  Åpne <ArrowRight className="w-3 h-3" />
+                                </button>
+                              )}
+                              {tool.id === 'disease_guide' && (
+                                <button
+                                  type="button"
+                                  onClick={() => router.push('/dashboard/smittevern/veileder')}
+                                  className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1"
+                                >
+                                  Åpne <ArrowRight className="w-3 h-3" />
+                                </button>
+                              )}
+                              {(tool.id === 'aurora' || tool.id === 'varroascan' || tool.id === 'offline') && (
+                                <button
+                                  type="button"
+                                  onClick={() => router.push('/dashboard')}
+                                  className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1"
+                                >
+                                  Åpne på Min Side <ArrowRight className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h5 className="font-bold text-gray-900 text-sm mb-3">Ekstra verktøy</h5>
+                    <div className="grid grid-cols-1 gap-3">
+                      {(() => {
+                        const tool = TOOLBOX_TOOLS.find((t) => t.id === 'labels_print');
+                        if (!tool) return null;
+                        const enabled = isToolEnabled(tool.id);
+                        return (
+                          <div className="bg-white border border-gray-200 rounded-xl p-4 text-left shadow-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="font-bold text-gray-900">{tool.name}</div>
+                                <div className="text-sm text-gray-600 mt-1">{tool.description}</div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => void updateToolEnabled(tool.id, !enabled)}
+                                className={`shrink-0 text-[11px] font-black px-3 py-1 rounded-full border ${
+                                  enabled
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-gray-50 text-gray-700 border-gray-200'
+                                }`}
+                              >
+                                {enabled ? 'Aktiv' : 'Av'}
+                              </button>
+                            </div>
+
+                            {!enabled ? (
+                              <div className="text-xs text-gray-500 mt-3">Aktiver for å vise og bruke verktøyet.</div>
+                            ) : (
+                              <>
+                                <p className="text-sm text-gray-600 mt-3 mb-4">
+                                  Last ned og skriv ut profesjonelle etiketter til din honning. Designet passer til standard
+                                  etikettark (70x37mm, 24 per ark).
+                                </p>
+
+                                <a
+                                  href="https://www.google.com/search?q=etiketter+70x37mm+a4"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 text-xs text-blue-600 hover:underline mb-6"
+                                >
+                                  <LinkIcon className="w-3 h-3" />
+                                  Finn etikettpapir (Google Søk)
+                                </a>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-col justify-between">
+                                    <div>
+                                      <h5 className="font-bold text-gray-800 text-sm mb-1">Standard LEK-Etikett</h5>
+                                      <p className="text-xs text-gray-500 mb-3">Med ditt navn og medlemsinfo.</p>
+                                    </div>
+                                    <button
+                                      onClick={() => generateLabelPDF('standard')}
+                                      className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors"
+                                    >
+                                      Last ned PDF
+                                    </button>
+                                  </div>
+
+                                  <div className="bg-honey-50 p-4 rounded-lg border border-honey-100 flex flex-col justify-between">
+                                    <div>
+                                      <h5 className="font-bold text-honey-800 text-sm mb-1">Barnas Etikett</h5>
+                                      <p className="text-xs text-honey-600 mb-3">&quot;Honning fra min egen hage&quot;</p>
+                                    </div>
+                                    <button
+                                      onClick={() => setShowLabelModal(true)}
+                                      className="w-full bg-honey-500 text-white font-bold py-2 rounded-lg text-sm hover:bg-honey-600 transition-colors"
+                                    >
+                                      Tilpass & Skriv ut
+                                    </button>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {(() => {
+                        const tool = TOOLBOX_TOOLS.find((t) => t.id === 'operations_material');
+                        if (!tool) return null;
+                        const enabled = isToolEnabled(tool.id);
+                        return (
+                          <div className="bg-white border border-gray-200 rounded-xl p-4 text-left shadow-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="font-bold text-gray-900">{tool.name}</div>
+                                <div className="text-sm text-gray-600 mt-1">{tool.description}</div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => void updateToolEnabled(tool.id, !enabled)}
+                                className={`shrink-0 text-[11px] font-black px-3 py-1 rounded-full border ${
+                                  enabled
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-gray-50 text-gray-700 border-gray-200'
+                                }`}
+                              >
+                                {enabled ? 'Aktiv' : 'Av'}
+                              </button>
+                            </div>
+
+                            {!enabled ? (
+                              <div className="text-xs text-gray-500 mt-3">Aktiver for å se utskrifter og ressurser.</div>
+                            ) : (
+                              <div className="mt-4 space-y-3">
+                                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                  <div className="flex items-center gap-3">
+                                    <div className="bg-white p-2 rounded-full border border-gray-200">
+                                      <Printer className="w-4 h-4 text-gray-600" />
+                                    </div>
+                                    <div>
+                                      <span className="font-bold text-gray-800 text-sm block">Bigårdsskilt</span>
+                                      <span className="text-xs text-gray-500">Skriv ut varselskilt for dine bigårder</span>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => router.push('/apiaries')}
+                                    className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1"
+                                  >
+                                    Gå til utskrift <ArrowRight className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {(() => {
+                        const tool = TOOLBOX_TOOLS.find((t) => t.id === 'hive_cards_qr');
+                        if (!tool) return null;
+                        const enabled = isToolEnabled(tool.id);
+                        return (
+                          <div className="bg-white border border-gray-200 rounded-xl p-4 text-left shadow-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="font-bold text-gray-900">{tool.name}</div>
+                                <div className="text-sm text-gray-600 mt-1">{tool.description}</div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => void updateToolEnabled(tool.id, !enabled)}
+                                className={`shrink-0 text-[11px] font-black px-3 py-1 rounded-full border ${
+                                  enabled
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-gray-50 text-gray-700 border-gray-200'
+                                }`}
+                              >
+                                {enabled ? 'Aktiv' : 'Av'}
+                              </button>
+                            </div>
+
+                            {!enabled ? (
+                              <div className="text-xs text-gray-500 mt-3">Aktiver for å åpne menyen for stamkort og QR.</div>
+                            ) : (
+                              <div className="mt-3">
+                                <button
+                                  type="button"
+                                  onClick={() => setIsPrintModalOpen(true)}
+                                  className="text-xs bg-white border border-gray-300 px-3 py-2 rounded-lg font-bold text-gray-700 hover:bg-gray-100 flex items-center gap-1"
+                                >
+                                  Åpne meny <ArrowRight className="w-3 h-3" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {(() => {
+                        const tool = TOOLBOX_TOOLS.find((t) => t.id === 'word_training');
+                        if (!tool) return null;
+                        const enabled = isToolEnabled(tool.id);
+                        return (
+                          <div className="bg-white border border-gray-200 rounded-xl p-4 text-left shadow-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="font-bold text-gray-900">{tool.name}</div>
+                                <div className="text-sm text-gray-600 mt-1">{tool.description}</div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => void updateToolEnabled(tool.id, !enabled)}
+                                className={`shrink-0 text-[11px] font-black px-3 py-1 rounded-full border ${
+                                  enabled
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-gray-50 text-gray-700 border-gray-200'
+                                }`}
+                              >
+                                {enabled ? 'Aktiv' : 'Av'}
+                              </button>
+                            </div>
+
+                            {!enabled ? (
+                              <div className="text-xs text-gray-500 mt-3">Aktiver for å bruke ordtrening.</div>
+                            ) : (
+                              <button
+                                onClick={() => setShowWordTraining(true)}
+                                className="w-full bg-black text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 mt-4"
+                              >
+                                <Mic className="w-4 h-4" />
+                                Start ORDTRENING
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {(() => {
+                        const tool = TOOLBOX_TOOLS.find((t) => t.id === 'voice_inspection_beta');
+                        if (!tool) return null;
+                        const enabled = isToolEnabled(tool.id);
+                        return (
+                          <div className="bg-white border border-gray-200 rounded-xl p-4 text-left shadow-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="font-bold text-gray-900">{tool.name}</div>
+                                <div className="text-sm text-gray-600 mt-1">{tool.description}</div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => void updateToolEnabled(tool.id, !enabled)}
+                                className={`shrink-0 text-[11px] font-black px-3 py-1 rounded-full border ${
+                                  enabled
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-gray-50 text-gray-700 border-gray-200'
+                                }`}
+                              >
+                                {enabled ? 'Aktiv' : 'Av'}
+                              </button>
+                            </div>
+
+                            {!enabled ? (
+                              <div className="text-xs text-gray-500 mt-3">Aktiver for å justere stemmefunksjoner.</div>
+                            ) : (
+                              <>
+                                <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
+                                  <div>
+                                    <div className="text-sm font-bold text-gray-900">Forbedre tale (beta)</div>
+                                    <div className="text-xs text-gray-500">
+                                      Sammenligner i bakgrunnen og korrigerer forsiktig under ekte inspeksjoner.
+                                    </div>
+                                  </div>
+                                  <label className="inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      className="sr-only peer"
+                                      checked={autoCorrect}
+                                      onChange={(e) => {
+                                        const v = e.target.checked;
+                                        setAutoCorrect(v);
+                                        setAutoCorrectEnabled(v);
+                                      }}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:h-5 after:w-5 after:left-[2px] after:top-[2px] after:bg-white after:rounded-full after:transition-all peer-checked:bg-honey-500 relative"></div>
+                                  </label>
+                                </div>
+
+                                <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between">
+                                  <div>
+                                    <div className="text-sm font-bold text-gray-900">Del anonym feil til fellesbank</div>
+                                    <div className="text-xs text-gray-500">
+                                      Lagrer misgjenkjenninger i en felles database for forbedring. Kun innloggede brukere.
+                                    </div>
+                                  </div>
+                                  <label className="inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      className="sr-only peer"
+                                      checked={shareVoice}
+                                      onChange={(e) => {
+                                        const v = e.target.checked;
+                                        setShareVoice(v);
+                                        setShareEnabled(v);
+                                      }}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:h-5 after:w-5 after:left-[2px] after:top-[2px] after:bg-white after:rounded-full after:transition-all peer-checked:bg-honey-500 relative"></div>
+                                  </label>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h5 className="font-bold text-gray-900 text-sm mb-3">Premium</h5>
+                    <div className="grid grid-cols-1 gap-3">
+                      {TOOLBOX_TOOLS.filter((t) => t.category === 'premium').map((tool) => (
+                        <div key={tool.id} className="bg-white border border-gray-200 rounded-xl p-4 text-left shadow-sm opacity-80">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="font-bold text-gray-900">{tool.name}</div>
+                              <div className="text-sm text-gray-600 mt-1">{tool.description}</div>
+                            </div>
+                            <button
+                              type="button"
+                              disabled
+                              className="shrink-0 text-[11px] font-black px-3 py-1 rounded-full border bg-gray-50 text-gray-700 border-gray-200"
+                            >
+                              Låst
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
               
               {/* Mine Dokumenter */}
               <div className="mt-6 border-t border-gray-100 pt-4">

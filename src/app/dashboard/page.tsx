@@ -6,10 +6,11 @@ import { getFounderMeeting } from '@/app/actions/founder';
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert, Mail, Building, HeartHandshake, Calendar, GraduationCap, Download, MessageSquare } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert, Mail, Building, HeartHandshake, Calendar, GraduationCap, Download, MessageSquare, BookOpen } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import WeatherWidget from '@/components/WeatherWidget';
 import BeekeeperAlertsPoller from './components/BeekeeperAlertsPoller';
+import { getDefaultToolEnabled } from '@/lib/toolbox';
 
 const SicknessRegistrationModal = dynamic(() => import('@/components/SicknessRegistrationModal'), { ssr: false });
 const InspectionModal = dynamic(() => import('@/components/InspectionModal'), { ssr: false });
@@ -28,6 +29,7 @@ export default function DashboardPage() {
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [isVarroaScanLinkReady, setIsVarroaScanLinkReady] = useState(false);
   const [varroaScanHref, setVarroaScanHref] = useState('#');
+  const [toolStateById, setToolStateById] = useState<Record<string, boolean>>({});
   const [stats, setStats] = useState({
     apiaries: 0,
     hives: 0,
@@ -76,6 +78,51 @@ export default function DashboardPage() {
   const searchParams = useSearchParams();
   const isDemoParam = searchParams?.get('demo') === '1';
   const [isDemoActive, setIsDemoActive] = useState(isDemoParam);
+
+  const isToolEnabled = (toolId: string) => {
+    if (Object.prototype.hasOwnProperty.call(toolStateById, toolId)) {
+      return Boolean(toolStateById[toolId]);
+    }
+    return getDefaultToolEnabled(toolId);
+  };
+
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('user_tools')
+          .select('tool_id, enabled')
+          .eq('user_id', currentUserId);
+
+        if (error) {
+          const message = String(error.message || '').toLowerCase();
+          if (message.includes('does not exist') || message.includes('relation') || message.includes('user_tools')) {
+            return;
+          }
+          return;
+        }
+
+        const nextMap: Record<string, boolean> = {};
+        (data || []).forEach((row: any) => {
+          if (row?.tool_id) nextMap[String(row.tool_id)] = Boolean(row.enabled);
+        });
+
+        if (!cancelled) {
+          setToolStateById(nextMap);
+        }
+      } catch {
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUserId, supabase]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1257,35 +1304,39 @@ export default function DashboardPage() {
             </div>
           </Link>
 
-          <a
-            href={varroaScanHref}
-            className="block"
-            rel="noreferrer"
-            onClick={(e) => {
-              if (!isVarroaScanLinkReady) e.preventDefault();
-            }}
-          >
-            <div className="rounded-2xl p-4 shadow-sm border border-emerald-100 bg-gradient-to-r from-emerald-50 via-cyan-50 to-sky-50 hover:from-emerald-100 hover:via-cyan-100 hover:to-sky-100 transition-colors">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-xl bg-white/80 border border-emerald-100 flex items-center justify-center text-emerald-700">
-                      <Camera className="w-5 h-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-black text-gray-900 leading-tight">LEK-VarroaScan ™️</div>
-                      <div className="text-xs font-bold text-emerald-800">Send inn bilder av midd på bunnbrett til trening av KI</div>
+          {isToolEnabled('varroascan') && (
+            <a
+              href={varroaScanHref}
+              className="block"
+              rel="noreferrer"
+              onClick={(e) => {
+                if (!isVarroaScanLinkReady) e.preventDefault();
+              }}
+            >
+              <div className="rounded-2xl p-4 shadow-sm border border-emerald-100 bg-gradient-to-r from-emerald-50 via-cyan-50 to-sky-50 hover:from-emerald-100 hover:via-cyan-100 hover:to-sky-100 transition-colors">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <div className="w-9 h-9 rounded-xl bg-white/80 border border-emerald-100 flex items-center justify-center text-emerald-700">
+                        <Camera className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-black text-gray-900 leading-tight">LEK-VarroaScan ™️</div>
+                        <div className="text-xs font-bold text-emerald-800">
+                          Send inn bilder av midd på bunnbrett til trening av KI
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="shrink-0">
-                  <div className="px-4 py-2 rounded-xl bg-white text-emerald-800 font-black text-sm border border-emerald-100 shadow-sm">
-                    Åpne
+                  <div className="shrink-0">
+                    <div className="px-4 py-2 rounded-xl bg-white text-emerald-800 font-black text-sm border border-emerald-100 shadow-sm">
+                      Åpne
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </a>
+            </a>
+          )}
 
           {/* Quick Actions - Compact Grid */}
           <div className="grid grid-cols-2 gap-2">
@@ -1312,39 +1363,51 @@ export default function DashboardPage() {
               </div>
 
 
-              <Link
-                href="/dashboard/smittevern"
-                className="bg-red-50 border border-red-100 hover:bg-red-100 text-red-600 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20"
-              >
+              {isToolEnabled('health_ai') && (
+                <Link
+                  href="/dashboard/smittevern"
+                  className="bg-red-50 border border-red-100 hover:bg-red-100 text-red-600 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20"
+                >
                   <ShieldAlert className="w-5 h-5" />
                   <span className="font-bold text-[10px] text-center leading-tight">HELSE & AI</span>
-              </Link>
+                </Link>
+              )}
 
-              <button
-                type="button"
-                onClick={handleOfflineDownload}
-                disabled={isDownloading}
-                className={`border border-blue-100 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20 ${
-                  isDownloading
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white hover:border-blue-500 text-blue-700'
-                }`}
-                title="Last ned for offline"
-              >
-                {isDownloading ? (
-                  <span className="text-xs font-black">{downloadProgress}%</span>
-                ) : (
-                  <div className="relative">
-                    <Download className="w-5 h-5 text-blue-500" />
-                    <span
-                      className={`absolute -top-1 -right-1 w-2 h-2 rounded-full ${
-                        offlineReady || isServiceWorkerControlling ? 'bg-green-500' : 'bg-yellow-500'
-                      }`}
-                    ></span>
-                  </div>
-                )}
-                <span className="font-bold text-[10px] text-center leading-tight">OFFLINE</span>
-              </button>
+              {isToolEnabled('disease_guide') && (
+                <Link
+                  href="/dashboard/smittevern/veileder"
+                  className="bg-white border border-gray-200 hover:border-gray-400 text-gray-800 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20"
+                >
+                  <BookOpen className="w-5 h-5 text-gray-700" />
+                  <span className="font-bold text-[10px] text-center leading-tight">SYKDOMSVEILEDER</span>
+                </Link>
+              )}
+
+              {isToolEnabled('offline') && (
+                <button
+                  type="button"
+                  onClick={handleOfflineDownload}
+                  disabled={isDownloading}
+                  className={`border border-blue-100 p-2 rounded-xl shadow-sm flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20 ${
+                    isDownloading ? 'bg-blue-600 text-white' : 'bg-white hover:border-blue-500 text-blue-700'
+                  }`}
+                  title="Last ned for offline"
+                >
+                  {isDownloading ? (
+                    <span className="text-xs font-black">{downloadProgress}%</span>
+                  ) : (
+                    <div className="relative">
+                      <Download className="w-5 h-5 text-blue-500" />
+                      <span
+                        className={`absolute -top-1 -right-1 w-2 h-2 rounded-full ${
+                          offlineReady || isServiceWorkerControlling ? 'bg-green-500' : 'bg-yellow-500'
+                        }`}
+                      ></span>
+                    </div>
+                  )}
+                  <span className="font-bold text-[10px] text-center leading-tight">OFFLINE</span>
+                </button>
+              )}
           </div>
 
 
