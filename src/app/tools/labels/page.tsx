@@ -51,7 +51,31 @@ export default function LabelsToolPage() {
     };
   }, [router, supabase]);
 
-  const generateLabelPDF = (type: 'standard' | 'child') => {
+  const printPdf = (doc: jsPDF) => {
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.src = url;
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch {}
+      window.setTimeout(() => {
+        URL.revokeObjectURL(url);
+        iframe.remove();
+      }, 1500);
+    };
+    document.body.appendChild(iframe);
+  };
+
+  const buildLabelDoc = (type: 'standard' | 'child') => {
     const doc = new jsPDF();
     const cols = 3;
     const rows = 8;
@@ -154,7 +178,17 @@ export default function LabelsToolPage() {
       }
     }
 
-    doc.save(type === 'standard' ? 'lek-etiketter-standard.pdf' : 'lek-etiketter-barnas.pdf');
+    const filename = type === 'standard' ? 'lek-etiketter-standard.pdf' : 'lek-etiketter-barnas.pdf';
+    return { doc, filename };
+  };
+
+  const handleLabels = (type: 'standard' | 'child', mode: 'print' | 'save') => {
+    const { doc, filename } = buildLabelDoc(type);
+    if (mode === 'save') {
+      doc.save(filename);
+      return;
+    }
+    printPdf(doc);
   };
 
   return (
@@ -202,12 +236,20 @@ export default function LabelsToolPage() {
                   <h2 className="font-bold text-gray-800 text-sm mb-1">Standard LEK-Etikett</h2>
                   <p className="text-xs text-gray-500 mb-3">Med ditt navn og medlemsinfo.</p>
                 </div>
-                <button
-                  onClick={() => generateLabelPDF('standard')}
-                  className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors"
-                >
-                  Last ned PDF
-                </button>
+                <div className="grid grid-cols-1 gap-2">
+                  <button
+                    onClick={() => handleLabels('standard', 'print')}
+                    className="w-full bg-black text-white font-bold py-2 rounded-lg text-sm hover:bg-gray-800 transition-colors"
+                  >
+                    Skriv ut
+                  </button>
+                  <button
+                    onClick={() => handleLabels('standard', 'save')}
+                    className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors"
+                  >
+                    Lagre PDF
+                  </button>
+                </div>
               </div>
 
               <div className="bg-honey-50 p-4 rounded-lg border border-honey-100 flex flex-col justify-between">
@@ -219,7 +261,7 @@ export default function LabelsToolPage() {
                   onClick={() => setShowChildModal(true)}
                   className="w-full bg-honey-500 text-white font-bold py-2 rounded-lg text-sm hover:bg-honey-600 transition-colors"
                 >
-                  Tilpass & Skriv ut
+                  Tilpass
                 </button>
               </div>
             </div>
@@ -258,15 +300,26 @@ export default function LabelsToolPage() {
                 />
               </div>
 
-              <button
-                onClick={() => {
-                  setShowChildModal(false);
-                  generateLabelPDF('child');
-                }}
-                className="w-full bg-honey-500 text-white font-bold py-3 rounded-xl hover:bg-honey-600 transition-colors"
-              >
-                Last ned PDF
-              </button>
+              <div className="grid grid-cols-1 gap-2 pt-2">
+                <button
+                  onClick={() => {
+                    setShowChildModal(false);
+                    handleLabels('child', 'print');
+                  }}
+                  className="w-full bg-honey-500 text-white font-bold py-3 rounded-xl hover:bg-honey-600 transition-colors"
+                >
+                  Skriv ut
+                </button>
+                <button
+                  onClick={() => {
+                    setShowChildModal(false);
+                    handleLabels('child', 'save');
+                  }}
+                  className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-100 transition-colors"
+                >
+                  Lagre PDF
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -274,4 +327,3 @@ export default function LabelsToolPage() {
     </div>
   );
 }
-

@@ -421,7 +421,31 @@ export default function SettingsPage() {
     setShareVoice(getShareEnabled());
   }, []);
 
-  const generateLabelPDF = (type: 'standard' | 'child') => {
+  const printPdf = (doc: jsPDF) => {
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.src = url;
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch {}
+      window.setTimeout(() => {
+        URL.revokeObjectURL(url);
+        iframe.remove();
+      }, 1500);
+    };
+    document.body.appendChild(iframe);
+  };
+
+  const generateLabelPDF = (type: 'standard' | 'child', mode: 'print' | 'save' = 'print') => {
     const doc = new jsPDF();
     const cols = 3;
     const rows = 8;
@@ -529,7 +553,12 @@ export default function SettingsPage() {
       }
     }
 
-    doc.save(`etiketter_${type}.pdf`);
+    const filename = `etiketter_${type}.pdf`;
+    if (mode === 'save') {
+      doc.save(filename);
+    } else {
+      printPdf(doc);
+    }
     setShowLabelModal(false);
   };
 
@@ -1026,12 +1055,20 @@ export default function SettingsPage() {
                                       <h5 className="font-bold text-gray-800 text-sm mb-1">Standard LEK-Etikett</h5>
                                       <p className="text-xs text-gray-500 mb-3">Med ditt navn og medlemsinfo.</p>
                                     </div>
-                                    <button
-                                      onClick={() => generateLabelPDF('standard')}
-                                      className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors"
-                                    >
-                                      Last ned PDF
-                                    </button>
+                                    <div className="grid grid-cols-1 gap-2">
+                                      <button
+                                        onClick={() => generateLabelPDF('standard', 'print')}
+                                        className="w-full bg-black text-white font-bold py-2 rounded-lg text-sm hover:bg-gray-800 transition-colors"
+                                      >
+                                        Skriv ut
+                                      </button>
+                                      <button
+                                        onClick={() => generateLabelPDF('standard', 'save')}
+                                        className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors"
+                                      >
+                                        Lagre PDF
+                                      </button>
+                                    </div>
                                   </div>
 
                                   <div className="bg-honey-50 p-4 rounded-lg border border-honey-100 flex flex-col justify-between">
@@ -1043,7 +1080,7 @@ export default function SettingsPage() {
                                       onClick={() => setShowLabelModal(true)}
                                       className="w-full bg-honey-500 text-white font-bold py-2 rounded-lg text-sm hover:bg-honey-600 transition-colors"
                                     >
-                                      Tilpass & Skriv ut
+                                      Tilpass
                                     </button>
                                   </div>
                                 </div>
@@ -1457,12 +1494,19 @@ export default function SettingsPage() {
                     >
                       Avbryt
                     </button>
-                    <button 
-                      onClick={() => generateLabelPDF('child')}
+                    <button
+                      onClick={() => generateLabelPDF('child', 'save')}
+                      disabled={!childLabelData.name}
+                      className="flex-1 py-3 text-gray-700 font-bold bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Lagre PDF
+                    </button>
+                    <button
+                      onClick={() => generateLabelPDF('child', 'print')}
                       disabled={!childLabelData.name}
                       className="flex-1 py-3 text-white font-bold bg-honey-500 rounded-lg hover:bg-honey-600 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Last ned
+                      Skriv ut
                     </button>
                   </div>
                 </div>
