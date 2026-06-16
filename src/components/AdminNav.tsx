@@ -15,7 +15,8 @@ import {
   ClipboardList,
   Mic,
   TrendingUp,
-  GraduationCap
+  GraduationCap,
+  Bug
 } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useRef, useState } from 'react';
@@ -183,6 +184,7 @@ export default function AdminNav() {
     { href: '/dashboard/admin/meeting-notes', label: 'Referater', icon: ClipboardList },
     { href: 'https://aksjer.lekbie.no/aksjer/admin', label: 'Aksjeadmin', icon: TrendingUp },
     { href: '/dashboard/admin/temadag', label: 'Temadag', icon: GraduationCap },
+    { href: '/dashboard/admin/varroascan', label: 'VarroaScan', icon: Bug },
   ];
 
   return (
