@@ -1,7 +1,13 @@
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 
-export async function generateHiveLabelsPDF(hivesToPrint: any[]) {
+type GenerateHiveLabelsPdfOptions = {
+  mode?: 'print' | 'save';
+  onPrint?: (doc: jsPDF) => void;
+  filename?: string;
+};
+
+export async function generateHiveLabelsPDF(hivesToPrint: any[], options: GenerateHiveLabelsPdfOptions = {}) {
   const doc = new jsPDF();
   const cols = 3;
   const rows = 8;
@@ -68,5 +74,11 @@ export async function generateHiveLabelsPDF(hivesToPrint: any[]) {
     doc.text(clippedApiaryLines, textX, y + 26);
   }
 
-  doc.save(`bikube_etiketter_${new Date().toISOString().split('T')[0]}.pdf`);
+  const filename = options.filename || `bikube_etiketter_${new Date().toISOString().split('T')[0]}.pdf`;
+  const mode = options.mode || 'save';
+  if (mode === 'print' && options.onPrint) {
+    options.onPrint(doc);
+    return;
+  }
+  doc.save(filename);
 }

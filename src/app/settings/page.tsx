@@ -2,7 +2,7 @@
 
 import { createClient, getUserWithSessionFallback, withTimeout } from '@/utils/supabase/client';
 import { ensureMemberNumber } from '@/app/actions/profile';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { jsPDF } from 'jspdf';
@@ -294,6 +294,35 @@ export default function SettingsPage() {
     setIsPrintModalOpen(true);
   }, [searchParams]);
 
+  const clearPrintQuery = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('print');
+    url.searchParams.delete('return');
+    const qs = url.searchParams.toString();
+    router.replace(url.pathname + (qs ? `?${qs}` : '') + url.hash);
+  }, [router]);
+
+  const navigateBackFromPrint = useCallback(() => {
+    const returnTo = (searchParams?.get('return') || '').trim();
+    if (returnTo) {
+      router.replace(returnTo);
+      return;
+    }
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    clearPrintQuery();
+  }, [clearPrintQuery, router, searchParams]);
+
+  const closePrintModal = useCallback(() => {
+    setIsPrintModalOpen(false);
+    const print = (searchParams?.get('print') || '').trim();
+    if (print !== 'bikube') return;
+    navigateBackFromPrint();
+  }, [navigateBackFromPrint, searchParams]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (window.location.hash !== '#toolbox') return;
@@ -428,7 +457,7 @@ export default function SettingsPage() {
     setShareVoice(getShareEnabled());
   }, []);
 
-  const printPdf = (doc: jsPDF) => {
+  const printPdf = (doc: jsPDF, after?: () => void) => {
     const blob = doc.output('blob');
     const url = URL.createObjectURL(blob);
     const iframe = document.createElement('iframe');
@@ -440,6 +469,25 @@ export default function SettingsPage() {
     iframe.style.border = '0';
     iframe.src = url;
     iframe.onload = () => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        after?.();
+      };
+
+      if (after) {
+        try {
+          iframe.contentWindow?.addEventListener('afterprint', finish, { once: true });
+        } catch {}
+        window.addEventListener(
+          'focus',
+          () => {
+            window.setTimeout(finish, 0);
+          },
+          { once: true }
+        );
+      }
       try {
         iframe.contentWindow?.focus();
         iframe.contentWindow?.print();
@@ -569,8 +617,11 @@ export default function SettingsPage() {
     setShowLabelModal(false);
   };
 
-  const generateHiveLabelsPDFLocal = async (hives: any[]) => {
-    await generateHiveLabelsPDF(hives);
+  const generateHiveLabelsPDFLocal = async (hives: any[], mode: 'print' | 'save' = 'save', after?: () => void) => {
+    await generateHiveLabelsPDF(hives, {
+      mode,
+      onPrint: (doc) => printPdf(doc, after),
+    });
   };
 
   const handlePrint = async (layout: 'cards' | 'list' | 'qr') => {
@@ -592,9 +643,11 @@ export default function SettingsPage() {
         if (error) throw error;
         setAllHives(hives || []);
 
+        const shouldReturnAfterPrint = (searchParams?.get('print') || '').trim() === 'bikube';
+
         // If QR layout, generate PDF directly and return
         if (layout === 'qr') {
-          await generateHiveLabelsPDFLocal(hives || []);
+          await generateHiveLabelsPDFLocal(hives || [], 'print', shouldReturnAfterPrint ? navigateBackFromPrint : undefined);
           setLoadingPrintData(false);
           return;
         }
@@ -638,11 +691,26 @@ export default function SettingsPage() {
         setPrintData(fetchedData);
         setPrintLayout(layout);
 
+        if (shouldReturnAfterPrint) {
+          let done = false;
+          const finish = () => {
+            if (done) return;
+            done = true;
+            navigateBackFromPrint();
+          };
+          window.addEventListener('afterprint', finish, { once: true });
+          window.addEventListener(
+            'focus',
+            () => {
+              window.setTimeout(finish, 0);
+            },
+            { once: true }
+          );
+        }
+
         setTimeout(() => {
-            window.print();
-            setLoadingPrintData(false);
-            // Don't reset layout immediately so print preview works, 
-            // but we can reset it after a delay or on next interaction
+          window.print();
+          setLoadingPrintData(false);
         }, 1000);
 
     } catch (error) {
@@ -1865,7 +1933,7 @@ export default function SettingsPage() {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
             <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <h3 className="font-bold text-lg">Velg Utskrift</h3>
-              <button onClick={() => setIsPrintModalOpen(false)} className="p-2 hover:bg-gray-200 rounded-full">
+              <button onClick={closePrintModal} className="p-2 hover:bg-gray-200 rounded-full">
                 <X className="w-5 h-5" />
               </button>
             </div>
