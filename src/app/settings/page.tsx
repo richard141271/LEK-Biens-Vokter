@@ -528,32 +528,32 @@ export default function SettingsPage() {
             doc.text(clipToWidth(qualityLine, maxTextWidth), cx, y + 32.6, { align: "center" });
           }
         } else {
-          const childName = childLabelData.name || beekeeperName;
-          const ageText = childLabelData.age ? `${childLabelData.age} år` : "";
+          const childName = childLabelData.name || 'Birøkter';
+          const childAge = childLabelData.age || '';
 
-          doc.setFont("times", "italic");
-          doc.setFontSize(9.5);
-          doc.text("Honning fra min egen hage", cx, y + 16, { align: "center" });
+          doc.setFont('times', 'italic');
+          doc.setFontSize(10.5);
+          doc.text('Honning fra', cx, y + 14, { align: 'center' });
 
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(8);
-          doc.text(
-            ageText ? `Birøkter: ${childName} (${ageText})` : `Birøkter: ${childName}`,
-            cx,
-            y + 22,
-            { align: "center" }
-          );
+          doc.setFont('times', 'bold');
+          doc.setFontSize(11.5);
+          doc.text(clipToWidth(childName, maxTextWidth), cx, y + 19, { align: 'center' });
 
-          doc.setFont("helvetica", "normal");
+          doc.setFont('helvetica', 'bold');
           doc.setFontSize(7);
-          doc.text(`Sommer ${year}`, cx, y + 26, { align: "center" });
+          doc.text('min egen hage', cx, y + 24, { align: 'center' });
 
-          doc.setFontSize(5.5);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(6);
+          doc.text(clipToWidth(beekeeperName, maxTextWidth), cx, y + 29, { align: 'center' });
+
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(5.2);
           doc.text(
-            "LEK-Honning  •  100 % ekte honning",
+            clipToWidth(`Sommer ${year}${childAge ? ` • ${childAge} år` : ''}`, maxTextWidth),
             cx,
-            y + 30,
-            { align: "center" }
+            y + 33,
+            { align: 'center' }
           );
         }
       }
@@ -1502,15 +1502,13 @@ export default function SettingsPage() {
                     </button>
                     <button
                       onClick={() => generateLabelPDF('child', 'save')}
-                      disabled={!childLabelData.name}
-                      className="flex-1 py-3 text-gray-700 font-bold bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 py-3 text-gray-700 font-bold bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                     >
                       Lagre PDF
                     </button>
                     <button
                       onClick={() => generateLabelPDF('child', 'print')}
-                      disabled={!childLabelData.name}
-                      className="flex-1 py-3 text-white font-bold bg-honey-500 rounded-lg hover:bg-honey-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 py-3 text-white font-bold bg-honey-500 rounded-lg hover:bg-honey-600"
                     >
                       Skriv ut
                     </button>
