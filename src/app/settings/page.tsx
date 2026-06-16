@@ -417,6 +417,7 @@ export default function SettingsPage() {
   };
 
   const [showLabelModal, setShowLabelModal] = useState(false);
+  const [childLabelPendingAction, setChildLabelPendingAction] = useState<'print' | 'save'>('print');
   const [childLabelData, setChildLabelData] = useState({ name: '', age: '' });
   const [showWordTraining, setShowWordTraining] = useState(false);
   const [autoCorrect, setAutoCorrect] = useState(false);
@@ -528,32 +529,32 @@ export default function SettingsPage() {
             doc.text(clipToWidth(qualityLine, maxTextWidth), cx, y + 32.6, { align: "center" });
           }
         } else {
-          const childName = childLabelData.name || 'Birøkter';
-          const childAge = childLabelData.age || '';
+          const childName = childLabelData.name || beekeeperName;
+          const ageText = childLabelData.age ? `${childLabelData.age} år` : '';
 
-          doc.setFont('times', 'italic');
-          doc.setFontSize(10.5);
-          doc.text('Honning fra', cx, y + 14, { align: 'center' });
+          doc.setFont("times", "italic");
+          doc.setFontSize(9.5);
+          doc.text("Honning fra min egen hage", cx, y + 16, { align: "center" });
 
-          doc.setFont('times', 'bold');
-          doc.setFontSize(11.5);
-          doc.text(clipToWidth(childName, maxTextWidth), cx, y + 19, { align: 'center' });
-
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(7);
-          doc.text('min egen hage', cx, y + 24, { align: 'center' });
-
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(6);
-          doc.text(clipToWidth(beekeeperName, maxTextWidth), cx, y + 29, { align: 'center' });
-
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(5.2);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
           doc.text(
-            clipToWidth(`Sommer ${year}${childAge ? ` • ${childAge} år` : ''}`, maxTextWidth),
+            ageText ? `Birøkter: ${childName} (${ageText})` : `Birøkter: ${childName}`,
             cx,
-            y + 33,
-            { align: 'center' }
+            y + 22,
+            { align: "center" }
+          );
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7);
+          doc.text(`Sommer ${year}`, cx, y + 26, { align: "center" });
+
+          doc.setFontSize(5.5);
+          doc.text(
+            "LEK-Honning  •  100 % ekte honning",
+            cx,
+            y + 30,
+            { align: "center" }
           );
         }
       }
@@ -1082,12 +1083,26 @@ export default function SettingsPage() {
                                       <h5 className="font-bold text-honey-800 text-sm mb-1">Barnas Etikett</h5>
                                       <p className="text-xs text-honey-600 mb-3">&quot;Honning fra min egen hage&quot;</p>
                                     </div>
-                                    <button
-                                      onClick={() => setShowLabelModal(true)}
-                                      className="w-full bg-honey-500 text-white font-bold py-2 rounded-lg text-sm hover:bg-honey-600 transition-colors"
-                                    >
-                                      Tilpass
-                                    </button>
+                                    <div className="grid grid-cols-1 gap-2">
+                                      <button
+                                        onClick={() => {
+                                          setChildLabelPendingAction('print');
+                                          setShowLabelModal(true);
+                                        }}
+                                        className="w-full bg-honey-500 text-white font-bold py-2 rounded-lg text-sm hover:bg-honey-600 transition-colors"
+                                      >
+                                        Skriv ut
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setChildLabelPendingAction('save');
+                                          setShowLabelModal(true);
+                                        }}
+                                        className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-2 rounded-lg text-sm hover:bg-gray-100 transition-colors"
+                                      >
+                                        Lagre PDF
+                                      </button>
+                                    </div>
                                   </div>
                                 </div>
                               </>
@@ -1501,16 +1516,10 @@ export default function SettingsPage() {
                       Avbryt
                     </button>
                     <button
-                      onClick={() => generateLabelPDF('child', 'save')}
+                      onClick={() => generateLabelPDF('child', childLabelPendingAction)}
                       className="flex-1 py-3 text-gray-700 font-bold bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                     >
-                      Lagre PDF
-                    </button>
-                    <button
-                      onClick={() => generateLabelPDF('child', 'print')}
-                      className="flex-1 py-3 text-white font-bold bg-honey-500 rounded-lg hover:bg-honey-600"
-                    >
-                      Skriv ut
+                      {childLabelPendingAction === 'print' ? 'Skriv ut' : 'Lagre PDF'}
                     </button>
                   </div>
                 </div>
