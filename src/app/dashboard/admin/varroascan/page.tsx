@@ -59,7 +59,7 @@ export default function VarroaScanAdminPage() {
 
           setLinks({
             baseUrl,
-            submissions: buildVarroaScanUrl('/innsendinger/', {
+            submissions: buildVarroaScanUrl('/admin/innsendinger/', {
               host,
               source: 'biens-vokter-admin',
               returnTo,
