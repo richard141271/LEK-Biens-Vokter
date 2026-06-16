@@ -7,9 +7,23 @@ function trimTrailingSlash(value: string) {
   return String(value || '').replace(/\/+$/, '');
 }
 
+function isValidVarroaScanBaseUrl(value: string) {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    if (!/^https?:$/.test(url.protocol)) return false;
+    if (host === 'localhost' || host === '127.0.0.1') return true;
+    if (host.endsWith('.supabase.co')) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getVarroaScanBaseUrl(host?: string) {
   const configuredBaseUrl = trimTrailingSlash(process.env.NEXT_PUBLIC_VARROASCAN_URL || '');
-  if (configuredBaseUrl) return configuredBaseUrl;
+  if (isValidVarroaScanBaseUrl(configuredBaseUrl)) return configuredBaseUrl;
   return isStagingLikeHost(host || '') ? VARROASCAN_STAGING_URL : VARROASCAN_PROD_URL;
 }
 

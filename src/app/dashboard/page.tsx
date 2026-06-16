@@ -11,6 +11,7 @@ import dynamic from 'next/dynamic';
 import WeatherWidget from '@/components/WeatherWidget';
 import BeekeeperAlertsPoller from './components/BeekeeperAlertsPoller';
 import { TOOLBOX_TOOLS, getDefaultToolEnabled } from '@/lib/toolbox';
+import { getVarroaScanBaseUrl } from '@/utils/varroascan';
 
 const SicknessRegistrationModal = dynamic(() => import('@/components/SicknessRegistrationModal'), { ssr: false });
 const InspectionModal = dynamic(() => import('@/components/InspectionModal'), { ssr: false });
@@ -168,19 +169,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const host = window.location.host || '';
-    const hostname = window.location.hostname || host;
-    const isStagingHost =
-      host === 'staging.lekbie.no' ||
-      host.endsWith('.staging.lekbie.no') ||
-      (hostname.includes('staging') && hostname.endsWith('.vercel.app'));
-
-    const configuredBaseUrl = (process.env.NEXT_PUBLIC_VARROASCAN_URL || '').trim();
-    const baseUrl = configuredBaseUrl
-      ? configuredBaseUrl
-      : isStagingHost
-        ? 'https://lek-varroa-scan-staging.vercel.app'
-        : 'https://lek-varroa-scan.vercel.app';
-
+    const baseUrl = getVarroaScanBaseUrl(host);
     const returnTo = encodeURIComponent(`${window.location.origin}/dashboard`);
     setVarroaScanHref(`${baseUrl}/?source=biens-vokter&type=bunnbrett&returnTo=${returnTo}`);
     setIsVarroaScanLinkReady(true);
