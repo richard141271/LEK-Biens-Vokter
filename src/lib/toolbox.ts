@@ -109,7 +109,7 @@ export const TOOLBOX_TOOLS: ToolboxTool[] = [
     category: 'extra',
     showOnDashboard: false,
     defaultEnabled: false,
-    directHref: '/tools/bikubekort',
+    directHref: '/settings?print=bikube',
   },
   {
     id: 'aurora_pro',

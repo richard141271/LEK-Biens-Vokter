@@ -289,6 +289,12 @@ export default function SettingsPage() {
   }, [searchParams]);
 
   useEffect(() => {
+    const print = (searchParams?.get('print') || '').trim();
+    if (print !== 'bikube') return;
+    setIsPrintModalOpen(true);
+  }, [searchParams]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
     if (window.location.hash !== '#toolbox') return;
     setIsToolboxOpen(true);
