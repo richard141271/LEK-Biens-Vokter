@@ -7,6 +7,7 @@ export type ToolboxTool = {
   category: ToolboxCategory;
   showOnDashboard: boolean;
   defaultEnabled: boolean;
+  directHref?: string;
   locked?: boolean;
 };
 
@@ -18,6 +19,7 @@ export const TOOLBOX_TOOLS: ToolboxTool[] = [
     category: 'active',
     showOnDashboard: true,
     defaultEnabled: true,
+    directHref: '/dashboard',
   },
   {
     id: 'varroascan',
@@ -26,6 +28,7 @@ export const TOOLBOX_TOOLS: ToolboxTool[] = [
     category: 'active',
     showOnDashboard: true,
     defaultEnabled: true,
+    directHref: '/dashboard',
   },
   {
     id: 'health_ai',
@@ -34,6 +37,7 @@ export const TOOLBOX_TOOLS: ToolboxTool[] = [
     category: 'active',
     showOnDashboard: true,
     defaultEnabled: true,
+    directHref: '/dashboard/smittevern',
   },
   {
     id: 'disease_guide',
@@ -42,6 +46,7 @@ export const TOOLBOX_TOOLS: ToolboxTool[] = [
     category: 'active',
     showOnDashboard: true,
     defaultEnabled: true,
+    directHref: '/dashboard/smittevern/veileder',
   },
   {
     id: 'offline',
@@ -50,6 +55,7 @@ export const TOOLBOX_TOOLS: ToolboxTool[] = [
     category: 'active',
     showOnDashboard: true,
     defaultEnabled: true,
+    directHref: '/dashboard',
   },
   {
     id: 'apiary_tasks',
@@ -58,6 +64,7 @@ export const TOOLBOX_TOOLS: ToolboxTool[] = [
     category: 'active',
     showOnDashboard: true,
     defaultEnabled: true,
+    directHref: '/dashboard',
   },
   {
     id: 'voice_inspection_beta',
@@ -66,6 +73,7 @@ export const TOOLBOX_TOOLS: ToolboxTool[] = [
     category: 'extra',
     showOnDashboard: false,
     defaultEnabled: false,
+    directHref: '/tools/voice',
   },
   {
     id: 'word_training',
@@ -74,6 +82,7 @@ export const TOOLBOX_TOOLS: ToolboxTool[] = [
     category: 'extra',
     showOnDashboard: false,
     defaultEnabled: false,
+    directHref: '/tools/word-training',
   },
   {
     id: 'labels_print',
@@ -82,6 +91,7 @@ export const TOOLBOX_TOOLS: ToolboxTool[] = [
     category: 'extra',
     showOnDashboard: false,
     defaultEnabled: false,
+    directHref: '/tools/labels',
   },
   {
     id: 'operations_material',
@@ -90,6 +100,7 @@ export const TOOLBOX_TOOLS: ToolboxTool[] = [
     category: 'extra',
     showOnDashboard: false,
     defaultEnabled: false,
+    directHref: '/tools/driftsmateriell',
   },
   {
     id: 'hive_cards_qr',
@@ -98,6 +109,7 @@ export const TOOLBOX_TOOLS: ToolboxTool[] = [
     category: 'extra',
     showOnDashboard: false,
     defaultEnabled: false,
+    directHref: '/tools/bikubekort',
   },
   {
     id: 'aurora_pro',

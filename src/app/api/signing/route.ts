@@ -94,7 +94,7 @@ export async function POST(request: Request) {
       recipient_email: recipientEmail,
       recipient_phone: recipientPhone || null,
       token,
-      status: 'SENT',
+      status: 'DRAFT',
     };
 
     const { data, error } = await supabase.from('sign_requests').insert(payload).select('*').single();

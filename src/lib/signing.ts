@@ -47,7 +47,7 @@ export function normalizeSignRequestRecord<T extends SignRequestLike>(request: T
 export function getSignStatusMeta(status: string) {
   switch (status) {
     case 'DRAFT':
-      return { label: 'Kladd', cls: 'bg-gray-100 text-gray-700 border-gray-200' };
+      return { label: 'Ikke sendt', cls: 'bg-gray-100 text-gray-700 border-gray-200' };
     case 'SIGNED_BY_RECIPIENT':
       return { label: 'Signert av mottaker', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
     case 'COMPLETED':

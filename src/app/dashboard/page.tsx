@@ -1305,7 +1305,7 @@ export default function DashboardPage() {
                 {pinnedExtraTools.map((tool) => (
                   <Link
                     key={tool.id}
-                    href={`/settings?tool=${encodeURIComponent(tool.id)}#toolbox`}
+                    href={tool.directHref || `/settings?tool=${encodeURIComponent(tool.id)}#toolbox`}
                     className="block rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors p-3"
                   >
                     <div className="font-bold text-sm text-gray-900">{tool.name}</div>

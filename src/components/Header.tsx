@@ -129,8 +129,8 @@ export default function Header({ isStagingHost }: HeaderProps) {
           
           {/* Center: Title */}
           <div className="flex-1 text-center mx-2 flex flex-col justify-center">
-             <Link href="/dashboard/admin" className="cursor-default">
-                 <h1 className="font-bold text-xl leading-tight tracking-tight">Birøkter Registeret</h1>
+             <Link href="/dashboard" className="cursor-pointer">
+                 <h1 className="font-bold text-xl leading-tight tracking-tight">Min Side</h1>
              </Link>
              <p className="text-sm font-medium opacity-80 mt-0.5">{profile?.full_name || 'Laster...'}</p>
           </div>
