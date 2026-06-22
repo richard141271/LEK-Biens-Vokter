@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { buildVarroaScanUrl, getVarroaScanBaseUrl } from '@/utils/varroascan';
-import { Archive, ArrowRight, Bug, FolderOpen, ShieldCheck } from 'lucide-react';
+import { Archive, ArrowRight, Bug, FolderOpen } from 'lucide-react';
 
 type AdminProfile = {
   full_name?: string | null;
@@ -14,7 +14,6 @@ type AdminProfile = {
 type VarroaScanLinks = {
   submissions: string;
   archive: string;
-  admin: string;
   baseUrl: string;
 };
 
@@ -69,11 +68,6 @@ export default function VarroaScanAdminPage() {
               source: 'biens-vokter-admin',
               returnTo,
             }),
-            admin: buildVarroaScanUrl('/admin/', {
-              host,
-              source: 'biens-vokter-admin',
-              returnTo,
-            }),
           });
         }
       } finally {
@@ -106,13 +100,6 @@ export default function VarroaScanAdminPage() {
       href: links?.archive || '#',
       icon: Archive,
       accent: 'bg-amber-50 text-amber-600 border-amber-100',
-    },
-    {
-      title: 'Admin',
-      description: 'Aapne VarroaScan sine adminfunksjoner og oversikter.',
-      href: links?.admin || '#',
-      icon: ShieldCheck,
-      accent: 'bg-purple-50 text-purple-600 border-purple-100',
     },
   ];
 
