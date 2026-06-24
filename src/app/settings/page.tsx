@@ -2,7 +2,7 @@
 
 import { createClient, getUserWithSessionFallback, withTimeout } from '@/utils/supabase/client';
 import { ensureMemberNumber } from '@/app/actions/profile';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { jsPDF } from 'jspdf';
@@ -1431,13 +1431,9 @@ export default function SettingsPage() {
                               <div className="font-bold text-gray-900">{tool.name}</div>
                               <div className="text-sm text-gray-600 mt-1">{tool.description}</div>
                             </div>
-                            <button
-                              type="button"
-                              disabled
-                              className="shrink-0 text-[11px] font-black px-3 py-1 rounded-full border bg-gray-50 text-gray-700 border-gray-200"
-                            >
-                              Låst
-                            </button>
+                            <span className="shrink-0 text-[11px] font-black px-3 py-1 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
+                              Premium-funksjon
+                            </span>
                           </div>
                         </div>
                       ))}
@@ -1460,6 +1456,17 @@ export default function SettingsPage() {
                         <div className="flex items-center gap-3">
                             <Users className="w-5 h-5 text-gray-500" />
                             <span>Kontakter</span>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                      </button>
+
+                      <button 
+                        onClick={() => router.push('/settings/subscription')}
+                        className="w-full bg-white text-gray-700 font-bold py-3 rounded-xl border border-gray-300 hover:bg-gray-50 transition-colors flex items-center justify-between px-4"
+                      >
+                        <div className="flex items-center gap-3">
+                            <CreditCard className="w-5 h-5 text-gray-500" />
+                            <span>Mitt abonnement</span>
                         </div>
                         <ChevronRight className="w-4 h-4 text-gray-400" />
                       </button>
