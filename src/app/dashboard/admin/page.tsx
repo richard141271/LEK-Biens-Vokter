@@ -417,7 +417,7 @@ export default function AdminDashboard() {
             Referater og øvrige verktøy
           </h2>
           <p className="text-sm text-gray-500 mb-4">
-            Møtereferater, globale innstillinger og kobling til LEK-Honning™️.
+            Møtereferater, kursoppsett, globale innstillinger og kobling til LEK-Honning™️.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <Link href="/dashboard/admin/feedback" className="group">
@@ -432,6 +432,25 @@ export default function AdminDashboard() {
                 <p className="text-sm text-gray-500 mb-4">
                   Se feil, ønsker og forslag fra brukerne. Oppdater status og skriv intern kommentar.
                 </p>
+              </div>
+            </Link>
+
+            <Link href="/dashboard/admin/beekeeping-course" className="group">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-emerald-500 hover:shadow-md transition-all h-full">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                    <GraduationCap className="w-6 h-6" />
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-emerald-500" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Digitalt Birøkterkurs</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Klargjør struktur, innhold og kobling mot Aurora Knowledge Base for det kommende kurset.
+                </p>
+                <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg">
+                  <GraduationCap className="w-4 h-4" />
+                  <span>Klargjort for kurs</span>
+                </div>
               </div>
             </Link>
 
