@@ -12,6 +12,7 @@ import { useOffline } from '@/context/OfflineContext';
 import { Voice2Engine } from '@/voice2/engine';
 import { parseVoice2Intent } from '@/voice2/parse';
 import { getVoice2AliasIntent, loadVoice2Aliases } from '@/voice2/alias-store';
+import { buildAuroraSuggestionsForInspection, computeDue } from '@/lib/aurora';
 
 export default function NewInspectionPage({ params }: { params: { id: string } }) {
   const [hive, setHive] = useState<any>(null);
@@ -39,6 +40,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
   // Voice State
   const [lastCommand, setLastCommand] = useState<string | null>(null);
+  const [auroraAfterSave, setAuroraAfterSave] = useState<{
+    apiaryId: string;
+    count: number;
+    topTitle?: string;
+    severity: 'info' | 'warning' | 'urgent';
+  } | null>(null);
   const [notesActive, setNotesActive] = useState(false);
   const notesActiveRef = useRef(false);
   const [history, setHistory] = useState<Array<{ type: string; prev: any }>>([]);
@@ -2390,6 +2397,155 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     return msg.includes('bucket not found') || msg.includes('bucket') && msg.includes('not found');
   };
 
+  const runAuroraAfterSave = async (input: { inspectionId: string; inspection: any }) => {
+    try {
+      if (isOffline) return;
+      if (isDemoActive) return;
+      if (!navigator.onLine) return;
+      if (!hive) return;
+
+      const apiaryId = String((hive as any)?.apiary_id || '').trim();
+      if (!apiaryId) return;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) return;
+
+      const ownerId = String((hive as any)?.user_id || user.id).trim();
+      if (!ownerId) return;
+
+      const [tasksRes, notesRes, calendarRes, prevInspectionsRes, openAuroraRes] = await Promise.all([
+        supabase
+          .from('apiary_tasks')
+          .select('id, title, due_date, completed_at')
+          .eq('apiary_id', apiaryId)
+          .is('completed_at', null)
+          .order('created_at', { ascending: false })
+          .limit(200),
+        supabase
+          .from('apiary_notes')
+          .select('id, note, created_at')
+          .eq('apiary_id', apiaryId)
+          .order('created_at', { ascending: false })
+          .limit(30),
+        supabase
+          .from('lek_calendar_events')
+          .select('id, due_date, completed_at')
+          .eq('apiary_id', apiaryId)
+          .is('completed_at', null)
+          .order('due_date', { ascending: true })
+          .limit(80),
+        supabase
+          .from('inspections')
+          .select('id, created_at, honey_stores')
+          .eq('hive_id', params.id)
+          .neq('id', input.inspectionId)
+          .order('created_at', { ascending: false })
+          .limit(6),
+        supabase
+          .from('aurora_suggestions')
+          .select('suggestion_key')
+          .eq('apiary_id', apiaryId)
+          .is('accepted_at', null)
+          .is('dismissed_at', null)
+          .limit(300),
+      ]);
+
+      const openTaskTitlesLower = new Set(
+        (tasksRes.data || [])
+          .map((t: any) => String(t?.title || '').trim().toLowerCase())
+          .filter(Boolean)
+      );
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const earliestOpenTaskDueDateISO =
+        (tasksRes.data || [])
+          .filter((t: any) => !t?.completed_at && t?.due_date)
+          .map((t: any) => String(t.due_date).slice(0, 10))
+          .filter(Boolean)
+          .map((d) => new Date(d))
+          .filter((d) => !Number.isNaN(d.getTime()))
+          .filter((d) => d.getTime() >= today.getTime())
+          .sort((a, b) => a.getTime() - b.getTime())
+          .map((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)[0] || null;
+
+      const nextPlannedDateISO =
+        (calendarRes.data || [])
+          .filter((e: any) => e?.due_date)
+          .map((e: any) => String(e.due_date).slice(0, 10))
+          .filter(Boolean)
+          .map((d) => new Date(d))
+          .filter((d) => !Number.isNaN(d.getTime()))
+          .filter((d) => d.getTime() >= today.getTime())
+          .sort((a, b) => a.getTime() - b.getTime())
+          .map((d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)[0] || null;
+
+      const existingKeys = new Set(
+        (openAuroraRes.data || [])
+          .map((x: any) => String(x?.suggestion_key || '').trim())
+          .filter(Boolean)
+      );
+
+      const suggestions = buildAuroraSuggestionsForInspection({
+        hive: {
+          id: params.id,
+          hive_number: (hive as any)?.hive_number,
+          name: (hive as any)?.name,
+        },
+        apiaryId,
+        inspection: {
+          id: input.inspectionId,
+          inspection_date: input.inspection?.inspection_date,
+          honey_stores: input.inspection?.honey_stores,
+          status: input.inspection?.status,
+          performed_actions: input.inspection?.performed_actions,
+          notes: input.inspection?.notes,
+        },
+        previousInspections: prevInspectionsRes.data || [],
+        openTaskTitlesLower,
+        recentNotes: notesRes.data || [],
+        nextPlannedDateISO,
+        earliestOpenTaskDueDateISO,
+      }).filter((s) => !existingKeys.has(s.key));
+
+      if (suggestions.length === 0) return null;
+
+      const rows = suggestions.map((s) => {
+        const due = computeDue(s.dueKind, s.dueDate);
+        return {
+          owner_id: ownerId,
+          created_by: user.id,
+          apiary_id: apiaryId,
+          hive_id: params.id,
+          inspection_id: input.inspectionId,
+          suggestion_key: s.key,
+          title: s.title,
+          rationale: s.rationale || '',
+          severity: s.severity,
+          due_kind: due.due_kind,
+          due_date: due.due_date,
+        };
+      });
+
+      const { error } = await supabase.from('aurora_suggestions').insert(rows);
+      if (error) return null;
+
+      const urgent = suggestions.find((s) => s.severity === 'urgent') || suggestions[0];
+      if (urgent?.title) {
+        announce(`Aurora: ${urgent.title}`);
+      } else {
+        announce(`Aurora la til ${suggestions.length} forslag.`);
+      }
+      return {
+        apiaryId,
+        count: suggestions.length,
+        topTitle: urgent?.title || undefined,
+        severity: urgent?.severity || 'info',
+      };
+    } catch {}
+    return null;
+  };
+
   const submitInspection = async () => {
     const opId = crypto.randomUUID();
     setSubmitting(true);
@@ -2758,6 +2914,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         });
 
       if (logError) throw logError;
+      const auroraOutcome = await Promise.race([
+        runAuroraAfterSave({ inspectionId: opId, inspection: payloadToInsert }),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 900)),
+      ]);
+      if (auroraOutcome?.count) {
+        setAuroraAfterSave(auroraOutcome);
+        setTimeout(() => setAuroraAfterSave(null), 6000);
+      }
       savedSidesRef.current[queenSide] = true;
       if (shouldSplit && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
         const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
@@ -2768,6 +2932,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
       setLastCommand('Inspeksjon lagret');
       announce('Inspeksjon lagret');
+      const navigationDelay =
+        auroraOutcome?.severity === 'urgent'
+          ? 2400
+          : auroraOutcome?.count
+            ? 1300
+            : 650;
       setTimeout(() => {
         try {
           const list = apiaryHivesRef.current || [];
@@ -2783,7 +2953,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         } catch {
           router.push('/hives');
         }
-      }, 650);
+      }, navigationDelay);
     } catch (error: any) {
       try {
         const msg = String(error?.message || '');
@@ -2996,6 +3166,24 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             <div className="font-extrabold">Venter på bekreftelse</div>
             <div className="mt-1">{pendingVoiceLabel}</div>
             <div className="mt-1 text-xs text-gray-600">Si «Bekreft» eller «Avbryt»</div>
+          </div>
+        ) : null}
+        {auroraAfterSave ? (
+          <div className="mb-4 max-w-lg mx-auto border border-indigo-200 bg-indigo-50 rounded-xl p-3 flex items-start justify-between gap-3">
+            <div className="space-y-1 min-w-0">
+              <div className="text-xs font-bold uppercase text-indigo-800">Aurora</div>
+              <div className="text-sm font-semibold text-gray-900 break-words">
+                {auroraAfterSave.topTitle ? auroraAfterSave.topTitle : `Aurora la til ${auroraAfterSave.count} forslag`}
+              </div>
+              <div className="text-xs text-gray-700">Åpne bigården for å opprette oppgaver/påminnelser.</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push(`/apiaries/${auroraAfterSave.apiaryId}`)}
+              className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-2 rounded-lg text-sm"
+            >
+              Se
+            </button>
           </div>
         ) : null}
         {/* Camera Preview (Bodycam Mode) */}

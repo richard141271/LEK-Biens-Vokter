@@ -43,6 +43,11 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [auroraSuggestionMetaByKey, setAuroraSuggestionMetaByKey] = useState<
     Record<string, { dueKind: 'NEXT_VISIT' | 'TOMORROW' | 'DAYS_3' | 'NEXT_WEEK' | 'PICK_DATE'; dueDate: string }>
   >({});
+
+  const [auroraDbSuggestions, setAuroraDbSuggestions] = useState<any[]>([]);
+  const [auroraDbSuggestionMetaById, setAuroraDbSuggestionMetaById] = useState<
+    Record<string, { dueKind: 'NEXT_VISIT' | 'TOMORROW' | 'DAYS_3' | 'NEXT_WEEK' | 'PICK_DATE'; dueDate: string }>
+  >({});
   
   // Selection State
   const [selectedHiveIds, setSelectedHiveIds] = useState<Set<string>>(new Set());
@@ -357,7 +362,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   };
 
   const fetchApiaryLogData = async () => {
-    const [notesRes, tasksRes] = await Promise.all([
+    const [notesRes, tasksRes, auroraRes] = await Promise.all([
       supabase
         .from('apiary_notes')
         .select('id, note, created_at, created_by')
@@ -370,10 +375,31 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         .eq('apiary_id', params.id)
         .order('created_at', { ascending: false })
         .limit(200),
+      supabase
+        .from('aurora_suggestions')
+        .select('id, suggestion_key, title, rationale, severity, due_kind, due_date, created_at, hive_id, inspection_id')
+        .eq('apiary_id', params.id)
+        .is('accepted_at', null)
+        .is('dismissed_at', null)
+        .order('created_at', { ascending: false })
+        .limit(60),
     ]);
 
     if (!notesRes.error) setApiaryNotes(notesRes.data || []);
     if (!tasksRes.error) setApiaryTasks(tasksRes.data || []);
+    if (!auroraRes.error) {
+      const list = auroraRes.data || [];
+      setAuroraDbSuggestions(list);
+      const initialMeta: Record<string, { dueKind: 'NEXT_VISIT' | 'TOMORROW' | 'DAYS_3' | 'NEXT_WEEK' | 'PICK_DATE'; dueDate: string }> = {};
+      const today = new Date().toISOString().slice(0, 10);
+      for (const s of list) {
+        initialMeta[String(s.id)] = {
+          dueKind: (s as any)?.due_kind || 'NEXT_VISIT',
+          dueDate: String((s as any)?.due_date || today).slice(0, 10) || today,
+        };
+      }
+      setAuroraDbSuggestionMetaById(initialMeta);
+    }
   };
 
   const createTask = async (title: string, opts?: { source?: 'manual' | 'aurora'; dueKind?: typeof taskDraftDueKind; dueDate?: string }) => {
@@ -429,10 +455,68 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
       setApiaryTasks((prev) => [createdTask, ...prev]);
       setTaskDraftTitle('');
       setAuroraSuggestions((prev) => prev.filter((s) => s.title !== cleanTitle));
+      return createdTask;
     } catch (e: any) {
       alert('Kunne ikke opprette oppgave: ' + (e?.message || 'ukjent feil'));
+      return null;
     } finally {
       setCreatingTask(false);
+    }
+  };
+
+  const dismissAuroraDbSuggestion = async (suggestion: any) => {
+    try {
+      if (!suggestion?.id) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) return;
+
+      await supabase
+        .from('aurora_suggestions')
+        .update({
+          dismissed_at: new Date().toISOString(),
+          dismissed_by: user.id,
+        })
+        .eq('id', suggestion.id);
+
+      setAuroraDbSuggestions((prev) => prev.filter((s) => String(s.id) !== String(suggestion.id)));
+      setAuroraDbSuggestionMetaById((prev) => {
+        const next = { ...prev };
+        delete next[String(suggestion.id)];
+        return next;
+      });
+    } catch {
+      alert('Kunne ikke ignorere Aurora-forslag.');
+    }
+  };
+
+  const acceptAuroraDbSuggestion = async (suggestion: any) => {
+    try {
+      if (!suggestion?.id) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) return;
+
+      const meta = auroraDbSuggestionMetaById[String(suggestion.id)] || { dueKind: taskDraftDueKind, dueDate: taskDraftDueDate };
+      const created = await createTask(String(suggestion.title || '').trim(), { source: 'aurora', dueKind: meta.dueKind, dueDate: meta.dueDate });
+      if (!created?.id) return;
+
+      await supabase
+        .from('aurora_suggestions')
+        .update({
+          accepted_at: new Date().toISOString(),
+          accepted_by: user.id,
+          task_id: created.id,
+          calendar_event_id: created.calendar_event_id || null,
+        })
+        .eq('id', suggestion.id);
+
+      setAuroraDbSuggestions((prev) => prev.filter((s) => String(s.id) !== String(suggestion.id)));
+      setAuroraDbSuggestionMetaById((prev) => {
+        const next = { ...prev };
+        delete next[String(suggestion.id)];
+        return next;
+      });
+    } catch (e: any) {
+      alert('Kunne ikke opprette oppgave fra Aurora-forslag: ' + (e?.message || 'ukjent feil'));
     }
   };
 
@@ -2586,6 +2670,112 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                   {savingApiaryNote ? 'Lagrer…' : 'Lagre notat'}
                 </button>
               </div>
+
+              {auroraDbSuggestions.length > 0 && (
+                <div className="border border-indigo-200 bg-indigo-50 rounded-lg p-3 space-y-2">
+                  <div className="text-xs font-bold uppercase text-indigo-800">Aurora anbefaler oppfølging</div>
+                  <div className="space-y-2">
+                    {auroraDbSuggestions.map((s) => (
+                      <div key={s.id} className="bg-white border border-indigo-100 rounded-xl p-3">
+                        <div className="flex flex-col gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="text-sm font-semibold text-gray-900 break-words">☐ {s.title}</div>
+                              <div
+                                className={`shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                                  String(s.severity || '').toLowerCase() === 'urgent'
+                                    ? 'bg-red-100 text-red-700'
+                                    : String(s.severity || '').toLowerCase() === 'warning'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-gray-100 text-gray-700'
+                                }`}
+                              >
+                                {String(s.severity || '').toLowerCase() === 'urgent'
+                                  ? 'Haster'
+                                  : String(s.severity || '').toLowerCase() === 'warning'
+                                    ? 'Viktig'
+                                    : 'Info'}
+                              </div>
+                            </div>
+                            {String(s.rationale || '').trim() && (
+                              <div className="text-xs text-gray-700 whitespace-pre-line">{s.rationale}</div>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <select
+                              value={auroraDbSuggestionMetaById[String(s.id)]?.dueKind || 'NEXT_VISIT'}
+                              onChange={(e) => {
+                                const next = e.target.value as any;
+                                setAuroraDbSuggestionMetaById((prev) => ({
+                                  ...prev,
+                                  [String(s.id)]: {
+                                    dueKind: next,
+                                    dueDate: prev[String(s.id)]?.dueDate || taskDraftDueDate,
+                                  },
+                                }));
+                              }}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white"
+                            >
+                              <option value="NEXT_VISIT">Neste besøk</option>
+                              <option value="TOMORROW">I morgen</option>
+                              <option value="DAYS_3">Om 3 dager</option>
+                              <option value="NEXT_WEEK">Neste uke</option>
+                              <option value="PICK_DATE">Velg dato</option>
+                            </select>
+
+                            {auroraDbSuggestionMetaById[String(s.id)]?.dueKind === 'PICK_DATE' ? (
+                              <input
+                                type="date"
+                                value={auroraDbSuggestionMetaById[String(s.id)]?.dueDate || taskDraftDueDate}
+                                onChange={(e) => {
+                                  const next = e.target.value;
+                                  setAuroraDbSuggestionMetaById((prev) => ({
+                                    ...prev,
+                                    [String(s.id)]: {
+                                      dueKind: prev[String(s.id)]?.dueKind || 'PICK_DATE',
+                                      dueDate: next,
+                                    },
+                                  }));
+                                }}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white"
+                              />
+                            ) : (
+                              <div className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 text-gray-700 flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-gray-500" />
+                                <span className="min-w-0 truncate">
+                                  {dueKindLabel(
+                                    auroraDbSuggestionMetaById[String(s.id)]?.dueKind || 'NEXT_VISIT',
+                                    auroraDbSuggestionMetaById[String(s.id)]?.dueDate || taskDraftDueDate
+                                  )}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => acceptAuroraDbSuggestion(s)}
+                              disabled={creatingTask}
+                              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-3 rounded-lg transition-colors disabled:opacity-50"
+                            >
+                              Opprett
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => dismissAuroraDbSuggestion(s)}
+                              className="w-full bg-white border border-indigo-200 text-indigo-800 font-bold py-2.5 px-3 rounded-lg hover:bg-indigo-50 transition-colors"
+                            >
+                              Ignorer
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {auroraSuggestions.length > 0 && (
                 <div className="border border-indigo-200 bg-indigo-50 rounded-lg p-3 space-y-2">
