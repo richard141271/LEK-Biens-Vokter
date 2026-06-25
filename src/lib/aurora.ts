@@ -30,6 +30,7 @@ type InspectionBiologyInput = {
   eggs_seen?: boolean | null;
   brood_condition?: string | null;
   honey_stores?: string | null;
+  temperament?: string | null;
   status?: string | null;
   performed_actions?: any;
   notes?: string | null;
@@ -168,6 +169,184 @@ function parseBroodCondition(raw: string | null | undefined) {
     droner: normalizeBroodAmount(map.get('droner')),
     frames: String(map.get('frames') || '').trim(),
   };
+}
+
+function bucketBroodFrames(raw: string | null | undefined) {
+  const frames = Number(String(raw || '').trim().replace(',', '.'));
+  if (Number.isNaN(frames) || frames <= 0) return 'bistyrke_ukjent';
+  if (frames <= 2) return 'bistyrke_1_2';
+  if (frames <= 4) return 'bistyrke_3_4';
+  if (frames <= 6) return 'bistyrke_5_6';
+  if (frames <= 8) return 'bistyrke_7_8';
+  return 'bistyrke_9_plus';
+}
+
+function mapPerformedActionToKnowledgeSlugs(action: any) {
+  const id = String(action?.id || '').trim().toUpperCase();
+  switch (id) {
+    case 'FEED_GIVEN': {
+      const feedType = String(action?.meta?.feedType || '').trim().toLowerCase();
+      const slugs = ['gitt_for'];
+      if (feedType === 'nodfor') slugs.push('for_type_nodfor');
+      if (feedType === 'sukkerlake') slugs.push('for_type_sukkerlake');
+      if (feedType === 'annet') slugs.push('for_type_annet');
+      return slugs;
+    }
+    case 'VARROA_TREATED':
+      return ['behandlet_varroa'];
+    case 'SUPER_ADDED':
+      return ['satt_pa_skattekasse'];
+    case 'HONEY_HARVESTED':
+      return ['hostet_honning'];
+    case 'QUEEN_REPLACED':
+      return ['byttet_dronning', 'queen_replaced'];
+    case 'VARROA_TEST_DONE':
+      return ['gjennomfort_varroatest'];
+    case 'SUPER_REMOVED':
+      return ['fjernet_skattekasse'];
+    case 'QUEEN_CELLS_REMOVED':
+      return ['fjernet_dronningceller'];
+    case 'FRAMES_ADDED':
+      return ['satt_inn_rammer'];
+    case 'FRAMES_REMOVED':
+      return ['fjernet_rammer'];
+    case 'WAX_REPLACED':
+      return ['byttet_voks'];
+    case 'SPLIT_MADE':
+      return ['laget_avlegger'];
+    case 'HIVE_SPLIT':
+      return ['delt_kube'];
+    default:
+      return [];
+  }
+}
+
+export function getInspectionKnowledgeSlugs(input: InspectionBiologyInput) {
+  const slugs = new Set<string>();
+  const brood = parseBroodCondition(input.brood_condition);
+  const eggsSeen = input.eggs_seen === true ? true : input.eggs_seen === false ? false : null;
+  const queenSeen = input.queen_seen === true ? true : input.queen_seen === false ? false : null;
+  const honey = normalizeHoneyStores(input.honey_stores);
+  const temperament = String(input.temperament || '').trim().toLowerCase();
+  const status = String(input.status || '').trim().toLowerCase();
+  const performedActions = Array.isArray(input.performed_actions) ? input.performed_actions : [];
+
+  if (queenSeen === true) slugs.add('queen_seen_yes');
+  if (queenSeen === false) slugs.add('queen_seen_no');
+  if (eggsSeen === true) slugs.add('eggs_seen_yes');
+  if (eggsSeen === false) {
+    slugs.add('eggs_seen_no');
+    slugs.add('egg_none');
+    slugs.add('rule_eggs_seen_no_sets_egg_unknown');
+  }
+
+  if (queenSeen === false && eggsSeen === true) {
+    slugs.add('queen_unknown');
+    slugs.add('rule_queen_not_seen_but_eggs_seen');
+  }
+
+  if (queenSeen === false && eggsSeen === false) {
+    slugs.add('queen_missing');
+  }
+
+  if (eggsSeen !== false) {
+    slugs.add(
+      brood.egg === 'lite'
+        ? 'egg_lite'
+        : brood.egg === 'mye'
+          ? 'egg_mye'
+          : 'egg_normal'
+    );
+  }
+
+  slugs.add(
+    brood.larver === 'lite'
+      ? 'larver_lite'
+      : brood.larver === 'mye'
+        ? 'larver_mye'
+        : 'larver_normal'
+  );
+  slugs.add(
+    brood.yngel === 'lite'
+      ? 'yngel_lite'
+      : brood.yngel === 'mye'
+        ? 'yngel_mye'
+        : 'yngel_normal'
+  );
+  slugs.add(
+    brood.droner === 'lite'
+      ? 'droner_lite'
+      : brood.droner === 'mye'
+        ? 'droner_mye'
+        : 'droner_normal'
+  );
+
+  slugs.add(bucketBroodFrames(brood.frames));
+
+  if (honey === 'lite') slugs.add('for_lite');
+  if (honey === 'middels') slugs.add('for_middels');
+  if (honey === 'mye') {
+    slugs.add('for_mye');
+    slugs.add('for_godt');
+  }
+
+  if (temperament === 'rolig') slugs.add('rolig');
+  if (temperament === 'urolig') {
+    slugs.add('urolig');
+    slugs.add('normalt');
+  }
+  if (temperament === 'aggressiv') {
+    slugs.add('aggressiv');
+    slugs.add('aggressivt');
+  }
+
+  if (status === 'ok') slugs.add('status_ok');
+  if (status === 'sterk') slugs.add('status_sterk');
+  if (status === 'svak') slugs.add('status_svak');
+  if (status === 'sykdom') {
+    slugs.add('status_syk');
+    slugs.add('sykdom');
+  }
+  if (status === 'død' || status === 'dod') slugs.add('status_dod');
+  if (status === 'byttet voks') slugs.add('byttet_voks');
+  if (status === 'mottatt fôr' || status === 'mottatt for') slugs.add('mottatt_for');
+  if (status === 'skiftet rammer') slugs.add('skiftet_rammer');
+  if (status === 'sverming') slugs.add('sverming');
+  if (status === 'varroa mistanke') slugs.add('varroa_mistanke');
+  if (status === 'bytt dronning') {
+    slugs.add('dronningbytte');
+    slugs.add('queen_replaced');
+  }
+
+  for (const action of performedActions) {
+    for (const slug of mapPerformedActionToKnowledgeSlugs(action)) {
+      slugs.add(slug);
+    }
+  }
+
+  if (honey === 'lite' && hasPerformedAction(performedActions, 'FEED_GIVEN')) {
+    slugs.add('rule_for_lite_etter_foring');
+  }
+
+  if (status === 'død' || status === 'dod') {
+    if (eggsSeen === true || brood.egg !== 'lite' || brood.larver !== 'lite' || brood.yngel !== 'lite') {
+      slugs.add('rule_dod_med_aktivt_yngel');
+    }
+  }
+
+  if (status === 'sterk' && bucketBroodFrames(brood.frames) === 'bistyrke_1_2') {
+    slugs.add('rule_sterk_med_lav_bistyrke');
+  }
+
+  if (status === 'svak' && (bucketBroodFrames(brood.frames) === 'bistyrke_7_8' || bucketBroodFrames(brood.frames) === 'bistyrke_9_plus')) {
+    slugs.add('rule_svak_med_hoy_bistyrke');
+  }
+
+  if (status === 'bytt dronning' && eggsSeen === true && brood.egg === 'mye') {
+    slugs.add('rule_dronningbytte_med_aktive_egg');
+  }
+
+  return Array.from(slugs);
 }
 
 function hasPerformedAction(performedActions: any, id: string) {
@@ -364,7 +543,7 @@ function buildThemeSuggestion(input: {
         severity: due.dueKind === 'TOMORROW' ? 'urgent' : 'warning',
         dueKind: due.dueKind,
         dueDate: due.dueDate,
-        knowledgeSlug: 'lav_matstatus',
+        knowledgeSlug: 'for_lite',
         knowledgeMap: input.knowledgeMap,
         rationalePrefix: `Basert på ${input.sourceLabel}`,
         fallbackRationale: `Basert på ${input.sourceLabel}: «${quote}»`,
@@ -425,7 +604,7 @@ function buildThemeSuggestion(input: {
         severity: 'info',
         dueKind: 'DAYS_3',
         dueDate: toDateOnly(new Date()),
-        knowledgeSlug: 'svermetrang',
+        knowledgeSlug: 'sverming',
         knowledgeMap: input.knowledgeMap,
         rationalePrefix: `Basert på ${input.sourceLabel}`,
         fallbackRationale: `Basert på ${input.sourceLabel}: «${quote}»`,
@@ -492,6 +671,7 @@ export function getInspectionValidationWarnings(input: InspectionBiologyInput) {
   const warnings: AuroraValidation[] = [];
   const brood = parseBroodCondition(input.brood_condition);
   const eggsSeen = input.eggs_seen === true ? true : input.eggs_seen === false ? false : null;
+  const queenSeen = input.queen_seen === true ? true : input.queen_seen === false ? false : null;
   const honey = normalizeHoneyStores(input.honey_stores);
   const status = String(input.status || '').trim().toLowerCase();
 
@@ -543,6 +723,15 @@ export function getInspectionValidationWarnings(input: InspectionBiologyInput) {
       severity: 'info',
       title: 'Dronningbytte er markert, men inspeksjonen viser aktiv egglegging.',
       message: 'Dette kan være riktig, men bekreft at dronningbytte fortsatt er ønsket.',
+    });
+  }
+
+  if (queenSeen === false && eggsSeen === true) {
+    warnings.push({
+      key: 'QUEEN_NOT_SEEN_BUT_EGGS_PRESENT',
+      severity: 'info',
+      title: 'Dronningen er ikke sett, men ferske egg er registrert.',
+      message: 'Dette kan være normalt dersom dronningen ble oversett eller eggene er nylig lagt. En ny inspeksjon anbefales før større tiltak.',
     });
   }
 
@@ -600,7 +789,7 @@ export function buildAuroraSuggestionsForInspection(input: {
           severity,
           dueKind,
           dueDate: toDateOnly(new Date()),
-          knowledgeSlug: 'lav_matstatus',
+          knowledgeSlug: 'for_lite',
           knowledgeMap: input.knowledgeMap,
           rationalePrefix: lastHoney === 'lite' ? 'Basert på dagens og forrige inspeksjon' : 'Basert på dagens inspeksjon',
           fallbackRationale:
@@ -644,7 +833,7 @@ export function buildAuroraSuggestionsForInspection(input: {
           severity: 'urgent',
           dueKind: 'TOMORROW',
           dueDate: toDateOnly(new Date()),
-          knowledgeSlug: 'sykdomstegn',
+          knowledgeSlug: 'sykdom',
           knowledgeMap: input.knowledgeMap,
           rationalePrefix: 'Basert på dagens inspeksjon',
           fallbackRationale: 'Basert på dagens inspeksjon: Kubestatus = Sykdom.',
@@ -684,10 +873,30 @@ export function buildAuroraSuggestionsForInspection(input: {
           severity: 'warning',
           dueKind: 'DAYS_3',
           dueDate: toDateOnly(new Date()),
-          knowledgeSlug: 'dronningsituasjon',
+          knowledgeSlug: 'queen_missing',
           knowledgeMap: input.knowledgeMap,
           rationalePrefix: 'Basert på dagens inspeksjon',
           fallbackRationale: 'Basert på dagens inspeksjon: Ingen egg er sett og dronningsituasjonen virker usikker.',
+        })
+      );
+    }
+  }
+
+  if (queenSeen === false && eggsSeen === true) {
+    const title = `Kontroller dronningen ved neste inspeksjon: ${hiveLabel}`;
+    const hasAny = openTitles.has(title.toLowerCase()) || Array.from(openTitles).some((t) => t.includes('dronning'));
+    if (!hasAny) {
+      suggestions.push(
+        buildSuggestionFromKnowledge({
+          key: `QUEEN_UNKNOWN:${input.hive.id}`,
+          title,
+          severity: 'info',
+          dueKind: 'DAYS_3',
+          dueDate: toDateOnly(new Date()),
+          knowledgeSlug: 'queen_unknown',
+          knowledgeMap: input.knowledgeMap,
+          rationalePrefix: 'Basert på dagens inspeksjon',
+          fallbackRationale: 'Basert på dagens inspeksjon: Egg er sett, men dronningen ble ikke observert.',
         })
       );
     }
@@ -705,7 +914,7 @@ export function buildAuroraSuggestionsForInspection(input: {
           severity: feedNoteMeta.severity,
           dueKind: feedNoteMeta.dueKind,
           dueDate: toDateOnly(new Date()),
-          knowledgeSlug: 'lav_matstatus',
+          knowledgeSlug: 'for_lite',
           knowledgeMap: input.knowledgeMap,
           rationalePrefix: 'Basert på notat i dagens inspeksjon',
           fallbackRationale: `Basert på notat i dagens inspeksjon: ${shortQuote(inspectionNote, 140)}`,

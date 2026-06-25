@@ -12,7 +12,7 @@ import { useOffline } from '@/context/OfflineContext';
 import { Voice2Engine } from '@/voice2/engine';
 import { parseVoice2Intent } from '@/voice2/parse';
 import { getVoice2AliasIntent, loadVoice2Aliases } from '@/voice2/alias-store';
-import { buildAuroraSuggestionsForInspection, computeDue, getInspectionValidationWarnings } from '@/lib/aurora';
+import { buildAuroraSuggestionsForInspection, computeDue, getInspectionKnowledgeSlugs, getInspectionValidationWarnings } from '@/lib/aurora';
 import { fetchAuroraKnowledgeMap } from '@/lib/aurora-knowledge';
 
 export default function NewInspectionPage({ params }: { params: { id: string } }) {
@@ -2534,15 +2534,27 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       const ownerId = String((hive as any)?.user_id || user.id).trim();
       if (!ownerId) return;
 
-      const auroraKnowledgeSlugs = [
-        'deformerte_vinger',
-        'lav_matstatus',
-        'varroa_mistanke',
-        'sykdomstegn',
-        'dronningsituasjon',
-        'dronningbytte',
-        'svermetrang',
-      ];
+      const auroraKnowledgeSlugs = Array.from(
+        new Set([
+          'deformerte_vinger',
+          'lav_matstatus',
+          'varroa_mistanke',
+          'sykdomstegn',
+          'dronningsituasjon',
+          'dronningbytte',
+          'svermetrang',
+          ...getInspectionKnowledgeSlugs({
+            queen_seen: input.inspection?.queen_seen,
+            eggs_seen: input.inspection?.eggs_seen,
+            brood_condition: input.inspection?.brood_condition,
+            honey_stores: input.inspection?.honey_stores,
+            temperament: input.inspection?.temperament,
+            status: input.inspection?.status,
+            performed_actions: input.inspection?.performed_actions,
+            notes: input.inspection?.notes,
+          }),
+        ])
+      );
 
       const [tasksRes, notesRes, calendarRes, prevInspectionsRes, openAuroraRes] = await Promise.all([
         supabase
