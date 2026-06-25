@@ -2,7 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Archive, Truck, Trash2, X, Check, ClipboardList, Edit, QrCode, Calendar, UserPlus, FileText, ExternalLink, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import { Warehouse, Store, MapPin } from 'lucide-react';
@@ -10,6 +10,7 @@ import QRCode from 'qrcode';
 import { generateHiveLabelsPDF } from '@/utils/hive-labels-pdf';
 
 export default function ApiaryDetailsPage({ params }: { params: { id: string } }) {
+  const searchParams = useSearchParams();
   const [apiary, setApiary] = useState<any>(null);
   const [hives, setHives] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +49,8 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const [auroraDbSuggestionMetaById, setAuroraDbSuggestionMetaById] = useState<
     Record<string, { dueKind: 'NEXT_VISIT' | 'TOMORROW' | 'DAYS_3' | 'NEXT_WEEK' | 'PICK_DATE'; dueDate: string }>
   >({});
+  const shouldOpenAuroraLog = searchParams.get('aurora') === 'open' || searchParams.get('inspectionSaved') === '1';
+  const shouldHighlightAurora = searchParams.get('aurora') === 'open';
   
   // Selection State
   const [selectedHiveIds, setSelectedHiveIds] = useState<Set<string>>(new Set());
@@ -157,6 +160,45 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
   const supabase = createClient();
   const router = useRouter();
+
+  const getAuroraTipForSuggestion = (suggestion: any) => {
+    const title = String(suggestion?.title || '').toLowerCase();
+    const rationale = String(suggestion?.rationale || '').toLowerCase();
+    if (title.includes('støttefôring') || rationale.includes('fôr') || rationale.includes('for ')) {
+      return 'Tips fra Aurora: Ta med fôr, følg opp raskt og bekreft matstatus ved neste besøk.';
+    }
+    if (title.includes('varroa') || rationale.includes('varroa')) {
+      return 'Tips fra Aurora: Opprett oppgaven nå, så blir varroatest eller behandling ikke glemt.';
+    }
+    if (title.includes('dronning') || rationale.includes('dronning')) {
+      return 'Tips fra Aurora: Lag oppfølgingen som oppgave nå, så ligger planen klar til neste besøk.';
+    }
+    return 'Tips fra Aurora: Opprett dette som oppgave nå hvis det faktisk skal følges opp.';
+  };
+
+  const filterVisibleAuroraSuggestions = (rows: any[]) => {
+    const list = Array.isArray(rows) ? rows : [];
+    const feedMasterKeys = new Set(
+      list
+        .filter((s) => String(s?.title || '').toLowerCase().includes('støttefôring'))
+        .map((s) => `${String(s?.inspection_id || '')}:${String(s?.hive_id || '')}`)
+    );
+    const seenTitles = new Set<string>();
+    return list.filter((s) => {
+      const title = String(s?.title || '').trim();
+      const lower = title.toLowerCase();
+      const rationale = String(s?.rationale || '').toLowerCase();
+      const sameContextKey = `${String(s?.inspection_id || '')}:${String(s?.hive_id || '')}`;
+      const isFeedRelated =
+        lower.includes('støttefôring') ||
+        /\b(fore|fôre|fora|fôra|fôr|for\b|foring|fôring|støttefôring|støtteforing|nødfôr|nodfor|sukkerlake)\b/.test(lower) ||
+        /\b(fore|fôre|fora|fôra|fôr|for\b|foring|fôring|støttefôring|støtteforing|nødfôr|nodfor|sukkerlake)\b/.test(rationale);
+      if (feedMasterKeys.has(sameContextKey) && isFeedRelated && !lower.includes('støttefôring')) return false;
+      if (seenTitles.has(lower)) return false;
+      seenTitles.add(lower);
+      return true;
+    });
+  };
 
   const formatApiaryNumber = (raw: any, type?: any) => {
     const s = String(raw || '').trim();
@@ -388,7 +430,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     if (!notesRes.error) setApiaryNotes(notesRes.data || []);
     if (!tasksRes.error) setApiaryTasks(tasksRes.data || []);
     if (!auroraRes.error) {
-      const list = auroraRes.data || [];
+      const list = filterVisibleAuroraSuggestions(auroraRes.data || []);
       setAuroraDbSuggestions(list);
       const initialMeta: Record<string, { dueKind: 'NEXT_VISIT' | 'TOMORROW' | 'DAYS_3' | 'NEXT_WEEK' | 'PICK_DATE'; dueDate: string }> = {};
       const today = new Date().toISOString().slice(0, 10);
@@ -655,6 +697,17 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   useEffect(() => {
     fetchData();
   }, [params.id]);
+
+  useEffect(() => {
+    if (!shouldOpenAuroraLog) return;
+    setIsApiaryLogOpen(true);
+    const t = window.setTimeout(() => {
+      try {
+        document.getElementById('aurora-log-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch {}
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [shouldOpenAuroraLog, auroraDbSuggestions.length]);
 
   useEffect(() => {
     if (isMoveModalOpen) {
@@ -2672,8 +2725,13 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
               </div>
 
               {auroraDbSuggestions.length > 0 && (
-                <div className="border border-indigo-200 bg-indigo-50 rounded-lg p-3 space-y-2">
+                <div id="aurora-log-anchor" className="border border-indigo-200 bg-indigo-50 rounded-lg p-3 space-y-2">
                   <div className="text-xs font-bold uppercase text-indigo-800">Aurora anbefaler oppfølging</div>
+                  {shouldHighlightAurora && (
+                    <div className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm text-indigo-900">
+                      Aurora fant oppfølging fra siste inspeksjon. Se gjennom forslagene før du velger neste kube.
+                    </div>
+                  )}
                   <div className="space-y-2">
                     {auroraDbSuggestions.map((s) => (
                       <div key={s.id} className="bg-white border border-indigo-100 rounded-xl p-3">
@@ -2700,6 +2758,9 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                             {String(s.rationale || '').trim() && (
                               <div className="text-xs text-gray-700 whitespace-pre-line">{s.rationale}</div>
                             )}
+                            <div className="text-xs text-indigo-900 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
+                              {getAuroraTipForSuggestion(s)}
+                            </div>
                           </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

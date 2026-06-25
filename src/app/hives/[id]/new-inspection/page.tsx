@@ -2435,6 +2435,73 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     return msg.includes('bucket not found') || msg.includes('bucket') && msg.includes('not found');
   };
 
+  const goToApiaryAfterSave = useCallback((opts?: { auroraOpen?: boolean; demo?: boolean }) => {
+    const apiaryId = String((hive as any)?.apiary_id || '').trim();
+    if (!apiaryId) {
+      router.push(opts?.demo ? '/hives?demo=1' : '/hives');
+      return;
+    }
+    const paramsList = [
+      opts?.demo ? 'demo=1' : '',
+      'inspectionSaved=1',
+      opts?.auroraOpen ? 'aurora=open' : '',
+    ].filter(Boolean);
+    router.push(`/apiaries/${apiaryId}${paramsList.length ? `?${paramsList.join('&')}` : ''}`);
+  }, [hive, router]);
+
+  const recordInspectionSequence = useCallback(async (input: { inspectionId: string; ownerId: string; userId: string; inspectionDate: string }) => {
+    try {
+      if (typeof window === 'undefined') return;
+      const apiaryId = String((hive as any)?.apiary_id || '').trim();
+      if (!apiaryId) return;
+
+      const storageKey = `aurora-inspection-session:${apiaryId}`;
+      const raw = window.localStorage.getItem(storageKey);
+      const now = Date.now();
+      let sessionKey = `${apiaryId}:${input.inspectionDate}:${now}`;
+      let sequenceIndex = 1;
+      let previousHiveId: string | null = null;
+
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          const recordedAt = Number(parsed?.recordedAt || 0);
+          const sameDay = String(parsed?.inspectionDate || '') === String(input.inspectionDate || '');
+          const freshEnough = now - recordedAt < 1000 * 60 * 60 * 12;
+          if (sameDay && freshEnough && String(parsed?.sessionKey || '').trim()) {
+            sessionKey = String(parsed.sessionKey);
+            sequenceIndex = Number(parsed?.sequenceIndex || 0) + 1;
+            previousHiveId = String(parsed?.lastHiveId || '').trim() || null;
+          }
+        } catch {}
+      }
+
+      window.localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          sessionKey,
+          inspectionDate: input.inspectionDate,
+          lastHiveId: params.id,
+          sequenceIndex,
+          recordedAt: now,
+        })
+      );
+
+      const { error } = await supabase.from('aurora_inspection_sequences').insert({
+        owner_id: input.ownerId,
+        created_by: input.userId,
+        apiary_id: apiaryId,
+        hive_id: params.id,
+        inspection_id: input.inspectionId,
+        session_key: sessionKey,
+        sequence_index: sequenceIndex,
+        previous_hive_id: previousHiveId,
+        inspection_date: input.inspectionDate,
+      });
+      if (error) return;
+    } catch {}
+  }, [hive, params.id, supabase]);
+
   const runAuroraAfterSave = async (input: { inspectionId: string; inspection: any }) => {
     try {
       if (isOffline) return;
@@ -2481,7 +2548,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           .limit(6),
         supabase
           .from('aurora_suggestions')
-          .select('suggestion_key')
+          .select('suggestion_key, title')
           .eq('apiary_id', apiaryId)
           .is('accepted_at', null)
           .is('dismissed_at', null)
@@ -2523,6 +2590,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           .map((x: any) => String(x?.suggestion_key || '').trim())
           .filter(Boolean)
       );
+      const existingAuroraTitlesLower = new Set(
+        (openAuroraRes.data || [])
+          .map((x: any) => String(x?.title || '').trim().toLowerCase())
+          .filter(Boolean)
+      );
 
       const suggestions = buildAuroraSuggestionsForInspection({
         hive: {
@@ -2544,7 +2616,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         recentNotes: notesRes.data || [],
         nextPlannedDateISO,
         earliestOpenTaskDueDateISO,
-      }).filter((s) => !existingKeys.has(s.key));
+      }).filter((s) => !existingKeys.has(s.key) && !existingAuroraTitlesLower.has(String(s.title || '').trim().toLowerCase()));
 
       if (suggestions.length === 0) return null;
 
@@ -2668,18 +2740,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         }
         setTimeout(() => {
           try {
-            const list = apiaryHivesRef.current || [];
-            const currentId = String(params.id || '').trim();
-            const idx = list.findIndex((x) => String((x as any)?.id || '').trim() === currentId);
-            const next = idx >= 0 ? list[idx + 1] : null;
-            const nextId = String((next as any)?.id || '').trim();
-            if ((autoVoice === '1' || handsfreeReady) && nextId) {
-              router.push(`/hives/${nextId}/new-inspection?${isDemoActive ? 'demo=1&' : ''}autoVoice=1`);
-            } else {
-              router.push(isDemoActive ? '/hives?demo=1' : '/hives');
-            }
+            goToApiaryAfterSave({ demo: isDemoActive });
           } catch {
-            router.push(isDemoActive ? '/hives?demo=1' : '/hives');
+            goToApiaryAfterSave({ demo: isDemoActive });
           }
         }, 650);
         return;
@@ -2740,18 +2803,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         }
         setTimeout(() => {
           try {
-            const list = apiaryHivesRef.current || [];
-            const currentId = String(params.id || '').trim();
-            const idx = list.findIndex((x) => String((x as any)?.id || '').trim() === currentId);
-            const next = idx >= 0 ? list[idx + 1] : null;
-            const nextId = String((next as any)?.id || '').trim();
-            if ((autoVoice === '1' || handsfreeReady) && nextId) {
-              router.push(`/hives/${nextId}/new-inspection?${isDemoActive ? 'demo=1&' : ''}autoVoice=1`);
-            } else {
-              router.push(isDemoActive ? '/hives?demo=1' : '/hives');
-            }
+            goToApiaryAfterSave({ demo: isDemoActive });
           } catch {
-            router.push(isDemoActive ? '/hives?demo=1' : '/hives');
+            goToApiaryAfterSave({ demo: isDemoActive });
           }
         }, 650);
         return;
@@ -2833,7 +2887,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         setLastCommand('Inspeksjon lagret');
       announce('Inspeksjon lagret');
         setTimeout(() => {
-          router.push('/hives?demo=1');
+          goToApiaryAfterSave({ demo: true });
         }, 650);
         return;
       }
@@ -2952,6 +3006,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         });
 
       if (logError) throw logError;
+      await recordInspectionSequence({
+        inspectionId: opId,
+        ownerId: String((hive as any)?.user_id || user.id),
+        userId: user.id,
+        inspectionDate: date,
+      });
       const auroraOutcome = await Promise.race([
         runAuroraAfterSave({ inspectionId: opId, inspection: payloadToInsert }),
         new Promise<null>((resolve) => setTimeout(() => resolve(null), 900)),
@@ -2970,26 +3030,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       }
       setLastCommand('Inspeksjon lagret');
       announce('Inspeksjon lagret');
-      const navigationDelay =
-        auroraOutcome?.severity === 'urgent'
-          ? 2400
-          : auroraOutcome?.count
-            ? 1300
-            : 650;
+      const navigationDelay = auroraOutcome?.count ? 900 : 450;
       setTimeout(() => {
         try {
-          const list = apiaryHivesRef.current || [];
-          const currentId = String(params.id || '').trim();
-          const idx = list.findIndex((x) => String((x as any)?.id || '').trim() === currentId);
-          const next = idx >= 0 ? list[idx + 1] : null;
-          const nextId = String((next as any)?.id || '').trim();
-          if ((autoVoice === '1' || handsfreeReady) && nextId) {
-            router.push(`/hives/${nextId}/new-inspection?autoVoice=1`);
-          } else {
-            router.push('/hives');
-          }
+          goToApiaryAfterSave({ auroraOpen: Boolean(auroraOutcome?.count) });
         } catch {
-          router.push('/hives');
+          goToApiaryAfterSave({ auroraOpen: Boolean(auroraOutcome?.count) });
         }
       }, navigationDelay);
     } catch (error: any) {
@@ -3056,18 +3102,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           }
           setTimeout(() => {
             try {
-              const list = apiaryHivesRef.current || [];
-              const currentId = String(params.id || '').trim();
-              const idx = list.findIndex((x) => String((x as any)?.id || '').trim() === currentId);
-              const next = idx >= 0 ? list[idx + 1] : null;
-              const nextId = String((next as any)?.id || '').trim();
-              if ((autoVoice === '1' || handsfreeReady) && nextId) {
-                router.push(`/hives/${nextId}/new-inspection?autoVoice=1`);
-              } else {
-                router.push('/hives');
-              }
+              goToApiaryAfterSave();
             } catch {
-              router.push('/hives');
+              goToApiaryAfterSave();
             }
           }, 650);
           return;

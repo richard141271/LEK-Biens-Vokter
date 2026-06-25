@@ -100,8 +100,15 @@ export function smartDefaultDueMetaForSuggestion(input: {
   return { dueKind: 'NEXT_VISIT' as const, dueDate: input.fallbackDueDate || toDateOnly(new Date()) };
 }
 
+export function sanitizeAuroraText(raw: string) {
+  return String(raw || '')
+    .replace(/\[\[LEK_VOICE_LOG:[\s\S]*?\]\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function suggestTasksFromText(raw: string) {
-  const input = String(raw || '').trim();
+  const input = sanitizeAuroraText(raw);
   if (!input) return [];
 
   const chunks = input
@@ -133,7 +140,7 @@ export function suggestTasksFromText(raw: string) {
     }
 
     const startsWithVerb =
-      /^(rydd|rydde|flytt|flytte|reparer|reparere|hent|hente|skaff|fiks|ordne|sjekk|rengjør|bekjemp|forbered|planlegg)\b/i.test(
+      /^(rydd|rydde|flytt|flytte|reparer|reparere|hent|hente|skaff|fiks|ordne|sjekk|rengjør|bekjemp|forbered|planlegg|fore|fôre|gi fôr|sett på fôr|støttefôr)\b/i.test(
         p
       );
     if (startsWithVerb) {
@@ -178,6 +185,44 @@ function hasPerformedAction(performedActions: any, id: string) {
   return list.some((a) => String(a?.id || '').toUpperCase() === id.toUpperCase());
 }
 
+function upsertSuggestion(list: AuroraSuggestion[], next: AuroraSuggestion) {
+  const idx = list.findIndex((s) => s.key === next.key);
+  if (idx === -1) {
+    list.push(next);
+    return;
+  }
+  const severityOrder: Record<AuroraSeverity, number> = { urgent: 3, warning: 2, info: 1 };
+  const current = list[idx];
+  list[idx] =
+    severityOrder[next.severity] >= severityOrder[current.severity]
+      ? { ...current, ...next }
+      : { ...next, ...current };
+}
+
+function getFeedFollowupMetaFromText(raw: string) {
+  const text = sanitizeAuroraText(raw).toLowerCase();
+  const mentionsFeed =
+    /\b(fore|fôre|fora|fôra|fôr|foring|fôring|støttefôring|støtteforing|gi fôr|gi for|nødfôr|nodfor|sukkerlake)\b/.test(text);
+  if (!mentionsFeed) return null;
+
+  if (/\b(i morgen|snarest|så fort som mulig|sa fort som mulig|umiddelbart)\b/.test(text)) {
+    return { severity: 'urgent' as const, dueKind: 'TOMORROW' as const };
+  }
+  if (/\b(nærmeste dagene|de neste dagene|innen få dager|innen fa dager|snart)\b/.test(text)) {
+    return { severity: 'warning' as const, dueKind: 'DAYS_3' as const };
+  }
+  if (/\b(neste uke)\b/.test(text)) {
+    return { severity: 'info' as const, dueKind: 'NEXT_WEEK' as const };
+  }
+
+  return { severity: 'warning' as const, dueKind: 'DAYS_3' as const };
+}
+
+function isFeedRelatedTitle(title: string) {
+  const normalized = String(title || '').toLowerCase();
+  return /\b(fore|fôre|fora|fôra|fôr|for\b|foring|fôring|støttefôring|støtteforing|nødfôr|nodfor|sukkerlake)\b/.test(normalized);
+}
+
 function pushSuggestionsFromNote(input: {
   suggestions: AuroraSuggestion[];
   openTitles: Set<string>;
@@ -186,11 +231,13 @@ function pushSuggestionsFromNote(input: {
   rationalePrefix: string;
   nextPlannedDateISO?: string | null;
   earliestOpenTaskDueDateISO?: string | null;
+  skipFeedRelated?: boolean;
 }) {
   const noteSuggestions = suggestTasksFromText(input.noteText).slice(0, 4);
   for (const s of noteSuggestions) {
     const title = s.title;
     if (!title) continue;
+    if (input.skipFeedRelated && isFeedRelatedTitle(title)) continue;
     if (input.openTitles.has(title.toLowerCase())) continue;
     input.suggestions.push({
       key: `NOTE:${input.noteId}:${s.key}`,
@@ -237,7 +284,7 @@ export function buildAuroraSuggestionsForInspection(input: {
     const dueKind: AuroraDueKind = severity === 'urgent' ? 'TOMORROW' : 'DAYS_3';
     const title = `Støttefôring: ${hiveLabel}`;
     if (!openTitles.has(title.toLowerCase())) {
-      suggestions.push({
+      upsertSuggestion(suggestions, {
         key: `FEED_SUPPORT:${input.hive.id}`,
         title,
         severity,
@@ -297,7 +344,21 @@ export function buildAuroraSuggestionsForInspection(input: {
     }
   }
 
-  const inspectionNote = String(input.inspection.notes || '').trim();
+  const inspectionNote = sanitizeAuroraText(String(input.inspection.notes || ''));
+  const feedNoteMeta = getFeedFollowupMetaFromText(inspectionNote);
+  if (feedNoteMeta && !hasPerformedAction(input.inspection.performed_actions, 'FEED_GIVEN')) {
+    const title = `Støttefôring: ${hiveLabel}`;
+    if (!openTitles.has(title.toLowerCase())) {
+      upsertSuggestion(suggestions, {
+        key: `FEED_SUPPORT:${input.hive.id}`,
+        title,
+        severity: feedNoteMeta.severity,
+        dueKind: feedNoteMeta.dueKind,
+        dueDate: toDateOnly(new Date()),
+        rationale: `Basert på notat i dagens inspeksjon: ${shortQuote(inspectionNote, 140)}`,
+      });
+    }
+  }
   if (inspectionNote) {
     pushSuggestionsFromNote({
       suggestions,
@@ -307,6 +368,7 @@ export function buildAuroraSuggestionsForInspection(input: {
       rationalePrefix: 'Basert på notat i dagens inspeksjon',
       nextPlannedDateISO: input.nextPlannedDateISO || null,
       earliestOpenTaskDueDateISO: input.earliestOpenTaskDueDateISO || null,
+      skipFeedRelated: Boolean(feedNoteMeta),
     });
   }
 
