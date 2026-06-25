@@ -381,9 +381,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       if (parsed.eggsSeen !== undefined) {
           setScrollTarget('field-eggsSeen');
-          setHistory(prev => [...prev, { type: 'eggsSeen', prev: eggsSeen }]);
-          setEggsSeen(parsed.eggsSeen ? 'ja' : 'nei');
-          feedback.push(parsed.eggsSeen ? 'Egg sett' : 'Ingen egg');
+          const next = parsed.eggsSeen ? 'ja' : 'nei';
+          const changed = setEggsSeenWithConfirmation(next);
+          if (changed) {
+            setHistory(prev => [...prev, { type: 'eggsSeen', prev: eggsSeen }]);
+            feedback.push(parsed.eggsSeen ? 'Egg sett' : 'Ingen egg');
+          }
       }
 
       if (parsed.honeyStores) {
@@ -432,10 +435,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       const eggV = normalizeBrood(p.broodEgg);
       if (eggV) {
           setScrollTarget('field-brood');
-          setHistory(prev => [...prev, { type: 'broodEgg', prev: broodEgg }]);
-          markTouched('broodEgg');
-          setBroodEgg(eggV);
-          feedback.push(`Egg: ${eggV}`);
+          const changed = setBroodEggWithConfirmation(eggV);
+          if (changed) {
+            setHistory(prev => [...prev, { type: 'broodEgg', prev: broodEgg }]);
+            feedback.push(`Egg: ${eggV}`);
+          }
       }
       const larvV = normalizeBrood(p.broodLarvae);
       if (larvV) {
@@ -537,10 +541,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
   const { isListening, pauseListening, resumeListening } = useVoiceRecognition(handleVoiceCommand);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState(new Date().toTimeString().split(' ')[0].substring(0, 5));
-  const [queenSeen, setQueenSeen] = useState<'' | 'ja' | 'nei'>('');
+  const [queenSeen, setQueenSeen] = useState<'' | 'ja' | 'nei'>('nei');
   const [queenColor, setQueenColor] = useState<string>('');
   const [queenYear, setQueenYear] = useState<string>('');
-  const [eggsSeen, setEggsSeen] = useState<'' | 'ja' | 'nei'>('');
+  const [eggsSeen, setEggsSeen] = useState<'' | 'ja' | 'nei'>('nei');
   type BroodAmount = 'lite' | 'normal' | 'mye';
   const [broodEgg, setBroodEgg] = useState<BroodAmount>('normal');
   const [broodLarvae, setBroodLarvae] = useState<BroodAmount>('normal');
@@ -947,10 +951,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     }
 
     if (intent.type === 'EGGS_SEEN') {
-      setEggsSeen((prev) => {
-        setHistory((h) => [...h, { type: 'eggsSeen', prev }]);
-        return 'ja';
-      });
+      setHistory((h) => [...h, { type: 'eggsSeen', prev: eggsSeen }]);
+      setEggsSeenWithConfirmation('ja');
       setLastCommand('Egg sett');
       await engine.speak('Egg sett.');
       setTimeout(() => setLastCommand(null), 2500);
@@ -958,10 +960,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     }
 
     if (intent.type === 'EGGS_NOT_SEEN') {
-      setEggsSeen((prev) => {
-        setHistory((h) => [...h, { type: 'eggsSeen', prev }]);
-        return 'nei';
-      });
+      const changed = setEggsSeenWithConfirmation('nei');
+      if (!changed) {
+        setLastCommand('Avbrutt');
+        await engine.speak('Avbrutt.');
+        setTimeout(() => setLastCommand(null), 2500);
+        return;
+      }
+      setHistory((h) => [...h, { type: 'eggsSeen', prev: eggsSeen }]);
       setLastCommand('Ingen egg');
       await engine.speak('Ingen egg.');
       setTimeout(() => setLastCommand(null), 2500);
@@ -969,10 +975,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     }
 
     if (intent.type === 'BROOD_EGG') {
-      setBroodEgg((prev) => {
-        setHistory((h) => [...h, { type: 'broodEgg', prev }]);
-        return intent.amount;
-      });
+      const changed = setBroodEggWithConfirmation(intent.amount);
+      if (!changed) {
+        setLastCommand('Avbrutt');
+        await engine.speak('Avbrutt.');
+        setTimeout(() => setLastCommand(null), 2500);
+        return;
+      }
+      setHistory((h) => [...h, { type: 'broodEgg', prev: broodEgg }]);
       setLastCommand(`Egg: ${intent.amount}`);
       await engine.speak(`Egg: ${intent.amount}.`);
       setTimeout(() => setLastCommand(null), 2500);
@@ -1354,6 +1364,34 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     touchedRef.current[key] = true;
   };
 
+  const confirmLogicalInspectionChoice = useCallback((message: string) => {
+    if (typeof window === 'undefined') return true;
+    return window.confirm(message);
+  }, []);
+
+  const setEggsSeenWithConfirmation = useCallback((next: 'ja' | 'nei') => {
+    if (next === 'nei' && broodEgg === 'mye') {
+      const ok = confirmLogicalInspectionChoice(
+        'Egg står på "Mye", men "Egg sett" settes til "Nei". Er dette riktig?'
+      );
+      if (!ok) return false;
+    }
+    setEggsSeen(next);
+    return true;
+  }, [broodEgg, confirmLogicalInspectionChoice]);
+
+  const setBroodEggWithConfirmation = useCallback((next: BroodAmount) => {
+    if (next === 'mye' && eggsSeen === 'nei') {
+      const ok = confirmLogicalInspectionChoice(
+        '"Egg sett" står på "Nei", men mengde egg settes til "Mye". Er dette riktig?'
+      );
+      if (!ok) return false;
+    }
+    markTouched('broodEgg');
+    setBroodEgg(next);
+    return true;
+  }, [eggsSeen, confirmLogicalInspectionChoice]);
+
   const prefillKeyRef = useRef<string>('');
   const savedSidesRef = useRef<Record<1 | 2, boolean>>({ 1: false, 2: false });
 
@@ -1438,8 +1476,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       temperament: false,
       status: false,
     };
-    setQueenSeen('');
-    setEggsSeen('');
+    setQueenSeen('nei');
+    setEggsSeen('nei');
     setQueenColor('');
     setQueenYear('');
     setBroodEgg('normal');
@@ -1474,8 +1512,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       temperament: false,
       status: false,
     };
-    setQueenSeen('');
-    setEggsSeen('');
+    setQueenSeen('nei');
+    setEggsSeen('nei');
     setQueenSide(1);
     setQueenSideDbSupported(null);
   }, [params.id]);
@@ -3333,16 +3371,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setQueenSeen('')}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${
-                    queenSeen === '' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  Ikke valgt
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setQueenSeen('ja')}
+                  onClick={() => {
+                    setHistory((h) => [...h, { type: 'queenSeen', prev: queenSeen }]);
+                    setQueenSeen('ja');
+                  }}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold ${
                     queenSeen === 'ja' ? 'bg-honey-500 text-white' : 'bg-gray-100 text-gray-800'
                   }`}
@@ -3351,7 +3383,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 </button>
                 <button
                   type="button"
-                  onClick={() => setQueenSeen('nei')}
+                  onClick={() => {
+                    setHistory((h) => [...h, { type: 'queenSeen', prev: queenSeen }]);
+                    setQueenSeen('nei');
+                  }}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold ${
                     queenSeen === 'nei' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-800'
                   }`}
@@ -3366,16 +3401,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setEggsSeen('')}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold ${
-                    eggsSeen === '' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  Ikke valgt
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEggsSeen('ja')}
+                  onClick={() => {
+                    const changed = setEggsSeenWithConfirmation('ja');
+                    if (changed) setHistory((h) => [...h, { type: 'eggsSeen', prev: eggsSeen }]);
+                  }}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold ${
                     eggsSeen === 'ja' ? 'bg-honey-500 text-white' : 'bg-gray-100 text-gray-800'
                   }`}
@@ -3384,7 +3413,10 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 </button>
                 <button
                   type="button"
-                  onClick={() => setEggsSeen('nei')}
+                  onClick={() => {
+                    const changed = setEggsSeenWithConfirmation('nei');
+                    if (changed) setHistory((h) => [...h, { type: 'eggsSeen', prev: eggsSeen }]);
+                  }}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold ${
                     eggsSeen === 'nei' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-800'
                   }`}
@@ -3467,8 +3499,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                     <select
                       value={broodEgg}
                       onChange={(e) => {
-                        markTouched('broodEgg');
-                        setBroodEgg(e.target.value as any);
+                        const next = e.target.value as BroodAmount;
+                        const changed = setBroodEggWithConfirmation(next);
+                        if (changed) setHistory((h) => [...h, { type: 'broodEgg', prev: broodEgg }]);
                       }}
                       className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
                     >

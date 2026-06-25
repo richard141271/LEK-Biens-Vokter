@@ -178,6 +178,37 @@ function hasPerformedAction(performedActions: any, id: string) {
   return list.some((a) => String(a?.id || '').toUpperCase() === id.toUpperCase());
 }
 
+function pushSuggestionsFromNote(input: {
+  suggestions: AuroraSuggestion[];
+  openTitles: Set<string>;
+  noteId: string;
+  noteText: string;
+  rationalePrefix: string;
+  nextPlannedDateISO?: string | null;
+  earliestOpenTaskDueDateISO?: string | null;
+}) {
+  const noteSuggestions = suggestTasksFromText(input.noteText).slice(0, 4);
+  for (const s of noteSuggestions) {
+    const title = s.title;
+    if (!title) continue;
+    if (input.openTitles.has(title.toLowerCase())) continue;
+    input.suggestions.push({
+      key: `NOTE:${input.noteId}:${s.key}`,
+      title,
+      severity: 'info',
+      ...smartDefaultDueMetaForSuggestion({
+        noteText: input.noteText,
+        suggestionTitle: title,
+        nextPlannedDateISO: input.nextPlannedDateISO || null,
+        earliestOpenTaskDueDateISO: input.earliestOpenTaskDueDateISO || null,
+        fallbackDueKind: 'NEXT_VISIT',
+        fallbackDueDate: toDateOnly(new Date()),
+      }),
+      rationale: `${input.rationalePrefix}: «${shortQuote(input.noteText, 120)}»`,
+    });
+  }
+}
+
 export function buildAuroraSuggestionsForInspection(input: {
   hive: { id: string; hive_number?: string | number | null; name?: string | null };
   apiaryId: string;
@@ -212,7 +243,10 @@ export function buildAuroraSuggestionsForInspection(input: {
         severity,
         dueKind,
         dueDate: toDateOnly(new Date()),
-        rationale: `Basert på dagens inspeksjon: Fôr = Lite, og du registrerte ikke at fôr er gitt.`,
+        rationale:
+          severity === 'urgent'
+            ? 'Basert på dagens og forrige inspeksjon: Fôr = Lite uten registrert fôring. Følg opp raskt, vurder støttefôring nå og se til kuben senest neste dag.'
+            : 'Basert på dagens inspeksjon: Fôr = Lite uten registrert fôring. Vurder støttefôring og legg oppfølging innen få dager.',
       });
     }
   }
@@ -263,28 +297,30 @@ export function buildAuroraSuggestionsForInspection(input: {
     }
   }
 
+  const inspectionNote = String(input.inspection.notes || '').trim();
+  if (inspectionNote) {
+    pushSuggestionsFromNote({
+      suggestions,
+      openTitles,
+      noteId: `inspection-${input.inspection.id}`,
+      noteText: inspectionNote,
+      rationalePrefix: 'Basert på notat i dagens inspeksjon',
+      nextPlannedDateISO: input.nextPlannedDateISO || null,
+      earliestOpenTaskDueDateISO: input.earliestOpenTaskDueDateISO || null,
+    });
+  }
+
   const notes = Array.isArray(input.recentNotes) ? input.recentNotes : [];
   for (const n of notes.slice(0, 6)) {
-    const noteSuggestions = suggestTasksFromText(n.note).slice(0, 4);
-    for (const s of noteSuggestions) {
-      const title = s.title;
-      if (!title) continue;
-      if (openTitles.has(title.toLowerCase())) continue;
-      suggestions.push({
-        key: `NOTE:${n.id}:${s.key}`,
-        title,
-        severity: 'info',
-        ...smartDefaultDueMetaForSuggestion({
-          noteText: n.note,
-          suggestionTitle: title,
-          nextPlannedDateISO: input.nextPlannedDateISO || null,
-          earliestOpenTaskDueDateISO: input.earliestOpenTaskDueDateISO || null,
-          fallbackDueKind: 'NEXT_VISIT',
-          fallbackDueDate: toDateOnly(new Date()),
-        }),
-        rationale: `Basert på tidligere bigårdsnotat: «${shortQuote(n.note, 120)}»`,
-      });
-    }
+    pushSuggestionsFromNote({
+      suggestions,
+      openTitles,
+      noteId: n.id,
+      noteText: n.note,
+      rationalePrefix: 'Basert på tidligere bigårdsnotat',
+      nextPlannedDateISO: input.nextPlannedDateISO || null,
+      earliestOpenTaskDueDateISO: input.earliestOpenTaskDueDateISO || null,
+    });
   }
 
   const unique: AuroraSuggestion[] = [];
@@ -302,4 +338,3 @@ export function buildAuroraSuggestionsForInspection(input: {
   unique.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
   return unique;
 }
-
