@@ -165,38 +165,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     if (Array.isArray(suggestion?.guidance) && suggestion.guidance.length > 0) {
       return suggestion.guidance.map((x: any) => String(x || '').trim()).filter(Boolean);
     }
-
-    const title = String(suggestion?.title || '').toLowerCase();
-    const rationale = String(suggestion?.rationale || '').toLowerCase();
-    if (title.includes('støttefôring') || rationale.includes('fôr') || rationale.includes('for ')) {
-      return [
-        'Lite fôr øker risiko for svekkelse hvis oppfølging drøyer.',
-        'Ta med fôr og bekreft faktisk matstatus ved neste besøk.',
-        'Følg opp raskt, helst innen få dager.',
-      ];
-    }
-    if (title.includes('varroa') || rationale.includes('varroa')) {
-      return [
-        'Mistanken bør følges opp med varroatest eller kontroll av middfall.',
-        'Se etter deformerte vinger og ujevn yngel ved neste inspeksjon.',
-        'Følg opp innen 3 dager.',
-      ];
-    }
-    if (title.includes('dronning') || rationale.includes('dronning')) {
-      return [
-        'Kontroller ferske egg, ung larve og eventuelle dronningceller.',
-        'Vurder om funnet peker mot dronningsvikt eller planlagt dronningbytte.',
-        'Følg opp innen 3-7 dager.',
-      ];
-    }
-    if (title.includes('deformerte vinger') || rationale.includes('deformerte vinger') || rationale.includes('dwv')) {
-      return [
-        'Deformerte vinger kan henge sammen med høyt varroatrykk og DWV.',
-        'Ta bilder og vurder varroatest eller kontroll av middfall.',
-        'Følg opp innen 3-7 dager.',
-      ];
-    }
-    return ['Aurora har registrert et konkret oppfølgingsbehov basert på funnene i inspeksjonen.'];
+    return [];
   };
 
   const filterVisibleAuroraSuggestions = (rows: any[]) => {
@@ -442,7 +411,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         .limit(200),
       supabase
         .from('aurora_suggestions')
-        .select('id, suggestion_key, title, rationale, guidance, severity, due_kind, due_date, created_at, hive_id, inspection_id')
+        .select('id, suggestion_key, title, rationale, guidance, knowledge_slug, knowledge_version, severity, due_kind, due_date, created_at, hive_id, inspection_id')
         .eq('apiary_id', params.id)
         .is('accepted_at', null)
         .is('dismissed_at', null)

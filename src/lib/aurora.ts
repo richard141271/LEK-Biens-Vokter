@@ -1,3 +1,5 @@
+import { AuroraKnowledgeItem, buildAuroraGuidanceFromKnowledge } from '@/lib/aurora-knowledge';
+
 export type AuroraDueKind = 'NEXT_VISIT' | 'TOMORROW' | 'DAYS_3' | 'NEXT_WEEK' | 'PICK_DATE';
 
 export type AuroraSeverity = 'info' | 'warning' | 'urgent';
@@ -10,6 +12,8 @@ export type AuroraSuggestion = {
   dueKind: AuroraDueKind;
   dueDate: string;
   guidance: string[];
+  knowledgeSlug?: string | null;
+  knowledgeVersion?: number | null;
 };
 
 export type AuroraValidation = {
@@ -185,6 +189,37 @@ function upsertSuggestion(list: AuroraSuggestion[], next: AuroraSuggestion) {
       : { ...next, ...current };
 }
 
+function getKnowledgeRationale(item: AuroraKnowledgeItem | null | undefined, prefix: string, fallback: string) {
+  const short = String(item?.short_description || '').trim();
+  if (short) return `${prefix}: ${short}`;
+  return fallback;
+}
+
+function buildSuggestionFromKnowledge(input: {
+  key: string;
+  title: string;
+  severity: AuroraSeverity;
+  dueKind: AuroraDueKind;
+  dueDate: string;
+  knowledgeSlug: string;
+  knowledgeMap?: Map<string, AuroraKnowledgeItem>;
+  rationalePrefix: string;
+  fallbackRationale: string;
+}) {
+  const item = input.knowledgeMap?.get(input.knowledgeSlug) || null;
+  return {
+    key: input.key,
+    title: input.title,
+    severity: input.severity,
+    dueKind: input.dueKind,
+    dueDate: input.dueDate,
+    rationale: getKnowledgeRationale(item, input.rationalePrefix, input.fallbackRationale),
+    guidance: buildAuroraGuidanceFromKnowledge(item),
+    knowledgeSlug: item?.slug || input.knowledgeSlug,
+    knowledgeVersion: item?.version || null,
+  } satisfies AuroraSuggestion;
+}
+
 function getFeedFollowupMetaFromText(raw: string) {
   const text = sanitizeAuroraText(raw).toLowerCase();
   const mentionsFeed =
@@ -308,6 +343,7 @@ function buildThemeSuggestion(input: {
   noteText: string;
   hiveLabel: string;
   sourceLabel: string;
+  knowledgeMap?: Map<string, AuroraKnowledgeItem>;
   nextPlannedDateISO?: string | null;
   earliestOpenTaskDueDateISO?: string | null;
 }): AuroraSuggestion | null {
@@ -322,95 +358,78 @@ function buildThemeSuggestion(input: {
         fallbackDueKind: 'DAYS_3',
         fallbackDueDate: toDateOnly(new Date()),
       });
-      return {
+      return buildSuggestionFromKnowledge({
         key: `NOTE:${input.noteId}:FEED`,
-        title: `Støttefôring: ${input.hiveLabel}`,
+        title: `Lite fôr / behov for støttefôring: ${input.hiveLabel}`,
         severity: due.dueKind === 'TOMORROW' ? 'urgent' : 'warning',
         dueKind: due.dueKind,
         dueDate: due.dueDate,
-        rationale: `Basert på ${input.sourceLabel}: «${quote}»`,
-        guidance: [
-          'Notatet beskriver et konkret behov for fôroppfølging.',
-          'Ta med fôr og kontroller om kuben fortsatt står lavt på mat.',
-          'Bekreft nivået ved neste inspeksjon og juster videre plan etter funn.',
-        ],
-      };
+        knowledgeSlug: 'lav_matstatus',
+        knowledgeMap: input.knowledgeMap,
+        rationalePrefix: `Basert på ${input.sourceLabel}`,
+        fallbackRationale: `Basert på ${input.sourceLabel}: «${quote}»`,
+      });
     }
     case 'DWV':
-      return {
+      return buildSuggestionFromKnowledge({
         key: `NOTE:${input.noteId}:DWV`,
-        title: `Mistenkte deformerte vinger hos enkelte bier: ${input.hiveLabel}`,
+        title: `Deformerte vinger hos bier: ${input.hiveLabel}`,
         severity: 'warning',
         dueKind: 'DAYS_3',
         dueDate: toDateOnly(new Date()),
-        rationale: `Basert på ${input.sourceLabel}: «${quote}»`,
-        guidance: [
-          'Kan skyldes høyt varroatrykk og kan henge sammen med Deformed Wing Virus (DWV).',
-          'Kontroller varroatrykk eller middfall og sammenlign med tidligere inspeksjoner.',
-          'Ta nærbilder ved neste inspeksjon for å dokumentere funnet.',
-          'Følg opp innen 3-7 dager, eller raskere hvis flere bier viser samme tegn.',
-        ],
-      };
+        knowledgeSlug: 'deformerte_vinger',
+        knowledgeMap: input.knowledgeMap,
+        rationalePrefix: `Basert på ${input.sourceLabel}`,
+        fallbackRationale: `Basert på ${input.sourceLabel}: «${quote}»`,
+      });
     case 'VARROA':
-      return {
+      return buildSuggestionFromKnowledge({
         key: `NOTE:${input.noteId}:VARROA`,
-        title: `Kontroller varroatrykk: ${input.hiveLabel}`,
+        title: `Mistanke om varroa: ${input.hiveLabel}`,
         severity: 'warning',
         dueKind: 'DAYS_3',
         dueDate: toDateOnly(new Date()),
-        rationale: `Basert på ${input.sourceLabel}: «${quote}»`,
-        guidance: [
-          'Vurder om funnet kan forklares av økende varroatrykk.',
-          'Gjennomfør varroatest eller kontroller middfall ved neste besøk.',
-          'Dokumenter eventuelle symptomer med bilde hvis du ser skadde bier eller ujevn yngel.',
-          'Følg opp innen 3-7 dager.',
-        ],
-      };
+        knowledgeSlug: 'varroa_mistanke',
+        knowledgeMap: input.knowledgeMap,
+        rationalePrefix: `Basert på ${input.sourceLabel}`,
+        fallbackRationale: `Basert på ${input.sourceLabel}: «${quote}»`,
+      });
     case 'QUEEN':
-      return {
+      return buildSuggestionFromKnowledge({
         key: `NOTE:${input.noteId}:QUEEN`,
         title: `Vurder dronningsituasjonen: ${input.hiveLabel}`,
         severity: 'warning',
         dueKind: 'DAYS_3',
         dueDate: toDateOnly(new Date()),
-        rationale: `Basert på ${input.sourceLabel}: «${quote}»`,
-        guidance: [
-          'Kontroller om det finnes ferske egg, ung larve eller dronningceller ved neste inspeksjon.',
-          'Se etter tegn på dronningsvikt eller nylig dronningtap.',
-          'Ikke gjør store inngrep før dronningsituasjonen er bekreftet.',
-          'Følg opp innen 3-7 dager.',
-        ],
-      };
+        knowledgeSlug: 'dronningsituasjon',
+        knowledgeMap: input.knowledgeMap,
+        rationalePrefix: `Basert på ${input.sourceLabel}`,
+        fallbackRationale: `Basert på ${input.sourceLabel}: «${quote}»`,
+      });
     case 'DISEASE':
-      return {
+      return buildSuggestionFromKnowledge({
         key: `NOTE:${input.noteId}:DISEASE`,
         title: `Sykdomstegn må følges opp: ${input.hiveLabel}`,
         severity: 'urgent',
         dueKind: 'TOMORROW',
         dueDate: toDateOnly(new Date()),
-        rationale: `Basert på ${input.sourceLabel}: «${quote}»`,
-        guidance: [
-          'Avklar om funnet gjelder yngelsykdom, tarmproblem eller annen smittsom tilstand.',
-          'Ta bilder og noter hvilke tavler eller bier som viser tegn.',
-          'Unngå å flytte materiell mellom kuber før funnet er vurdert.',
-          'Følg opp senest neste dag hvis symptomene virker tydelige.',
-        ],
-      };
+        knowledgeSlug: 'sykdomstegn',
+        knowledgeMap: input.knowledgeMap,
+        rationalePrefix: `Basert på ${input.sourceLabel}`,
+        fallbackRationale: `Basert på ${input.sourceLabel}: «${quote}»`,
+      });
     case 'SWARM':
-      return {
+      return buildSuggestionFromKnowledge({
         key: `NOTE:${input.noteId}:SWARM`,
         title: `Følg opp mulig svermetrang: ${input.hiveLabel}`,
         severity: 'info',
         dueKind: 'DAYS_3',
         dueDate: toDateOnly(new Date()),
-        rationale: `Basert på ${input.sourceLabel}: «${quote}»`,
-        guidance: [
-          'Kontroller dronningceller og plassforhold i kuben.',
-          'Vurder om det trengs ekstra plass eller tiltak mot svermetrang.',
-          'Se etter ferske egg og åpen yngel ved neste kontroll.',
-          'Følg opp innen 3 dager i aktiv sesong.',
-        ],
-      };
+        knowledgeSlug: 'svermetrang',
+        knowledgeMap: input.knowledgeMap,
+        rationalePrefix: `Basert på ${input.sourceLabel}`,
+        fallbackRationale: `Basert på ${input.sourceLabel}: «${quote}»`,
+      });
     case 'ACTIONABLE': {
       const title = sanitizeAuroraText(input.theme.sentences[0] || '');
       if (!title) return null;
@@ -428,8 +447,8 @@ function buildThemeSuggestion(input: {
         severity: 'info',
         dueKind: due.dueKind,
         dueDate: due.dueDate,
-          rationale: `Basert på ${input.sourceLabel}: «${quote}»`,
-        guidance: ['Notatet beskriver et konkret oppfølgingsbehov som bør legges inn til neste planlagte besøk.'],
+        rationale: `Basert på ${input.sourceLabel}: «${quote}»`,
+        guidance: [],
       };
     }
     default:
@@ -444,6 +463,7 @@ function pushSuggestionsFromNote(input: {
   noteText: string;
   hiveLabel: string;
   sourceLabel: string;
+  knowledgeMap?: Map<string, AuroraKnowledgeItem>;
   nextPlannedDateISO?: string | null;
   earliestOpenTaskDueDateISO?: string | null;
   skipFeedRelated?: boolean;
@@ -457,6 +477,7 @@ function pushSuggestionsFromNote(input: {
       noteText: input.noteText,
       hiveLabel: input.hiveLabel,
       sourceLabel: input.sourceLabel,
+      knowledgeMap: input.knowledgeMap,
       nextPlannedDateISO: input.nextPlannedDateISO || null,
       earliestOpenTaskDueDateISO: input.earliestOpenTaskDueDateISO || null,
     });
@@ -540,6 +561,7 @@ export function getInspectionValidationWarnings(input: InspectionBiologyInput) {
 export function buildAuroraSuggestionsForInspection(input: {
   hive: { id: string; hive_number?: string | number | null; name?: string | null };
   apiaryId: string;
+  knowledgeMap?: Map<string, AuroraKnowledgeItem>;
   inspection: {
     id: string;
     inspection_date?: string | null;
@@ -572,28 +594,20 @@ export function buildAuroraSuggestionsForInspection(input: {
     const title = `Støttefôring: ${hiveLabel}`;
     if (!openTitles.has(title.toLowerCase())) {
       upsertSuggestion(suggestions, {
-        key: `FEED_SUPPORT:${input.hive.id}`,
-        title,
-        severity,
-        dueKind,
-        dueDate: toDateOnly(new Date()),
-        rationale:
-          severity === 'urgent'
-            ? 'Basert på dagens og forrige inspeksjon: Fôr = Lite uten registrert fôring. Følg opp raskt, vurder støttefôring nå og se til kuben senest neste dag.'
-            : 'Basert på dagens inspeksjon: Fôr = Lite uten registrert fôring. Vurder støttefôring og legg oppfølging innen få dager.',
-        guidance:
-          severity === 'urgent'
-            ? [
-                'Kubens fôrsituasjon bør følges opp raskt for å redusere risiko for svekkelse.',
-                'Vurder støttefôring nå og kontroller hvor mye fôr som faktisk er tilgjengelig ved neste besøk.',
-                'Ta med riktig fôrtype før neste kontroll slik at tiltak kan gjøres uten ekstra forsinkelse.',
-                'Se til kuben senest neste dag.',
-              ]
-            : [
-                'Lite fôr bør følges opp før kuben tappes videre.',
-                'Vurder støttefôring og bekreft matstatus ved neste inspeksjon.',
-                'Ta med fôr og planlegg ny kontroll innen få dager.',
-              ],
+        ...buildSuggestionFromKnowledge({
+          key: `FEED_SUPPORT:${input.hive.id}`,
+          title,
+          severity,
+          dueKind,
+          dueDate: toDateOnly(new Date()),
+          knowledgeSlug: 'lav_matstatus',
+          knowledgeMap: input.knowledgeMap,
+          rationalePrefix: lastHoney === 'lite' ? 'Basert på dagens og forrige inspeksjon' : 'Basert på dagens inspeksjon',
+          fallbackRationale:
+            lastHoney === 'lite'
+              ? 'Basert på dagens og forrige inspeksjon: Fôr = Lite uten registrert fôring.'
+              : 'Basert på dagens inspeksjon: Fôr = Lite uten registrert fôring.',
+        }),
       });
     }
   }
@@ -603,20 +617,19 @@ export function buildAuroraSuggestionsForInspection(input: {
     const title = `Gjennomfør varroatest: ${hiveLabel}`;
     const hasAny = openTitles.has(title.toLowerCase()) || Array.from(openTitles).some((t) => t.includes('varroa'));
     if (!hasAny && !hasPerformedAction(input.inspection.performed_actions, 'VARROA_TEST_DONE') && !hasPerformedAction(input.inspection.performed_actions, 'VARROA_TREATED')) {
-      suggestions.push({
-        key: `VARROA_TEST:${input.hive.id}`,
-        title,
-        severity: 'warning',
-        dueKind: 'DAYS_3',
-        dueDate: toDateOnly(new Date()),
-        rationale: `Basert på dagens inspeksjon: Kubestatus = Varroa mistanke, og det er ikke registrert varroatest eller behandling i dag.`,
-        guidance: [
-          'Mistanken bør følges opp med varroatest eller vurdering av middfall.',
-          'Se etter deformerte vinger, urolig kube eller ujevn yngel ved neste kontroll.',
-          'Dokumenter funn med bilder hvis symptomene er tydelige.',
-          'Følg opp innen 3 dager.',
-        ],
-      });
+      suggestions.push(
+        buildSuggestionFromKnowledge({
+          key: `VARROA_TEST:${input.hive.id}`,
+          title,
+          severity: 'warning',
+          dueKind: 'DAYS_3',
+          dueDate: toDateOnly(new Date()),
+          knowledgeSlug: 'varroa_mistanke',
+          knowledgeMap: input.knowledgeMap,
+          rationalePrefix: 'Basert på dagens inspeksjon',
+          fallbackRationale: 'Basert på dagens inspeksjon: Kubestatus = Varroa mistanke.',
+        })
+      );
     }
   }
 
@@ -624,20 +637,19 @@ export function buildAuroraSuggestionsForInspection(input: {
     const title = `Oppfølging sykdom: ${hiveLabel}`;
     const hasAny = openTitles.has(title.toLowerCase()) || Array.from(openTitles).some((t) => t.includes('sykdom'));
     if (!hasAny) {
-      suggestions.push({
-        key: `DISEASE_FOLLOWUP:${input.hive.id}`,
-        title,
-        severity: 'urgent',
-        dueKind: 'TOMORROW',
-        dueDate: toDateOnly(new Date()),
-        rationale: `Basert på dagens inspeksjon: Kubestatus = Sykdom.`,
-        guidance: [
-          'Avklar hvilke symptomer som ble observert og om de kan være smittsomme.',
-          'Ta bilder og noter hvilke bier eller tavler som er berørt.',
-          'Unngå å flytte utstyr mellom kuber før funnet er vurdert.',
-          'Følg opp senest neste dag.',
-        ],
-      });
+      suggestions.push(
+        buildSuggestionFromKnowledge({
+          key: `DISEASE_FOLLOWUP:${input.hive.id}`,
+          title,
+          severity: 'urgent',
+          dueKind: 'TOMORROW',
+          dueDate: toDateOnly(new Date()),
+          knowledgeSlug: 'sykdomstegn',
+          knowledgeMap: input.knowledgeMap,
+          rationalePrefix: 'Basert på dagens inspeksjon',
+          fallbackRationale: 'Basert på dagens inspeksjon: Kubestatus = Sykdom.',
+        })
+      );
     }
   }
 
@@ -645,20 +657,19 @@ export function buildAuroraSuggestionsForInspection(input: {
     const title = `Planlegg dronningbytte: ${hiveLabel}`;
     const hasAny = openTitles.has(title.toLowerCase()) || Array.from(openTitles).some((t) => t.includes('dronning'));
     if (!hasAny && !hasPerformedAction(input.inspection.performed_actions, 'QUEEN_REPLACED')) {
-      suggestions.push({
-        key: `QUEEN_REPLACE_PLAN:${input.hive.id}`,
-        title,
-        severity: 'info',
-        dueKind: 'NEXT_WEEK',
-        dueDate: toDateOnly(new Date()),
-        rationale: `Basert på dagens inspeksjon: Kubestatus = Bytt Dronning, og dronningbytte er ikke registrert som utført i dag.`,
-        guidance: [
-          'Bekreft først om kuben fortsatt trenger nytt dronningmateriale.',
-          'Se etter ferske egg, dronningceller og ro i kuben før du bestemmer tiltak.',
-          'Planlegg dronningbytte når vær og bemanning gjør oppfølging mulig.',
-          'Følg opp innen en uke.',
-        ],
-      });
+      suggestions.push(
+        buildSuggestionFromKnowledge({
+          key: `QUEEN_REPLACE_PLAN:${input.hive.id}`,
+          title,
+          severity: 'info',
+          dueKind: 'NEXT_WEEK',
+          dueDate: toDateOnly(new Date()),
+          knowledgeSlug: 'dronningbytte',
+          knowledgeMap: input.knowledgeMap,
+          rationalePrefix: 'Basert på dagens inspeksjon',
+          fallbackRationale: 'Basert på dagens inspeksjon: Kubestatus = Bytt Dronning.',
+        })
+      );
     }
   }
 
@@ -666,20 +677,19 @@ export function buildAuroraSuggestionsForInspection(input: {
     const title = `Kontroller dronningsituasjonen: ${hiveLabel}`;
     const hasAny = openTitles.has(title.toLowerCase()) || Array.from(openTitles).some((t) => t.includes('dronning'));
     if (!hasAny) {
-      suggestions.push({
-        key: `QUEEN_STATUS:${input.hive.id}`,
-        title,
-        severity: 'warning',
-        dueKind: 'DAYS_3',
-        dueDate: toDateOnly(new Date()),
-        rationale: 'Basert på dagens inspeksjon: Ingen egg er sett, dronningen er ikke sett, og yngelleiet virker svakt.',
-        guidance: [
-          'Kontroller om det finnes ferske egg, ung larve eller dronningceller ved neste inspeksjon.',
-          'Vurder om kuben kan være på vei mot dronningsvikt eller nylig dronningtap.',
-          'Ikke gjør store inngrep før dronningsituasjonen er bekreftet.',
-          'Følg opp innen 3-7 dager.',
-        ],
-      });
+      suggestions.push(
+        buildSuggestionFromKnowledge({
+          key: `QUEEN_STATUS:${input.hive.id}`,
+          title,
+          severity: 'warning',
+          dueKind: 'DAYS_3',
+          dueDate: toDateOnly(new Date()),
+          knowledgeSlug: 'dronningsituasjon',
+          knowledgeMap: input.knowledgeMap,
+          rationalePrefix: 'Basert på dagens inspeksjon',
+          fallbackRationale: 'Basert på dagens inspeksjon: Ingen egg er sett og dronningsituasjonen virker usikker.',
+        })
+      );
     }
   }
 
@@ -689,24 +699,17 @@ export function buildAuroraSuggestionsForInspection(input: {
     const title = `Støttefôring: ${hiveLabel}`;
     if (!openTitles.has(title.toLowerCase())) {
       upsertSuggestion(suggestions, {
-        key: `FEED_SUPPORT:${input.hive.id}`,
-        title,
-        severity: feedNoteMeta.severity,
-        dueKind: feedNoteMeta.dueKind,
-        dueDate: toDateOnly(new Date()),
-        rationale: `Basert på notat i dagens inspeksjon: ${shortQuote(inspectionNote, 140)}`,
-        guidance:
-          feedNoteMeta.dueKind === 'TOMORROW'
-            ? [
-                'Notatet beskriver en akutt fôrsituasjon som bør følges opp raskt.',
-                'Ta med fôr og vurder støttefôring senest neste dag.',
-                'Bekreft matstatus i kuben når du kommer tilbake.',
-              ]
-            : [
-                'Notatet beskriver behov for fôroppfølging i nær framtid.',
-                'Ta med fôr ved neste besøk og bekreft om nivået fortsatt er lavt.',
-                'Følg opp innen få dager.',
-              ],
+        ...buildSuggestionFromKnowledge({
+          key: `FEED_SUPPORT:${input.hive.id}`,
+          title,
+          severity: feedNoteMeta.severity,
+          dueKind: feedNoteMeta.dueKind,
+          dueDate: toDateOnly(new Date()),
+          knowledgeSlug: 'lav_matstatus',
+          knowledgeMap: input.knowledgeMap,
+          rationalePrefix: 'Basert på notat i dagens inspeksjon',
+          fallbackRationale: `Basert på notat i dagens inspeksjon: ${shortQuote(inspectionNote, 140)}`,
+        }),
       });
     }
   }
@@ -718,6 +721,7 @@ export function buildAuroraSuggestionsForInspection(input: {
       noteText: inspectionNote,
       hiveLabel,
       sourceLabel: 'notat i dagens inspeksjon',
+      knowledgeMap: input.knowledgeMap,
       nextPlannedDateISO: input.nextPlannedDateISO || null,
       earliestOpenTaskDueDateISO: input.earliestOpenTaskDueDateISO || null,
       skipFeedRelated: Boolean(feedNoteMeta),
@@ -733,6 +737,7 @@ export function buildAuroraSuggestionsForInspection(input: {
       noteText: n.note,
       hiveLabel,
       sourceLabel: 'tidligere bigårdsnotat',
+      knowledgeMap: input.knowledgeMap,
       nextPlannedDateISO: input.nextPlannedDateISO || null,
       earliestOpenTaskDueDateISO: input.earliestOpenTaskDueDateISO || null,
     });

@@ -13,6 +13,7 @@ import { Voice2Engine } from '@/voice2/engine';
 import { parseVoice2Intent } from '@/voice2/parse';
 import { getVoice2AliasIntent, loadVoice2Aliases } from '@/voice2/alias-store';
 import { buildAuroraSuggestionsForInspection, computeDue, getInspectionValidationWarnings } from '@/lib/aurora';
+import { fetchAuroraKnowledgeMap } from '@/lib/aurora-knowledge';
 
 export default function NewInspectionPage({ params }: { params: { id: string } }) {
   const [hive, setHive] = useState<any>(null);
@@ -2533,6 +2534,16 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       const ownerId = String((hive as any)?.user_id || user.id).trim();
       if (!ownerId) return;
 
+      const auroraKnowledgeSlugs = [
+        'deformerte_vinger',
+        'lav_matstatus',
+        'varroa_mistanke',
+        'sykdomstegn',
+        'dronningsituasjon',
+        'dronningbytte',
+        'svermetrang',
+      ];
+
       const [tasksRes, notesRes, calendarRes, prevInspectionsRes, openAuroraRes] = await Promise.all([
         supabase
           .from('apiary_tasks')
@@ -2556,7 +2567,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           .limit(80),
         supabase
           .from('inspections')
-          .select('id, created_at, honey_stores')
+          .select('id, created_at, honey_stores, eggs_seen, status')
           .eq('hive_id', params.id)
           .neq('id', input.inspectionId)
           .order('created_at', { ascending: false })
@@ -2611,6 +2622,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           .filter(Boolean)
       );
 
+      const knowledgeMap = await fetchAuroraKnowledgeMap(supabase, auroraKnowledgeSlugs);
+
       const suggestions = buildAuroraSuggestionsForInspection({
         hive: {
           id: params.id,
@@ -2618,6 +2631,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           name: (hive as any)?.name,
         },
         apiaryId,
+        knowledgeMap,
         inspection: {
           id: input.inspectionId,
           inspection_date: input.inspection?.inspection_date,
@@ -2650,6 +2664,8 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           title: s.title,
           rationale: s.rationale || '',
           guidance: Array.isArray(s.guidance) ? s.guidance : [],
+          knowledge_slug: s.knowledgeSlug || null,
+          knowledge_version: s.knowledgeVersion || null,
           severity: s.severity,
           due_kind: due.due_kind,
           due_date: due.due_date,
