@@ -161,19 +161,42 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
   const supabase = createClient();
   const router = useRouter();
 
-  const getAuroraTipForSuggestion = (suggestion: any) => {
+  const getAuroraGuidanceForSuggestion = (suggestion: any) => {
+    if (Array.isArray(suggestion?.guidance) && suggestion.guidance.length > 0) {
+      return suggestion.guidance.map((x: any) => String(x || '').trim()).filter(Boolean);
+    }
+
     const title = String(suggestion?.title || '').toLowerCase();
     const rationale = String(suggestion?.rationale || '').toLowerCase();
     if (title.includes('støttefôring') || rationale.includes('fôr') || rationale.includes('for ')) {
-      return 'Tips fra Aurora: Ta med fôr, følg opp raskt og bekreft matstatus ved neste besøk.';
+      return [
+        'Lite fôr øker risiko for svekkelse hvis oppfølging drøyer.',
+        'Ta med fôr og bekreft faktisk matstatus ved neste besøk.',
+        'Følg opp raskt, helst innen få dager.',
+      ];
     }
     if (title.includes('varroa') || rationale.includes('varroa')) {
-      return 'Tips fra Aurora: Opprett oppgaven nå, så blir varroatest eller behandling ikke glemt.';
+      return [
+        'Mistanken bør følges opp med varroatest eller kontroll av middfall.',
+        'Se etter deformerte vinger og ujevn yngel ved neste inspeksjon.',
+        'Følg opp innen 3 dager.',
+      ];
     }
     if (title.includes('dronning') || rationale.includes('dronning')) {
-      return 'Tips fra Aurora: Lag oppfølgingen som oppgave nå, så ligger planen klar til neste besøk.';
+      return [
+        'Kontroller ferske egg, ung larve og eventuelle dronningceller.',
+        'Vurder om funnet peker mot dronningsvikt eller planlagt dronningbytte.',
+        'Følg opp innen 3-7 dager.',
+      ];
     }
-    return 'Tips fra Aurora: Opprett dette som oppgave nå hvis det faktisk skal følges opp.';
+    if (title.includes('deformerte vinger') || rationale.includes('deformerte vinger') || rationale.includes('dwv')) {
+      return [
+        'Deformerte vinger kan henge sammen med høyt varroatrykk og DWV.',
+        'Ta bilder og vurder varroatest eller kontroll av middfall.',
+        'Følg opp innen 3-7 dager.',
+      ];
+    }
+    return ['Aurora har registrert et konkret oppfølgingsbehov basert på funnene i inspeksjonen.'];
   };
 
   const filterVisibleAuroraSuggestions = (rows: any[]) => {
@@ -419,7 +442,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
         .limit(200),
       supabase
         .from('aurora_suggestions')
-        .select('id, suggestion_key, title, rationale, severity, due_kind, due_date, created_at, hive_id, inspection_id')
+        .select('id, suggestion_key, title, rationale, guidance, severity, due_kind, due_date, created_at, hive_id, inspection_id')
         .eq('apiary_id', params.id)
         .is('accepted_at', null)
         .is('dismissed_at', null)
@@ -2758,9 +2781,13 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                             {String(s.rationale || '').trim() && (
                               <div className="text-xs text-gray-700 whitespace-pre-line">{s.rationale}</div>
                             )}
-                            <div className="text-xs text-indigo-900 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
-                              {getAuroraTipForSuggestion(s)}
-                            </div>
+                            {getAuroraGuidanceForSuggestion(s).length > 0 && (
+                              <div className="text-xs text-indigo-900 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 space-y-1">
+                                {getAuroraGuidanceForSuggestion(s).map((line: string, idx: number) => (
+                                  <div key={`${s.id}-g-${idx}`}>- {line}</div>
+                                ))}
+                              </div>
+                            )}
                           </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

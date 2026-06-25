@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient, getUserWithSessionFallback } from '@/utils/supabase/client';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { parseVoiceCommand } from '@/utils/voice-parser';
 import { analyzeAndCorrect } from '@/utils/voice-diagnostics';
 import { loadAliases } from '@/utils/voice-alias';
@@ -12,7 +12,7 @@ import { useOffline } from '@/context/OfflineContext';
 import { Voice2Engine } from '@/voice2/engine';
 import { parseVoice2Intent } from '@/voice2/parse';
 import { getVoice2AliasIntent, loadVoice2Aliases } from '@/voice2/alias-store';
-import { buildAuroraSuggestionsForInspection, computeDue } from '@/lib/aurora';
+import { buildAuroraSuggestionsForInspection, computeDue, getInspectionValidationWarnings } from '@/lib/aurora';
 
 export default function NewInspectionPage({ params }: { params: { id: string } }) {
   const [hive, setHive] = useState<any>(null);
@@ -610,6 +610,21 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       prev.map((a) => (a.id === id ? { ...a, meta: { ...(a.meta || {}), ...(meta || {}) } } : a))
     );
   };
+
+  const biologicalValidationWarnings = useMemo(() => {
+    const broodCondition =
+      `egg:${broodEgg};larver:${broodLarvae};yngel:${broodYngel};droner:${broodDrones}` +
+      (String(broodFrames || '').trim() ? `;frames:${String(broodFrames).trim().replace(',', '.')}` : '');
+    return getInspectionValidationWarnings({
+      queen_seen: queenSeen === 'ja' ? true : queenSeen === 'nei' ? false : null,
+      eggs_seen: eggsSeen === 'ja' ? true : eggsSeen === 'nei' ? false : null,
+      brood_condition: broodCondition,
+      honey_stores: honeyStores,
+      status,
+      performed_actions: performedActions,
+      notes,
+    });
+  }, [broodDrones, broodEgg, broodFrames, broodLarvae, broodYngel, eggsSeen, honeyStores, notes, performedActions, queenSeen, status]);
 
   useEffect(() => {
     voice2EnabledRef.current = voice2Enabled;
@@ -2607,6 +2622,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           id: input.inspectionId,
           inspection_date: input.inspection?.inspection_date,
           honey_stores: input.inspection?.honey_stores,
+          queen_seen: input.inspection?.queen_seen,
+          eggs_seen: input.inspection?.eggs_seen,
+          brood_condition: input.inspection?.brood_condition,
           status: input.inspection?.status,
           performed_actions: input.inspection?.performed_actions,
           notes: input.inspection?.notes,
@@ -2631,6 +2649,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           suggestion_key: s.key,
           title: s.title,
           rationale: s.rationale || '',
+          guidance: Array.isArray(s.guidance) ? s.guidance : [],
           severity: s.severity,
           due_kind: due.due_kind,
           due_date: due.due_date,
@@ -2675,6 +2694,19 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     const notesWithVoiceLog = [String(notes || '').trimEnd(), voiceLogTag].filter(Boolean).join('\n');
 
     try {
+      const blockingWarnings = biologicalValidationWarnings.filter((w) => w.severity === 'warning');
+      if (blockingWarnings.length > 0) {
+        const ok = window.confirm(
+          `Aurora ser mulig motstrid i inspeksjonen:\n\n${blockingWarnings
+            .map((w) => `- ${w.title}`)
+            .join('\n')}\n\nVil du lagre likevel?`
+        );
+        if (!ok) {
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const isMissingColumn = (err: any, col: string) => {
         const code = String(err?.code || '');
         const msg = String(err?.message || err || '').toLowerCase();
@@ -3259,6 +3291,17 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             >
               Se
             </button>
+          </div>
+        ) : null}
+        {biologicalValidationWarnings.length > 0 ? (
+          <div className="mb-4 max-w-lg mx-auto rounded-xl border border-amber-300 bg-amber-50 p-3 space-y-2">
+            <div className="text-xs font-bold uppercase text-amber-900">Aurora ser mulig motstrid i registreringen</div>
+            {biologicalValidationWarnings.map((warning) => (
+              <div key={warning.key} className="rounded-lg border border-amber-200 bg-white px-3 py-2">
+                <div className="text-sm font-semibold text-gray-900">{warning.title}</div>
+                <div className="text-xs text-gray-700 mt-1">{warning.message}</div>
+              </div>
+            ))}
           </div>
         ) : null}
         {/* Camera Preview (Bodycam Mode) */}
