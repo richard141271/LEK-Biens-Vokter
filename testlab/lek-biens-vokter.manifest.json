@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "id": "lek-biens-vokter",
+    "name": "LEK-Biens Vokter",
+    "defaultBranch": "staging"
+  },
+  "features": [
+    {
+      "id": "inspection-new-inspection",
+      "name": "Inspeksjon: Ny inspeksjon (skjema + lagring)",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/hives/[id]/new-inspection/**",
+        "src/lib/aurora.ts",
+        "src/lib/aurora-knowledge.ts"
+      ],
+      "tests": {
+        "playwright": [
+          "inspection-flow.spec.ts"
+        ],
+        "userJourneys": [
+          "beekeeper-inspection-flow"
+        ],
+        "regression": [],
+        "aurora": [
+          "aurora-suggestions-from-inspection.spec.ts"
+        ],
+        "akb": [
+          "akb-slug-resolution.spec.ts"
+        ]
+      }
+    },
+    {
+      "id": "aurora-note-dwv-deformerte-vinger",
+      "name": "Aurora: Notatanalyse for deformerte vinger (DWV/varroa)",
+      "kind": "bugfix",
+      "required": true,
+      "paths": [
+        "src/lib/aurora.ts",
+        "src/lib/aurora-knowledge.ts"
+      ],
+      "tests": {
+        "playwright": [],
+        "userJourneys": [],
+        "regression": [
+          "aurora-note-dwv-deformerte-vinger.spec.ts"
+        ],
+        "aurora": [
+          "aurora-note-theme-dwv.spec.ts"
+        ],
+        "akb": [
+          "akb-deformerte-vinger-guidance.spec.ts"
+        ]
+      }
+    },
+    {
+      "id": "akb-v1-inspection-coverage",
+      "name": "AKB V1: Full dekning av inspeksjonsfelter",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "supabase/migrations/20260702_akb_v1_inspection_coverage.sql",
+        "src/lib/aurora.ts",
+        "src/lib/aurora-knowledge.ts"
+      ],
+      "tests": {
+        "playwright": [],
+        "userJourneys": [],
+        "regression": [],
+        "aurora": [
+          "aurora-knowledge-slug-coverage.spec.ts"
+        ],
+        "akb": [
+          "akb-inspection-coverage.spec.ts"
+        ]
+      }
+    },
+    {
+      "id": "beekeeping-course-akb-consumer",
+      "name": "Digitalt Birøkterkurs: Kursmoduler leser fra AKB",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/dashboard/admin/beekeeping-course/**",
+        "src/lib/beekeeping-course.ts",
+        "src/lib/aurora-knowledge.ts"
+      ],
+      "tests": {
+        "playwright": [
+          "beekeeping-course-akb.spec.ts"
+        ],
+        "userJourneys": [
+          "admin-open-beekeeping-course"
+        ],
+        "regression": [],
+        "aurora": [],
+        "akb": [
+          "akb-course-modules.spec.ts"
+        ]
+      }
+    }
+  ],
+  "userJourneys": [
+    {
+      "id": "beekeeper-inspection-flow",
+      "name": "Birøkter: Gjennomfør inspeksjon og få Aurora-oppfølging",
+      "required": true,
+      "tests": [
+        "inspection-flow.spec.ts"
+      ]
+    },
+    {
+      "id": "admin-open-beekeeping-course",
+      "name": "Admin: Åpne Digitalt Birøkterkurs og se AKB-moduler",
+      "required": true,
+      "tests": [
+        "beekeeping-course-akb.spec.ts"
+      ]
+    }
+  ]
+}
