@@ -1,13 +1,20 @@
 import Link from 'next/link';
 import { ArrowLeft, BookOpen, GraduationCap, Library, Sparkles } from 'lucide-react';
+import { fetchAuroraKnowledgeList } from '@/lib/aurora-knowledge';
+import { beekeepingCourseKnowledgeSlugs, beekeepingCourseModules } from '@/lib/beekeeping-course';
+import { createClient } from '@/utils/supabase/server';
 
 const nextSteps = [
-  'Bygge kursstruktur med moduler, leksjoner og progresjon.',
-  'Koble faginnhold til Aurora Knowledge Base som felles sannhetskilde.',
-  'Forberede administrasjon av kursoppsett, publisering og kvalitetssikring.',
+  'Bygge progresjon og publiseringslogikk pa toppen av AKB-modulene.',
+  'Utvide med flere slugs etter hvert som inspeksjonsdekningen vokser videre.',
+  'Koble elevflyt og kursvisning til de samme kunnskapsartiklene som Aurora bruker.',
 ];
 
-export default function AdminBeekeepingCoursePage() {
+export default async function AdminBeekeepingCoursePage() {
+  const supabase = createClient();
+  const knowledgeItems = await fetchAuroraKnowledgeList(supabase, beekeepingCourseKnowledgeSlugs);
+  const knowledgeBySlug = new Map(knowledgeItems.map((item) => [item.slug, item] as const));
+
   return (
     <main className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-5xl px-6 py-10">
@@ -31,9 +38,8 @@ export default function AdminBeekeepingCoursePage() {
               </div>
               <h1 className="mt-4 text-3xl font-bold text-gray-900">Digitalt Birøkterkurs</h1>
               <p className="mt-3 max-w-3xl text-base text-gray-600">
-                Her er det gjort klart for å bygge det digitale birøkterkurset videre. Siden fungerer
-                som et administrativt startpunkt for struktur, faginnhold og senere kobling mot
-                Aurora Knowledge Base.
+                Kurssiden leser na faginnhold direkte fra Aurora Knowledge Base via slugs. Det gir
+                en konkret start pa kursmoduler uten a kopiere fagstoff inn i egne kursfiler.
               </p>
             </div>
           </div>
@@ -46,7 +52,7 @@ export default function AdminBeekeepingCoursePage() {
             </div>
             <h2 className="text-lg font-semibold text-gray-900">Kursstruktur</h2>
             <p className="mt-2 text-sm text-gray-600">
-              Moduler, leksjoner og progresjon kan bygges her når selve kurset skal opprettes.
+              Modulene under bruker na AKB-artikler direkte som kunnskapsgrunnlag.
             </p>
           </div>
 
@@ -56,7 +62,7 @@ export default function AdminBeekeepingCoursePage() {
             </div>
             <h2 className="text-lg font-semibold text-gray-900">AKB-kobling</h2>
             <p className="mt-2 text-sm text-gray-600">
-              Kursinnholdet skal senere hente fagstoff direkte fra Aurora Knowledge Base, uten egne kopier.
+              Hver modul peker pa konkrete `slug`-artikler i AKB, slik at kurs og Aurora deler samme sannhet.
             </p>
           </div>
 
@@ -66,8 +72,65 @@ export default function AdminBeekeepingCoursePage() {
             </div>
             <h2 className="text-lg font-semibold text-gray-900">Admin-klargjøring</h2>
             <p className="mt-2 text-sm text-gray-600">
-              Venstremeny og adminoversikt peker nå hit, slik at kursarbeidet kan starte videre senere.
+              Dette er na en faktisk AKB-drevet oversikt for kommende kursmoduler, ikke bare en placeholder.
             </p>
+          </div>
+        </section>
+
+        <section className="mt-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">AKB-drevne kursmoduler</h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Hver modul nedenfor leser direkte fra artikler i `aurora_knowledge`.
+              </p>
+            </div>
+            <div className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
+              {knowledgeItems.length} AKB-artikler koblet inn
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-6">
+            {beekeepingCourseModules.map((module) => {
+              const items = module.knowledgeSlugs
+                .map((slug) => knowledgeBySlug.get(slug))
+                .filter(Boolean);
+
+              return (
+                <div key={module.slug} className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">{module.title}</h3>
+                      <p className="mt-1 text-sm text-gray-600">{module.description}</p>
+                    </div>
+                    <div className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm">
+                      {items.length} artikler
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    {items.map((item) => (
+                      <article key={item!.slug} className="rounded-xl border border-white bg-white p-4 shadow-sm">
+                        <div className="flex items-center justify-between gap-3">
+                          <h4 className="text-sm font-semibold text-gray-900">{item!.title}</h4>
+                          <span className="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-medium text-gray-600">
+                            {item!.slug}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm text-gray-600">
+                          {item!.short_description || 'Kortbeskrivelse mangler forelopig i AKB.'}
+                        </p>
+                        {item!.recommended_actions.length > 0 && (
+                          <div className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+                            Neste steg: {item!.recommended_actions[0]}
+                          </div>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
 

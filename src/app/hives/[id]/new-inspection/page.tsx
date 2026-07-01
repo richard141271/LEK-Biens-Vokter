@@ -2537,6 +2537,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       const auroraKnowledgeSlugs = Array.from(
         new Set([
           'deformerte_vinger',
+          'rule_varroa_med_deformerte_vinger',
           'lav_matstatus',
           'varroa_mistanke',
           'sykdomstegn',
@@ -2636,7 +2637,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       const knowledgeMap = await fetchAuroraKnowledgeMap(supabase, auroraKnowledgeSlugs);
 
-      const suggestions = buildAuroraSuggestionsForInspection({
+      const rawSuggestions = buildAuroraSuggestionsForInspection({
         hive: {
           id: params.id,
           hive_number: (hive as any)?.hive_number,
@@ -2660,9 +2661,28 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         recentNotes: notesRes.data || [],
         nextPlannedDateISO,
         earliestOpenTaskDueDateISO,
-      }).filter((s) => !existingKeys.has(s.key) && !existingAuroraTitlesLower.has(String(s.title || '').trim().toLowerCase()));
+      });
 
-      if (suggestions.length === 0) return null;
+      const suggestions = rawSuggestions.filter(
+        (s) => !existingKeys.has(s.key) && !existingAuroraTitlesLower.has(String(s.title || '').trim().toLowerCase())
+      );
+
+      if (suggestions.length === 0) {
+        const reusedExisting = rawSuggestions.find(
+          (s) => existingKeys.has(s.key) || existingAuroraTitlesLower.has(String(s.title || '').trim().toLowerCase())
+        );
+        if (reusedExisting) {
+          announce(`Aurora viser eksisterende råd: ${reusedExisting.title}`);
+          return {
+            apiaryId,
+            count: 0,
+            topTitle: reusedExisting.title || undefined,
+            severity: reusedExisting.severity || 'info',
+            reusedExisting: true,
+          };
+        }
+        return null;
+      }
 
       const rows = suggestions.map((s) => {
         const due = computeDue(s.dueKind, s.dueDate);
@@ -3093,9 +3113,9 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       const navigationDelay = auroraOutcome?.count ? 900 : 450;
       setTimeout(() => {
         try {
-          goToApiaryAfterSave({ auroraOpen: Boolean(auroraOutcome?.count) });
+          goToApiaryAfterSave({ auroraOpen: Boolean(auroraOutcome?.count || auroraOutcome?.reusedExisting) });
         } catch {
-          goToApiaryAfterSave({ auroraOpen: Boolean(auroraOutcome?.count) });
+          goToApiaryAfterSave({ auroraOpen: Boolean(auroraOutcome?.count || auroraOutcome?.reusedExisting) });
         }
       }, navigationDelay);
     } catch (error: any) {

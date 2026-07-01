@@ -1,4 +1,4 @@
-import { AuroraKnowledgeItem, buildAuroraGuidanceFromKnowledge } from '@/lib/aurora-knowledge';
+import { AuroraKnowledgeItem, buildAuroraGuidanceFromKnowledge, buildAuroraGuidanceFromKnowledgeSlugs } from '@/lib/aurora-knowledge';
 
 export type AuroraDueKind = 'NEXT_VISIT' | 'TOMORROW' | 'DAYS_3' | 'NEXT_WEEK' | 'PICK_DATE';
 
@@ -381,11 +381,16 @@ function buildSuggestionFromKnowledge(input: {
   dueKind: AuroraDueKind;
   dueDate: string;
   knowledgeSlug: string;
+  extraKnowledgeSlugs?: string[];
   knowledgeMap?: Map<string, AuroraKnowledgeItem>;
   rationalePrefix: string;
   fallbackRationale: string;
 }) {
   const item = input.knowledgeMap?.get(input.knowledgeSlug) || null;
+  const guidance = [
+    ...buildAuroraGuidanceFromKnowledge(item),
+    ...buildAuroraGuidanceFromKnowledgeSlugs(input.extraKnowledgeSlugs || [], input.knowledgeMap),
+  ].filter((line, index, list) => list.indexOf(line) === index);
   return {
     key: input.key,
     title: input.title,
@@ -393,7 +398,7 @@ function buildSuggestionFromKnowledge(input: {
     dueKind: input.dueKind,
     dueDate: input.dueDate,
     rationale: getKnowledgeRationale(item, input.rationalePrefix, input.fallbackRationale),
-    guidance: buildAuroraGuidanceFromKnowledge(item),
+    guidance,
     knowledgeSlug: item?.slug || input.knowledgeSlug,
     knowledgeVersion: item?.version || null,
   } satisfies AuroraSuggestion;
@@ -473,7 +478,16 @@ function splitNoteIntoSentences(note: string) {
 function detectThemesForSentence(sentence: string) {
   const s = sanitizeAuroraText(sentence).toLowerCase();
   const keys: string[] = [];
-  if (matchesAny(s, [/\bdeformerte? vinger\b/, /\bkrøllete vinger\b/, /\bmisdannede vinger\b/, /\bdwv\b/])) keys.push('DWV');
+  if (matchesAny(s, [
+    /\bdeformerte? vinger\b/,
+    /\bdeformert vinge\b/,
+    /\bvinger.*deform/,
+    /\bdeform.*vinger\b/,
+    /\bkrøllete vinger\b/,
+    /\bmisdannede vinger\b/,
+    /\bforkrøplede vinger\b/,
+    /\bdwv\b/,
+  ])) keys.push('DWV');
   if (matchesAny(s, [/\bvarroa\b/, /\bmiddfall\b/, /\bmidd\b/, /\bmiddtrykk\b/])) keys.push('VARROA');
   if (matchesAny(s, [/\bfore\b/, /\bfôre\b/, /\bfora\b/, /\bfôra\b/, /\bfôr\b/, /\bstøttefôring\b/, /\bnødfôr\b/, /\bsukkerlake\b/])) keys.push('FEED');
   if (matchesAny(s, [/\bdronning\b/, /\bdronningløs\b/, /\bingen egg\b/, /\bikke sett egg\b/, /\bikke sett dronning\b/])) keys.push('QUEEN');
@@ -552,11 +566,12 @@ function buildThemeSuggestion(input: {
     case 'DWV':
       return buildSuggestionFromKnowledge({
         key: `NOTE:${input.noteId}:DWV`,
-        title: `Deformerte vinger hos bier: ${input.hiveLabel}`,
+        title: `Deformerte vinger og mulig varroabelastning: ${input.hiveLabel}`,
         severity: 'warning',
         dueKind: 'DAYS_3',
         dueDate: toDateOnly(new Date()),
         knowledgeSlug: 'deformerte_vinger',
+        extraKnowledgeSlugs: ['rule_varroa_med_deformerte_vinger'],
         knowledgeMap: input.knowledgeMap,
         rationalePrefix: `Basert på ${input.sourceLabel}`,
         fallbackRationale: `Basert på ${input.sourceLabel}: «${quote}»`,

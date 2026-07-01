@@ -71,6 +71,23 @@ export function buildAuroraGuidanceFromKnowledge(item: AuroraKnowledgeItem | nul
   return lines;
 }
 
+export function buildAuroraGuidanceFromKnowledgeSlugs(
+  slugs: string[],
+  knowledgeMap?: Map<string, AuroraKnowledgeItem>
+) {
+  const uniq = Array.from(new Set((slugs || []).map((slug) => String(slug || '').trim()).filter(Boolean)));
+  const lines: string[] = [];
+
+  for (const slug of uniq) {
+    const item = knowledgeMap?.get(slug);
+    for (const line of buildAuroraGuidanceFromKnowledge(item)) {
+      if (!lines.includes(line)) lines.push(line);
+    }
+  }
+
+  return lines;
+}
+
 export async function fetchAuroraKnowledgeMap(
   supabase: any,
   slugs: string[]
@@ -96,3 +113,12 @@ export async function fetchAuroraKnowledgeMap(
   );
 }
 
+export async function fetchAuroraKnowledgeList(
+  supabase: any,
+  slugs: string[]
+) {
+  const map = await fetchAuroraKnowledgeMap(supabase, slugs);
+  return (slugs || [])
+    .map((slug) => map.get(String(slug || '').trim()))
+    .filter((item): item is AuroraKnowledgeItem => Boolean(item));
+}
