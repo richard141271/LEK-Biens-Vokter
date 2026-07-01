@@ -1,0 +1,434 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "id": "lek-biens-vokter",
+    "name": "LEK-Biens Vokter",
+    "defaultBranch": "staging"
+  },
+  "features": [
+    {
+      "id": "platform-public-and-marketing",
+      "name": "Plattform: offentlige sider, informasjon og innganger",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/page.tsx",
+        "src/app/about/**",
+        "src/app/info/**",
+        "src/app/kids-beekeeper/**",
+        "src/app/lei-en-kube/**",
+        "src/app/franchise/**",
+        "src/app/grunneier/page.tsx",
+        "src/app/mattilsynet/page.tsx",
+        "src/app/offline/**",
+        "src/app/network/**",
+        "src/app/archive/**",
+        "src/app/api/company-by-slug/**",
+        "src/app/api/company/**",
+        "src/components/Header.tsx",
+        "src/components/DesktopNav.tsx",
+        "src/components/BottomNav.tsx",
+        "src/components/MainLayout.tsx"
+      ]
+    },
+    {
+      "id": "auth-and-onboarding",
+      "name": "Innlogging, registrering og auth callback",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/login/**",
+        "src/app/signin/**",
+        "src/app/register/**",
+        "src/app/auth/callback/**",
+        "src/app/actions/auth.ts",
+        "src/components/TermsConsentModal.tsx"
+      ]
+    },
+    {
+      "id": "dashboard-overview-and-toolbox",
+      "name": "Dashboard, verktøykasse og birøkteroversikt",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/dashboard/page.tsx",
+        "src/app/dashboard/components/**",
+        "src/app/dashboard/beekeeper/checklist/**",
+        "src/lib/toolbox.ts",
+        "src/components/WeatherWidget.tsx"
+      ]
+    },
+    {
+      "id": "offline-and-sync",
+      "name": "Offline, PWA og synkronisering",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/offline/**",
+        "src/context/OfflineContext.tsx",
+        "src/utils/offline-storage.ts",
+        "next.config.js",
+        "public/sw.js"
+      ]
+    },
+    {
+      "id": "apiaries-management",
+      "name": "Bigårder: oversikt, detaljer, opprettelse og redigering",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/apiaries/**",
+        "src/app/api/demo/write/apiary/**",
+        "src/app/api/lek-core/create-apiary/**"
+      ]
+    },
+    {
+      "id": "hives-management",
+      "name": "Bikuber: oversikt, kubekort og detaljer",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/hives/page.tsx",
+        "src/app/hives/[[]id[]]/page.tsx",
+        "src/components/InspectionModal.tsx",
+        "src/app/api/demo/write/hives/**",
+        "src/app/api/lek-core/create-hive/**"
+      ]
+    },
+    {
+      "id": "inspection-new-inspection",
+      "name": "Inspeksjon: ny inspeksjon, lagring og eierskapsreparasjon",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/hives/[[]id[]]/new-inspection/**",
+        "src/app/api/inspections/repair-owner/**",
+        "supabase/migrations/20260629_aurora_inspection_sequences.sql"
+      ]
+    },
+    {
+      "id": "aurora-assistant-and-followups",
+      "name": "Aurora: logikkmotor, oppfølginger og biologiske forslag",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/lib/aurora.ts",
+        "src/app/dashboard/components/BeekeeperAlertsPoller.tsx"
+      ]
+    },
+    {
+      "id": "akb-knowledge-base",
+      "name": "AKB: kunnskapsbase, kunnskapsoppslag og inspeksjonsdekning",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/lib/aurora-knowledge.ts",
+        "supabase/migrations/20260701_aurora_knowledge_base.sql",
+        "supabase/migrations/20260702_akb_v1_inspection_coverage.sql"
+      ]
+    },
+    {
+      "id": "scanner-and-qr",
+      "name": "Scanner og QR-oppløsning",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/scan/**",
+        "src/app/api/scan/**"
+      ]
+    },
+    {
+      "id": "labels-print-and-hive-cards",
+      "name": "QR-koder, bikubekort, etiketter og utskrift",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/tools/bikubekort/**",
+        "src/app/tools/labels/**",
+        "src/app/tools/driftsmateriell/**",
+        "src/app/settings/page.tsx",
+        "src/utils/hive-labels-pdf.ts",
+        "src/utils/pdf-template.tsx"
+      ]
+    },
+    {
+      "id": "varroascan-and-ai-diagnose",
+      "name": "VarroaScan-integrasjon og AI-diagnose",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/dashboard/admin/varroascan/**",
+        "src/app/dashboard/smittevern/varroa/**",
+        "src/app/dashboard/smittevern/ai-diagnose/**",
+        "src/app/api/varroa/**",
+        "src/utils/varroascan.ts"
+      ]
+    },
+    {
+      "id": "feedback-and-prioritization",
+      "name": "Tilbakemeldinger og prioriteringsstemmer",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/feedback/**",
+        "src/app/dashboard/admin/feedback/**",
+        "src/app/api/feedback/**",
+        "src/app/api/admin/feedback/**"
+      ]
+    },
+    {
+      "id": "settings-and-access",
+      "name": "Innstillinger, profil, kontaktliste og tilgangsdeling",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/settings/page.tsx",
+        "src/app/settings/contacts/**",
+        "src/app/settings/access/**",
+        "src/app/api/access/**",
+        "src/app/actions/profile.ts"
+      ]
+    },
+    {
+      "id": "subscription-and-premium",
+      "name": "Abonnement, planstyring og premiumtilgang",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/settings/subscription/**",
+        "src/lib/subscriptions.ts"
+      ]
+    },
+    {
+      "id": "beekeeping-course-akb-consumer",
+      "name": "Digitalt Birøkterkurs: kursmoduler leser fra AKB",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/dashboard/admin/beekeeping-course/**",
+        "src/lib/beekeeping-course.ts",
+        "src/lib/aurora-knowledge.ts"
+      ]
+    },
+    {
+      "id": "smittevern-and-disease-guide",
+      "name": "Smittevern, sykdomsveileder og sykdomsregistrering",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/dashboard/smittevern/**",
+        "src/app/actions/sickness.ts",
+        "src/components/SicknessRegistrationModal.tsx"
+      ]
+    },
+    {
+      "id": "mattilsynet-and-authority-reporting",
+      "name": "Mattilsynet, varsler, rapporter og register",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/mattilsynet/**",
+        "src/app/dashboard/mattilsynet/**",
+        "src/app/api/mattilsynet/**",
+        "src/app/actions/mattilsynet.ts"
+      ]
+    },
+    {
+      "id": "grunneier-and-rentals",
+      "name": "Grunneier, leieforhold og avtaler",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/grunneier/page.tsx",
+        "src/app/lei-en-kube/**",
+        "src/app/dashboard/beekeeper/rentals/**",
+        "src/app/dashboard/admin/grunneier/**",
+        "src/app/api/grunneier/**",
+        "src/app/api/admin/grunneier/**"
+      ]
+    },
+    {
+      "id": "signering-and-docflow",
+      "name": "Signering, signeringslenker og kvitteringer",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/signering/**",
+        "src/app/sign/**",
+        "src/app/api/signing/**",
+        "src/lib/signing.ts",
+        "src/lib/signing-receipt.ts",
+        "src/hooks/useSigningAttention.ts"
+      ]
+    },
+    {
+      "id": "reports-and-meeting-notes",
+      "name": "Rapporter, referater, møteoppsummering og e-post",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/referater/**",
+        "src/app/dashboard/mail/**",
+        "src/app/dashboard/admin/meeting-notes/**",
+        "src/app/dashboard/admin/professional-report/**",
+        "src/app/dashboard/admin/email/**",
+        "src/app/api/meeting-notes/**",
+        "src/app/api/admin/report/**",
+        "src/app/api/test-email/**",
+        "src/app/actions/mail.ts"
+      ]
+    },
+    {
+      "id": "survey-and-pilot-interest",
+      "name": "Undersøkelser, pilotinteresse og adminresultater",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/survey/**",
+        "src/lib/survey/**",
+        "src/components/survey/**",
+        "src/app/dashboard/admin/survey-results-v2/**",
+        "src/app/dashboard/admin/pilot-interesser/**",
+        "src/app/api/survey/**",
+        "src/app/api/admin/survey-responses/**",
+        "src/app/api/admin/pilot-interest/**"
+      ]
+    },
+    {
+      "id": "franchise-portal-and-reports",
+      "name": "Franchiseportal, avtaler og franchiserapporter",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/franchise/**",
+        "src/app/dashboard/franchise/**",
+        "src/app/dashboard/admin/franchise/**",
+        "src/app/actions/franchise.ts",
+        "src/app/api/franchise/**",
+        "src/app/api/admin/franchise/**"
+      ]
+    },
+    {
+      "id": "founder-portal-and-community",
+      "name": "Founder-portal, community og grunnleggeravtaler",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/dashboard/founder/**",
+        "src/app/dashboard/admin/founders/**",
+        "src/app/actions/founder.ts",
+        "src/app/actions/founder-community.ts",
+        "src/app/api/founder/**",
+        "src/utils/founder-agreement-pdf-template.ts"
+      ]
+    },
+    {
+      "id": "shop-and-checkout",
+      "name": "Nettbutikk, checkout og admin varehåndtering",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/shop/**",
+        "src/app/dashboard/admin/shop/**",
+        "src/app/actions/shop.ts",
+        "src/app/api/create-order/**"
+      ]
+    },
+    {
+      "id": "aksjer-shareholder-portal",
+      "name": "Aksjer, investordashboard og kvitterings-PDF",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/aksjer/**",
+        "src/app/api/aksjer/**"
+      ]
+    },
+    {
+      "id": "honey-exchange-marketplace",
+      "name": "Honningbørs, videresalg og transaksjoner",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/honey-exchange/**",
+        "src/app/info/honningborsen/**"
+      ]
+    },
+    {
+      "id": "missions-and-wallet",
+      "name": "Oppdrag, mission-detaljer og wallet",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/missions/**",
+        "src/app/dashboard/missions/**",
+        "src/app/wallet/**"
+      ]
+    },
+    {
+      "id": "voice-and-word-training",
+      "name": "Stemmefunksjoner, ordtrening og taleadmin",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/tools/voice/**",
+        "src/app/tools/word-training/**",
+        "src/app/admin/voice/**",
+        "src/app/dashboard/admin/voice/**",
+        "src/app/api/voice/**",
+        "src/app/api/voice2/**",
+        "src/app/api/admin/voice/**",
+        "src/utils/voice-parser.ts",
+        "src/utils/voice-diagnostics.ts",
+        "src/components/WordTraining.tsx"
+      ]
+    },
+    {
+      "id": "admin-core-and-user-management",
+      "name": "Admin-funksjoner, brukeradministrasjon og driftsverktøy",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/admin/**",
+        "src/app/dashboard/admin/page.tsx",
+        "src/app/dashboard/admin/users/**",
+        "src/app/dashboard/admin/community/**",
+        "src/app/dashboard/admin/debug/**",
+        "src/components/AdminNav.tsx",
+        "src/app/actions/user-management.ts",
+        "src/app/actions/war-room.ts",
+        "src/app/actions/war-room-cases.ts",
+        "src/app/actions/war-room-resolve.ts",
+        "src/app/api/admin/stats/**",
+        "src/app/api/admin/nuke/**",
+        "src/app/api/admin/breakglass/**",
+        "src/app/api/debug/**"
+      ]
+    },
+    {
+      "id": "admin-content-and-pages",
+      "name": "Admininnhold, sider og temadag",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/dashboard/admin/pages/**",
+        "src/app/dashboard/admin/temadag/**",
+        "src/app/api/admin/temadag/**"
+      ]
+    },
+    {
+      "id": "demo-and-internal-tools",
+      "name": "Demo, interne testendepunkter og utviklerverktøy",
+      "kind": "chore",
+      "required": false,
+      "paths": [
+        "src/app/debug/**",
+        "src/app/api/demo/**",
+        "src/app/api/test-lek-core/**",
+        "src/scripts/seed-test-data.ts",
+        "scripts/check-tables.ts",
+        "scripts/inspect-templates.ts"
+      ]
+    }
+  ]
+}

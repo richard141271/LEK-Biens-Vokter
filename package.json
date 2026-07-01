@@ -7,9 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint --max-warnings 9999",
-    "testlab:validate": "tsx scripts/testlab/validate.ts",
-    "testlab:assess": "tsx scripts/testlab/assess.ts",
-    "verify": "npm run lint && npm run build && npm run testlab:validate",
+    "verify": "npm run lint && npm run build",
     "postinstall": "puppeteer browsers install chrome"
   },
   "dependencies": {
@@ -39,7 +37,6 @@
   },
   "devDependencies": {
     "@types/canvas-confetti": "^1.9.0",
-    "@types/minimatch": "^6.0.0",
     "@types/node": "^20",
     "@types/nodemailer": "^7.0.9",
     "@types/qrcode": "^1.5.6",
@@ -49,7 +46,6 @@
     "dotenv": "^17.2.3",
     "eslint": "^8",
     "eslint-config-next": "14.2.3",
-    "minimatch": "^10.1.1",
     "postcss": "^8",
     "tailwindcss": "^3.3.0",
     "tsx": "^4.21.0",
