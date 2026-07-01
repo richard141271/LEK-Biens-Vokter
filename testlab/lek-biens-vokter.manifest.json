@@ -7,14 +7,177 @@
   },
   "features": [
     {
-      "id": "inspection-new-inspection",
-      "name": "Inspeksjon: Ny inspeksjon (skjema + lagring)",
+      "id": "platform-public-and-marketing",
+      "name": "Plattform: offentlige sider, informasjon og innganger",
       "kind": "feature",
       "required": true,
       "paths": [
-        "src/app/hives/[id]/new-inspection/**",
-        "src/lib/aurora.ts",
-        "src/lib/aurora-knowledge.ts"
+        "src/app/page.tsx",
+        "src/app/about/**",
+        "src/app/info/**",
+        "src/app/kids-beekeeper/**",
+        "src/app/lei-en-kube/**",
+        "src/app/franchise/**",
+        "src/app/grunneier/page.tsx",
+        "src/app/mattilsynet/page.tsx",
+        "src/app/offline/**",
+        "src/app/network/**",
+        "src/app/archive/**",
+        "src/app/api/company-by-slug/**",
+        "src/app/api/company/**",
+        "src/components/Header.tsx",
+        "src/components/DesktopNav.tsx",
+        "src/components/BottomNav.tsx",
+        "src/components/MainLayout.tsx"
+      ],
+      "tests": {
+        "playwright": [
+          "public-landing.spec.ts",
+          "public-info-navigation.spec.ts"
+        ],
+        "userJourneys": [
+          "public-visitor-discover-platform"
+        ],
+        "regression": [],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "auth-and-onboarding",
+      "name": "Innlogging, registrering og auth callback",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/login/**",
+        "src/app/signin/**",
+        "src/app/register/**",
+        "src/app/auth/callback/**",
+        "src/app/actions/auth.ts",
+        "src/components/TermsConsentModal.tsx"
+      ],
+      "tests": {
+        "playwright": [
+          "auth-login-register.spec.ts"
+        ],
+        "userJourneys": [
+          "user-register-login"
+        ],
+        "regression": [
+          "auth-session-callback.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "dashboard-overview-and-toolbox",
+      "name": "Dashboard, verktøykasse og birøkteroversikt",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/dashboard/page.tsx",
+        "src/app/dashboard/components/**",
+        "src/app/dashboard/beekeeper/checklist/**",
+        "src/lib/toolbox.ts",
+        "src/components/WeatherWidget.tsx"
+      ],
+      "tests": {
+        "playwright": [
+          "dashboard-overview.spec.ts",
+          "toolbox-visibility.spec.ts"
+        ],
+        "userJourneys": [
+          "beekeeper-dashboard-overview"
+        ],
+        "regression": [],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "offline-and-sync",
+      "name": "Offline, PWA og synkronisering",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/offline/**",
+        "src/context/OfflineContext.tsx",
+        "src/utils/offline-storage.ts",
+        "next.config.js",
+        "public/sw.js"
+      ],
+      "tests": {
+        "playwright": [
+          "offline-download-and-sync.spec.ts"
+        ],
+        "userJourneys": [
+          "beekeeper-offline-sync-flow"
+        ],
+        "regression": [
+          "offline-pending-inspections.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "apiaries-management",
+      "name": "Bigårder: oversikt, detaljer, opprettelse og redigering",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/apiaries/**",
+        "src/app/api/demo/write/apiary/**",
+        "src/app/api/lek-core/create-apiary/**"
+      ],
+      "tests": {
+        "playwright": [
+          "apiaries-management.spec.ts"
+        ],
+        "userJourneys": [
+          "beekeeper-apiary-and-hive-management"
+        ],
+        "regression": [],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "hives-management",
+      "name": "Bikuber: oversikt, kubekort og detaljer",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/hives/page.tsx",
+        "src/app/hives/[[]id[]]/page.tsx",
+        "src/components/InspectionModal.tsx",
+        "src/app/api/demo/write/hives/**",
+        "src/app/api/lek-core/create-hive/**"
+      ],
+      "tests": {
+        "playwright": [
+          "hives-management.spec.ts"
+        ],
+        "userJourneys": [
+          "beekeeper-apiary-and-hive-management"
+        ],
+        "regression": [
+          "hive-detail-rendering.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "inspection-new-inspection",
+      "name": "Inspeksjon: ny inspeksjon, lagring og eierskapsreparasjon",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/hives/[[]id[]]/new-inspection/**",
+        "src/app/api/inspections/repair-owner/**",
+        "supabase/migrations/20260629_aurora_inspection_sequences.sql"
       ],
       "tests": {
         "playwright": [
@@ -23,7 +186,9 @@
         "userJourneys": [
           "beekeeper-inspection-flow"
         ],
-        "regression": [],
+        "regression": [
+          "inspection-owner-repair.spec.ts"
+        ],
         "aurora": [
           "aurora-suggestions-from-inspection.spec.ts"
         ],
@@ -33,37 +198,40 @@
       }
     },
     {
-      "id": "aurora-note-dwv-deformerte-vinger",
-      "name": "Aurora: Notatanalyse for deformerte vinger (DWV/varroa)",
-      "kind": "bugfix",
+      "id": "aurora-assistant-and-followups",
+      "name": "Aurora: logikkmotor, oppfølginger og biologiske forslag",
+      "kind": "feature",
       "required": true,
       "paths": [
         "src/lib/aurora.ts",
-        "src/lib/aurora-knowledge.ts"
+        "src/app/dashboard/components/BeekeeperAlertsPoller.tsx"
       ],
       "tests": {
-        "playwright": [],
-        "userJourneys": [],
+        "playwright": [
+          "aurora-followup-visibility.spec.ts"
+        ],
+        "userJourneys": [
+          "beekeeper-inspection-flow"
+        ],
         "regression": [
           "aurora-note-dwv-deformerte-vinger.spec.ts"
         ],
         "aurora": [
-          "aurora-note-theme-dwv.spec.ts"
+          "aurora-note-theme-dwv.spec.ts",
+          "aurora-bio-logic-cross-field.spec.ts"
         ],
-        "akb": [
-          "akb-deformerte-vinger-guidance.spec.ts"
-        ]
+        "akb": []
       }
     },
     {
-      "id": "akb-v1-inspection-coverage",
-      "name": "AKB V1: Full dekning av inspeksjonsfelter",
+      "id": "akb-knowledge-base",
+      "name": "AKB: kunnskapsbase, kunnskapsoppslag og inspeksjonsdekning",
       "kind": "feature",
       "required": true,
       "paths": [
-        "supabase/migrations/20260702_akb_v1_inspection_coverage.sql",
-        "src/lib/aurora.ts",
-        "src/lib/aurora-knowledge.ts"
+        "src/lib/aurora-knowledge.ts",
+        "supabase/migrations/20260701_aurora_knowledge_base.sql",
+        "supabase/migrations/20260702_akb_v1_inspection_coverage.sql"
       ],
       "tests": {
         "playwright": [],
@@ -73,13 +241,167 @@
           "aurora-knowledge-slug-coverage.spec.ts"
         ],
         "akb": [
-          "akb-inspection-coverage.spec.ts"
+          "akb-inspection-coverage.spec.ts",
+          "akb-deformerte-vinger-guidance.spec.ts"
         ]
       }
     },
     {
+      "id": "scanner-and-qr",
+      "name": "Scanner og QR-oppløsning",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/scan/**",
+        "src/app/api/scan/**"
+      ],
+      "tests": {
+        "playwright": [
+          "scanner-qr-resolution.spec.ts"
+        ],
+        "userJourneys": [
+          "beekeeper-scan-qr-flow"
+        ],
+        "regression": [
+          "scan-resolve-access-control.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "labels-print-and-hive-cards",
+      "name": "QR-koder, bikubekort, etiketter og utskrift",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/tools/bikubekort/**",
+        "src/app/tools/labels/**",
+        "src/app/tools/driftsmateriell/**",
+        "src/app/settings/page.tsx",
+        "src/utils/hive-labels-pdf.ts",
+        "src/utils/pdf-template.tsx"
+      ],
+      "tests": {
+        "playwright": [
+          "labels-and-hive-cards.spec.ts"
+        ],
+        "userJourneys": [
+          "beekeeper-scan-qr-flow"
+        ],
+        "regression": [
+          "settings-print-layouts.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "varroascan-and-ai-diagnose",
+      "name": "VarroaScan-integrasjon og AI-diagnose",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/dashboard/admin/varroascan/**",
+        "src/app/dashboard/smittevern/varroa/**",
+        "src/app/dashboard/smittevern/ai-diagnose/**",
+        "src/app/api/varroa/**",
+        "src/utils/varroascan.ts"
+      ],
+      "tests": {
+        "playwright": [
+          "varroascan-admin.spec.ts",
+          "varroa-ai-diagnose.spec.ts"
+        ],
+        "userJourneys": [
+          "admin-varroascan-oversight"
+        ],
+        "regression": [
+          "varroa-infer-api.spec.ts"
+        ],
+        "aurora": [
+          "aurora-varroa-guidance.spec.ts"
+        ],
+        "akb": []
+      }
+    },
+    {
+      "id": "feedback-and-prioritization",
+      "name": "Tilbakemeldinger og prioriteringsstemmer",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/feedback/**",
+        "src/app/dashboard/admin/feedback/**",
+        "src/app/api/feedback/**",
+        "src/app/api/admin/feedback/**"
+      ],
+      "tests": {
+        "playwright": [
+          "feedback-submit-and-vote.spec.ts",
+          "admin-feedback-review.spec.ts"
+        ],
+        "userJourneys": [
+          "beekeeper-feedback-flow",
+          "admin-review-feedback"
+        ],
+        "regression": [],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "settings-and-access",
+      "name": "Innstillinger, profil, kontaktliste og tilgangsdeling",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/settings/page.tsx",
+        "src/app/settings/contacts/**",
+        "src/app/settings/access/**",
+        "src/app/api/access/**",
+        "src/app/actions/profile.ts"
+      ],
+      "tests": {
+        "playwright": [
+          "settings-profile-and-access.spec.ts"
+        ],
+        "userJourneys": [
+          "beekeeper-settings-and-subscription"
+        ],
+        "regression": [
+          "account-access-invite-accept.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "subscription-and-premium",
+      "name": "Abonnement, planstyring og premiumtilgang",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/settings/subscription/**",
+        "src/lib/subscriptions.ts"
+      ],
+      "tests": {
+        "playwright": [
+          "subscription-settings.spec.ts"
+        ],
+        "userJourneys": [
+          "beekeeper-settings-and-subscription"
+        ],
+        "regression": [
+          "subscription-feature-gates.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
       "id": "beekeeping-course-akb-consumer",
-      "name": "Digitalt Birøkterkurs: Kursmoduler leser fra AKB",
+      "name": "Digitalt Birøkterkurs: kursmoduler leser fra AKB",
       "kind": "feature",
       "required": true,
       "paths": [
@@ -100,23 +422,664 @@
           "akb-course-modules.spec.ts"
         ]
       }
+    },
+    {
+      "id": "smittevern-and-disease-guide",
+      "name": "Smittevern, sykdomsveileder og sykdomsregistrering",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/dashboard/smittevern/**",
+        "src/app/actions/sickness.ts",
+        "src/components/SicknessRegistrationModal.tsx"
+      ],
+      "tests": {
+        "playwright": [
+          "smittevern-guide.spec.ts"
+        ],
+        "userJourneys": [
+          "mattilsynet-alerts-flow"
+        ],
+        "regression": [
+          "sickness-registration.spec.ts"
+        ],
+        "aurora": [
+          "aurora-disease-guide-links.spec.ts"
+        ],
+        "akb": [
+          "akb-sickness-slug-resolution.spec.ts"
+        ]
+      }
+    },
+    {
+      "id": "mattilsynet-and-authority-reporting",
+      "name": "Mattilsynet, varsler, rapporter og register",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/mattilsynet/**",
+        "src/app/dashboard/mattilsynet/**",
+        "src/app/api/mattilsynet/**",
+        "src/app/actions/mattilsynet.ts"
+      ],
+      "tests": {
+        "playwright": [
+          "mattilsynet-dashboard.spec.ts",
+          "mattilsynet-alert-detail.spec.ts"
+        ],
+        "userJourneys": [
+          "mattilsynet-alerts-flow"
+        ],
+        "regression": [
+          "mattilsynet-registry-api.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "grunneier-and-rentals",
+      "name": "Grunneier, leieforhold og avtaler",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/grunneier/page.tsx",
+        "src/app/lei-en-kube/**",
+        "src/app/dashboard/beekeeper/rentals/**",
+        "src/app/dashboard/admin/grunneier/**",
+        "src/app/api/grunneier/**",
+        "src/app/api/admin/grunneier/**"
+      ],
+      "tests": {
+        "playwright": [
+          "grunneier-agreement-flow.spec.ts"
+        ],
+        "userJourneys": [
+          "grunneier-agreement-flow"
+        ],
+        "regression": [
+          "grunneier-request-link.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "signering-and-docflow",
+      "name": "Signering, signeringslenker og kvitteringer",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/signering/**",
+        "src/app/sign/**",
+        "src/app/api/signing/**",
+        "src/lib/signing.ts",
+        "src/lib/signing-receipt.ts",
+        "src/hooks/useSigningAttention.ts"
+      ],
+      "tests": {
+        "playwright": [
+          "signing-flow.spec.ts"
+        ],
+        "userJourneys": [
+          "signer-complete-signing"
+        ],
+        "regression": [
+          "signing-token-completed.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "reports-and-meeting-notes",
+      "name": "Rapporter, referater, møteoppsummering og e-post",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/referater/**",
+        "src/app/dashboard/mail/**",
+        "src/app/dashboard/admin/meeting-notes/**",
+        "src/app/dashboard/admin/professional-report/**",
+        "src/app/dashboard/admin/email/**",
+        "src/app/api/meeting-notes/**",
+        "src/app/api/admin/report/**",
+        "src/app/api/test-email/**",
+        "src/app/actions/mail.ts"
+      ],
+      "tests": {
+        "playwright": [
+          "meeting-notes-and-reports.spec.ts"
+        ],
+        "userJourneys": [
+          "admin-reporting-and-mail-flow"
+        ],
+        "regression": [
+          "meeting-notes-summarize-api.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "survey-and-pilot-interest",
+      "name": "Undersøkelser, pilotinteresse og adminresultater",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/survey/**",
+        "src/lib/survey/**",
+        "src/components/survey/**",
+        "src/app/dashboard/admin/survey-results-v2/**",
+        "src/app/dashboard/admin/pilot-interesser/**",
+        "src/app/api/survey/**",
+        "src/app/api/admin/survey-responses/**",
+        "src/app/api/admin/pilot-interest/**"
+      ],
+      "tests": {
+        "playwright": [
+          "survey-submit.spec.ts",
+          "admin-survey-results.spec.ts"
+        ],
+        "userJourneys": [
+          "survey-response-flow"
+        ],
+        "regression": [
+          "pilot-interest-admin-api.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "franchise-portal-and-reports",
+      "name": "Franchiseportal, avtaler og franchiserapporter",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/franchise/**",
+        "src/app/dashboard/franchise/**",
+        "src/app/dashboard/admin/franchise/**",
+        "src/app/actions/franchise.ts",
+        "src/app/api/franchise/**",
+        "src/app/api/admin/franchise/**"
+      ],
+      "tests": {
+        "playwright": [
+          "franchise-reports.spec.ts"
+        ],
+        "userJourneys": [
+          "franchise-report-flow"
+        ],
+        "regression": [
+          "franchise-report-pdf.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "founder-portal-and-community",
+      "name": "Founder-portal, community og grunnleggeravtaler",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/dashboard/founder/**",
+        "src/app/dashboard/admin/founders/**",
+        "src/app/actions/founder.ts",
+        "src/app/actions/founder-community.ts",
+        "src/app/api/founder/**",
+        "src/utils/founder-agreement-pdf-template.ts"
+      ],
+      "tests": {
+        "playwright": [
+          "founder-community.spec.ts"
+        ],
+        "userJourneys": [
+          "founder-community-flow"
+        ],
+        "regression": [
+          "founder-agreement-pdf.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "shop-and-checkout",
+      "name": "Nettbutikk, checkout og admin varehåndtering",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/shop/**",
+        "src/app/dashboard/admin/shop/**",
+        "src/app/actions/shop.ts",
+        "src/app/api/create-order/**"
+      ],
+      "tests": {
+        "playwright": [
+          "shop-checkout.spec.ts"
+        ],
+        "userJourneys": [
+          "shop-order-flow"
+        ],
+        "regression": [
+          "create-order-api.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "aksjer-shareholder-portal",
+      "name": "Aksjer, investordashboard og kvitterings-PDF",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/aksjer/**",
+        "src/app/api/aksjer/**"
+      ],
+      "tests": {
+        "playwright": [
+          "aksjer-shareholder-flow.spec.ts"
+        ],
+        "userJourneys": [
+          "shareholder-buy-flow"
+        ],
+        "regression": [
+          "aksjer-receipt-pdf.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "honey-exchange-marketplace",
+      "name": "Honningbørs, videresalg og transaksjoner",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/honey-exchange/**",
+        "src/app/info/honningborsen/**"
+      ],
+      "tests": {
+        "playwright": [
+          "honey-exchange-flow.spec.ts"
+        ],
+        "userJourneys": [
+          "honey-exchange-listing-flow"
+        ],
+        "regression": [
+          "honey-exchange-resell.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "missions-and-wallet",
+      "name": "Oppdrag, mission-detaljer og wallet",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/missions/**",
+        "src/app/dashboard/missions/**",
+        "src/app/wallet/**"
+      ],
+      "tests": {
+        "playwright": [
+          "missions-and-wallet.spec.ts"
+        ],
+        "userJourneys": [
+          "missions-and-wallet-flow"
+        ],
+        "regression": [],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "voice-and-word-training",
+      "name": "Stemmefunksjoner, ordtrening og taleadmin",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/tools/voice/**",
+        "src/app/tools/word-training/**",
+        "src/app/admin/voice/**",
+        "src/app/dashboard/admin/voice/**",
+        "src/app/api/voice/**",
+        "src/app/api/voice2/**",
+        "src/app/api/admin/voice/**",
+        "src/utils/voice-parser.ts",
+        "src/utils/voice-diagnostics.ts",
+        "src/components/WordTraining.tsx"
+      ],
+      "tests": {
+        "playwright": [
+          "voice-tools.spec.ts"
+        ],
+        "userJourneys": [
+          "voice-training-flow"
+        ],
+        "regression": [
+          "voice-aliases-api.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "admin-core-and-user-management",
+      "name": "Admin-funksjoner, brukeradministrasjon og driftsverktøy",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/admin/**",
+        "src/app/dashboard/admin/page.tsx",
+        "src/app/dashboard/admin/users/**",
+        "src/app/dashboard/admin/community/**",
+        "src/app/dashboard/admin/debug/**",
+        "src/components/AdminNav.tsx",
+        "src/app/actions/user-management.ts",
+        "src/app/actions/war-room.ts",
+        "src/app/actions/war-room-cases.ts",
+        "src/app/actions/war-room-resolve.ts",
+        "src/app/api/admin/stats/**",
+        "src/app/api/admin/nuke/**",
+        "src/app/api/admin/breakglass/**",
+        "src/app/api/debug/**"
+      ],
+      "tests": {
+        "playwright": [
+          "admin-users-and-overview.spec.ts"
+        ],
+        "userJourneys": [
+          "admin-users-flow"
+        ],
+        "regression": [
+          "admin-breakglass-reset.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "admin-content-and-pages",
+      "name": "Admininnhold, sider og temadag",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "src/app/dashboard/admin/pages/**",
+        "src/app/dashboard/admin/temadag/**",
+        "src/app/api/admin/temadag/**"
+      ],
+      "tests": {
+        "playwright": [
+          "admin-pages-and-temadag.spec.ts"
+        ],
+        "userJourneys": [
+          "admin-content-flow"
+        ],
+        "regression": [],
+        "aurora": [],
+        "akb": []
+      }
+    },
+    {
+      "id": "demo-and-internal-tools",
+      "name": "Demo, interne testendepunkter og utviklerverktøy",
+      "kind": "chore",
+      "required": false,
+      "paths": [
+        "src/app/debug/**",
+        "src/app/api/demo/**",
+        "src/app/api/test-lek-core/**",
+        "src/scripts/seed-test-data.ts",
+        "scripts/check-tables.ts",
+        "scripts/inspect-templates.ts"
+      ],
+      "tests": {
+        "playwright": [],
+        "userJourneys": [],
+        "regression": [],
+        "aurora": [],
+        "akb": []
+      },
+      "testJustification": "Interne demo- og driftshjelpeflater er registrert for endringsmapping, men er ikke del av ordinær produktdekning. Disse verifiseres ved behov manuelt eller i isolert utviklerflyt."
+    },
+    {
+      "id": "testlab-product-coverage-registry",
+      "name": "TestLab-integrasjon, manifest og endringsvurdering",
+      "kind": "feature",
+      "required": true,
+      "paths": [
+        "testlab/**",
+        "scripts/testlab/**",
+        "docs/testlab-integration.md",
+        "package.json"
+      ],
+      "tests": {
+        "playwright": [],
+        "userJourneys": [],
+        "regression": [
+          "testlab-assess-output.spec.ts",
+          "testlab-manifest-validation.spec.ts"
+        ],
+        "aurora": [],
+        "akb": []
+      }
     }
   ],
   "userJourneys": [
     {
+      "id": "public-visitor-discover-platform",
+      "name": "Besøkende: forstå plattformen og navigere offentlige innganger",
+      "required": true,
+      "tests": [
+        "public-landing.spec.ts"
+      ]
+    },
+    {
+      "id": "user-register-login",
+      "name": "Bruker: registrere seg og logge inn",
+      "required": true,
+      "tests": [
+        "auth-login-register.spec.ts"
+      ]
+    },
+    {
+      "id": "beekeeper-dashboard-overview",
+      "name": "Birøkter: åpne dashboard og se verktøykasse",
+      "required": true,
+      "tests": [
+        "dashboard-overview.spec.ts"
+      ]
+    },
+    {
+      "id": "beekeeper-apiary-and-hive-management",
+      "name": "Birøkter: navigere mellom bigårder og kuber",
+      "required": true,
+      "tests": [
+        "apiaries-management.spec.ts",
+        "hives-management.spec.ts"
+      ]
+    },
+    {
       "id": "beekeeper-inspection-flow",
-      "name": "Birøkter: Gjennomfør inspeksjon og få Aurora-oppfølging",
+      "name": "Birøkter: gjennomføre inspeksjon og få Aurora-oppfølging",
       "required": true,
       "tests": [
         "inspection-flow.spec.ts"
       ]
     },
     {
+      "id": "beekeeper-offline-sync-flow",
+      "name": "Birøkter: laste ned offline-data og synkronisere senere",
+      "required": true,
+      "tests": [
+        "offline-download-and-sync.spec.ts"
+      ]
+    },
+    {
+      "id": "beekeeper-scan-qr-flow",
+      "name": "Birøkter: skanne QR og gå til riktig kube eller bigård",
+      "required": true,
+      "tests": [
+        "scanner-qr-resolution.spec.ts"
+      ]
+    },
+    {
+      "id": "beekeeper-feedback-flow",
+      "name": "Birøkter: sende tilbakemelding og stemme på prioritering",
+      "required": true,
+      "tests": [
+        "feedback-submit-and-vote.spec.ts"
+      ]
+    },
+    {
+      "id": "beekeeper-settings-and-subscription",
+      "name": "Birøkter: administrere profil, tilgang og abonnement",
+      "required": true,
+      "tests": [
+        "settings-profile-and-access.spec.ts",
+        "subscription-settings.spec.ts"
+      ]
+    },
+    {
+      "id": "admin-review-feedback",
+      "name": "Admin: overvåke og behandle tilbakemeldinger",
+      "required": true,
+      "tests": [
+        "admin-feedback-review.spec.ts"
+      ]
+    },
+    {
       "id": "admin-open-beekeeping-course",
-      "name": "Admin: Åpne Digitalt Birøkterkurs og se AKB-moduler",
+      "name": "Admin: åpne Digitalt Birøkterkurs og se AKB-moduler",
       "required": true,
       "tests": [
         "beekeeping-course-akb.spec.ts"
+      ]
+    },
+    {
+      "id": "admin-varroascan-oversight",
+      "name": "Admin: åpne VarroaScan og følge opp innsendinger",
+      "required": true,
+      "tests": [
+        "varroascan-admin.spec.ts"
+      ]
+    },
+    {
+      "id": "mattilsynet-alerts-flow",
+      "name": "Myndighetsbruker: åpne varsler, rapporter og register",
+      "required": true,
+      "tests": [
+        "mattilsynet-dashboard.spec.ts"
+      ]
+    },
+    {
+      "id": "grunneier-agreement-flow",
+      "name": "Grunneier: opprette og følge opp avtale",
+      "required": true,
+      "tests": [
+        "grunneier-agreement-flow.spec.ts"
+      ]
+    },
+    {
+      "id": "signer-complete-signing",
+      "name": "Signatar: åpne signeringslenke og fullføre signering",
+      "required": true,
+      "tests": [
+        "signing-flow.spec.ts"
+      ]
+    },
+    {
+      "id": "admin-reporting-and-mail-flow",
+      "name": "Admin: generere rapporter og sende e-post",
+      "required": true,
+      "tests": [
+        "meeting-notes-and-reports.spec.ts"
+      ]
+    },
+    {
+      "id": "survey-response-flow",
+      "name": "Respondent: fylle ut undersøkelse og sende svar",
+      "required": true,
+      "tests": [
+        "survey-submit.spec.ts"
+      ]
+    },
+    {
+      "id": "franchise-report-flow",
+      "name": "Franchise: åpne portal og generere rapporter",
+      "required": true,
+      "tests": [
+        "franchise-reports.spec.ts"
+      ]
+    },
+    {
+      "id": "founder-community-flow",
+      "name": "Founder: åpne founderportal og community",
+      "required": true,
+      "tests": [
+        "founder-community.spec.ts"
+      ]
+    },
+    {
+      "id": "shop-order-flow",
+      "name": "Kunde: legge inn ordre i nettbutikk og fullføre checkout",
+      "required": true,
+      "tests": [
+        "shop-checkout.spec.ts"
+      ]
+    },
+    {
+      "id": "shareholder-buy-flow",
+      "name": "Investor: kjøpe aksjer og åpne ordredetaljer",
+      "required": true,
+      "tests": [
+        "aksjer-shareholder-flow.spec.ts"
+      ]
+    },
+    {
+      "id": "honey-exchange-listing-flow",
+      "name": "Bruker: opprette eller følge opp honningbørs-annonse",
+      "required": true,
+      "tests": [
+        "honey-exchange-flow.spec.ts"
+      ]
+    },
+    {
+      "id": "missions-and-wallet-flow",
+      "name": "Bruker: åpne oppdrag og wallet",
+      "required": true,
+      "tests": [
+        "missions-and-wallet.spec.ts"
+      ]
+    },
+    {
+      "id": "voice-training-flow",
+      "name": "Bruker: åpne stemmeverktøy og ordtrening",
+      "required": true,
+      "tests": [
+        "voice-tools.spec.ts"
+      ]
+    },
+    {
+      "id": "admin-users-flow",
+      "name": "Admin: åpne oversikt, brukere og driftsverktøy",
+      "required": true,
+      "tests": [
+        "admin-users-and-overview.spec.ts"
+      ]
+    },
+    {
+      "id": "admin-content-flow",
+      "name": "Admin: redigere sider og temadag-innhold",
+      "required": true,
+      "tests": [
+        "admin-pages-and-temadag.spec.ts"
       ]
     }
   ]

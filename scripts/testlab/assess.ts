@@ -57,8 +57,12 @@ const impacted = manifest.features
   })
   .filter((x) => x.hits.length > 0);
 
+const matchedFiles = new Set(impacted.flatMap((x) => x.hits));
+const unmatchedChangedFiles = changedFiles.filter((file) => !matchedFiles.has(file));
+
 const output = {
   changedFiles,
+  unmatchedChangedFiles,
   impactedFeatures: impacted.map((x) => ({
     id: x.feature.id,
     name: x.feature.name,

@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { minimatch } from 'minimatch';
 
 type TestLabFeatureKind = 'feature' | 'bugfix' | 'refactor' | 'chore';
 
@@ -50,6 +51,35 @@ function readManifest(): TestLabManifest {
   return json as TestLabManifest;
 }
 
+function walk(dirPath: string, collected: string[] = []) {
+  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+    const full = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) {
+      walk(full, collected);
+      continue;
+    }
+    collected.push(full);
+  }
+  return collected;
+}
+
+function getAppFeatureFiles() {
+  const appRoot = path.join(process.cwd(), 'src', 'app');
+  const ignored = new Set([
+    path.join(appRoot, 'layout.tsx'),
+    path.join(appRoot, 'error.tsx'),
+    path.join(appRoot, 'global-error.tsx'),
+  ]);
+
+  return walk(appRoot)
+    .filter((filePath) => {
+      const base = path.basename(filePath);
+      return base === 'page.tsx' || base === 'route.ts' || base === 'route.tsx';
+    })
+    .filter((filePath) => !ignored.has(filePath))
+    .map((filePath) => path.relative(process.cwd(), filePath).replace(/\\/g, '/'));
+}
+
 function validateManifest(manifest: TestLabManifest) {
   if (!manifest || typeof manifest !== 'object') fail('Ugyldig manifest: ikke et objekt.');
   if (manifest.schemaVersion !== 1) fail(`Ugyldig schemaVersion: ${String((manifest as any).schemaVersion)}`);
@@ -57,7 +87,7 @@ function validateManifest(manifest: TestLabManifest) {
 
   const featureIds = new Set<string>();
   const journeyIds = new Set<string>();
-  const journeyTestIds = new Set<string>();
+  const journeyRefs = new Map<string, number>();
 
   for (const journey of Array.isArray(manifest.userJourneys) ? manifest.userJourneys : []) {
     const id = String((journey as any)?.id || '').trim();
@@ -65,9 +95,7 @@ function validateManifest(manifest: TestLabManifest) {
     if (!id || !name) fail('UserJourney mangler id eller name.');
     if (journeyIds.has(id)) fail(`Duplikat UserJourney id: ${id}`);
     journeyIds.add(id);
-    for (const t of asStringArray((journey as any)?.tests)) {
-      journeyTestIds.add(t);
-    }
+    journeyRefs.set(id, 0);
   }
 
   const allowedKinds: TestLabFeatureKind[] = ['feature', 'bugfix', 'refactor', 'chore'];
@@ -92,6 +120,7 @@ function validateManifest(manifest: TestLabManifest) {
 
     for (const uj of normalized.userJourneys) {
       if (!journeyIds.has(uj)) fail(`Feature ${id} refererer til ukjent userJourney: ${uj}`);
+      journeyRefs.set(uj, (journeyRefs.get(uj) || 0) + 1);
     }
 
     const allTests = [
@@ -116,6 +145,31 @@ function validateManifest(manifest: TestLabManifest) {
     if (anyPaths.length === 0) {
       fail(`Feature ${id} mangler paths. Bruk glob-mønstre for å knytte endringer til feature.`);
     }
+  }
+
+  const coveragePatterns = manifest.features.flatMap((feature) => asStringArray(feature.paths));
+  const uncoveredFiles = getAppFeatureFiles().filter(
+    (filePath) => !coveragePatterns.some((pattern) => minimatch(filePath, pattern, { dot: true }))
+  );
+
+  if (uncoveredFiles.length > 0) {
+    fail(
+      `Manifestet dekker ikke alle app features. Mangler dekning for:\n${uncoveredFiles
+        .map((filePath) => `- ${filePath}`)
+        .join('\n')}`
+    );
+  }
+
+  const orphanJourneys = Array.from(journeyRefs.entries())
+    .filter(([, refCount]) => refCount === 0)
+    .map(([id]) => id);
+
+  if (orphanJourneys.length > 0) {
+    fail(
+      `Manifestet har user journeys uten feature-kobling. Mangler referanse for:\n${orphanJourneys
+        .map((id) => `- ${id}`)
+        .join('\n')}`
+    );
   }
 }
 
