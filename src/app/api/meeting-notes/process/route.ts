@@ -236,6 +236,7 @@ export async function POST(request: Request) {
         duration_seconds?: number | string;
         mimeType?: string;
         fileName?: string;
+        transcript?: string | null;
       };
 
       filePath = typeof body.audioPath === 'string' ? body.audioPath.trim() : '';
@@ -263,6 +264,33 @@ export async function POST(request: Request) {
       if (!fileName) {
         fileName = filePath.split('/').pop() || `meeting.${baseMimeType === 'audio/mp4' ? 'm4a' : 'webm'}`;
       }
+
+      const transcript =
+        typeof body.transcript === 'string' ? stabilizeTranscript(body.transcript) : '';
+
+      const title = 'Møteopptak ' + new Date().toLocaleString('no-NO');
+
+      const { data: inserted, error: insertError } = await adminClient
+        .from('meeting_notes')
+        .insert({
+          user_id: user.id,
+          title,
+          date: new Date().toISOString(),
+          duration: durationSeconds,
+          audio_url: filePath,
+          transcript: transcript || null,
+          summary: null,
+          action_points: null,
+        })
+        .select('id')
+        .single();
+
+      if (insertError) {
+        console.error('DB insert error', insertError);
+        return NextResponse.json({ error: 'Kunne ikke lagre referat' }, { status: 500 });
+      }
+
+      return NextResponse.json({ id: inserted.id });
     } else {
       const formData = await request.formData();
       const file = formData.get('file') as File | null;

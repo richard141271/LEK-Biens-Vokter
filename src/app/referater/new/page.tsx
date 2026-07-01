@@ -1,6 +1,7 @@
 'use client';
 
 import { createClient } from '@/utils/supabase/client';
+import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Mic, Square, X, Check, Loader2 } from 'lucide-react';
@@ -16,10 +17,29 @@ export default function NewMeetingRecordingPage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [liveTranscript, setLiveTranscript] = useState('');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const transcriptChunksRef = useRef<string[]>([]);
+  const lastTranscriptChunkRef = useRef('');
+
+  const appendTranscriptChunk = (text: string) => {
+    const cleaned = text.replace(/\s+/g, ' ').trim();
+    if (!cleaned) return;
+
+    const previous = lastTranscriptChunkRef.current.trim().toLowerCase();
+    if (previous === cleaned.toLowerCase()) return;
+
+    transcriptChunksRef.current.push(cleaned);
+    lastTranscriptChunkRef.current = cleaned;
+    setLiveTranscript(transcriptChunksRef.current.join('\n'));
+  };
+
+  const { isListening, isSupported, startListening, stopListening } = useVoiceRecognition(
+    appendTranscriptChunk,
+  );
 
   useEffect(() => {
     const checkUser = async () => {
@@ -38,6 +58,7 @@ export default function NewMeetingRecordingPage() {
     checkUser();
 
     return () => {
+      stopListening();
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
       }
@@ -45,7 +66,7 @@ export default function NewMeetingRecordingPage() {
         clearInterval(timerRef.current);
       }
     };
-  }, [router, supabase]);
+  }, [router, stopListening, supabase]);
 
   useEffect(() => {
     if (!recordedBlob) {
@@ -130,6 +151,9 @@ export default function NewMeetingRecordingPage() {
 
   const handleStartRecording = async () => {
     setError(null);
+    transcriptChunksRef.current = [];
+    lastTranscriptChunkRef.current = '';
+    setLiveTranscript('');
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setError('Nettleseren din støtter ikke mikrofonopptak.');
@@ -167,10 +191,12 @@ export default function NewMeetingRecordingPage() {
       };
 
       recorder.onerror = () => {
+        stopListening();
         setError('Opptaket feilet. Prøv igjen.');
       };
 
       recorder.onstop = () => {
+        stopListening();
         stream.getTracks().forEach((track) => track.stop());
         const firstChunk = chunksRef.current[0] as Blob | undefined;
         // Prefer explicit mimeType from init, fallback to chunk type, then default
@@ -192,6 +218,9 @@ export default function NewMeetingRecordingPage() {
       } catch {
         recorder.start();
       }
+      if (isSupported) {
+        startListening();
+      }
       setRecording(true);
       startTimer();
     } catch (err) {
@@ -202,6 +231,7 @@ export default function NewMeetingRecordingPage() {
 
   const handleStopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      stopListening();
       try {
         mediaRecorderRef.current.requestData();
       } catch {}
@@ -210,9 +240,13 @@ export default function NewMeetingRecordingPage() {
   };
 
   const handleDiscard = () => {
+    stopListening();
     setRecordedBlob(null);
     setElapsedSeconds(0);
     setError(null);
+    transcriptChunksRef.current = [];
+    lastTranscriptChunkRef.current = '';
+    setLiveTranscript('');
   };
 
   const handleSaveRecording = async () => {
@@ -266,6 +300,7 @@ export default function NewMeetingRecordingPage() {
           duration_seconds: elapsedSeconds,
           mimeType: baseMimeType,
           fileName,
+          transcript: liveTranscript.trim() || null,
         }),
       });
 
@@ -352,6 +387,27 @@ export default function NewMeetingRecordingPage() {
             Opptaket lagres lokalt på enheten mens du spiller inn, og lastes først opp når du velger &quot;Lagre
             opptak&quot;.
           </p>
+
+          {isSupported ? (
+            <div className="mb-4 rounded-lg border border-honey-200 bg-honey-50 p-3 text-left">
+              <p className="text-xs font-semibold text-honey-800">
+                Direkte transkribering {recording ? (isListening ? 'pågår' : 'starter...') : 'klar'}
+              </p>
+              <p className="mt-1 text-xs text-honey-700">
+                Teksten fanges opp fortløpende i nettleseren mens du spiller inn.
+              </p>
+              <div className="mt-2 max-h-28 overflow-y-auto rounded-md bg-white/80 p-2 text-xs text-gray-700 whitespace-pre-line">
+                {liveTranscript.trim()
+                  ? liveTranscript
+                  : 'Transkripsjonen vises her når talen blir fanget opp.'}
+              </div>
+            </div>
+          ) : (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-left text-xs text-amber-800">
+              Nettleseren din støtter ikke direkte transkribering. Lydopptaket lagres fortsatt, men automatisk tekst
+              avhenger da av serveroppsettet.
+            </div>
+          )}
 
           {recordedBlob && !recording && (
             <div className="mt-4 space-y-3">
