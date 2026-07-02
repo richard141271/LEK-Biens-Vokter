@@ -837,6 +837,35 @@ export function buildAuroraSuggestionsForInspection(input: {
     }
   }
 
+  if (status === 'sverming') {
+    const isStrongSwarmContext =
+      bucketBroodFrames(brood.frames) === 'bistyrke_7_8' ||
+      bucketBroodFrames(brood.frames) === 'bistyrke_9_plus' ||
+      brood.yngel === 'mye' ||
+      brood.droner === 'mye';
+    const title = `Følg opp svermingstegn: ${hiveLabel}`;
+    const hasAny = openTitles.has(title.toLowerCase()) || Array.from(openTitles).some((t) => t.includes('sverm'));
+    if (!hasAny) {
+      suggestions.push(
+        buildSuggestionFromKnowledge({
+          key: `SWARM_FOLLOWUP:${input.hive.id}`,
+          title,
+          severity: isStrongSwarmContext ? 'urgent' : 'warning',
+          dueKind: isStrongSwarmContext ? 'TOMORROW' : 'DAYS_3',
+          dueDate: toDateOnly(new Date()),
+          knowledgeSlug: 'sverming',
+          extraKnowledgeSlugs: isStrongSwarmContext ? ['rule_sverming_ved_sterk_kube'] : [],
+          knowledgeMap: input.knowledgeMap,
+          rationalePrefix: 'Basert på dagens inspeksjon',
+          fallbackRationale:
+            isStrongSwarmContext
+              ? 'Basert på dagens inspeksjon: Kubestatus = Sverming i en sterk kube med tydelig biologisk trykk.'
+              : 'Basert på dagens inspeksjon: Kubestatus = Sverming.',
+        })
+      );
+    }
+  }
+
   if (status === 'sykdom') {
     const title = `Oppfølging sykdom: ${hiveLabel}`;
     const hasAny = openTitles.has(title.toLowerCase()) || Array.from(openTitles).some((t) => t.includes('sykdom'));
@@ -877,21 +906,25 @@ export function buildAuroraSuggestionsForInspection(input: {
     }
   }
 
-  if (eggsSeen === false && queenSeen === false && brood.egg === 'lite' && (brood.larver === 'lite' || brood.yngel === 'lite')) {
-    const title = `Kontroller dronningsituasjonen: ${hiveLabel}`;
+  if (queenSeen === false && eggsSeen === false) {
+    const acuteQueenConcern = brood.egg === 'lite' && (brood.larver === 'lite' || brood.yngel === 'lite');
+    const title = acuteQueenConcern ? `Kontroller dronningsituasjonen snarest: ${hiveLabel}` : `Kontroller dronningsituasjonen: ${hiveLabel}`;
     const hasAny = openTitles.has(title.toLowerCase()) || Array.from(openTitles).some((t) => t.includes('dronning'));
     if (!hasAny) {
       suggestions.push(
         buildSuggestionFromKnowledge({
           key: `QUEEN_STATUS:${input.hive.id}`,
           title,
-          severity: 'warning',
+          severity: acuteQueenConcern ? 'warning' : 'info',
           dueKind: 'DAYS_3',
           dueDate: toDateOnly(new Date()),
           knowledgeSlug: 'queen_missing',
+          extraKnowledgeSlugs: ['rule_queen_missing_followup'],
           knowledgeMap: input.knowledgeMap,
           rationalePrefix: 'Basert på dagens inspeksjon',
-          fallbackRationale: 'Basert på dagens inspeksjon: Ingen egg er sett og dronningsituasjonen virker usikker.',
+          fallbackRationale: acuteQueenConcern
+            ? 'Basert på dagens inspeksjon: Verken dronning eller egg er sett, og yngelbildet virker svakt.'
+            : 'Basert på dagens inspeksjon: Verken dronning eller egg er sett. Situasjonen bør avklares med ny kontroll.',
         })
       );
     }
@@ -912,6 +945,26 @@ export function buildAuroraSuggestionsForInspection(input: {
           knowledgeMap: input.knowledgeMap,
           rationalePrefix: 'Basert på dagens inspeksjon',
           fallbackRationale: 'Basert på dagens inspeksjon: Egg er sett, men dronningen ble ikke observert.',
+        })
+      );
+    }
+  }
+
+  if (queenSeen === false && eggsSeen === null) {
+    const title = `Dronning ikke observert: følg opp ${hiveLabel}`;
+    const hasAny = openTitles.has(title.toLowerCase()) || Array.from(openTitles).some((t) => t.includes('dronning'));
+    if (!hasAny) {
+      suggestions.push(
+        buildSuggestionFromKnowledge({
+          key: `QUEEN_NOT_SEEN:${input.hive.id}`,
+          title,
+          severity: 'info',
+          dueKind: 'DAYS_3',
+          dueDate: toDateOnly(new Date()),
+          knowledgeSlug: 'dronningsituasjon',
+          knowledgeMap: input.knowledgeMap,
+          rationalePrefix: 'Basert på dagens inspeksjon',
+          fallbackRationale: 'Basert på dagens inspeksjon: Dronningen ble ikke observert. Bekreft funnet ved neste kontroll før større tiltak.',
         })
       );
     }

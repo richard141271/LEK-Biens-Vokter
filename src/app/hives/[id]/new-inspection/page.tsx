@@ -12,7 +12,7 @@ import { useOffline } from '@/context/OfflineContext';
 import { Voice2Engine } from '@/voice2/engine';
 import { parseVoice2Intent } from '@/voice2/parse';
 import { getVoice2AliasIntent, loadVoice2Aliases } from '@/voice2/alias-store';
-import { buildAuroraSuggestionsForInspection, computeDue, getInspectionKnowledgeSlugs, getInspectionValidationWarnings } from '@/lib/aurora';
+import { buildAuroraSuggestionsForInspection, computeDue, getInspectionKnowledgeSlugs, getInspectionValidationWarnings, type AuroraSuggestion } from '@/lib/aurora';
 import { fetchAuroraKnowledgeMap } from '@/lib/aurora-knowledge';
 
 export default function NewInspectionPage({ params }: { params: { id: string } }) {
@@ -612,10 +612,14 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     );
   };
 
-  const biologicalValidationWarnings = useMemo(() => {
-    const broodCondition =
+  const broodCondition = useMemo(() => {
+    return (
       `egg:${broodEgg};larver:${broodLarvae};yngel:${broodYngel};droner:${broodDrones}` +
-      (String(broodFrames || '').trim() ? `;frames:${String(broodFrames).trim().replace(',', '.')}` : '');
+      (String(broodFrames || '').trim() ? `;frames:${String(broodFrames).trim().replace(',', '.')}` : '')
+    );
+  }, [broodDrones, broodEgg, broodFrames, broodLarvae, broodYngel]);
+
+  const biologicalValidationWarnings = useMemo(() => {
     return getInspectionValidationWarnings({
       queen_seen: queenSeen === 'ja' ? true : queenSeen === 'nei' ? false : null,
       eggs_seen: eggsSeen === 'ja' ? true : eggsSeen === 'nei' ? false : null,
@@ -625,7 +629,48 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       performed_actions: performedActions,
       notes,
     });
-  }, [broodDrones, broodEgg, broodFrames, broodLarvae, broodYngel, eggsSeen, honeyStores, notes, performedActions, queenSeen, status]);
+  }, [broodCondition, eggsSeen, honeyStores, notes, performedActions, queenSeen, status]);
+
+  const auroraPreviewContextActive = useMemo(() => {
+    return Boolean(
+      String(notes || '').trim() ||
+      performedActions.length > 0 ||
+      honeyStores === 'lite' ||
+      status !== 'OK' ||
+      queenSeen === 'ja' ||
+      eggsSeen === 'ja' ||
+      String(broodFrames || '').trim() ||
+      broodEgg !== 'normal' ||
+      broodLarvae !== 'normal' ||
+      broodYngel !== 'normal' ||
+      broodDrones !== 'normal'
+    );
+  }, [broodDrones, broodEgg, broodFrames, broodLarvae, broodYngel, eggsSeen, honeyStores, notes, performedActions.length, queenSeen, status]);
+
+  const auroraPreviewSuggestions = useMemo<AuroraSuggestion[]>(() => {
+    if (!hive || !auroraPreviewContextActive) return [];
+    return buildAuroraSuggestionsForInspection({
+      hive: {
+        id: String((hive as any)?.id || params.id),
+        hive_number: (hive as any)?.hive_number,
+        name: (hive as any)?.name,
+      },
+      apiaryId: String((hive as any)?.apiary_id || ''),
+      inspection: {
+        id: 'preview',
+        inspection_date: date,
+        queen_seen: queenSeen === 'ja' ? true : queenSeen === 'nei' ? false : null,
+        eggs_seen: eggsSeen === 'ja' ? true : eggsSeen === 'nei' ? false : null,
+        brood_condition: broodCondition,
+        honey_stores: honeyStores,
+        status,
+        performed_actions: performedActions,
+        notes,
+      },
+      openTaskTitlesLower: new Set<string>(),
+      recentNotes: [],
+    });
+  }, [auroraPreviewContextActive, broodCondition, date, eggsSeen, hive, honeyStores, notes, params.id, performedActions, queenSeen, status]);
 
   useEffect(() => {
     voice2EnabledRef.current = voice2Enabled;
@@ -3339,6 +3384,47 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
             >
               Se
             </button>
+          </div>
+        ) : null}
+        {auroraPreviewSuggestions.length > 0 ? (
+          <div className="mb-4 max-w-lg mx-auto rounded-xl border border-sky-200 bg-sky-50 p-3 space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-xs font-bold uppercase text-sky-900">Aurora forhåndsvisning</div>
+                <div className="text-sm text-sky-950">Dette er oppfølging Aurora vil foreslå når inspeksjonen lagres.</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push('/aurora')}
+                className="shrink-0 rounded-lg border border-sky-300 bg-white px-3 py-2 text-xs font-bold text-sky-900 hover:bg-sky-100"
+              >
+                Åpne Aurora
+              </button>
+            </div>
+            <div className="space-y-2">
+              {auroraPreviewSuggestions.slice(0, 4).map((suggestion) => (
+                <div key={suggestion.key} className="rounded-lg border border-sky-100 bg-white px-3 py-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="text-sm font-semibold text-gray-900 break-words">{suggestion.title}</div>
+                    <div
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                        suggestion.severity === 'urgent'
+                          ? 'bg-red-100 text-red-700'
+                          : suggestion.severity === 'warning'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-gray-100 text-gray-700'
+                      }`}
+                    >
+                      {suggestion.severity === 'urgent' ? 'Haster' : suggestion.severity === 'warning' ? 'Viktig' : 'Info'}
+                    </div>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-700 whitespace-pre-line">{suggestion.rationale}</div>
+                </div>
+              ))}
+            </div>
+            <div className="text-[11px] text-sky-900">
+              Etter lagring blir forslagene opprettet i bigården, der du kan opprette oppgaver eller ignorere dem.
+            </div>
           </div>
         ) : null}
         {biologicalValidationWarnings.length > 0 ? (

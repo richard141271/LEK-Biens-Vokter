@@ -15,11 +15,11 @@ export const TOOLBOX_TOOLS: ToolboxTool[] = [
   {
     id: 'aurora',
     name: '🐝 Aurora Birøkterassistent',
-    description: 'Gir forslag og oppfølging basert på inspeksjoner.',
+    description: 'Gir forslag og oppfølging basert på inspeksjoner og notater.',
     category: 'active',
     showOnDashboard: true,
     defaultEnabled: true,
-    directHref: '/dashboard',
+    directHref: '/aurora',
   },
   {
     id: 'varroascan',

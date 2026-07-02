@@ -2718,7 +2718,12 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
 
               {auroraDbSuggestions.length > 0 && (
                 <div id="aurora-log-anchor" className="border border-indigo-200 bg-indigo-50 rounded-lg p-3 space-y-2">
-                  <div className="text-xs font-bold uppercase text-indigo-800">Aurora anbefaler oppfølging</div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-xs font-bold uppercase text-indigo-800">Aurora anbefaler oppfølging</div>
+                    <Link href="/aurora" className="text-xs font-bold text-indigo-800 hover:underline">
+                      Åpne Aurora
+                    </Link>
+                  </div>
                   {shouldHighlightAurora && (
                     <div className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm text-indigo-900">
                       Aurora fant oppfølging fra siste inspeksjon. Se gjennom forslagene før du velger neste kube.
