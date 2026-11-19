@@ -105,7 +105,7 @@ export default function AdminFranchiseUnitPage() {
   const fetchProfiles = async () => {
     const { data } = await supabase
         .from('profiles')
-        .select('id, full_name, email')
+        .select('id, full_name, company_email')
         .order('full_name');
     setPotentialOwners(data || []);
   };
@@ -248,7 +248,7 @@ export default function AdminFranchiseUnitPage() {
                                 {showOwnerDropdown && (
                                     <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50">
                                         {potentialOwners
-                                            .filter(p => p.full_name?.toLowerCase().includes(ownerSearch.toLowerCase()) || p.email?.toLowerCase().includes(ownerSearch.toLowerCase()))
+                                            .filter(p => p.full_name?.toLowerCase().includes(ownerSearch.toLowerCase()) || p.company_email?.toLowerCase().includes(ownerSearch.toLowerCase()))
                                             .map(profile => (
                                             <button
                                                 key={profile.id}
@@ -261,7 +261,7 @@ export default function AdminFranchiseUnitPage() {
                                                 className="w-full text-left px-4 py-2 hover:bg-yellow-50 transition-colors border-b border-gray-50 last:border-0"
                                             >
                                                 <p className="font-medium text-sm text-gray-900">{profile.full_name}</p>
-                                                <p className="text-xs text-gray-500">{profile.email}</p>
+                                                <p className="text-xs text-gray-500">{profile.company_email}</p>
                                             </button>
                                         ))}
                                     </div>

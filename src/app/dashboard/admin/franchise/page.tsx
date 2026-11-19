@@ -30,14 +30,14 @@ interface FranchiseUnit {
   created_at: string;
   owner?: {
     full_name: string;
-    email?: string;
+    company_email?: string;
   };
 }
 
 interface Profile {
     id: string;
     full_name: string;
-    email?: string;
+    company_email?: string;
 }
 
 export default function FranchiseAdminDashboard() {
@@ -143,7 +143,7 @@ export default function FranchiseAdminDashboard() {
   const fetchProfiles = async () => {
     const { data } = await supabase
         .from('profiles')
-        .select('id, full_name')
+        .select('id, full_name, company_email')
         .order('full_name');
     setPotentialOwners(data || []);
   };
@@ -519,11 +519,11 @@ export default function FranchiseAdminDashboard() {
                                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                                     {potentialOwners.filter(p => 
                                         p.full_name?.toLowerCase().includes(ownerSearch.toLowerCase()) || 
-                                        p.email?.toLowerCase().includes(ownerSearch.toLowerCase())
+                                        p.company_email?.toLowerCase().includes(ownerSearch.toLowerCase())
                                     ).length > 0 ? (
                                         potentialOwners.filter(p => 
                                             p.full_name?.toLowerCase().includes(ownerSearch.toLowerCase()) || 
-                                            p.email?.toLowerCase().includes(ownerSearch.toLowerCase())
+                                            p.company_email?.toLowerCase().includes(ownerSearch.toLowerCase())
                                         ).map(profile => (
                                             <button
                                                 key={profile.id}
@@ -536,7 +536,7 @@ export default function FranchiseAdminDashboard() {
                                                 className="w-full text-left px-4 py-3 hover:bg-yellow-50 transition-colors border-b border-gray-50 last:border-0"
                                             >
                                                 <p className="font-bold text-gray-900 text-sm">{profile.full_name}</p>
-                                                <p className="text-xs text-gray-500">{profile.email}</p>
+                                                <p className="text-xs text-gray-500">{profile.company_email}</p>
                                             </button>
                                         ))
                                     ) : (
