@@ -8,7 +8,7 @@ async function assertAdmin() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false as const, status: 401 };
-  const { data: profile } = await supabase.from('profiles').select('role, email').eq('id', user.id).single();
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
   const isAdmin = profile?.role === 'admin';
   if (!isAdmin) return { ok: false as const, status: 403 };
   return { ok: true as const, user };
