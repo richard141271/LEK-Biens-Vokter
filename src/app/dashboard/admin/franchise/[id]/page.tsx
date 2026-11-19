@@ -34,7 +34,7 @@ interface FranchiseUnit {
   created_at: string;
   owner?: {
     full_name: string;
-    email?: string;
+    company_email?: string;
   };
 }
 
@@ -47,7 +47,7 @@ interface Message {
     sender_id: string;
     sender?: {
         full_name: string;
-        email: string;
+        company_email: string;
     };
 }
 
@@ -280,7 +280,7 @@ export default function AdminFranchiseUnitPage() {
                         </div>
                         <div>
                             <p className="text-sm text-gray-500">E-post</p>
-                            <p className="font-medium">{unit.owner?.email || '-'}</p>
+                            <p className="font-medium">{unit.owner?.company_email || '-'}</p>
                         </div>
                     </div>
                 )}
@@ -376,7 +376,7 @@ export default function AdminFranchiseUnitPage() {
                             <p className="text-sm text-gray-600 mb-2">{msg.content}</p>
                             <div className="flex items-center gap-2 text-xs text-gray-400">
                                 <Users className="w-3 h-3" />
-                                <span>{msg.sender?.full_name || 'Ukjent avsender'} ({msg.sender?.email})</span>
+                                <span>{msg.sender?.full_name || 'Ukjent avsender'} ({msg.sender?.company_email})</span>
                             </div>
                         </div>
                     ))

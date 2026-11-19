@@ -10,7 +10,7 @@ export async function getFranchiseUnitById(id: string) {
             .from('franchise_units')
             .select(`
                 *,
-                owner:profiles(full_name, email)
+                owner:profiles(full_name, company_email)
             `)
             .eq('id', id)
             .single();
@@ -35,7 +35,7 @@ export async function getFranchiseMessages(unitId: string) {
             .from('franchise_messages')
             .select(`
                 *,
-                sender:profiles(full_name, email)
+                sender:profiles(full_name, company_email)
             `)
             .eq('franchise_id', unitId)
             .order('created_at', { ascending: false });
