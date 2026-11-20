@@ -1,0 +1,6 @@
+source/
+envs/
+backups/
+*.tar.gz
+*.dump
+edge-functions/

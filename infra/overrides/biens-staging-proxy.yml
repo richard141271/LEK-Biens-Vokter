@@ -1,0 +1,8 @@
+services:
+  rest:
+    environment:
+      PGRST_JWT_SECRET: ${JWT_JWKS:-${JWT_SECRET}}
+  api-gw:
+    ports: !reset []
+  supavisor:
+    ports: !reset []
