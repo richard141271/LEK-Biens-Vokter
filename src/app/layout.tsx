@@ -153,7 +153,6 @@ export default function RootLayout({
         )}
       </head>
       <body className={`${inter.className} bg-gray-50`}>
-        <span id="debug-app-env" className="hidden">{appEnv || "EMPTY"}</span>
         {isStockHost ? (
           children
         ) : (
