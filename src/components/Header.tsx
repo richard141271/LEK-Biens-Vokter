@@ -139,12 +139,6 @@ export default function Header({ isStagingHost }: HeaderProps) {
           <div className="w-12"></div>
         </div>
 
-        {isStagingHost ? (
-          <div className="bg-red-600 text-white text-[10px] font-semibold text-center h-[20px] flex items-center justify-center print:hidden">
-            STAGING – ikke ekte app
-          </div>
-        ) : null}
-
         {/* Bottom Black Bar - Hide on Dashboard as it has its own controls */}
         {pathname !== '/dashboard' && (
           <div className="bg-black text-white px-4 py-2 flex justify-between items-center shadow-md z-40 h-[44px]">

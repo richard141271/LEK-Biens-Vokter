@@ -160,11 +160,11 @@ export default function RootLayout({
             <OfflineProvider>
               <CartProvider>
                 {isProdTest ? (
-                  <div className="hidden md:block print:hidden bg-red-600 text-white text-xs font-semibold text-center py-1">
+                  <div className="print:hidden bg-red-600 text-white text-xs font-semibold text-center py-1">
                     PROD
                   </div>
                 ) : isStagingHost ? (
-                  <div className="hidden md:block print:hidden bg-red-600 text-white text-xs font-semibold text-center py-1">
+                  <div className="print:hidden bg-red-600 text-white text-xs font-semibold text-center py-1">
                     TESTMILJØ
                   </div>
                 ) : null}
