@@ -42,14 +42,17 @@ export default function RootLayout({
     h.get("host") ||
     "";
   const host = rawHost.split(",")[0]?.trim().split(":")[0]?.toLowerCase() || "";
+  const appEnv = process.env.NEXT_PUBLIC_APP_ENV || "";
   const isStockHost = host === "aksjer.lekbie.no" || host.startsWith("aksjer.");
   const isStagingHost =
+    appEnv === "staging" ||
     process.env.VERCEL_ENV === "preview" ||
     host === "staging.lekbie.no" ||
     host.endsWith(".staging.lekbie.no") ||
     host.startsWith("staging.") ||
     host.includes("lek-biens-vokter-staging") ||
     host.includes("-staging.");
+  const isProdTest = appEnv === "prod-test";
   const isDemoEnabled =
     process.env.LEK_DEMO_ENABLED === "1" ||
     process.env.LEK_DEMO_ENABLED === "true" ||
@@ -156,9 +159,13 @@ export default function RootLayout({
           <PWAProvider>
             <OfflineProvider>
               <CartProvider>
-                {isStagingHost ? (
+                {isProdTest ? (
                   <div className="hidden md:block print:hidden bg-red-600 text-white text-xs font-semibold text-center py-1">
-                    STAGING – ikke ekte app
+                    PROD
+                  </div>
+                ) : isStagingHost ? (
+                  <div className="hidden md:block print:hidden bg-red-600 text-white text-xs font-semibold text-center py-1">
+                    TESTMILJØ
                   </div>
                 ) : null}
                 <DesktopNav />
