@@ -1028,7 +1028,6 @@ export default function DashboardPage() {
                       <User className="w-4 h-4" />
                   </div>
 
-          {/* KIAS Mail Card */}
                   <div className="min-w-0 flex-1">
                       <h2 className="text-sm font-bold text-gray-900 break-words">{profile?.full_name || 'Laster...'}</h2>
                       {profile?.br_id && (
@@ -1261,13 +1260,31 @@ export default function DashboardPage() {
                   </>
                 )}
               </div>
-              <Link href="/apiaries" className="bg-white p-2.5 rounded-xl border border-gray-200 shadow-sm hover:bg-gray-50 transition-transform active:scale-95 block text-left">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm flex overflow-hidden min-w-0">
+                <Link
+                  href="/apiaries"
+                  className="flex min-w-0 flex-1 flex-col justify-center p-2.5 text-left hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-honey-500"
+                >
                   <div className="font-bold text-sm text-gray-900 mb-0.5">BIGÅRDER</div>
                   <p className="text-gray-500 text-[10px] mb-0.5">Antall</p>
                   <div className="flex items-end gap-1">
-                      <span className="text-lg font-bold text-gray-900">{stats.apiaries}</span>
+                    <span className="text-lg font-bold text-gray-900">{stats.apiaries}</span>
                   </div>
-              </Link>
+                </Link>
+                {profile?.role !== 'tenant' && (
+                  <>
+                    <div className="w-px bg-honey-100" />
+                    <Link
+                      href="/apiaries/new"
+                      className="flex w-20 shrink-0 flex-col items-center justify-center gap-1 bg-honey-500 px-2 text-white transition-colors hover:bg-honey-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-900"
+                      aria-label="Opprett ny bigård"
+                    >
+                      <Plus className="h-5 w-5" />
+                      <span className="text-center text-[10px] font-bold leading-tight">NY BIGÅRD</span>
+                    </Link>
+                  </>
+                )}
+              </div>
           </div>
 
           {isToolEnabled('apiary_tasks') && (
