@@ -33,8 +33,8 @@ export class Voice2Engine {
   private audioCtx: any | null = null;
   private ttsUnlocked = false;
   private ttsCache = new Map<string, ArrayBuffer>();
-  private ttsGain = 1.6;
-  private ttsPlaybackRate = 1.05;
+  private ttsGain = 1.4;
+  private ttsPlaybackRate = 1.28;
 
   constructor(callbacks: Callbacks) {
     this.callbacks = callbacks;
@@ -81,7 +81,7 @@ export class Voice2Engine {
         this.callbacks.onState?.('idle');
         return;
       }
-      this.scheduleRestart(260);
+      this.scheduleRestart(140);
     };
     r.onerror = (event: any) => {
       this.starting = false;
@@ -222,8 +222,8 @@ export class Voice2Engine {
         clearTimeout(this.restartTimer);
         this.restartTimer = null;
       }
+      // Lytt umiddelbart igjen etter at Aurora er ferdig – ingen ekstra pause.
       this.safeStart();
-      this.scheduleRestart(520);
     } else {
       this.callbacks.onState?.('idle');
     }
@@ -236,8 +236,8 @@ export class Voice2Engine {
     if (this.starting) return;
     if (this.listening) return;
     const sinceStop = Date.now() - this.lastStopAt;
-    if (sinceStop < 180) {
-      this.scheduleRestart(220);
+    if (sinceStop < 80) {
+      this.scheduleRestart(90);
       return;
     }
     try {
@@ -334,7 +334,7 @@ export class Voice2Engine {
         } catch {}
         const u = new SpeechSynthesisUtterance(text);
         u.lang = 'nb-NO';
-        u.rate = 1.08;
+        u.rate = 1.28;
         u.pitch = 1.0;
         u.volume = 1.0;
         try {

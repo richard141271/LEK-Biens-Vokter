@@ -516,7 +516,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                   lastUnknownAtRef.current = now;
                   lastUnknownTextRef.current = key;
                   setLastCommand(`Hørte: ${heard}`);
-                  speak('Jeg forstod ikke. Prøv igjen.');
+                  speak('Forstod ikke.');
                   setTimeout(() => setLastCommand(null), 3000);
               }
           }
@@ -669,7 +669,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       pendingVoiceActionRef.current = { label, apply };
       setPendingVoiceLabel(label);
       setLastCommand(`Bekreft: ${label}`);
-      await engine.speak(`${label}. Bekreft? Si bekreft eller avbryt.`);
+      await engine.speak(`${label}. Bekreft?`);
       setTimeout(() => setLastCommand(null), 4000);
     };
 
@@ -744,7 +744,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         });
       }
       setLastCommand('Notater');
-      await engine.speak('Notater. Si notat slutt når du er ferdig.');
+      await engine.speak('Notater.');
       setTimeout(() => setLastCommand(null), 3500);
       return;
     }
@@ -759,7 +759,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
     if (pendingVoiceActionRef.current) {
       setLastCommand(`Bekreft: ${pendingVoiceActionRef.current.label}`);
-      await engine.speak('Si bekreft eller avbryt.');
+      await engine.speak('Bekreft?');
       setTimeout(() => setLastCommand(null), 2500);
       return;
     }
@@ -778,7 +778,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       if (now - lastVoice2UnknownAtRef.current > 9000) {
         lastVoice2UnknownAtRef.current = now;
         setLastCommand(`Hørte: ${rawText}`);
-        await engine.speak('Jeg forstod ikke. Prøv igjen.');
+        await engine.speak('Forstod ikke.');
         setTimeout(() => setLastCommand(null), 2500);
       }
       return;
@@ -790,7 +790,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         return true;
       });
       setLastCommand('Viser flere handlinger');
-      await engine.speak('Viser flere handlinger.');
+      await engine.speak('Viser flere.');
       setTimeout(() => setLastCommand(null), 2500);
       return;
     }
@@ -801,7 +801,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         return false;
       });
       setLastCommand('Skjuler flere handlinger');
-      await engine.speak('Skjuler flere handlinger.');
+      await engine.speak('Skjuler flere.');
       setTimeout(() => setLastCommand(null), 2500);
       return;
     }
@@ -812,7 +812,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         return [];
       });
       setLastCommand('Handlinger nullstilt');
-      await engine.speak('Handlinger nullstilt.');
+      await engine.speak('Nullstilt.');
       setTimeout(() => setLastCommand(null), 2500);
       return;
     }
@@ -1067,7 +1067,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     if (intent.type === 'FEED_LOW') {
       appendNote('Lite fôr.');
       setLastCommand('Lite fôr registrert');
-      await engine.speak('Lite fôr registrert.');
+      await engine.speak('Lite fôr.');
       setTimeout(() => setLastCommand(null), 2500);
       return;
     }
@@ -1083,7 +1083,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     if (intent.type === 'VARROA_NONE') {
       appendNote('Ingen varroa.');
       setLastCommand('Ingen varroa');
-      await engine.speak('Ingen varroa registrert.');
+      await engine.speak('Ingen varroa.');
       setTimeout(() => setLastCommand(null), 2500);
       return;
     }
@@ -1115,7 +1115,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
     if (intent.type === 'SAVE_INSPECTION') {
       setLastCommand('Lagrer inspeksjon');
-      await engine.speak('Lagrer inspeksjon.');
       setTimeout(() => {
         try {
           submitInspectionRef.current();
@@ -2488,12 +2487,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         if (shouldSplit && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
           const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
           setLastCommand(`Dronning ${queenSide} lagret offline`);
-          announce(`Dronning ${queenSide} lagret offline. Fortsett med dronning ${nextSide}`);
+          announce(`Lagret. Dronning ${nextSide}.`);
           setQueenSide(nextSide);
           return;
         }
         setLastCommand('Inspeksjon lagret offline');
-        announce('Inspeksjon lagret offline');
+        announce('Lagret.');
         if (!handsfreeReady) {
           alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
         }
@@ -2560,12 +2559,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         if (shouldSplit && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
           const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
           setLastCommand(`Dronning ${queenSide} lagret offline`);
-          announce(`Dronning ${queenSide} lagret offline. Fortsett med dronning ${nextSide}`);
+          announce(`Lagret. Dronning ${nextSide}.`);
           setQueenSide(nextSide);
           return;
         }
         setLastCommand('Inspeksjon lagret offline');
-        announce('Inspeksjon lagret offline');
+        announce('Lagret.');
         if (!handsfreeReady) {
           alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
         }
@@ -2657,12 +2656,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         if (shouldSplit && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
           const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
           setLastCommand(`Dronning ${queenSide} lagret`);
-        announce(`Dronning ${queenSide} lagret. Fortsett med dronning ${nextSide}`);
+        announce(`Lagret. Dronning ${nextSide}.`);
           setQueenSide(nextSide);
           return;
         }
         setLastCommand('Inspeksjon lagret');
-      announce('Inspeksjon lagret');
+      announce('Lagret.');
         setTimeout(() => {
           router.push('/hives?demo=1');
         }, 650);
@@ -2787,12 +2786,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       if (shouldSplit && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
         const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
         setLastCommand(`Dronning ${queenSide} lagret`);
-        announce(`Dronning ${queenSide} lagret. Fortsett med dronning ${nextSide}`);
+        announce(`Lagret. Dronning ${nextSide}.`);
         setQueenSide(nextSide);
         return;
       }
       setLastCommand('Inspeksjon lagret');
-      announce('Inspeksjon lagret');
+      announce('Lagret.');
       setTimeout(() => {
         try {
           const list = apiaryHivesRef.current || [];
@@ -2862,12 +2861,12 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           if (shouldSplit && !(savedSidesRef.current[1] && savedSidesRef.current[2])) {
             const nextSide: 1 | 2 = queenSide === 1 ? 2 : 1;
             setLastCommand(`Dronning ${queenSide} lagret offline`);
-            announce(`Dronning ${queenSide} lagret offline. Fortsett med dronning ${nextSide}`);
+            announce(`Lagret. Dronning ${nextSide}.`);
             setQueenSide(nextSide);
             return;
           }
           setLastCommand('Inspeksjon lagret offline');
-          announce('Inspeksjon lagret offline');
+          announce('Lagret.');
           if (!handsfreeReady) {
             alert('Inspeksjon lagret offline! Den blir sendt når du får nettdekning igjen.');
           }
