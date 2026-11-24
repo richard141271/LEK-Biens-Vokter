@@ -6,7 +6,7 @@ import { getFounderMeeting } from '@/app/actions/founder';
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, QrCode, ClipboardCheck, Camera, Check, ShieldAlert, Mail, Building, HeartHandshake, Calendar, GraduationCap, Download, MessageSquare, BookOpen } from 'lucide-react';
+import { ShieldCheck, User, LogOut, Activity, Database, ExternalLink, Settings, Plus, X, ChevronDown, ClipboardCheck, Camera, Check, ShieldAlert, Mail, Building, HeartHandshake, Calendar, GraduationCap, Download, MessageSquare, BookOpen } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import WeatherWidget from '@/components/WeatherWidget';
 import BeekeeperAlertsPoller from './components/BeekeeperAlertsPoller';
@@ -134,7 +134,9 @@ export default function DashboardPage() {
     };
   }, [currentUserId, supabase]);
 
-  const pinnedExtraTools = TOOLBOX_TOOLS.filter((t) => t.category === 'extra' && isToolEnabled(t.id));
+  const pinnedExtraTools = TOOLBOX_TOOLS.filter(
+    (t) => t.category === 'extra' && t.id !== 'weather' && isToolEnabled(t.id)
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1017,13 +1019,17 @@ export default function DashboardPage() {
               >
                 <LogOut className="w-4 h-4" />
               </button>
-              <div className="flex items-center gap-3 mb-2">
+              <Link
+                href="/settings"
+                aria-label={`Åpne Innstillinger for ${profile?.full_name || 'profilen din'}`}
+                className="flex min-w-0 items-center gap-3 mb-2 rounded-lg pr-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-honey-500"
+              >
                   <div className="w-8 h-8 bg-honey-100 rounded-full flex items-center justify-center text-honey-600">
                       <User className="w-4 h-4" />
                   </div>
 
           {/* KIAS Mail Card */}
-                  <div>
+                  <div className="min-w-0 flex-1">
                       <h2 className="text-sm font-bold text-gray-900 break-words">{profile?.full_name || 'Laster...'}</h2>
                       {profile?.br_id && (
                         <p className="text-[10px] text-gray-700 font-semibold">BR-{String(profile.br_id).replace(/^BR-/, '')}</p>
@@ -1032,7 +1038,8 @@ export default function DashboardPage() {
                         Medlem #{profile?.member_number || (profile?.br_id ? String(profile.br_id).replace(/^BR-/, '') : 'Ikke registrert')}
                       </p>
                   </div>
-              </div>
+                  <Settings className="h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+              </Link>
               
               <div className="space-y-0.5">
                   <div className="flex items-center gap-1.5 text-[10px] text-gray-700">
@@ -1227,14 +1234,33 @@ export default function DashboardPage() {
 
           {/* Navigation Cards (formerly Stats) */}
           <div className="grid grid-cols-2 gap-2">
-              <Link href="/hives" className="bg-white p-2.5 rounded-xl border border-gray-200 shadow-sm hover:bg-gray-50 transition-transform active:scale-95 block text-left">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm flex overflow-hidden min-w-0">
+                <Link
+                  href="/hives"
+                  className="flex min-w-0 flex-1 flex-col justify-center p-2.5 text-left hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-honey-500"
+                >
                   <div className="font-bold text-sm text-gray-900 mb-0.5">BIKUBER</div>
                   <p className="text-gray-500 text-[10px] mb-0.5">Aktive kuber</p>
                   <div className="flex items-end gap-1">
-                      <span className="text-lg font-bold text-gray-900">{stats.activeHives}</span>
-                      <span className="text-gray-400 text-[10px] mb-1">/ {stats.hives} totalt</span>
+                    <span className="text-lg font-bold text-gray-900">{stats.activeHives}</span>
+                    <span className="text-gray-400 text-[10px] mb-1">/ {stats.hives} totalt</span>
                   </div>
-              </Link>
+                </Link>
+                {profile?.role !== 'mattilsynet' && (
+                  <>
+                    <div className="w-px bg-honey-100" />
+                    <button
+                      type="button"
+                      onClick={() => setIsCreateModalOpen(true)}
+                      className="flex w-20 shrink-0 flex-col items-center justify-center gap-1 bg-honey-500 px-2 text-white transition-colors hover:bg-honey-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gray-900"
+                      aria-label="Opprett ny kube"
+                    >
+                      <Plus className="h-5 w-5" />
+                      <span className="text-center text-[10px] font-bold leading-tight">NY KUBE</span>
+                    </button>
+                  </>
+                )}
+              </div>
               <Link href="/apiaries" className="bg-white p-2.5 rounded-xl border border-gray-200 shadow-sm hover:bg-gray-50 transition-transform active:scale-95 block text-left">
                   <div className="font-bold text-sm text-gray-900 mb-0.5">BIGÅRDER</div>
                   <p className="text-gray-500 text-[10px] mb-0.5">Antall</p>
@@ -1280,7 +1306,7 @@ export default function DashboardPage() {
           )}
           
           {/* Weather Widget */}
-          <WeatherWidget />
+          {isToolEnabled('weather') && <WeatherWidget />}
 
           {pinnedExtraTools.length > 0 && (
             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4">
@@ -1365,29 +1391,6 @@ export default function DashboardPage() {
 
           {/* Quick Actions - Compact Grid */}
           <div className="grid grid-cols-2 gap-2">
-              {profile?.role !== 'mattilsynet' && (
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="bg-honey-500 hover:bg-honey-600 text-white p-2 rounded-xl shadow-md flex flex-col items-center justify-center gap-1 transition-transform active:scale-95 h-20"
-              >
-                <Plus className="w-5 h-5" />
-                <span className="font-bold text-[10px] text-center leading-tight">NY KUBE</span>
-              </button>
-              )}
-
-              <div className="bg-white border-2 border-honey-100 hover:border-honey-500 text-honey-600 rounded-xl shadow-sm flex overflow-hidden transition-transform active:scale-95 h-20">
-                <Link href="/scan" className="flex-1 p-2 flex flex-col items-center justify-center gap-1">
-                  <QrCode className="w-5 h-5" />
-                  <span className="font-bold text-[10px] text-center leading-tight">SKANN</span>
-                </Link>
-                <div className="w-px bg-honey-100" />
-                <Link href="/scan?mode=mass" className="flex-1 p-2 flex flex-col items-center justify-center gap-1">
-                  <QrCode className="w-5 h-5" />
-                  <span className="font-bold text-[10px] text-center leading-tight">MASSE SKANN</span>
-                </Link>
-              </div>
-
-
               {isToolEnabled('health_ai') && (
                 <Link
                   href="/dashboard/smittevern"

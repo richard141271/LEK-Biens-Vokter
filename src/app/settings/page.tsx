@@ -1121,6 +1121,46 @@ export default function SettingsPage() {
 
                   <div>
                     <h5 className="font-bold text-gray-900 text-sm mb-3">Ekstra verktøy</h5>
+                    <div className="grid grid-cols-1 gap-3 mb-3">
+                      {TOOLBOX_TOOLS.filter((tool) =>
+                        ['weather', 'qr_scan', 'mass_scan'].includes(tool.id)
+                      ).map((tool) => {
+                        const enabled = isToolEnabled(tool.id);
+                        return (
+                          <div key={tool.id} className="bg-white border border-gray-200 rounded-xl p-4 text-left shadow-sm">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="font-bold text-gray-900">{tool.name}</div>
+                                <div className="text-sm text-gray-600 mt-1">{tool.description}</div>
+                              </div>
+                              <div className="shrink-0 flex items-center gap-2">
+                                {tool.id !== 'weather' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => router.push(tool.directHref || '/dashboard')}
+                                    className="text-[11px] font-black px-3 py-1 rounded-full border bg-white text-gray-700 border-gray-200"
+                                  >
+                                    Åpne
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => void updateToolEnabled(tool.id, !enabled)}
+                                  disabled={toolUpdatingId === tool.id}
+                                  className={`text-[11px] font-black px-3 py-1 rounded-full border disabled:opacity-50 ${
+                                    enabled
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : 'bg-gray-50 text-gray-700 border-gray-200'
+                                  }`}
+                                >
+                                  {enabled ? 'På Min Side' : 'Skjult'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                     <div className="grid grid-cols-1 gap-3">
                       {(() => {
                         const tool = TOOLBOX_TOOLS.find((t) => t.id === 'labels_print');
