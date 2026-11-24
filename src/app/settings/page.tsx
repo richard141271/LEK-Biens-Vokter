@@ -13,6 +13,11 @@ import WordTraining from '@/components/WordTraining';
 import { getAutoCorrectEnabled, setAutoCorrectEnabled, getShareEnabled, setShareEnabled } from '@/utils/voice-diagnostics';
 import { useSigningAttention } from '@/hooks/useSigningAttention';
 import { TOOLBOX_TOOLS, getDefaultToolEnabled } from '@/lib/toolbox';
+import {
+  isDeviceFeatureEnabled,
+  setDeviceFeatureEnabled,
+  type DeviceFeature,
+} from '@/utils/device-preferences';
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null);
@@ -451,11 +456,26 @@ export default function SettingsPage() {
   const [showWordTraining, setShowWordTraining] = useState(false);
   const [autoCorrect, setAutoCorrect] = useState(false);
   const [shareVoice, setShareVoice] = useState(false);
+  const [devicePreferences, setDevicePreferences] = useState({
+    location: true,
+    camera: true,
+    microphone: true,
+  });
 
   useEffect(() => {
     setAutoCorrect(getAutoCorrectEnabled());
     setShareVoice(getShareEnabled());
+    setDevicePreferences({
+      location: isDeviceFeatureEnabled('location'),
+      camera: isDeviceFeatureEnabled('camera'),
+      microphone: isDeviceFeatureEnabled('microphone'),
+    });
   }, []);
+
+  const updateDevicePreference = (feature: DeviceFeature, enabled: boolean) => {
+    setDevicePreferences((previous) => ({ ...previous, [feature]: enabled }));
+    setDeviceFeatureEnabled(feature, enabled);
+  };
 
   const printPdf = (doc: jsPDF, after?: () => void) => {
     const blob = doc.output('blob');
@@ -929,6 +949,35 @@ export default function SettingsPage() {
               >
                 Endre/oppdatere profil
               </button>
+
+              <section className="mt-6 rounded-xl border border-gray-200 bg-white p-4 text-left">
+                <h3 className="font-bold text-gray-900">Personvern og enhetstilgang</h3>
+                <p className="mt-1 text-sm text-gray-600">
+                  Slå av funksjoner du ikke vil bruke. LEK ber bare om tilgang når du starter en funksjon som trenger den.
+                  Telefonen eller nettleseren kan likevel vise sin egen tillatelse første gang. Valgene lagres på denne enheten.
+                </p>
+                <div className="mt-4 divide-y divide-gray-100">
+                  {([
+                    ['location', 'Posisjon', 'Bruk posisjon til GPS-styrt inspeksjon og lokale funksjoner.'],
+                    ['camera', 'Kamera', 'Bruk kamera til skanning og bilder i appen.'],
+                    ['microphone', 'Mikrofon', 'Bruk mikrofon til Aurora, talestyring og lydopptak.'],
+                  ] as const).map(([feature, title, description]) => (
+                    <label key={feature} className="flex cursor-pointer items-center justify-between gap-4 py-3">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-gray-900">{title}</span>
+                        <span className="mt-0.5 block text-xs text-gray-500">{description}</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        className="h-5 w-5 shrink-0 accent-amber-600"
+                        checked={devicePreferences[feature]}
+                        onChange={(event) => updateDevicePreference(feature, event.target.checked)}
+                        aria-label={`Bruk ${title.toLowerCase()}`}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </section>
 
               <div id="toolbox" className="mt-6 border-t border-gray-100 pt-4 scroll-mt-20">
                 <button

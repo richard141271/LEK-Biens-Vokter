@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { MapPin, Warehouse, Store, Truck, ArrowLeft, Map as MapIcon, X } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import { isDeviceFeatureEnabled } from '@/utils/device-preferences';
 
 const Map = dynamic(() => import('@/components/Map'), { 
   ssr: false,
@@ -16,6 +17,7 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
   const [name, setName] = useState('');
   const [type, setType] = useState('bigård');
   const [locationStr, setLocationStr] = useState('');
+  const [locationNotice, setLocationNotice] = useState('');
   const [coordinates, setCoordinates] = useState<string | null>(null);
   const [registrationNumber, setRegistrationNumber] = useState('');
   const [loading, setLoading] = useState(true);
@@ -72,8 +74,12 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
   }, [params.id]);
 
   const handleGetLocation = () => {
+    if (!isDeviceFeatureEnabled('location')) {
+      setLocationNotice('Posisjon er slått av i Innstillinger. Du kan fortsatt velge stedet i kartet.');
+      return;
+    }
     if (!navigator.geolocation) {
-      alert("Geolokasjon støttes ikke av din nettleser");
+      setLocationNotice('Denne nettleseren støtter ikke posisjon.');
       return;
     }
     
@@ -95,7 +101,7 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
       },
       (error) => {
         console.error(error);
-        alert("Kunne ikke hente posisjon. Sjekk at du har gitt tillatelse.");
+        setLocationNotice('Kunne ikke hente posisjon. Du kan også velge stedet i kartet.');
         setSaving(false);
       }
     );
@@ -240,6 +246,7 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
                   Velg i kart
               </button>
             </div>
+            {locationNotice && <p className="mt-2 text-xs text-gray-600">{locationNotice}</p>}
 
             {coordinates && (
                 <p className="text-xs text-center text-gray-500 mt-2 font-mono">
@@ -309,8 +316,12 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
                     onClick={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
+                        if (!isDeviceFeatureEnabled('location')) {
+                            setLocationNotice('Posisjon er slått av i Innstillinger. Du kan velge stedet direkte i kartet.');
+                            return;
+                        }
                         if (!navigator.geolocation) {
-                            alert("Geolokasjon støttes ikke");
+                            setLocationNotice('Denne nettleseren støtter ikke posisjon.');
                             return;
                         }
                         const btn = e.currentTarget;
@@ -327,8 +338,8 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
                                 setCoordinates(coordString); // This updates the center prop
                                 btn.innerText = originalText;
                             },
-                            (error) => {
-                                alert("Kunne ikke hente posisjon");
+                            () => {
+                                setLocationNotice('Kunne ikke hente posisjon.');
                                 btn.innerText = originalText;
                             }
                         );

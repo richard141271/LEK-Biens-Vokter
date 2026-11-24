@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { Warehouse, Store, MapPin } from 'lucide-react';
 import QRCode from 'qrcode';
 import { generateHiveLabelsPDF } from '@/utils/hive-labels-pdf';
+import { isDeviceFeatureEnabled } from '@/utils/device-preferences';
 
 export default function ApiaryDetailsPage({ params }: { params: { id: string } }) {
   const [apiary, setApiary] = useState<any>(null);
@@ -149,6 +150,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
     physicalCheck: false,
   });
   const [certHiveFiles, setCertHiveFiles] = useState<Record<string, File | null>>({});
+  const [cameraNotice, setCameraNotice] = useState('');
 
   const supabase = createClient();
   const router = useRouter();
@@ -3806,7 +3808,17 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                       <div className="text-sm font-bold text-gray-900">
                         {h.hive_number || h.name || 'Kube'}
                       </div>
-                      <label className="shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-honey-500 hover:bg-honey-600 text-white font-bold text-xs cursor-pointer">
+                      <label
+                        onClick={(event) => {
+                          if (!isDeviceFeatureEnabled('camera')) {
+                            event.preventDefault();
+                            setCameraNotice('Kamera er slått av i Innstillinger.');
+                          } else {
+                            setCameraNotice('');
+                          }
+                        }}
+                        className="shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-honey-500 hover:bg-honey-600 text-white font-bold text-xs cursor-pointer"
+                      >
                         <input
                           type="file"
                           accept="image/*"
@@ -3823,6 +3835,7 @@ export default function ApiaryDetailsPage({ params }: { params: { id: string } }
                     </div>
                   ))}
                 </div>
+                {cameraNotice && <p className="text-sm text-amber-700">{cameraNotice}</p>}
               </div>
 
               <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3">

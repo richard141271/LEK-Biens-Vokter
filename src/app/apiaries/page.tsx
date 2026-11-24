@@ -9,6 +9,7 @@ import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
 import { getDistanceFromLatLonInM } from '@/utils/geo';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
+import { isDeviceFeatureEnabled } from '@/utils/device-preferences';
 
 const ACTIVE_OWNER_KEY = 'lek_active_owner_id';
 
@@ -23,7 +24,7 @@ export default function ApiariesPage() {
   const [nearApiary, setNearApiary] = useState<any | null>(null);
   const [voiceStep, setVoiceStep] = useState<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
   const [selectedVoiceApiary, setSelectedVoiceApiary] = useState<any | null>(null);
-  const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(true);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState<boolean>(false);
   const [apiaryTaskSummaryById, setApiaryTaskSummaryById] = useState<Record<string, { openCount: number; nextTaskTitle: string }>>({});
   const [apiaryTasksUnavailable, setApiaryTasksUnavailable] = useState(false);
 
@@ -40,7 +41,7 @@ export default function ApiariesPage() {
   const lastPromptApiaryIdRef = useRef<string | null>(null);
   const lastPromptAtRef = useRef<number>(0);
   const isListeningRef = useRef<boolean>(false);
-  const isVoiceEnabledRef = useRef<boolean>(true);
+  const isVoiceEnabledRef = useRef<boolean>(false);
   const prevVoiceStepRef = useRef<'idle' | 'armed' | 'awaiting_apiary' | 'awaiting_hive'>('idle');
   const apiariesRef = useRef<any[]>([]);
   const ttsSafetyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -68,19 +69,7 @@ export default function ApiariesPage() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const raw = window.localStorage.getItem('lek_voice_enabled');
-      if (raw === '0') setIsVoiceEnabled(false);
-    } catch {}
-  }, []);
-
-  useEffect(() => {
     isVoiceEnabledRef.current = isVoiceEnabled;
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem('lek_voice_enabled', isVoiceEnabled ? '1' : '0');
-    } catch {}
     if (!isVoiceEnabled) {
       try {
         const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
@@ -501,12 +490,37 @@ export default function ApiariesPage() {
       }
       return;
     }
+    if (!isDeviceFeatureEnabled('location')) {
+      setVoiceInfo('GPS er slått av i Innstillinger. Velg bigård manuelt.');
+      return;
+    }
     if (!navigator?.geolocation) {
-      say('GPS er ikke tilgjengelig på denne enheten.');
+      setVoiceInfo('GPS er ikke tilgjengelig. Velg bigård manuelt.');
       return;
     }
 
-    const watchId = navigator.geolocation.watchPosition(
+    let cancelled = false;
+    let watchId: number | null = null;
+    const startWatchingIfAlreadyAllowed = async () => {
+      const permissions = (navigator as any).permissions;
+      if (!permissions?.query) {
+        setVoiceInfo('GPS ikke aktivert. Velg bigård manuelt.');
+        return;
+      }
+      try {
+        const permission = await permissions.query({ name: 'geolocation' });
+        if (cancelled) return;
+        if (permission.state !== 'granted') {
+          setVoiceInfo('GPS ikke aktivert. Velg bigård manuelt.');
+          return;
+        }
+      } catch {
+        setVoiceInfo('GPS ikke aktivert. Velg bigård manuelt.');
+        return;
+      }
+
+      if (cancelled) return;
+      watchId = navigator.geolocation.watchPosition(
       (pos) => {
         if (!isVoiceEnabledRef.current) return;
         const lat = pos.coords.latitude;
@@ -575,14 +589,19 @@ export default function ApiariesPage() {
         }
       },
       () => {
-        say('Gi tilgang til posisjon for å starte inspeksjon med tale.');
+        setVoiceInfo('GPS er ikke tilgjengelig. Velg bigård manuelt.');
       },
       { enableHighAccuracy: true, maximumAge: 2000, timeout: 8000 }
-    );
+      );
+    };
+    void startWatchingIfAlreadyAllowed();
 
     return () => {
+      cancelled = true;
       voiceInsideRef.current = false;
-      try { navigator.geolocation.clearWatch(watchId); } catch {}
+      if (watchId !== null) {
+        try { navigator.geolocation.clearWatch(watchId); } catch {}
+      }
     };
   }, [apiariesWithCoords, isSelectionMode, isSupported, isVoiceEnabled, say, startListening, stopListening]);
 
@@ -1131,6 +1150,8 @@ export default function ApiariesPage() {
       {!isSelectionMode && (
         <div className="fixed bottom-28 left-6 z-[200] print:hidden">
           <button
+            disabled={!isSupported}
+            title={isSupported ? 'Start/stopp talestyring' : 'Mikrofon er slått av eller støttes ikke'}
             onClick={() => {
               if (isVoiceEnabledRef.current) {
                 isVoiceEnabledRef.current = false;
@@ -1162,7 +1183,7 @@ export default function ApiariesPage() {
             }}
             className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 ${
               !isVoiceEnabled ? 'bg-gray-300 text-gray-700' : isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-honey-500 text-white'
-            }`}
+            } disabled:opacity-50`}
           >
             {!isVoiceEnabled ? <MicOff className="w-6 h-6" /> : isListening ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
           </button>

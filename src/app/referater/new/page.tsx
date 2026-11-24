@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Mic, Square, X, Check, Loader2 } from 'lucide-react';
+import { isDeviceFeatureEnabled } from '@/utils/device-preferences';
 
 export default function NewMeetingRecordingPage() {
   const supabase = createClient();
@@ -130,6 +131,10 @@ export default function NewMeetingRecordingPage() {
 
   const handleStartRecording = async () => {
     setError(null);
+    if (!isDeviceFeatureEnabled('microphone')) {
+      setError('Mikrofon er slått av i Innstillinger.');
+      return;
+    }
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setError('Nettleseren din støtter ikke mikrofonopptak.');

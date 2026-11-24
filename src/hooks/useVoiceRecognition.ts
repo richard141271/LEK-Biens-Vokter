@@ -1,9 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { loadAliases } from '@/utils/voice-alias';
+import {
+  DEVICE_PREFERENCES_CHANGED,
+  isDeviceFeatureEnabled,
+} from '@/utils/device-preferences';
 
 export function useVoiceRecognition(onResult: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
+  const [microphoneEnabled, setMicrophoneEnabled] = useState(true);
   const recognitionRef = useRef<any>(null);
   const onResultRef = useRef(onResult);
   const keepAliveRef = useRef(false);
@@ -27,6 +32,26 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
   useEffect(() => {
     onResultRef.current = onResult;
   }, [onResult]);
+
+  useEffect(() => {
+    const syncPreference = () => {
+      const enabled = isDeviceFeatureEnabled('microphone');
+      setMicrophoneEnabled(enabled);
+      if (enabled) return;
+      keepAliveRef.current = false;
+      pausedRef.current = false;
+      if (restartTimerRef.current) clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+      try {
+        recognitionRef.current?.abort?.();
+        recognitionRef.current?.stop?.();
+      } catch {}
+      setIsListening(false);
+    };
+    syncPreference();
+    window.addEventListener(DEVICE_PREFERENCES_CHANGED, syncPreference);
+    return () => window.removeEventListener(DEVICE_PREFERENCES_CHANGED, syncPreference);
+  }, []);
 
   useEffect(() => {
     try {
@@ -359,6 +384,7 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
   }, []);
 
   const startListening = useCallback(() => {
+    if (!isDeviceFeatureEnabled('microphone')) return;
     if (!recognitionRef.current) return;
     if (restartTimerRef.current) {
       clearTimeout(restartTimerRef.current);
@@ -438,5 +464,13 @@ export function useVoiceRecognition(onResult: (text: string) => void) {
       }
   }, [isListening, startListening, stopListening]);
 
-  return { isListening, startListening, stopListening, pauseListening, resumeListening, toggleListening, isSupported };
+  return {
+    isListening,
+    startListening,
+    stopListening,
+    pauseListening,
+    resumeListening,
+    toggleListening,
+    isSupported: isSupported && microphoneEnabled,
+  };
 }

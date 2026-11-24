@@ -41,7 +41,7 @@ function RegisterForm() {
   const [termsOpen, setTermsOpen] = useState(false);
 
   const termsText = `Vilkår for bruk – LEK-Biens Vokter™
-Sist oppdatert: 10.05.2026
+Sist oppdatert: 24.11.2026
 
 1. Generelt
 LEK-Biens Vokter™ er en digital plattform og et verktøy utviklet for registrering, organisering, læring, analyse, samhandling og videreutvikling innen blant annet birøkt, naturforvaltning, pollinering, teknologi, kunstig intelligens og tilknyttede tjenester.
@@ -74,6 +74,7 @@ utvikling av nye tjenester
 statistikk og analyse
 forskning og videreutvikling av kunstig intelligens
 Sensitive personopplysninger behandles ikke uten særskilt grunnlag eller samtykke.
+Funksjoner som bruker posisjon, kamera eller mikrofon startes bare når brukeren tar dem i bruk. Brukeren kan slå av disse funksjonene i Innstillinger; enkelte funksjoner vil da ikke være tilgjengelige. Nettleseren eller operativsystemet kan i tillegg kreve en egen teknisk tillatelse første gang funksjonen brukes. Vilkår for bruk erstatter ikke slike tekniske tillatelser.
 Brukeren kan kontakte plattformens ansvarlige for innsyn, retting eller sletting av personopplysninger der lovverket gir rett til dette.
 Plattformen er under kontinuerlig utvikling, og behandling, strukturering og forbedring av tjenester, funksjoner og dataflyt kan endres over tid.
 

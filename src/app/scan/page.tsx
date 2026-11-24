@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { isDeviceFeatureEnabled } from '@/utils/device-preferences';
 
 export default function ScanPage() {
   const router = useRouter();
@@ -44,6 +45,10 @@ export default function ScanPage() {
 
   const startScanner = async () => {
     if (isStarting) return;
+    if (!isDeviceFeatureEnabled('camera')) {
+      setError('Kamera er slått av i Innstillinger.');
+      return;
+    }
 
     setError(null);
     setScanResult(null);

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Cloud, CloudRain, Sun, Wind, Droplets } from 'lucide-react';
+import { isDeviceFeatureEnabled } from '@/utils/device-preferences';
 
 export default function WeatherWidget() {
   const [weather, setWeather] = useState<any>(null);
@@ -33,40 +34,12 @@ export default function WeatherWidget() {
       setLabel(fallbackLabel);
     };
 
-    const fetchPlace = async (lat: number, lon: number) => {
-      const cached = readCachedPlace();
-      if (cached) {
-        const dLat = Math.abs(cached.lat - lat);
-        const dLon = Math.abs(cached.lon - lon);
-        if (dLat < 0.02 && dLon < 0.02) return cached.name;
-      }
-
-      try {
-        const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&accept-language=no`;
-        const res = await fetch(url, { headers: { Accept: 'application/json' } });
-        if (!res.ok) return null;
-        const data: any = await res.json();
-        const addr = data?.address || {};
-        const name =
-          addr.city ||
-          addr.town ||
-          addr.village ||
-          addr.hamlet ||
-          addr.municipality ||
-          addr.county ||
-          data?.name ||
-          null;
-        if (name) {
-          try {
-            localStorage.setItem('lek_last_weather_place', JSON.stringify({ name, lat, lon, at: Date.now() }));
-          } catch {}
-          return String(name);
-        }
-      } catch {}
-      return null;
-    };
-
     const fallback = () => {
+      if (!isDeviceFeatureEnabled('location')) {
+        fetchWeather(59.12, 11.38);
+        setPlaceLabel('Halden', 'Været (standard)');
+        return;
+      }
       try {
         const raw = localStorage.getItem('lek_last_weather_coords');
         if (raw) {
@@ -85,32 +58,7 @@ export default function WeatherWidget() {
       setPlaceLabel('Halden', 'Været (standard)');
     };
 
-    if (!navigator?.geolocation) {
-      fallback();
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-          fallback();
-          return;
-        }
-        try {
-          localStorage.setItem('lek_last_weather_coords', JSON.stringify({ lat, lon, at: Date.now() }));
-        } catch {}
-        fetchWeather(lat, lon);
-        fetchPlace(lat, lon)
-          .then((name) => setPlaceLabel(name, 'Været hos deg'))
-          .catch(() => setPlaceLabel(null, 'Været hos deg'));
-      },
-      () => {
-        fallback();
-      },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 }
-    );
+    fallback();
   }, []);
 
   const fetchWeather = async (lat: number, lon: number) => {

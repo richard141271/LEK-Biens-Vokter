@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { MapPin, Warehouse, Store, Truck, ArrowLeft, ClipboardCheck, Map as MapIcon, X } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import { isDeviceFeatureEnabled } from '@/utils/device-preferences';
 
 const Map = dynamic(() => import('@/components/Map'), { 
   ssr: false,
@@ -22,6 +23,7 @@ export default function NewApiaryPage() {
   const [name, setName] = useState('');
   const [type, setType] = useState('bigård');
   const [locationStr, setLocationStr] = useState('');
+  const [locationNotice, setLocationNotice] = useState('');
   const [coordinates, setCoordinates] = useState<string | null>(null);
   const [registrationNumber, setRegistrationNumber] = useState(''); // New: Car Reg Number
   const [loading, setLoading] = useState(false);
@@ -421,8 +423,12 @@ export default function NewApiaryPage() {
   };
 
   const handleGetLocation = () => {
+    if (!isDeviceFeatureEnabled('location')) {
+      setLocationNotice('Posisjon er slått av i Innstillinger. Du kan fortsatt velge stedet i kartet.');
+      return;
+    }
     if (!navigator.geolocation) {
-      alert("Geolokasjon støttes ikke av din nettleser");
+      setLocationNotice('Denne nettleseren støtter ikke posisjon.');
       return;
     }
     
@@ -450,7 +456,7 @@ export default function NewApiaryPage() {
             setLocationStr(`Koordinater: ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
           }
         }
-        alert("Kunne ikke hente posisjon. Sjekk at du har gitt tillatelse. Du kan også velge posisjon i kart.");
+        setLocationNotice('Kunne ikke hente posisjon. Du kan også velge stedet i kartet.');
         setLoading(false);
       },
       { enableHighAccuracy: true, maximumAge: 60_000, timeout: 8_000 }
@@ -466,7 +472,9 @@ export default function NewApiaryPage() {
       return;
     }
 
-    const cached = readCachedCoords('lek_last_map_coords') || readCachedCoords('lek_last_weather_coords');
+    const cached = isDeviceFeatureEnabled('location')
+      ? readCachedCoords('lek_last_map_coords') || readCachedCoords('lek_last_weather_coords')
+      : null;
     if (cached) {
       setMapPickerCenter(cached);
       setMapPickerZoom(12);
@@ -475,19 +483,6 @@ export default function NewApiaryPage() {
       setMapPickerZoom(6);
     }
 
-    if (!navigator?.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = Number(pos?.coords?.latitude);
-        const lng = Number(pos?.coords?.longitude);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-        writeCachedCoords(lat, lng);
-        setMapPickerCenter([lat, lng]);
-        setMapPickerZoom(15);
-      },
-      () => {},
-      { enableHighAccuracy: true, maximumAge: 60_000, timeout: 6_000 }
-    );
   }, [coordinates, showMapPicker]);
 
   return (
@@ -631,6 +626,7 @@ export default function NewApiaryPage() {
                   Velg i kart
               </button>
             </div>
+            {locationNotice && <p className="mt-2 text-xs text-gray-600">{locationNotice}</p>}
 
             {coordinates && (
                 <p className="text-xs text-center text-gray-500 mt-2 font-mono">

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Mic, MicOff, Volume2 } from 'lucide-react';
+import { isDeviceFeatureEnabled } from '@/utils/device-preferences';
 
 // Types for Web Speech API
 interface IWindow extends Window {
@@ -31,6 +32,10 @@ export default function VoiceAssistant({ onCommand, apiaries }: VoiceAssistantPr
   }, []);
 
   const startListening = useCallback(() => {
+    if (!isDeviceFeatureEnabled('microphone')) {
+      setFeedback('Mikrofon er slått av i Innstillinger.');
+      return;
+    }
     if (recognitionRef.current) {
       try {
         recognitionRef.current.start();

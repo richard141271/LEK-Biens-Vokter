@@ -1,4 +1,5 @@
 import type { Voice2State } from '@/voice2/types';
+import { isDeviceFeatureEnabled } from '@/utils/device-preferences';
 
 type Callbacks = {
   onText: (text: string) => void;
@@ -103,7 +104,7 @@ export class Voice2Engine {
   }
 
   isSupported(): boolean {
-    return !!this.recognition;
+    return !!this.recognition && isDeviceFeatureEnabled('microphone');
   }
 
   unlockFromGesture(): void {
@@ -158,6 +159,7 @@ export class Voice2Engine {
   }
 
   start(): void {
+    if (!isDeviceFeatureEnabled('microphone')) return;
     if (!this.recognition) return;
     if (this.restartTimer) {
       clearTimeout(this.restartTimer);

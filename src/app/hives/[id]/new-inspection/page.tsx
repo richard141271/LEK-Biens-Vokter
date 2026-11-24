@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Save, Calendar, Cloud, Thermometer, Info, ClipboardList, Image as ImageIcon, X, Camera } from 'lucide-react';
 import { useOffline } from '@/context/OfflineContext';
 import { Voice2Engine } from '@/voice2/engine';
+import { isDeviceFeatureEnabled } from '@/utils/device-preferences';
 import { parseVoice2Intent } from '@/voice2/parse';
 import { getVoice2AliasIntent, loadVoice2Aliases } from '@/voice2/alias-store';
 
@@ -160,6 +161,11 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     let stream: MediaStream | null = null;
     
     if (cameraActive) {
+        if (!isDeviceFeatureEnabled('camera')) {
+            setLastCommand('Kamera er slått av i Innstillinger.');
+            setCameraActive(false);
+            return;
+        }
         navigator.mediaDevices.getUserMedia({ 
             video: { 
                 facingMode: 'environment',
@@ -190,7 +196,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         .catch(err => {
             console.error("Camera error:", err);
             setCameraActive(false);
-            alert("Kunne ikke starte kamera. Sjekk at du har gitt tillatelse.");
+            setLastCommand('Kamera kunne ikke startes.');
         });
     }
 
@@ -2163,7 +2169,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
     };
 
     try {
-      let didFetchWeather = false;
       let offlineParsed: any = null;
       let loadedHive: any = null;
       if (typeof window !== 'undefined') {
@@ -2260,7 +2265,6 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
       const fetchWeatherFor = async (lat: number, lon: number) => {
         setWeatherLoading(true);
         try {
-          didFetchWeather = true;
           setCoordinates({ lat, lng: lon });
           const response = await withTimeout(
             fetch(
@@ -2325,27 +2329,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         }
       }
 
-      if (!didFetchWeather && !isOffline) {
-        try {
-          if (typeof navigator !== 'undefined' && navigator.geolocation) {
-            const pos = await withTimeout(
-              new Promise<GeolocationPosition>((resolve, reject) => {
-                try {
-                  navigator.geolocation.getCurrentPosition(resolve, reject, {
-                    enableHighAccuracy: false,
-                    timeout: 8000,
-                    maximumAge: 5 * 60 * 1000,
-                  });
-                } catch (e) {
-                  reject(e);
-                }
-              }),
-              9000
-            );
-            await fetchWeatherFor(pos.coords.latitude, pos.coords.longitude);
-          }
-        } catch {}
-      }
+      // Weather uses the apiary's saved coordinates; opening an inspection never requests device GPS.
     } catch {
       setLoadError('Kunne ikke hente kubedata akkurat nå. Sjekk nett og prøv igjen.');
     } finally {
@@ -2958,7 +2942,13 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
         {/* Voice & Camera Controls */}
         <div className="flex gap-2">
             <button
-                onClick={() => setCameraActive(!cameraActive)}
+                onClick={() => {
+                  if (!isDeviceFeatureEnabled('camera')) {
+                    setLastCommand('Kamera er slått av i Innstillinger.');
+                    return;
+                  }
+                  setCameraActive(!cameraActive);
+                }}
                 className={`p-3 rounded-full transition-all ${
                     cameraActive 
                     ? 'bg-blue-600 text-white shadow-lg ring-2 ring-blue-300' 
@@ -2974,7 +2964,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
                 onClick={() => {
                   const engine = voice2Ref.current;
                   if (!engine || !voice2Supported) {
-                    alert('Denne enheten støtter ikke handsfree-stemme.');
+                    setLastCommand('Handsfree-stemme er ikke tilgjengelig.');
                     return;
                   }
                   if (voice2Enabled) {
