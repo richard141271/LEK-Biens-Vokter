@@ -1,7 +1,21 @@
 'use client';
 
-import { useMemo, useState, useCallback, useEffect } from 'react';
-import { Mic, MicOff, X, BookOpen, RotateCcw, ChevronLeft, ChevronRight, ClipboardList, ClipboardCopy, Download, Trash2 } from 'lucide-react';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import {
+  Mic,
+  MicOff,
+  X,
+  BookOpen,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  ClipboardCopy,
+  Download,
+  Trash2,
+  Play,
+  Check,
+} from 'lucide-react';
 import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
 import { parseVoice2Intent } from '@/voice2/parse';
 import { loadVoice2Aliases, submitVoice2Alias } from '@/voice2/alias-store';
@@ -14,6 +28,7 @@ export default function WordTraining({ onClose }: Props) {
   useEffect(() => {
     void loadVoice2Aliases();
   }, []);
+
   const phrases = useMemo(() => {
     return [
       { group: 'TID & VÆR', text: 'Temperatur 18 grader.', expected: { type: 'TEMPERATURE', celsius: 18 } },
@@ -90,29 +105,53 @@ export default function WordTraining({ onClose }: Props) {
   const [recognized, setRecognized] = useState<string | null>(null);
   const [parsed, setParsed] = useState<any>(null);
   const [failures, setFailures] = useState<any[]>([]);
+
+  const [autoMode, setAutoMode] = useState(false);
+  const [autoDone, setAutoDone] = useState(false);
+  const [lastResult, setLastResult] = useState<'ok' | 'fail' | null>(null);
+  const [stats, setStats] = useState({ ok: 0, fail: 0 });
+
+  const currentIndexRef = useRef(0);
+  const autoModeRef = useRef(false);
+  const busyRef = useRef(false);
+  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
+
+  useEffect(() => {
+    autoModeRef.current = autoMode;
+  }, [autoMode]);
+
   const reset = useCallback(() => {
     setRecognized(null);
     setParsed(null);
+    setLastResult(null);
+    busyRef.current = false;
   }, []);
 
-  const selectIndex = useCallback((idx: number) => {
-    setCurrentIndex(idx);
-    reset();
-  }, [reset]);
+  const selectIndex = useCallback(
+    (idx: number) => {
+      setCurrentIndex(idx);
+      reset();
+    },
+    [reset]
+  );
 
-  const handleResult = useCallback((t: string) => {
-    setRecognized(t);
-    const p = parseVoice2Intent(t);
-    setParsed(p);
-    try {
-      const item: any = phrases[currentIndex] as any;
+  const evaluateAndRecord = useCallback(
+    (t: string, idx: number) => {
+      const item: any = phrases[idx];
       const exp = item.expected || {};
+      const p = parseVoice2Intent(t);
+      setRecognized(t);
+      setParsed(p);
+
       let ok = true;
       for (const k of Object.keys(exp)) {
-        const ev = (exp as any)[k];
-        const pv = (p as any)?.[k];
-        if (pv !== ev) ok = false;
+        if ((p as any)?.[k] !== (exp as any)[k]) ok = false;
       }
+
       if (!ok) {
         const record = {
           timestamp: new Date().toISOString(),
@@ -120,7 +159,7 @@ export default function WordTraining({ onClose }: Props) {
           expected_phrase: item.text,
           expected_parse: item.expected || {},
           recognized_text: t,
-          parsed: p
+          parsed: p,
         };
         setFailures((prev) => [record, ...prev]);
         try {
@@ -139,22 +178,122 @@ export default function WordTraining({ onClose }: Props) {
                 expected_parse: item.expected || {},
                 parsed_before: p,
                 parsed_after: null,
-                source: 'training'
-              })
+                source: 'training',
+              }),
             }).catch(() => {});
           }
         } catch {}
       }
-    } catch {}
-  }, [currentIndex, phrases]);
 
-  const { isListening, toggleListening, isSupported } = useVoiceRecognition(handleResult);
+      setLastResult(ok ? 'ok' : 'fail');
+      setStats((prev) => (ok ? { ...prev, ok: prev.ok + 1 } : { ...prev, fail: prev.fail + 1 }));
+      return ok;
+    },
+    [phrases]
+  );
+
+  const advanceAfter = useCallback(
+    (idx: number, delayMs: number) => {
+      busyRef.current = true;
+      advanceTimerRef.current = setTimeout(() => {
+        advanceTimerRef.current = null;
+        const nextIdx = idx + 1;
+        if (nextIdx >= phrases.length) {
+          busyRef.current = false;
+          setAutoMode(false);
+          setAutoDone(true);
+          return;
+        }
+        setCurrentIndex(nextIdx);
+        setRecognized(null);
+        setParsed(null);
+        setLastResult(null);
+        busyRef.current = false;
+      }, delayMs);
+    },
+    [phrases.length]
+  );
+
+  const handleResult = useCallback(
+    (t: string) => {
+      if (busyRef.current) return;
+      const idx = currentIndexRef.current;
+      const ok = evaluateAndRecord(t, idx);
+      if (!autoModeRef.current) return;
+      advanceAfter(idx, ok ? 900 : 1800);
+    },
+    [advanceAfter, evaluateAndRecord]
+  );
+
+  const { isListening, startListening, stopListening, toggleListening, isSupported } = useVoiceRecognition(handleResult);
+
+  // Auto-modus: hvis ingenting gjenkjennes for en setning, gå videre etter en stund.
+  useEffect(() => {
+    if (!autoMode) return;
+    if (busyRef.current) return;
+    const idx = currentIndexRef.current;
+    const timer = setTimeout(() => {
+      if (busyRef.current) return;
+      setLastResult('fail');
+      setStats((prev) => ({ ...prev, fail: prev.fail + 1 }));
+      advanceAfter(idx, 600);
+    }, 20000);
+    return () => clearTimeout(timer);
+  }, [autoMode, currentIndex, advanceAfter]);
+
+  useEffect(() => {
+    if (!autoDone) return;
+    try {
+      stopListening();
+    } catch {}
+  }, [autoDone, stopListening]);
+
+  useEffect(() => {
+    return () => {
+      if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+    };
+  }, []);
+
+  const startAuto = useCallback(() => {
+    if (!isSupported) return;
+    if (advanceTimerRef.current) {
+      clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+    busyRef.current = false;
+    setFailures([]);
+    setStats({ ok: 0, fail: 0 });
+    setAutoDone(false);
+    setCurrentIndex(0);
+    setRecognized(null);
+    setParsed(null);
+    setLastResult(null);
+    setAutoMode(true);
+    try {
+      startListening();
+    } catch {}
+  }, [isSupported, startListening]);
+
+  const stopAuto = useCallback(() => {
+    if (advanceTimerRef.current) {
+      clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+    busyRef.current = false;
+    setAutoMode(false);
+    try {
+      stopListening();
+    } catch {}
+  }, [stopListening]);
 
   const next = () => selectIndex((currentIndex + 1) % phrases.length);
   const prev = () => selectIndex((currentIndex - 1 + phrases.length) % phrases.length);
 
   const item = phrases[currentIndex];
   const hasFailures = failures.length > 0;
+  const total = phrases.length;
+  const answered = stats.ok + stats.fail;
+  const progressPct = total > 0 ? Math.min(100, Math.round(((currentIndex + 1) / total) * 100)) : 0;
 
   const copyFailures = async () => {
     const text = JSON.stringify(failures, null, 2);
@@ -236,21 +375,80 @@ export default function WordTraining({ onClose }: Props) {
           </div>
         </div>
 
+        {/* Automatisk gjennomgang */}
+        <div className="mb-4 p-3 bg-honey-50 border border-honey-200 rounded-lg">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-bold text-gray-900">Automatisk gjennomgang</div>
+              <div className="text-xs text-gray-600">
+                Les setningene etter hverandre — appen går videre av seg selv.
+              </div>
+            </div>
+            {autoMode ? (
+              <button
+                onClick={stopAuto}
+                type="button"
+                className="shrink-0 px-4 py-2 rounded-lg font-bold bg-red-600 text-white hover:bg-red-700 flex items-center gap-2"
+              >
+                <MicOff className="w-4 h-4" />
+                Stopp
+              </button>
+            ) : (
+              <button
+                onClick={startAuto}
+                disabled={!isSupported}
+                type="button"
+                className="shrink-0 px-4 py-2 rounded-lg font-bold bg-black text-white hover:bg-gray-800 disabled:opacity-50 flex items-center gap-2"
+              >
+                <Play className="w-4 h-4" />
+                Start
+              </button>
+            )}
+          </div>
+          {(autoMode || answered > 0 || autoDone) && (
+            <div className="mt-3">
+              <div className="h-2 w-full bg-white rounded-full overflow-hidden border border-honey-200">
+                <div
+                  className="h-full bg-honey-500 transition-all"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <div className="mt-1 flex items-center justify-between text-xs">
+                <span className="text-gray-600">
+                  {currentIndex + 1} / {total}
+                </span>
+                <span className="font-medium">
+                  <span className="text-green-700">Riktig {stats.ok}</span>
+                  <span className="text-gray-400"> · </span>
+                  <span className="text-red-700">Feil {stats.fail}</span>
+                </span>
+              </div>
+              {autoDone && (
+                <div className="mt-2 text-xs font-medium text-gray-700">
+                  Ferdig! Riktig {stats.ok} av {answered || total}.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-bold text-gray-500 uppercase">{item.group}</span>
           <div className="flex items-center gap-2">
             <button
               onClick={prev}
+              disabled={autoMode}
               type="button"
-              className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+              className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40"
               title="Forrige"
             >
               <ChevronLeft className="w-5 h-5 text-gray-700" />
             </button>
             <button
               onClick={next}
+              disabled={autoMode}
               type="button"
-              className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+              className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40"
               title="Neste"
             >
               <ChevronRight className="w-5 h-5 text-gray-700" />
@@ -258,20 +456,30 @@ export default function WordTraining({ onClose }: Props) {
           </div>
         </div>
 
-        <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-          <div className="text-xs text-gray-500 mb-1">Si dette høyt</div>
+        <div
+          className={`mb-4 p-4 border rounded-lg ${
+            lastResult === 'ok'
+              ? 'bg-green-50 border-green-200'
+              : lastResult === 'fail'
+                ? 'bg-red-50 border-red-200'
+                : 'bg-gray-50 border-gray-200'
+          }`}
+        >
+          <div className="text-xs text-gray-500 mb-1 flex items-center gap-2">
+            Si dette høyt
+            {lastResult === 'ok' && <Check className="w-4 h-4 text-green-600" />}
+            {lastResult === 'fail' && <X className="w-4 h-4 text-red-600" />}
+          </div>
           <div className="text-2xl font-extrabold tracking-wide text-gray-900">{item.text}</div>
         </div>
 
         <div className="flex items-center gap-3 mb-4">
           <button
-            onClick={toggleListening}
+            onClick={autoMode ? stopAuto : toggleListening}
             disabled={!isSupported}
             type="button"
             className={`flex-1 py-3 rounded-lg font-bold transition-colors flex items-center justify-center gap-2 ${
-              isListening
-                ? 'bg-red-600 text-white'
-                : 'bg-black text-white hover:bg-gray-800'
+              isListening ? 'bg-red-600 text-white' : 'bg-black text-white hover:bg-gray-800'
             }`}
             title="Start/Stopp opptak"
           >
@@ -338,13 +546,15 @@ export default function WordTraining({ onClose }: Props) {
               <button
                 key={idx}
                 type="button"
+                disabled={autoMode}
                 onPointerDown={(e) => {
                   try {
                     e.preventDefault();
                   } catch {}
+                  if (autoMode) return;
                   selectIndex(idx);
                 }}
-                className={`px-3 py-1.5 rounded-full text-xs border ${
+                className={`px-3 py-1.5 rounded-full text-xs border disabled:opacity-50 ${
                   idx === currentIndex
                     ? 'bg-honey-500 border-honey-600 text-white'
                     : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'

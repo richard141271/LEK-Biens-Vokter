@@ -1908,6 +1908,55 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
 
       const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
 
+      // Nettleserens tale-syntese (særlig Android) fyrer av og til aldri onend,
+      // og kan «pause» seg selv etter ~15 sek. Denne hjelperen sikrer at vi alltid
+      // fortsetter, og holder syntesen i gang mens den snakker.
+      const speakBrowserVoice = (utterance: SpeechSynthesisUtterance) => {
+        if (!s) {
+          resume();
+          return;
+        }
+        let done = false;
+        let ka: ReturnType<typeof setInterval> | null = null;
+        let to: ReturnType<typeof setTimeout> | null = null;
+        const finishOnce = () => {
+          if (done) return;
+          done = true;
+          if (ka) {
+            try {
+              clearInterval(ka);
+            } catch {}
+            ka = null;
+          }
+          if (to) {
+            try {
+              clearTimeout(to);
+            } catch {}
+            to = null;
+          }
+          resume();
+        };
+        utterance.onend = finishOnce;
+        utterance.onerror = finishOnce;
+        try {
+          if (typeof s.resume === 'function') s.resume();
+        } catch {}
+        try {
+          if (s.speaking || s.pending) s.cancel();
+        } catch {}
+        ka = setInterval(() => {
+          try {
+            if (s.speaking) s.resume();
+          } catch {}
+        }, 4000);
+        to = setTimeout(finishOnce, Math.min(2600 + trimmed.length * 95, 20000));
+        try {
+          s.speak(utterance);
+        } catch {
+          finishOnce();
+        }
+      };
+
       if (!isOffline) {
         void (async () => {
           const ok = await speakWithServer(trimmed, shouldResume, resume);
@@ -1928,19 +1977,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
               } catch {}
             }
           };
-          u2.onend = resume;
-          u2.onerror = resume;
-          try {
-            if (typeof s.resume === 'function') s.resume();
-          } catch {}
-          try {
-            if (s.speaking || s.pending) s.cancel();
-          } catch {}
-          try {
-            s.speak(u2);
-          } catch {
-            resume();
-          }
+          speakBrowserVoice(u2);
         })();
         return;
       }
@@ -1953,19 +1990,7 @@ export default function NewInspectionPage({ params }: { params: { id: string } }
           } catch {}
         }
       };
-      u.onend = resume;
-      u.onerror = resume;
-      try {
-        if (typeof s.resume === 'function') s.resume();
-      } catch {}
-      try {
-        if (s.speaking || s.pending) s.cancel();
-      } catch {}
-      try {
-        s.speak(u);
-      } catch {
-        resume();
-      }
+      speakBrowserVoice(u);
     } catch {}
   };
   useEffect(() => {

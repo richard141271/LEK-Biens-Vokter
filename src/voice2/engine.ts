@@ -141,7 +141,7 @@ export class Voice2Engine {
           this.ttsUnlocked = true;
         };
         try {
-          const v = this.pickVoice(s);
+          const v = this.pickNorwegianVoice(s);
           if (v) u.voice = v;
         } catch {}
         try {
@@ -258,31 +258,77 @@ export class Voice2Engine {
     }, Math.max(120, delayMs));
   }
 
-  private pickVoice(s: SpeechSynthesis): SpeechSynthesisVoice | null {
+  private pickNorwegianVoice(s: SpeechSynthesis): SpeechSynthesisVoice | null {
     try {
       const voices = typeof s.getVoices === 'function' ? s.getVoices() : [];
       const lc = (v: SpeechSynthesisVoice) => String(v?.lang || '').toLowerCase();
-      const nb = voices.find((v) => lc(v).startsWith('nb'));
-      const no = voices.find((v) => lc(v).startsWith('no'));
-      const nn = voices.find((v) => lc(v).includes('nor'));
-      return (nb || no || nn || voices[0] || null) as any;
+      const nm = (v: SpeechSynthesisVoice) => String(v?.name || '').toLowerCase();
+      return (
+        voices.find((v) => lc(v).startsWith('nb')) ||
+        voices.find((v) => lc(v).startsWith('no')) ||
+        voices.find((v) => lc(v).startsWith('nn')) ||
+        voices.find((v) => lc(v).includes('nor')) ||
+        voices.find((v) => nm(v).includes('norsk')) ||
+        null
+      ) as any;
     } catch {
       return null;
     }
   }
 
+  private hasNorwegianVoice(): boolean {
+    if (typeof window === 'undefined') return false;
+    try {
+      const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
+      if (!s) return false;
+      try {
+        if (typeof s.getVoices === 'function') s.getVoices();
+      } catch {}
+      return !!this.pickNorwegianVoice(s);
+    } catch {
+      return false;
+    }
+  }
+
   private async speakWithAny(text: string): Promise<boolean> {
-    if (!navigator.onLine) return this.speakWithSynthesis(text);
-    const okServer = await this.speakWithServerTts(text).catch(() => false);
-    if (okServer) return true;
+    // Konsistent stemme per enhet: har enheten en norsk stemme, bruk den alltid.
+    // Ellers faller vi til server-TTS. Vi mikser ikke vilkårlig mellom stemmer.
+    if (this.hasNorwegianVoice()) {
+      const okLocal = await this.speakWithSynthesis(text);
+      if (okLocal) return true;
+    }
+    if (typeof navigator === 'undefined' || navigator.onLine) {
+      const okServer = await this.speakWithServerTts(text).catch(() => false);
+      if (okServer) return true;
+    }
     return this.speakWithSynthesis(text);
   }
 
   private speakWithSynthesis(text: string): Promise<boolean> {
     return new Promise((resolve) => {
+      let settled = false;
+      let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
+      let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+      const finish = (ok: boolean) => {
+        if (settled) return;
+        settled = true;
+        if (keepAliveTimer) {
+          try {
+            clearInterval(keepAliveTimer);
+          } catch {}
+          keepAliveTimer = null;
+        }
+        if (timeoutTimer) {
+          try {
+            clearTimeout(timeoutTimer);
+          } catch {}
+          timeoutTimer = null;
+        }
+        resolve(ok);
+      };
       try {
         const s = (window as any).speechSynthesis as SpeechSynthesis | undefined;
-        if (!s) return resolve(false);
+        if (!s) return finish(false);
         try {
           if (typeof s.getVoices === 'function') s.getVoices();
         } catch {}
@@ -292,24 +338,33 @@ export class Voice2Engine {
         u.pitch = 1.0;
         u.volume = 1.0;
         try {
-          const v = this.pickVoice(s);
+          const v = this.pickNorwegianVoice(s);
           if (v) u.voice = v;
         } catch {}
-        u.onend = () => resolve(true);
-        u.onerror = () => resolve(false);
+        u.onend = () => finish(true);
+        u.onerror = () => finish(false);
         try {
           if (typeof s.resume === 'function') s.resume();
         } catch {}
         try {
           if (s.speaking || s.pending) s.cancel();
         } catch {}
+        // Android: tale-syntesen kan «pause» seg selv etter ~15 sek. Hold den i gang.
+        keepAliveTimer = setInterval(() => {
+          try {
+            if (s.speaking) s.resume();
+          } catch {}
+        }, 4000);
+        // Noen nettlesere (særlig Android) fyrer aldri onend. Sikre at vi aldri henger.
+        const estimateMs = Math.min(2600 + text.length * 95, 20000);
+        timeoutTimer = setTimeout(() => finish(true), estimateMs);
         try {
           s.speak(u);
         } catch {
-          resolve(false);
+          finish(false);
         }
       } catch {
-        resolve(false);
+        finish(false);
       }
     });
   }
@@ -321,14 +376,33 @@ export class Voice2Engine {
 
     let bytes = this.ttsCache.get(trimmed) || null;
     if (!bytes) {
-      const res = await fetch('/api/voice/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: trimmed }),
-      });
-      if (!res.ok) return false;
-      bytes = await res.arrayBuffer();
-      this.ttsCache.set(trimmed, bytes);
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const abortTimer = controller
+        ? setTimeout(() => {
+            try {
+              controller.abort();
+            } catch {}
+          }, 8000)
+        : null;
+      try {
+        const res = await fetch('/api/voice/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: trimmed }),
+          signal: controller ? controller.signal : undefined,
+        });
+        if (!res.ok) return false;
+        bytes = await res.arrayBuffer();
+        this.ttsCache.set(trimmed, bytes);
+      } catch {
+        return false;
+      } finally {
+        if (abortTimer) {
+          try {
+            clearTimeout(abortTimer);
+          } catch {}
+        }
+      }
     }
 
     try {
@@ -352,6 +426,19 @@ export class Voice2Engine {
         }
       });
       await new Promise<void>((resolve) => {
+        let settled = false;
+        let hardStop: ReturnType<typeof setTimeout> | null = null;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          if (hardStop) {
+            try {
+              clearTimeout(hardStop);
+            } catch {}
+            hardStop = null;
+          }
+          resolve();
+        };
         const src = ctx.createBufferSource();
         src.buffer = decoded;
         try {
@@ -359,18 +446,23 @@ export class Voice2Engine {
             src.playbackRate.value = this.ttsPlaybackRate;
           }
         } catch {}
-        let node: any = src;
         try {
           const g = ctx.createGain();
           g.gain.value = this.ttsGain;
           src.connect(g);
           g.connect(ctx.destination);
-          node = g;
         } catch {
-          src.connect(ctx.destination);
+          try {
+            src.connect(ctx.destination);
+          } catch {}
         }
-        src.onended = () => resolve();
-        src.start();
+        src.onended = finish;
+        hardStop = setTimeout(finish, Math.min(3000 + trimmed.length * 110, 20000));
+        try {
+          src.start();
+        } catch {
+          finish();
+        }
       });
       return true;
     } catch {
@@ -382,27 +474,58 @@ export class Voice2Engine {
     return new Promise((resolve) => {
       try {
         if (!bytes) return resolve(false);
+        let settled = false;
+        let hardStop: ReturnType<typeof setTimeout> | null = null;
+        const finish = (ok: boolean) => {
+          if (settled) return;
+          settled = true;
+          if (hardStop) {
+            try {
+              clearTimeout(hardStop);
+            } catch {}
+            hardStop = null;
+          }
+          resolve(ok);
+        };
         const blob = new Blob([bytes], { type: 'audio/wav' });
         const url = URL.createObjectURL(blob);
+        const cleanup = () => {
+          try {
+            URL.revokeObjectURL(url);
+          } catch {}
+        };
         const a = new Audio();
         a.preload = 'auto';
         a.volume = 1.0;
         a.src = url;
         a.onended = () => {
-          try {
-            URL.revokeObjectURL(url);
-          } catch {}
-          resolve(true);
+          cleanup();
+          finish(true);
         };
         a.onerror = () => {
-          try {
-            URL.revokeObjectURL(url);
-          } catch {}
-          resolve(false);
+          cleanup();
+          finish(false);
         };
+        // Sikre at vi aldri henger hvis onended uteblir.
+        try {
+          const approx = bytes.byteLength / 2 / 16000;
+          const waitMs = Math.min(Math.max(4000, approx * 1000 + 2500), 25000);
+          hardStop = setTimeout(() => {
+            cleanup();
+            finish(true);
+          }, waitMs);
+        } catch {
+          hardStop = setTimeout(() => {
+            cleanup();
+            finish(true);
+          }, 15000);
+        }
         const p = a.play();
         if (p && typeof (p as any).catch === 'function') {
-          (p as any).catch(() => resolve(false));
+          (p as any).catch(() => {
+            cleanup();
+            finish(false);
+          });
         }
       } catch {
         resolve(false);
