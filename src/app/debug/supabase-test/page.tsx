@@ -1,6 +1,18 @@
 import { createAdminClient } from '@/utils/supabase/admin';
+import { createClient } from '@/utils/supabase/server';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
+
+async function requireAdmin() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/sign-in');
+  const admin = createAdminClient();
+  const { data: profile } = await admin.from('profiles').select('role').eq('id', user.id).single();
+  if (profile?.role !== 'admin') redirect('/');
+  return user;
+}
 
 type KeyInfo = {
   present: boolean;
@@ -107,6 +119,7 @@ function getEnvInfo() {
 }
 
 export default async function DebugPage() {
+  await requireAdmin();
   const envInfo = getEnvInfo();
   const supabase = createAdminClient();
   

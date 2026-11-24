@@ -5,6 +5,14 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import crypto from 'node:crypto';
+
+function timingSafeEqualStrings(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
+}
 
 function getClientIp() {
   const h = headers();
@@ -399,7 +407,7 @@ export async function adminInitSetup(formData: FormData) {
   }
 
   const adminPassword = String(formData.get('adminPassword') || '');
-  if (adminPassword !== expectedPassword) {
+  if (!timingSafeEqualStrings(adminPassword, expectedPassword)) {
     redirect('/aksjer/admin?error=Feil%20admin-passord');
   }
 
