@@ -130,24 +130,24 @@ export default function Home() {
   return (
     <main className="min-h-screen flex flex-col relative bg-white">
       {/* Navbar */}
-      <nav className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center max-w-6xl mx-auto z-10">
-        <div className="font-bold text-xl text-gray-900 flex items-center gap-2">
+      <nav className="absolute top-0 left-0 right-0 px-3 py-4 sm:p-6 flex justify-between items-center max-w-6xl mx-auto z-10">
+        <div className="font-bold text-base sm:text-xl text-gray-900 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap">
           <Image src="/icon.png" alt="Logo" width={32} height={32} className="w-8 h-8 object-contain" /> Biens Vokter
         </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-2 sm:gap-6">
             <InstallPrompt mode="inline" />
             {user ? (
               <Link 
                 href="/dashboard"
-                className="text-gray-900 font-medium hover:text-orange-600 transition-colors"
+                className="text-sm sm:text-base whitespace-nowrap text-gray-900 font-medium hover:text-orange-600 transition-colors"
               >
                 Gå til Min Side
               </Link>
             ) : (
               <Link 
                 href="/signin"
-                className="text-gray-900 font-medium hover:text-orange-600 transition-colors"
+                className="text-sm sm:text-base whitespace-nowrap text-gray-900 font-medium hover:text-orange-600 transition-colors"
               >
                 Logg inn
               </Link>

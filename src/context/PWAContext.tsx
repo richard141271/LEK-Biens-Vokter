@@ -5,10 +5,11 @@ import { usePathname } from 'next/navigation';
 import { createClient, getUserWithSessionFallback } from '@/utils/supabase/client';
 
 interface PWAContextType {
-  installApp: () => Promise<void>;
+  installApp: () => Promise<boolean>;
   isInstallable: boolean;
   isStandalone: boolean;
   platform: 'ios' | 'android' | 'desktop' | 'unknown';
+  browserName: 'samsung' | 'chrome' | 'safari' | 'other';
 }
 
 const PWAContext = createContext<PWAContextType | undefined>(undefined);
@@ -19,6 +20,7 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
   const [isInstallable, setIsInstallable] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop' | 'unknown'>('unknown');
+  const [browserName, setBrowserName] = useState<'samsung' | 'chrome' | 'safari' | 'other'>('other');
 
   useEffect(() => {
     let mounted = true;
@@ -62,22 +64,30 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    // Check if running in browser
     if (typeof window === 'undefined') return;
 
-    // Check if already in standalone mode
+    const displayMode = typeof window.matchMedia === 'function'
+      ? window.matchMedia('(display-mode: standalone)')
+      : null;
+
     const checkStandalone = () => {
-      const standalone = window.matchMedia('(display-mode: standalone)').matches || 
+      const standalone = Boolean(displayMode?.matches) ||
                          (window.navigator as any).standalone === true;
       setIsStandalone(standalone);
     };
     
     checkStandalone();
-    window.matchMedia('(display-mode: standalone)').addEventListener('change', checkStandalone);
+    if (displayMode?.addEventListener) {
+      displayMode.addEventListener('change', checkStandalone);
+    } else if (displayMode?.addListener) {
+      displayMode.addListener(checkStandalone);
+    }
     
-    // Detect Platform
     const userAgent = window.navigator.userAgent.toLowerCase();
-    if (/iphone|ipad|ipod/.test(userAgent)) {
+    if (
+      /iphone|ipad|ipod/.test(userAgent) ||
+      (userAgent.includes('macintosh') && window.navigator.maxTouchPoints > 1)
+    ) {
         setPlatform('ios');
     } else if (/android/.test(userAgent)) {
         setPlatform('android');
@@ -85,7 +95,16 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
         setPlatform('desktop');
     }
 
-    // Handle Android/Desktop Install Prompt
+    if (/samsungbrowser/.test(userAgent)) {
+      setBrowserName('samsung');
+    } else if (/crios|chrome/.test(userAgent)) {
+      setBrowserName('chrome');
+    } else if (/safari/.test(userAgent)) {
+      setBrowserName('safari');
+    } else {
+      setBrowserName('other');
+    }
+
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -95,24 +114,36 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     return () => {
-      window.matchMedia('(display-mode: standalone)').removeEventListener('change', checkStandalone);
+      if (displayMode?.removeEventListener) {
+        displayMode.removeEventListener('change', checkStandalone);
+      } else if (displayMode?.removeListener) {
+        displayMode.removeListener(checkStandalone);
+      }
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);
 
   const installApp = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
+    const prompt = deferredPrompt;
+    if (!prompt) return false;
+
+    setDeferredPrompt(null);
+    setIsInstallable(false);
+    try {
+      await prompt.prompt();
+      const choice = await prompt.userChoice;
+      if (choice?.outcome === 'accepted') {
         setDeferredPrompt(null);
         setIsInstallable(false);
       }
+      return true;
+    } catch {
+      return false;
     }
   };
 
   return (
-    <PWAContext.Provider value={{ installApp, isInstallable, isStandalone, platform }}>
+    <PWAContext.Provider value={{ installApp, isInstallable, isStandalone, platform, browserName }}>
       {children}
     </PWAContext.Provider>
   );
