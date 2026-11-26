@@ -1,6 +1,6 @@
 'use client';
 
-import { createClient, getUserWithSessionFallback } from '@/utils/supabase/client';
+import { createClient, getUserWithSessionFallback, withTimeout } from '@/utils/supabase/client';
 import { ensureMemberNumber } from '@/app/actions/profile';
 import { getFounderMeeting } from '@/app/actions/founder';
 import { useEffect, useState, useRef } from 'react';
@@ -24,6 +24,8 @@ export default function DashboardPage() {
   const [isFranchiseOwner, setIsFranchiseOwner] = useState(false);
   const [honeyStatus, setHoneyStatus] = useState('Ikke klar');
   const [loading, setLoading] = useState(true);
+  const [loadingStage, setLoadingStage] = useState('Sjekker innlogging...');
+  const [loadingError, setLoadingError] = useState<string | null>(null);
   const [isServiceWorkerControlling, setIsServiceWorkerControlling] = useState<boolean | null>(null);
   const [offlineReady, setOfflineReady] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -224,7 +226,7 @@ export default function DashboardPage() {
       const { data: apiariesData } = await apiaryQuery;
 
       const apiaries = Array.isArray(apiariesData) ? apiariesData : [];
-      const hives = apiaries.flatMap((a: any) => a?.hives || []);
+      const hives = apiaries.reduce((all: any[], apiary: any) => all.concat(apiary?.hives || []), []);
       const hiveIds = hives.map((h: any) => h?.id).filter(Boolean);
 
       const documentPaths: string[] = ['/dashboard', '/apiaries', '/hives', '/settings'];
@@ -369,9 +371,21 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchData().catch(e => {
         console.error("Dashboard fetch error:", e);
+        setLoadingError('Vi fikk ikke lastet oversikten. Kontroller internett og prøv igjen.');
         setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    if (!loading) return;
+
+    const timeout = window.setTimeout(() => {
+      setLoadingError('Det tar for lang tid å hente oversikten. Prøv igjen.');
+      setLoading(false);
+    }, 20000);
+
+    return () => window.clearTimeout(timeout);
+  }, [loading]);
 
   useEffect(() => {
     if (!isCreateModalOpen) stopCreateCountRepeat();
@@ -434,6 +448,8 @@ export default function DashboardPage() {
 
   const fetchData = async () => {
     try {
+          setLoadingError(null);
+          setLoadingStage('Sjekker innlogging...');
         if (!navigator.onLine) {
             try {
                 const offlineRaw = localStorage.getItem('offline_data');
@@ -472,13 +488,18 @@ export default function DashboardPage() {
             return;
         }
         setCurrentUserId(user.id);
+          setLoadingStage('Henter profilen din...');
 
         // Fetch Profile Data
-        const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+          const { data: profileData } = await withTimeout(
+            supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', user.id)
+              .single(),
+            10000,
+            'Profilen svarte ikke'
+          );
         
         // Merge with metadata to ensure we get latest flags (like is_course_friend)
         const isCourseFriend = user.user_metadata?.is_course_friend || profileData?.is_course_friend;
@@ -486,11 +507,19 @@ export default function DashboardPage() {
 
         // Fetch LEK Core Beekeeper ID (BR-ID)
         let brId: string | null = null;
-        const { data: lekBeekeeper } = await supabase
-          .from('lek_core_beekeepers')
-          .select('beekeeper_id')
-          .eq('auth_user_id', user.id)
-          .maybeSingle();
+          let lekBeekeeper: any = null;
+          try {
+            const result = await withTimeout(
+              supabase
+                .from('lek_core_beekeepers')
+                .select('beekeeper_id')
+                .eq('auth_user_id', user.id)
+                .maybeSingle(),
+              5000,
+              'Birøkter-ID svarte ikke'
+            );
+            lekBeekeeper = result.data;
+          } catch {}
 
         if (lekBeekeeper?.beekeeper_id) {
           brId = lekBeekeeper.beekeeper_id as string;
@@ -534,8 +563,12 @@ export default function DashboardPage() {
           }
         } else {
           try {
-            const res = await fetch('/api/access/list', { method: 'GET' });
-            const data = await res.json().catch(() => ({}));
+              setLoadingStage('Henter kontotilgang...');
+              const data = await withTimeout(
+                fetch('/api/access/list', { method: 'GET' }).then((res) => res.json().catch(() => ({}))),
+                7000,
+                'Kontotilgang svarte ikke'
+              );
             const incoming = Array.isArray(data?.incoming) ? data.incoming : [];
             const owners = new Map<string, string>();
             const myLabel = mergedProfile?.full_name ? String(mergedProfile.full_name) : 'Min konto';
@@ -559,11 +592,16 @@ export default function DashboardPage() {
           localStorage.setItem(ACTIVE_OWNER_KEY, ownerIdForCreate);
         } catch {}
 
-        const [franchiseRes, apiaryCountRes, hivesRes] = await Promise.all([
-          supabase.from('franchise_units').select('*', { count: 'exact', head: true }).eq('owner_id', user.id),
-          supabase.from('apiaries').select('*', { count: 'exact', head: true }).eq('user_id', ownerIdForStats),
-          supabase.from('hives').select('id, hive_number, active').eq('user_id', ownerIdForStats),
-        ]);
+          setLoadingStage('Henter bigårder og kuber...');
+          const [franchiseRes, apiaryCountRes, hivesRes] = await withTimeout(
+            Promise.all([
+              supabase.from('franchise_units').select('*', { count: 'exact', head: true }).eq('owner_id', user.id),
+              supabase.from('apiaries').select('*', { count: 'exact', head: true }).eq('user_id', ownerIdForStats),
+              supabase.from('hives').select('id, hive_number, active').eq('user_id', ownerIdForStats),
+            ]),
+            12000,
+            'Bigårder og kuber svarte ikke'
+          );
 
         const franchiseCount = franchiseRes.count || 0;
         const apiaryCount = apiaryCountRes.count || 0;
@@ -583,6 +621,11 @@ export default function DashboardPage() {
           activeHives: activeHives,
         });
 
+          // Show the core dashboard before optional task and owner lookups finish.
+          setLoading(false);
+          setLoadingError(null);
+
+          setLoadingStage('Henter oppgaver...');
         try {
           const { data: apiariesList } = await supabase
             .from('apiaries')
@@ -651,8 +694,6 @@ export default function DashboardPage() {
         if (apiaryCount === 0 && profileData?.role !== 'tenant') {
           setIsWizardOpen(true);
         }
-
-        setLoading(false);
 
         void (async () => {
           try {
@@ -735,6 +776,7 @@ export default function DashboardPage() {
         })();
     } catch (e) {
         console.error("Critical error in dashboard fetch:", e);
+        setLoadingError('Vi fikk ikke lastet oversikten. Kontroller internett og prøv igjen.');
     } finally {
         setLoading(false);
     }
@@ -948,10 +990,54 @@ export default function DashboardPage() {
     router.push('/');
   };
 
-  if (loading) return <div className="p-8 text-center">Laster oversikt...</div>;
+  const retryDashboardLoad = () => {
+    setLoadingError(null);
+    setLoadingStage('Sjekker innlogging...');
+    setLoading(true);
+    void fetchData();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-[40vh] p-8 text-center" role="status" aria-live="polite">
+        <p className="font-medium">Laster oversikt...</p>
+        <p className="mt-2 text-sm text-gray-500">{loadingStage}</p>
+      </div>
+    );
+  }
+
+  if (loadingError && !profile) {
+    return (
+      <div className="mx-auto mt-10 max-w-md rounded-xl border border-amber-200 bg-amber-50 p-6 text-center" role="alert">
+        <h1 className="text-lg font-bold text-gray-900">Vi fikk ikke lastet oversikten</h1>
+        <p className="mt-2 text-sm text-gray-700">{loadingError}</p>
+        <p className="mt-2 text-xs text-gray-500">Stoppet under: {loadingStage}</p>
+        <button
+          onClick={retryDashboardLoad}
+          type="button"
+          className="mt-4 rounded-lg bg-orange-600 px-5 py-3 font-semibold text-white"
+        >
+          Prøv igjen
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
+      {loadingError && (
+        <div className="mx-auto mt-4 max-w-lg rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-gray-800" role="alert">
+          <p>{loadingError}</p>
+          <p className="mt-1 text-xs text-gray-500">Stoppet under: {loadingStage}</p>
+          <button
+            onClick={retryDashboardLoad}
+            type="button"
+            className="mt-3 rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white"
+          >
+            Last inn på nytt
+          </button>
+        </div>
+      )}
       <BeekeeperAlertsPoller />
       
       <main className="p-2 space-y-2 max-w-lg mx-auto">

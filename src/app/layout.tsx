@@ -58,6 +58,10 @@ export default function RootLayout({
     process.env.LEK_DEMO_ENABLED === "true" ||
     process.env.NEXT_PUBLIC_LEK_DEMO_ENABLED === "1" ||
     process.env.NEXT_PUBLIC_LEK_DEMO_ENABLED === "true";
+  const shortCommitHash =
+    process.env.NEXT_PUBLIC_BUILD_REVISION?.slice(0, 7) ||
+    process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ||
+    "ukjent";
 
   return (
     <html lang="no">
@@ -123,8 +127,8 @@ export default function RootLayout({
                     PROD
                   </div>
                 ) : isStagingHost ? (
-                  <div className="print:hidden bg-red-600 text-white text-xs font-semibold text-center py-1">
-                    TESTMILJØ
+                  <div className="print:hidden bg-red-600 text-white text-[11px] font-semibold text-center py-1">
+                    TESTMILJØ · {shortCommitHash}
                   </div>
                 ) : null}
                 <DesktopNav />
