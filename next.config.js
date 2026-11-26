@@ -178,6 +178,23 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  transpilePackages: [
+    '@react-leaflet/core',
+    '@supabase/auth-js',
+    '@supabase/functions-js',
+    '@supabase/postgrest-js',
+    '@supabase/realtime-js',
+    '@supabase/storage-js',
+    '@supabase/ssr',
+    '@supabase/supabase-js',
+    'fast-png',
+    'heic2any',
+    'html2canvas',
+    'iceberg-js',
+    'jspdf',
+    'react-leaflet',
+    'tailwind-merge',
+  ],
   experimental: {
     serverComponentsExternalPackages: ['puppeteer', '@sparticuz/chromium'],
   },
