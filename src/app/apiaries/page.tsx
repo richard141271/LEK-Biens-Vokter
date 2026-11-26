@@ -1,6 +1,6 @@
 'use client';
 
-import { createClient } from '@/utils/supabase/client';
+import { createClient, getUserWithSessionFallback, withTimeout } from '@/utils/supabase/client';
 import { useEffect, useMemo, useState } from 'react';
 import { MapPin, Warehouse, Store, Truck, Box, Printer, CheckSquare, Square, X } from 'lucide-react';
 import Link from 'next/link';
@@ -134,7 +134,7 @@ export default function ApiariesPage() {
            return;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getUserWithSessionFallback(supabase);
       if (!user) {
         router.push('/login');
         return;
@@ -164,12 +164,20 @@ export default function ApiariesPage() {
       }
 
       // Fetch Profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      
+      let profileData: any = null;
+      try {
+        const profileRes = await withTimeout(
+          supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single(),
+          8000,
+          'Profilen svarte ikke'
+        );
+        profileData = profileRes.data;
+      } catch {}
+
       setProfile(profileData);
 
       if (isDemoView && demoOwnerId && demoSessionId) {
@@ -180,8 +188,11 @@ export default function ApiariesPage() {
         } catch {}
       } else {
         try {
-          const res = await fetch('/api/access/list', { method: 'GET' });
-          const data = await res.json().catch(() => ({}));
+          const data = await withTimeout(
+            fetch('/api/access/list', { method: 'GET' }).then((res) => res.json().catch(() => ({}))),
+            7000,
+            'Kontotilgang svarte ikke'
+          );
           const incoming = Array.isArray(data?.incoming) ? data.incoming : [];
           const owners = new Map<string, string>();
           const myLabel = profileData?.full_name ? String(profileData.full_name) : 'Min konto';
@@ -223,7 +234,7 @@ export default function ApiariesPage() {
         apiaryQuery = apiaryQuery.eq('demo_session_id', demoSessionId);
       }
 
-      const { data: apiariesData, error } = await apiaryQuery;
+      const { data: apiariesData, error } = await withTimeout(apiaryQuery, 12000, 'Bigårder svarte ikke');
 
       if (error) throw error;
       const normalizedApiaries = (apiariesData || []).map((a: any) => {
@@ -236,7 +247,7 @@ export default function ApiariesPage() {
       });
 
       setApiaries(normalizedApiaries);
-      await fetchApiaryTasksSummary(normalizedApiaries);
+      await withTimeout(fetchApiaryTasksSummary(normalizedApiaries), 8000, 'Oppgaver svarte ikke').catch(() => {});
 
       try {
         const toFix = (apiariesData || []).filter((a: any) => {
@@ -245,17 +256,21 @@ export default function ApiariesPage() {
         });
 
         if (toFix.length > 0) {
-          await Promise.all(
-            toFix.map(async (a: any) => {
-              const raw = String(a.apiary_number || '');
-              const nextNumber = raw.replace(/^START-/i, 'OS-');
-              const { error: updateError } = await supabase
-                .from('apiaries')
-                .update({ apiary_number: nextNumber })
-                .eq('id', a.id)
-                .eq('user_id', user.id);
-              if (updateError) throw updateError;
-            })
+          await withTimeout(
+            Promise.all(
+              toFix.map(async (a: any) => {
+                const raw = String(a.apiary_number || '');
+                const nextNumber = raw.replace(/^START-/i, 'OS-');
+                const { error: updateError } = await supabase
+                  .from('apiaries')
+                  .update({ apiary_number: nextNumber })
+                  .eq('id', a.id)
+                  .eq('user_id', user.id);
+                if (updateError) throw updateError;
+              })
+            ),
+            8000,
+            'Nummervasking svarte ikke'
           );
         }
       } catch {}

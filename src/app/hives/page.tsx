@@ -1,6 +1,6 @@
 'use client';
 
-import { createClient, getUserWithSessionFallback } from '@/utils/supabase/client';
+import { createClient, getUserWithSessionFallback, withTimeout } from '@/utils/supabase/client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Filter, Box, MapPin, Calendar, ArrowRight, Printer, QrCode } from 'lucide-react';
@@ -234,11 +234,17 @@ export default function AllHivesPage() {
     }
 
     // Fetch Profile
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
+    const profileData = await withTimeout(
+      supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single(),
+      8000,
+      'Profilen svarte ikke'
+    )
+      .then((res) => res.data)
+      .catch(() => null);
     
     setProfile(profileData);
 
@@ -256,8 +262,11 @@ export default function AllHivesPage() {
       setActiveOwnerId(demoOwnerId);
     } else {
       try {
-        const res = await fetch('/api/access/list', { method: 'GET' });
-        const data = await res.json().catch(() => ({}));
+        const data = await withTimeout(
+          fetch('/api/access/list', { method: 'GET' }).then((res) => res.json().catch(() => ({}))),
+          7000,
+          'Kontotilgang svarte ikke'
+        );
         const incoming = Array.isArray(data?.incoming) ? data.incoming : [];
         const owners = new Map<string, string>();
         const myLabel = profileData?.full_name ? String(profileData.full_name) : 'Min konto';
@@ -285,7 +294,9 @@ export default function AllHivesPage() {
     if (isDemoView && demoSessionId) hiveQuery = hiveQuery.eq('demo_session_id', demoSessionId);
     if (targetUserId) hiveQuery = hiveQuery.eq('user_id', targetUserId);
 
-    const { data, error } = await hiveQuery;
+    const data = await withTimeout(hiveQuery, 12000, 'Bikuber svarte ikke')
+      .then((res) => res.data)
+      .catch(() => null);
 
     if (data) {
       const list = Array.isArray(data) ? data : [];
