@@ -1,6 +1,6 @@
 'use client';
 
-import { createClient, getUserWithSessionFallback, reportAuthDebug, withTimeout } from '@/utils/supabase/client';
+import { createClient, getUserWithSessionFallback, withTimeout } from '@/utils/supabase/client';
 import { ensureMemberNumber } from '@/app/actions/profile';
 import { getFounderMeeting } from '@/app/actions/founder';
 import { useEffect, useState, useRef } from 'react';
@@ -377,29 +377,9 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    // #region debug-point D:global-errors
-    const handleError = (event: ErrorEvent) => {
-      reportAuthDebug('D', 'Window error observed', { errorName: event.error?.name || 'unknown' });
-    };
-    const handleRejection = (event: PromiseRejectionEvent) => {
-      reportAuthDebug('D', 'Unhandled promise rejection observed', { reasonType: typeof event.reason });
-    };
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleRejection);
-    // #endregion
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleRejection);
-    };
-  }, []);
-
-  useEffect(() => {
     if (!loading) return;
 
     const timeout = window.setTimeout(() => {
-      // #region debug-point D:dashboard-watchdog
-      reportAuthDebug('D', 'Dashboard loading watchdog fired', { stage: loadingStage });
-      // #endregion
       setLoadingError('Det tar for lang tid å hente oversikten. Prøv igjen.');
       setLoading(false);
     }, 20000);
@@ -468,9 +448,6 @@ export default function DashboardPage() {
 
   const fetchData = async () => {
     try {
-          // #region debug-point D:dashboard-load-start
-          reportAuthDebug('D', 'Dashboard data load started', { online: navigator.onLine });
-          // #endregion
           setLoadingError(null);
           setLoadingStage('Sjekker innlogging...');
         if (!navigator.onLine) {
@@ -505,13 +482,7 @@ export default function DashboardPage() {
             return;
         }
 
-        // #region debug-point A:dashboard-auth-call
-        reportAuthDebug('A', 'Dashboard calling session lookup');
-        // #endregion
-        const user = await getUserWithSessionFallback(supabase);
-        // #region debug-point A:dashboard-auth-result
-        reportAuthDebug('A', 'Dashboard session lookup returned', { hasUser: Boolean(user) });
-        // #endregion
+        const user = await getUserWithSessionFallback(supabase, setLoadingStage);
         if (!user) {
             router.push('/login');
             return;
@@ -804,9 +775,6 @@ export default function DashboardPage() {
           } catch {}
         })();
     } catch (e) {
-        // #region debug-point D:dashboard-load-error
-        reportAuthDebug('D', 'Dashboard data load threw', { errorName: (e as any)?.name || 'unknown' });
-        // #endregion
         console.error("Critical error in dashboard fetch:", e);
         setLoadingError('Vi fikk ikke lastet oversikten. Kontroller internett og prøv igjen.');
     } finally {
