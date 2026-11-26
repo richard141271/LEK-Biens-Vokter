@@ -22,15 +22,25 @@ export default function InstallPage() {
         </p>
 
         {isAndroid ? (
-          <ol className="mt-6 list-decimal space-y-4 pl-5 text-gray-800">
-            <li>Åpne nettlesermenyen med de tre prikkene.</li>
-            {isSamsungBrowser ? (
-              <li>Velg <strong>Legg til side på</strong>, og deretter <strong>Startskjerm</strong>.</li>
-            ) : (
-              <li>Velg <strong>Installer app</strong> eller <strong>Legg til på startskjermen</strong>.</li>
-            )}
-            <li>Bekreft ved å trykke <strong>Legg til</strong> eller <strong>Installer</strong>.</li>
-          </ol>
+          isSamsungBrowser ? (
+            <>
+              <p className="mt-5 rounded-lg bg-orange-50 p-4 text-sm text-orange-950">
+                Menyen på bildet med «Del» og «Ny fane» er hurtigmenyen. Lukk den med X først.
+              </p>
+              <ol className="mt-5 list-decimal space-y-4 pl-5 text-gray-800">
+                <li>Rull helt opp på siden så nettleserens adressefelt vises.</li>
+                <li>Trykk de tre prikkene ved adressefeltet øverst til høyre. Hvis du ikke ser dem, åpne nettleserens hovedmeny med tre streker nederst til høyre.</li>
+                <li>Velg <strong>Legg til på startskjerm</strong> eller <strong>Legg til side på</strong>, deretter <strong>Startskjerm</strong>.</li>
+                <li>Trykk <strong>Legg til</strong>.</li>
+              </ol>
+            </>
+          ) : (
+            <ol className="mt-6 list-decimal space-y-4 pl-5 text-gray-800">
+              <li>I Chrome trykker du de tre prikkene øverst til høyre.</li>
+              <li>Velg <strong>Legg til på startskjermen</strong> eller <strong>Installer app</strong>.</li>
+              <li>Trykk <strong>Legg til</strong> eller <strong>Installer</strong> for å bekrefte.</li>
+            </ol>
+          )
         ) : isIOS ? (
           <ol className="mt-6 list-decimal space-y-4 pl-5 text-gray-800">
             <li>Åpne siden i Safari.</li>
@@ -45,9 +55,9 @@ export default function InstallPage() {
           </div>
         )}
 
-        {isAndroid && (
+        {isAndroid && !isSamsungBrowser && (
           <p className="mt-6 rounded-lg bg-orange-50 p-4 text-sm text-orange-950">
-            Finner du ikke valget? Åpne siden direkte i Chrome eller Samsung Internet, og åpne menyen på nytt.
+            Ser du ikke valget? Kontroller at siden er åpen direkte i Chrome, ikke inne i en annen app.
           </p>
         )}
       </section>
