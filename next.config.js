@@ -19,6 +19,7 @@ const withPWA = require('next-pwa')({
   dest: 'public',
   register: false,
   skipWaiting: true,
+  clientsClaim: true,
   disable:
     process.env.NEXT_PUBLIC_PWA === 'true'
       ? false
@@ -29,13 +30,10 @@ const withPWA = require('next-pwa')({
     /^\/api\//,
     /^\/_next\//,
     /^\/_vercel\//,
+    /^\/(?:dashboard|apiaries|hives)(?:\/|$)/,
     /\/[^/?]+\.[^/]+$/,
   ],
   additionalManifestEntries: [
-    { url: '/', revision: buildRevision },
-    { url: '/dashboard', revision: buildRevision },
-    { url: '/apiaries', revision: buildRevision },
-    { url: '/hives', revision: buildRevision },
     { url: '/offline.html', revision: buildRevision },
     { url: '/offline', revision: buildRevision },
   ],
@@ -90,17 +88,6 @@ const withPWA = require('next-pwa')({
       options: {
         rangeRequests: true,
         cacheName: 'static-audio-assets',
-        expiration: {
-          maxEntries: 32,
-          maxAgeSeconds: 24 * 60 * 60, // 24 hours
-        },
-      },
-    },
-    {
-      urlPattern: /\.(?:js)$/i,
-      handler: 'StaleWhileRevalidate',
-      options: {
-        cacheName: 'static-js-assets',
         expiration: {
           maxEntries: 32,
           maxAgeSeconds: 24 * 60 * 60, // 24 hours

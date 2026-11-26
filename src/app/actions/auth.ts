@@ -3,6 +3,7 @@
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 
 export async function signup(formData: any) {
   const adminClient = createAdminClient()
@@ -166,4 +167,44 @@ export async function signup(formData: any) {
     .eq('id', userId)
 
   return { success: true, user: { id: userId, email: userEmail } }
+}
+
+export async function signupAndContinue(formData: FormData) {
+  const fields = Object.fromEntries(formData.entries())
+  const email = String(fields.email || '').trim().toLowerCase()
+  const password = String(fields.password || '')
+  const confirmPassword = String(fields.confirmPassword || '')
+  const fullName = String(fields.fullName || '').trim()
+  const next = String(fields.next || '')
+  const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : null
+
+  if (
+    !email ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+    !password ||
+    password.length < 6 ||
+    password !== confirmPassword ||
+    !fullName ||
+    !String(fields.address || '').trim() ||
+    !String(fields.postalCode || '').trim() ||
+    !String(fields.city || '').trim() ||
+    !String(fields.phoneNumber || '').trim() ||
+    fields.acceptedTerms !== 'yes'
+  ) {
+    redirect('/register?error=invalid-form')
+  }
+
+  const result = await signup({ ...fields, email, fullName, role: 'beekeeper' })
+  if (result.error) {
+    const errorCode = /already (registered|exists)|already been registered/i.test(result.error)
+      ? 'signup-exists'
+      : 'signup-failed'
+    redirect(`/register?error=${errorCode}`)
+  }
+
+  const supabase = createClient()
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) redirect('/signin?error=signup-login-error')
+
+  redirect(safeNext || '/dashboard')
 }

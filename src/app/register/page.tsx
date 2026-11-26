@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
-import { signup } from '@/app/actions/auth';
+import { signup, signupAndContinue } from '@/app/actions/auth';
 
 export default function RegisterPage() {
   return (
@@ -22,7 +22,13 @@ function RegisterForm() {
   
   const [loading, setLoading] = useState(false);
   const submitLockRef = useRef(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => {
+    const errorCode = searchParams.get('error');
+    if (errorCode === 'invalid-form') return 'Kontroller feltene, passordet og at du har godtatt vilkårene.';
+    if (errorCode === 'signup-exists') return 'Denne e-postadressen har allerede en bruker. Velg «Logg inn her».';
+    if (errorCode === 'signup-failed') return 'Registreringen kunne ikke fullføres. Kontroller opplysningene og prøv igjen.';
+    return null;
+  });
 
   // Form State
   const [formData, setFormData] = useState({
@@ -38,7 +44,6 @@ function RegisterForm() {
     referralCode: '',
   });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [termsOpen, setTermsOpen] = useState(false);
 
   const termsText = `Vilkår for bruk – LEK-Biens Vokter™
 Sist oppdatert: 24.11.2026
@@ -428,7 +433,9 @@ Spørsmål knyttet til vilkår, personvern eller bruk av plattformen kan rettes 
         </div>
 
         <div className="bg-white shadow-xl rounded-2xl overflow-hidden border border-honey-100">
-          <form onSubmit={handleSubmit} className="p-8 space-y-8">
+            <form action={signupAndContinue} onSubmit={handleSubmit} className="p-8 space-y-8">
+              <input type="hidden" name="next" value={searchParams.get('next') || ''} />
+              <input type="hidden" name="referralCode" value={searchParams.get('ref') || formData.referralCode} />
 
             {/* Error Message */}
             {error && (
@@ -561,66 +568,26 @@ Spørsmål knyttet til vilkår, personvern eller bruk av plattformen kan rettes 
               </div>
             </div>
 
-            {termsOpen && (
-              <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[70]">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden border border-gray-200">
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
-                    <div className="font-semibold text-gray-900">Vilkår for bruk</div>
-                    <button
-                      type="button"
-                      onClick={() => setTermsOpen(false)}
-                      className="p-2 rounded-lg hover:bg-gray-100"
-                      aria-label="Lukk"
-                    >
-                      <ArrowLeft className="w-5 h-5 rotate-180 text-gray-600" />
-                    </button>
-                  </div>
-                  <div className="p-5 max-h-[70vh] overflow-y-auto">
-                    <pre className="whitespace-pre-wrap text-sm text-gray-800 leading-relaxed font-sans">
-                      {termsText}
-                    </pre>
-                  </div>
-                  <div className="px-5 py-4 border-t border-gray-200 flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setTermsOpen(false)}
-                      className="px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold"
-                    >
-                      Lukk
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAcceptedTerms(true);
-                        setTermsOpen(false);
-                      }}
-                      className="px-4 py-2 rounded-lg bg-honey-500 hover:bg-honey-600 text-white font-semibold"
-                    >
-                      Godta vilkår
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+              <details id="terms" className="rounded-xl border border-gray-200 bg-white p-4">
+                <summary className="cursor-pointer font-semibold text-honey-700">Les vilkår for bruk</summary>
+                <pre className="mt-4 max-h-[50vh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-gray-800 font-sans">
+                  {termsText}
+                </pre>
+              </details>
 
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
+                  name="acceptedTerms"
+                  value="yes"
+                  required
                   checked={acceptedTerms}
                   onChange={(e) => setAcceptedTerms(e.target.checked)}
                   className="mt-1 w-5 h-5 text-honey-600 rounded focus:ring-honey-500 border-gray-300"
                 />
                 <span className="text-sm text-gray-700">
-                  Jeg godtar{' '}
-                  <button
-                    type="button"
-                    onClick={() => setTermsOpen(true)}
-                    className="text-honey-700 font-semibold hover:underline"
-                  >
-                    vilkår for bruk
-                  </button>
-                  .
+                  Jeg godtar vilkår for bruk.
                 </span>
               </label>
             </div>
