@@ -64,6 +64,34 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/icon.png" />
         <link rel="apple-touch-icon" href="/icon.png" />
+        <Script
+          id="polyfill-at"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                try {
+                  if (!String.prototype.at) {
+                    String.prototype.at = function (index) {
+                      index = Math.trunc(index) || 0;
+                      if (index < 0) index += this.length;
+                      if (index < 0 || index >= this.length) return undefined;
+                      return this[index];
+                    };
+                  }
+                  if (!Array.prototype.at) {
+                    Array.prototype.at = function (index) {
+                      index = Math.trunc(index) || 0;
+                      if (index < 0) index += this.length;
+                      if (index < 0 || index >= this.length) return undefined;
+                      return this[index];
+                    };
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
         {isStockHost ? null : (
           <Script
             id="sw-register"
