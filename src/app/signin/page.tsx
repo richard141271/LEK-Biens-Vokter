@@ -1,106 +1,34 @@
-'use client';
-
-import { createClient } from '@/utils/supabase/client';
-import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { Eye, EyeOff } from 'lucide-react';
+import { signIn } from './actions';
 
-function SignInContent() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const supabase = createClient();
-  
-  const searchParams = useSearchParams();
-  const next = searchParams.get('next');
-  const isRentalFlow = next?.includes('lei-en-kube');
+interface SignInPageProps {
+  searchParams?: {
+    error?: string | string[];
+    next?: string | string[];
+  };
+}
+
+const messages: Record<string, string> = {
+  'invalid-login': 'Feil e-post eller passord. Bruk «Glemt passord?» hvis du er usikker på passordet.',
+  'email-not-confirmed': 'E-posten er ikke bekreftet. Sjekk innboksen din og bekreft før du logger inn.',
+  'gmail-address': 'Obs: Gmail bruker vanligvis @gmail.com (ikke @gmail.no). Sjekk at e-posten er riktig.',
+  'login-error': 'Kunne ikke logge inn. Kontroller opplysningene og prøv igjen.',
+  'link-error': 'Kunne ikke sende innloggingslenken. Kontroller e-postadressen og prøv igjen.',
+  'link-sent': 'Vi har sendt en innloggingslenke til e-posten din.',
+};
+
+function firstValue(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default function SignInPage({ searchParams }: SignInPageProps) {
+  const requestedNext = firstValue(searchParams?.next) || '';
+  const next = requestedNext.startsWith('/') && !requestedNext.startsWith('//') ? requestedNext : '';
+  const error = firstValue(searchParams?.error) || '';
+  const message = messages[error];
+  const isRentalFlow = next.includes('lei-en-kube');
   const backPath = next ? `/signin?next=${encodeURIComponent(next)}` : '/signin';
   const forgotPasswordHref = `/aksjer/forgot-password?back=${encodeURIComponent(backPath)}`;
-
-  const mapAuthError = (raw: string) => {
-    const lower = (raw || '').toLowerCase();
-    if (lower.includes('invalid login credentials')) {
-      return 'Feil e-post eller passord. Bruk “Glemt passord?” hvis du er usikker på passordet.';
-    }
-    if (lower.includes('email not confirmed')) {
-      return 'E-posten er ikke bekreftet. Sjekk innboksen din og bekreft før du logger inn.';
-    }
-    return raw;
-  };
-
-  const normalizeEmail = (raw: string) => raw.trim().toLowerCase();
-
-  const validateEmail = (raw: string) => {
-    const normalized = normalizeEmail(raw);
-    if (normalized.endsWith('@gmail.no')) {
-      return 'Obs: Gmail bruker vanligvis @gmail.com (ikke @gmail.no). Sjekk at e-posten er riktig.';
-    }
-    return null;
-  };
-
-  const sendMagicLink = async () => {
-    const validationError = validateEmail(email);
-    if (validationError) {
-      setMessage(validationError);
-      return;
-    }
-
-    const emailValue = normalizeEmail(email);
-    if (!emailValue) {
-      setMessage('Skriv inn e-post først.');
-      return;
-    }
-    setLoading(true);
-    setMessage('');
-    try {
-      const origin = window.location.origin;
-      const emailRedirectTo = `${origin}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`;
-      const { error } = await supabase.auth.signInWithOtp({ email: emailValue, options: { emailRedirectTo } });
-      if (error) throw error;
-      setMessage('Vi har sendt en innloggingslenke til e-posten din.');
-    } catch (error: any) {
-      setMessage('Kunne ikke sende lenke: ' + mapAuthError(error.message || 'Ukjent feil'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage('');
-
-    try {
-      const validationError = validateEmail(email);
-      if (validationError) {
-        setMessage(validationError);
-        setLoading(false);
-        return;
-      }
-
-      const emailValue = normalizeEmail(email);
-      const { error } = await supabase.auth.signInWithPassword({
-        email: emailValue,
-        password,
-      });
-      if (error) throw error;
-      
-      // Force hard reload to clear any potential client-side state issues
-      // If there is a next param, the middleware or auth callback should handle it, 
-      // but explicitly redirecting there is safer if we control the flow.
-      if (next) {
-        window.location.href = next;
-      } else {
-        window.location.href = '/dashboard';
-      }
-    } catch (error: any) {
-      setMessage('Kunne ikke logge inn: ' + mapAuthError(error.message || 'Ukjent feil'));
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -118,40 +46,33 @@ function SignInContent() {
             </p>
           )}
         </div>
-        
-        <form onSubmit={handleLogin} className="space-y-4">
+
+        <form action={signIn} className="space-y-4">
+          <input type="hidden" name="next" value={next} />
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">E-post</label>
+            <label htmlFor="signin-email" className="block text-sm font-medium text-gray-700 mb-1">E-post</label>
             <input
+              id="signin-email"
+              name="email"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
               placeholder="E-postadresse"
+              autoComplete="email"
               required
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Passord</label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Passord"
-                required
-                className="w-full px-4 py-2 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-900"
-                aria-label={showPassword ? 'Skjul passord' : 'Vis passord'}
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
+            <label htmlFor="signin-password" className="block text-sm font-medium text-gray-700 mb-1">Passord</label>
+            <input
+              id="signin-password"
+              name="password"
+              type="password"
+              placeholder="Passord"
+              autoComplete="current-password"
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+            />
             <div className="mt-2 text-sm">
               <Link href={forgotPasswordHref} className="font-semibold text-gray-700 hover:underline">
                 Glemt passord?
@@ -161,17 +82,17 @@ function SignInContent() {
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
+            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-lg transition-colors"
           >
-            {loading ? '...' : 'Logg inn'}
+            Logg inn
           </button>
 
           <button
-            type="button"
-            onClick={sendMagicLink}
-            disabled={loading}
-            className="w-full border border-gray-300 hover:border-gray-400 text-gray-900 font-bold py-3 px-4 rounded-lg transition-colors disabled:opacity-50"
+            type="submit"
+            name="intent"
+            value="send-link"
+            formNoValidate
+            className="w-full border border-gray-300 hover:border-gray-400 text-gray-900 font-bold py-3 px-4 rounded-lg transition-colors"
           >
             Send innloggingslenke
           </button>
@@ -180,7 +101,7 @@ function SignInContent() {
         <div className="mt-6 text-center border-t pt-6">
           <p className="text-gray-600 mb-2">Ny bruker?</p>
           <Link
-            href={isRentalFlow ? `/register?next=${next}` : "/register"}
+            href={isRentalFlow ? `/register?next=${encodeURIComponent(next)}` : '/register'}
             className="text-orange-600 hover:text-orange-700 font-bold hover:underline"
           >
             Registrer deg her
@@ -188,19 +109,11 @@ function SignInContent() {
         </div>
 
         {message && (
-          <div className="mt-4 p-4 rounded-lg text-sm bg-red-50 text-red-800">
+          <div className={`mt-4 p-4 rounded-lg text-sm ${error === 'link-sent' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
             {message}
           </div>
         )}
       </div>
     </div>
-  );
-}
-
-export default function SignInPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Laster...</div>}>
-      <SignInContent />
-    </Suspense>
   );
 }
