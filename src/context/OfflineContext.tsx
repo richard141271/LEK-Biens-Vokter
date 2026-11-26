@@ -35,17 +35,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     if (typeof window === 'undefined') return;
     if (!('serviceWorker' in navigator)) return;
 
-    navigator.serviceWorker
-      .register('/sw.js', { scope: '/' })
-      .then(() => navigator.serviceWorker.ready)
-      .then(() => {
-        if (navigator.serviceWorker.controller) return;
-        const key = 'sw_reload_once';
-        if (sessionStorage.getItem(key) === '1') return;
-        sessionStorage.setItem(key, '1');
-        window.location.reload();
-      })
-      .catch(() => {});
+    navigator.serviceWorker.ready.catch(() => {});
   }, []);
 
   // Check initial count

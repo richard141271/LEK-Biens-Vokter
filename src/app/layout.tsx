@@ -67,83 +67,14 @@ export default function RootLayout({
         {isStockHost ? null : (
           <Script
             id="sw-register"
-            strategy="beforeInteractive"
+            strategy="afterInteractive"
             dangerouslySetInnerHTML={{
               __html: `
                 (function () {
                   try {
                     if (!('serviceWorker' in navigator)) return;
-                    var marker = '__sw_reload=1';
-                    var url = new URL(location.href);
-                    if (navigator.serviceWorker.controller && url.searchParams.has('__sw_reload')) {
-                      url.searchParams.delete('__sw_reload');
-                      history.replaceState(null, '', url.toString());
-                    }
-
-                    function hardReloadOnce() {
-                      try {
-                        if (sessionStorage.getItem('__sw_hard_reload_done') === '1') return;
-                        sessionStorage.setItem('__sw_hard_reload_done', '1');
-                      } catch (e) {}
-                      var u = new URL(location.href);
-                      if (u.searchParams.get('__sw_reload') === '1') return;
-                      u.searchParams.set('__sw_reload', '1');
-                      location.replace(u.toString());
-                    }
-
-                    function selfHealAndReload() {
-                      try {
-                        try {
-                          if (sessionStorage.getItem('__sw_self_heal_done') === '1') return;
-                          sessionStorage.setItem('__sw_self_heal_done', '1');
-                        } catch (e) {}
-                        Promise.all([
-                          navigator.serviceWorker.getRegistrations().then(function (regs) {
-                            return Promise.all(regs.map(function (r) { return r.unregister(); }));
-                          }),
-                          (self.caches && caches.keys
-                            ? caches.keys().then(function (keys) {
-                                return Promise.all(keys.map(function (k) { return caches.delete(k); }));
-                              })
-                            : Promise.resolve())
-                        ]).finally(function () {
-                          navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function (reg) {
-                            try { reg.update(); } catch (e) {}
-                            navigator.serviceWorker.ready.then(function () {
-                              hardReloadOnce();
-                            }).catch(function () {});
-                          }).catch(function () {});
-                        });
-                      } catch (e) {
-                        hardReloadOnce();
-                      }
-                    }
-
                     navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function (reg) {
                       try { reg.update(); } catch (e) {}
-
-                      setTimeout(function () {
-                        try {
-                          if (navigator.serviceWorker.controller) return;
-                          if (url.searchParams.get('__sw_reload') === '1') {
-                            selfHealAndReload();
-                            return;
-                          }
-                          hardReloadOnce();
-                        } catch (e) {}
-                      }, 2500);
-
-                      navigator.serviceWorker.ready.then(function () {
-                        if (navigator.serviceWorker.controller) return;
-                        setTimeout(function () {
-                          if (navigator.serviceWorker.controller) return;
-                          if (url.searchParams.get('__sw_reload') === '1') {
-                            selfHealAndReload();
-                            return;
-                          }
-                          hardReloadOnce();
-                        }, 1200);
-                      }).catch(function () {});
                     }).catch(function () {});
                   } catch (e) {}
                 })();
