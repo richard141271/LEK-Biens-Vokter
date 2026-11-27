@@ -2,18 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import { AlertCircle, ArrowLeft, Mail, MapPin } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
-
-const Map = dynamic(() => import('@/components/Map'), {
-  ssr: false,
-  loading: () => (
-    <div className="h-[420px] w-full bg-gray-100 animate-pulse rounded-xl flex items-center justify-center text-gray-400">
-      Laster kart...
-    </div>
-  ),
-});
+import SafeMap from '@/components/SafeMap';
 
 type LinkedApiary = {
   apiary: {
@@ -1264,7 +1255,7 @@ export default function GrunneierPage() {
               <>
                 <div className="bg-white border border-gray-200 rounded-xl p-3">
                   <div className="h-[420px] w-full rounded-xl overflow-hidden">
-                    <Map center={mapCenter} zoom={11} markers={markers} />
+                    <SafeMap center={mapCenter} zoom={11} markers={markers} />
                   </div>
                 </div>
 

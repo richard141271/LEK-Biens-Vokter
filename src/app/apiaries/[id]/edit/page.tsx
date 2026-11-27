@@ -5,13 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { MapPin, Warehouse, Store, Truck, ArrowLeft, Map as MapIcon, X } from 'lucide-react';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import { isDeviceFeatureEnabled } from '@/utils/device-preferences';
-
-const Map = dynamic(() => import('@/components/Map'), { 
-  ssr: false,
-  loading: () => <div className="h-full w-full bg-gray-100 animate-pulse rounded-lg flex items-center justify-center text-gray-400">Laster kart...</div>
-});
+import SafeMap from '@/components/SafeMap';
 
 export default function EditApiaryPage({ params }: { params: { id: string } }) {
   const [name, setName] = useState('');
@@ -295,7 +290,7 @@ export default function EditApiaryPage({ params }: { params: { id: string } }) {
                   : [];
 
                 return (
-               <Map 
+               <SafeMap 
                  center={center} // Default to Oslo or current coords
                  zoom={parsed ? 15 : 10}
                  onMapClick={(lat, lng) => {

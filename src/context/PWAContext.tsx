@@ -24,11 +24,25 @@ export function PWAProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    // #region debug-point A:provider-hydration
+    const report = typeof window !== 'undefined' ? (window as any).__lekAuthDebug : null;
+    if (report) {
+      const controller = 'serviceWorker' in navigator ? navigator.serviceWorker.controller : null;
+      report('A', 'pwa-provider-mounted', {
+        userAgent: String(navigator.userAgent || '').slice(0, 220),
+        serviceWorkerControlled: Boolean(controller),
+        serviceWorkerScript: controller ? controller.scriptURL : '',
+      }, 'src/context/PWAContext.tsx');
+    }
+    // #endregion
     (async () => {
       try {
         if (typeof window === 'undefined') return;
         const supabase = createClient();
-        const user = await getUserWithSessionFallback(supabase);
+        const user = await getUserWithSessionFallback(supabase, (stage) => {
+          if (report) report('B', 'provider-auth-stage', { stage }, 'src/context/PWAContext.tsx');
+        });
+        if (report) report('B', 'provider-auth-finished', { hasUser: Boolean(user) }, 'src/context/PWAContext.tsx');
         if (!mounted) return;
         const userId = String(user?.id || '').trim();
         if (userId) window.localStorage.setItem('lek_current_user_id', userId);

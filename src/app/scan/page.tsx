@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { isDeviceFeatureEnabled } from '@/utils/device-preferences';
+import { getDeviceCapabilities } from '@/utils/device-capabilities';
 
 export default function ScanPage() {
   const router = useRouter();
@@ -19,10 +20,16 @@ export default function ScanPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
   const [massHiveIds, setMassHiveIds] = useState<string[]>([]);
+  const [manualId, setManualId] = useState('');
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const hasScannedRef = useRef(false);
   const massProcessingRef = useRef(false);
   const lastMassScanRef = useRef<{ text: string; at: number }>({ text: '', at: 0 });
+
+  const cameraSupported = useMemo(() => {
+    const caps = getDeviceCapabilities();
+    return caps.getUserMedia && caps.cameraCapture;
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -248,6 +255,38 @@ export default function ScanPage() {
     }
   };
 
+  const handleManualResolve = async () => {
+    const id = manualId.trim();
+    if (!id) return;
+    setError(null);
+
+    if (isMassMode) {
+      if (id.startsWith('KUBE-') || id.startsWith('BG-')) {
+        setMassHiveIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+        setManualId('');
+      } else {
+        setError('Skriv inn en kube-ID (f.eks. KUBE-001)');
+      }
+      return;
+    }
+
+    hasScannedRef.current = true;
+    setScanResult(id);
+    setIsRunning(false);
+
+    const res = await fetch('/api/scan/resolve', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ decodedText: id }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success || !data?.redirectTo) {
+      setError(String(data?.error || 'Ingen tilgang'));
+      return;
+    }
+    router.push(String(data.redirectTo));
+  };
+
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
       <header className="p-4 flex items-center gap-4 bg-black/50 backdrop-blur-sm fixed top-0 w-full z-10">
@@ -260,7 +299,29 @@ export default function ScanPage() {
       <main className="flex-1 flex flex-col items-center justify-center p-4 mt-16">
         <div id="reader" className="w-full max-w-sm overflow-hidden rounded-xl border-2 border-honey-500 shadow-2xl bg-black"></div>
 
-        {!isRunning && !scanResult && !error && (
+        {!cameraSupported && (
+          <div className="mt-6 w-full max-w-sm bg-white/10 rounded-xl p-4 border border-white/20">
+            <p className="text-sm text-gray-200 mb-2">Kamera støttes ikke på denne enheten. Skriv inn ID manuelt:</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={manualId}
+                onChange={(e) => setManualId(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleManualResolve(); }}
+                placeholder="KUBE-001"
+                className="flex-1 px-3 py-2 rounded-lg bg-black text-white placeholder-gray-500 border border-white/20 text-sm"
+              />
+              <button
+                onClick={handleManualResolve}
+                className="px-4 py-2 bg-honey-500 hover:bg-honey-600 text-black font-bold rounded-lg text-sm"
+              >
+                Søk
+              </button>
+            </div>
+          </div>
+        )}
+
+        {cameraSupported && !isRunning && !scanResult && !error && (
           <button
             onClick={startScanner}
             disabled={isStarting}

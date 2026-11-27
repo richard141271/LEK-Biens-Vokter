@@ -5,17 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { MapPin, Warehouse, Store, Truck, ArrowLeft, ClipboardCheck, Map as MapIcon, X } from 'lucide-react';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import { isDeviceFeatureEnabled } from '@/utils/device-preferences';
-
-const Map = dynamic(() => import('@/components/Map'), { 
-  ssr: false,
-  loading: () => (
-    <div className="h-full w-full bg-gray-100 animate-pulse rounded-lg flex items-center justify-center text-gray-400">
-      Laster kart...
-    </div>
-  ),
-});
+import SafeMap from '@/components/SafeMap';
 
 const ACTIVE_OWNER_KEY = 'lek_active_owner_id';
 
@@ -674,7 +665,7 @@ export default function NewApiaryPage() {
                   : [];
 
                 return (
-                  <Map 
+                  <SafeMap 
                     center={center}
                     zoom={parsed ? 15 : mapPickerZoom}
                     onMapClick={(lat, lng) => {

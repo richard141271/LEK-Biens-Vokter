@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, Map as MapIcon, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 // Dynamically import the map component to avoid SSR issues
 const MattilsynetMap = dynamic(() => import('@/components/MattilsynetMap'), {
@@ -113,7 +114,9 @@ export default function MapPage() {
        {/* Map Container */}
        <div className="flex-1 p-4">
            <div className="max-w-7xl mx-auto h-full bg-white rounded-xl shadow-sm border border-gray-200 p-1 relative z-0">
-               <MattilsynetMap apiaries={apiaries} />
+               <ErrorBoundary name="Mattilsynet-kart">
+                 <MattilsynetMap apiaries={apiaries} />
+               </ErrorBoundary>
                
                {/* Legend */}
                <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur p-3 rounded-lg shadow-lg border border-gray-200 z-[1000] text-xs">

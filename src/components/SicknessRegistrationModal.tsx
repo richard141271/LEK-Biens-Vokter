@@ -265,14 +265,16 @@ export default function SicknessRegistrationModal({ isOpen, onClose, allHives, p
                             placeholder="Beskriv hva du ser... (Du kan bruke stemmen)"
                             className="w-full p-3 border border-gray-200 rounded-xl min-h-[80px] text-sm focus:ring-2 focus:ring-red-500 outline-none"
                         />
-                        <button 
+                        {isSupported && (
+                          <button
                             type="button"
                             onClick={toggleListening}
                             className={`absolute bottom-3 right-3 p-2 rounded-full transition-colors ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
                             title="Bruk stemme til tekst"
-                        >
+                          >
                             {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                        </button>
+                          </button>
+                        )}
                     </div>
                 </div>
 

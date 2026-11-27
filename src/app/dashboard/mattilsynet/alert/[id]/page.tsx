@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Map as MapIcon, Phone, Mail, User, AlertTriangle, CheckCircle, Clock, Ruler, AlertOctagon, FileText, Camera, Mic, Send, Edit, Trash2, X, Activity, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { getIncidentData, updateIncidentStatus, updateIncidentDisease, sendZoneAlert, claimAlert } from '@/app/actions/mattilsynet';
 
 // Dynamic import for Map to avoid SSR issues
@@ -482,12 +483,14 @@ Mattilsynet`
                             </div>
                         </div>
                         <div className="h-[500px] w-full relative z-0">
-                            <IncidentMap 
-                                center={mapCenter} 
+                            <ErrorBoundary name="Hendelseskart">
+                              <IncidentMap 
+                                  center={mapCenter} 
                                 radius={radius} 
                                 apiaries={mapApiaries}
                                 showOwnerOnly={showOtherApiariesOnMap}
                             />
+                            </ErrorBoundary>
                         </div>
                         <div className="p-3 bg-slate-50 text-xs text-slate-500 flex gap-4 justify-center border-t border-slate-200">
                             <span className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-red-600"></div> Smittepunkt</span>
