@@ -148,6 +148,26 @@ export default function RootLayout({
                   if (!String.prototype.replaceAll) {
                     String.prototype.replaceAll = function (search, replace) { return this.split(search).join(replace); };
                   }
+                  if (typeof queueMicrotask !== 'function') {
+                    window.queueMicrotask = function (cb) { Promise.resolve().then(cb); };
+                  }
+                  if (!Object.hasOwn) {
+                    Object.hasOwn = function (obj, prop) { return Object.prototype.hasOwnProperty.call(obj, prop); };
+                  }
+                  if (typeof AbortController === 'undefined') {
+                    window.AbortController = function () {
+                      this.signal = { aborted: false, addEventListener: function () {}, removeEventListener: function () {}, dispatchEvent: function () { return false; } };
+                      this.abort = function () { this.signal.aborted = true; };
+                    };
+                  }
+                  if (typeof crypto !== 'undefined' && !crypto.randomUUID) {
+                    crypto.randomUUID = function () {
+                      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                        var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+                        return v.toString(16);
+                      });
+                    };
+                  }
                 } catch (e) {}
               })();
             `,
