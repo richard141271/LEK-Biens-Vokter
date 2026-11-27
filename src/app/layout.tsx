@@ -42,6 +42,7 @@ export default function RootLayout({
     h.get("host") ||
     "";
   const host = rawHost.split(",")[0]?.trim().split(":")[0]?.toLowerCase() || "";
+  const userAgent = h.get("user-agent") || "ukjent";
   const appEnv = process.env.NEXT_PUBLIC_APP_ENV || "";
   const isStockHost = host === "aksjer.lekbie.no" || host.startsWith("aksjer.");
   const isStagingHost =
@@ -96,6 +97,40 @@ export default function RootLayout({
             `,
           }}
         />
+        {isStagingHost ? (
+          <Script
+            id="lek-diag"
+            strategy="beforeInteractive"
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function () {
+                  var el = null;
+                  var lines = [];
+                  function render() { if (el) el.textContent = lines.join('\\n'); }
+                  function add(t) { lines.push(String(t).slice(0, 300)); render(); }
+                  function find() {
+                    el = document.getElementById('lek-diag');
+                    if (el) { render(); } else { setTimeout(find, 100); }
+                  }
+                  add('JS: kjorer');
+                  try { add('Nettleser: ' + navigator.userAgent); } catch (e) {}
+                  window.addEventListener('error', function (e) {
+                    try {
+                      if (e && e.target && e.target.src) { add('LASTEFEIL: ' + e.target.src); return; }
+                      add('FEIL: ' + ((e && e.message) || e) + (e && e.filename ? ' @ ' + e.filename + ':' + e.lineno : ''));
+                    } catch (err) {}
+                  }, true);
+                  window.addEventListener('unhandledrejection', function (e) {
+                    try { add('PROMISE: ' + ((e && e.reason && e.reason.message) || (e && e.reason))); } catch (err) {}
+                  });
+                  setTimeout(function () { add('5 sek: JS lever'); }, 5000);
+                  setTimeout(function () { add('15 sek: JS lever'); }, 15000);
+                  find();
+                })();
+              `,
+            }}
+          />
+        ) : null}
         {isStockHost ? null : (
           <Script
             id="sw-register"
@@ -116,6 +151,30 @@ export default function RootLayout({
         )}
       </head>
       <body className={`${inter.className} bg-gray-50`}>
+        {isStagingHost ? (
+          <div
+            id="lek-diag"
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 99999,
+              background: "#111",
+              color: "#7CFC00",
+              fontFamily: "monospace",
+              fontSize: "11px",
+              lineHeight: 1.35,
+              padding: "6px 8px",
+              whiteSpace: "pre-wrap",
+              maxHeight: "30vh",
+              overflow: "hidden",
+              pointerEvents: "none",
+            }}
+          >
+            {`Diagnose: JS har ikke startet enda\nNettleser: ${userAgent}`}
+          </div>
+        ) : null}
         {isStockHost ? (
           children
         ) : (
