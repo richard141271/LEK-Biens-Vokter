@@ -76,6 +76,8 @@ export default function RootLayout({
             __html: `
               (function () {
                 try {
+                  if (typeof globalThis === 'undefined') { window.globalThis = window; }
+                  if (typeof BigInt === 'undefined') { window.BigInt = function (x) { return Number(x); }; }
                   if (!String.prototype.at) {
                     String.prototype.at = function (index) {
                       index = Math.trunc(index) || 0;
@@ -91,6 +93,60 @@ export default function RootLayout({
                       if (index < 0 || index >= this.length) return undefined;
                       return this[index];
                     };
+                  }
+                  if (!Object.fromEntries) {
+                    Object.fromEntries = function (entries) {
+                      var obj = {};
+                      for (var i = 0; i < entries.length; i++) {
+                        var e = entries[i];
+                        obj[e[0]] = e[1];
+                      }
+                      return obj;
+                    };
+                  }
+                  if (!Array.prototype.flat) {
+                    Array.prototype.flat = function (depth) {
+                      var d = depth === undefined ? 1 : depth;
+                      var result = [];
+                      (function flat(arr, depth) {
+                        for (var i = 0; i < arr.length; i++) {
+                          if (Array.isArray(arr[i]) && depth > 0) { flat(arr[i], depth - 1); }
+                          else { result.push(arr[i]); }
+                        }
+                      })(this, d);
+                      return result;
+                    };
+                  }
+                  if (!Array.prototype.flatMap) {
+                    Array.prototype.flatMap = function (fn) { return this.map(fn).flat(); };
+                  }
+                  if (!Promise.prototype.finally) {
+                    Promise.prototype.finally = function (cb) {
+                      var P = this.constructor;
+                      return this.then(
+                        function (v) { return P.resolve(cb()).then(function () { return v; }); },
+                        function (e) { return P.resolve(cb()).then(function () { throw e; }); }
+                      );
+                    };
+                  }
+                  if (!String.prototype.trimStart) {
+                    String.prototype.trimStart = function () { return this.replace(/^\\s+/, ''); };
+                  }
+                  if (!String.prototype.trimEnd) {
+                    String.prototype.trimEnd = function () { return this.replace(/\\s+$/, ''); };
+                  }
+                  if (!String.prototype.matchAll) {
+                    String.prototype.matchAll = function (re) {
+                      var str = String(this);
+                      var flags = re.flags;
+                      if (flags.indexOf('g') === -1) { re = new RegExp(re.source, flags + 'g'); }
+                      var matches = [], m;
+                      while ((m = re.exec(str)) !== null) { matches.push(m); }
+                      return matches;
+                    };
+                  }
+                  if (!String.prototype.replaceAll) {
+                    String.prototype.replaceAll = function (search, replace) { return this.split(search).join(replace); };
                   }
                 } catch (e) {}
               })();
